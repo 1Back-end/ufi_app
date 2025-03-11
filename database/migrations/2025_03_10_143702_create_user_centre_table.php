@@ -5,7 +5,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration {
-    public function up()
+    public function up(): void
     {
         Schema::create('user_centre', function (Blueprint $table) {
             $table->id();
@@ -13,11 +13,10 @@ return new class extends Migration {
             $table->foreign('user_id')->references('id')->on('users');
             $table->unsignedBigInteger('centre_id');
             $table->foreign('centre_id')->references('id')->on('centres');
-            $table->timestamps();
         });
     }
 
-    public function down()
+    public function down(): void
     {
         Schema::dropIfExists('user_centre');
     }

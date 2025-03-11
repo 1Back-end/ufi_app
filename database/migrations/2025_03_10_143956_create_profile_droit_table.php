@@ -5,7 +5,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration {
-    public function up()
+    public function up(): void
     {
         Schema::create('profile_droit', function (Blueprint $table) {
             $table->id();
@@ -13,11 +13,11 @@ return new class extends Migration {
             $table->foreign('profile_id')->references('id')->on('profiles')->onDelete('cascade');
             $table->unsignedBigInteger('droit_id');
             $table->foreign('droit_id')->references('id')->on('droits')->onDelete('cascade');
-            $table->timestamps();
+            $table->timestamp('date_creation_profile_droit');
         });
     }
 
-    public function down()
+    public function down(): void
     {
         Schema::dropIfExists('profile_droit');
     }

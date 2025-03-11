@@ -4,6 +4,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class User extends Model
 {
@@ -14,13 +16,13 @@ class User extends Model
         'status_utilisateur', 'date_creation_utilisateur',
     ];
 
-    public function profile()
+    public function profile(): BelongsTo
     {
         return $this->belongsTo(Profile::class);
     }
 
-    public function centres ()
+    public function centres(): BelongsToMany
     {
-        return $this->belongsToMany(Centre::class);
+        return $this->belongsToMany(Centre::class, 'user_centre');
     }
 }
