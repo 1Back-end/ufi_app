@@ -1,0 +1,43 @@
+### GET init data for client
+GET http://localhost:8000/api/clients/init-data
+
+### Get All clients
+GET http://localhost:8000/api/clients
+
+### Get client with search
+GET http://localhost:8000/api/clients?search=client
+
+### GET client by id
+GET localhost:8000/api/clients/1
+
+### Create client
+POST http://localhost:8000/api/clients
+Content-Type: application/json
+
+{
+    "name": "client"
+}
+
+### Update client
+PUT http://localhost:8000/api/clients/1
+Content-Type: application/json
+
+{
+    "name": "client"
+}
+
+### Delete client
+DELETE http://localhost:8000/api/clients/1
+
+### Patch Status client
+PATCH localhost:8000/api/clients/1/status
+Content-Type: application/json
+
+{
+    "status": 2
+}
+
+### Get Export Client list
+GET localhost:8000/api/clients/export/clients
+Content-Type: application/json
+Accept: application/json

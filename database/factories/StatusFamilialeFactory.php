@@ -18,8 +18,8 @@ class StatusFamilialeFactory extends Factory
             'created_at' => Carbon::now(),
             'updated_at' => Carbon::now(),
 
-            'create_by_statusfam' => User::factory(),
-            'update_by_statusfam' => User::factory(),
+            'create_by_statusfam' => User::first(),
+            'update_by_statusfam' => User::first(),
         ];
     }
 }

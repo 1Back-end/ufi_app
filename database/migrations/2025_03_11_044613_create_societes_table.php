@@ -9,14 +9,15 @@ return new class extends Migration {
     {
         Schema::create('societes', function (Blueprint $table) {
             $table->id();
-            $table->unique('nom_soc_cli');
+            $table->string('nom_soc_cli');
             $table->string('tel_soc_cli')->nullable();
-            $table->string('Adress_soc_cli')->nullable();
+            $table->string('adress_soc_cli')->nullable();
             $table->string('num_contrib_soc_cli')->nullable();
             $table->string('email_soc_cli')->nullable();
-            $table->foreignId('create_by_soc_cli');
-            $table->foreignId('updated_by_soc_cli');
+            $table->foreignId('create_by')->references('id')->on('users')->restrictOnDelete();
+            $table->foreignId('updated_by')->references('id')->on('users')->restrictOnDelete();
             $table->timestamps();
+            $table->unique('nom_soc_cli');
         });
     }
 

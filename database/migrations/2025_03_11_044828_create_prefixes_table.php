@@ -9,9 +9,9 @@ return new class extends Migration {
     {
         Schema::create('prefixes', function (Blueprint $table) {
             $table->id();
-            $table->string('prefixe');
-            $table->foreignId('create_by_prefix');
-            $table->foreignId('update_by_prefix');
+            $table->string('prefixe')->comment('"Enfant", "Epouse", "Bébé", "Sans prefixe". Enfant valide si age <18, Bébé<3 ans, Epouse si sexe = Feminin');
+            $table->foreignId('create_by')->references('id')->on('users')->restrictOnDelete();;
+            $table->foreignId('update_by')->references('id')->on('users')->restrictOnDelete();
             $table->timestamps();
         });
     }

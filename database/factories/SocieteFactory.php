@@ -14,7 +14,7 @@ class SocieteFactory extends Factory
     public function definition(): array
     {
         return [
-            'nom_soc_cli' => $this->faker->word(),
+            'nom_soc_cli' => $this->faker->unique()->word(),
             'tel_soc_cli' => $this->faker->word(),
             'Adress_soc_cli' => $this->faker->word(),
             'num_contrib_soc_cli' => $this->faker->word(),
@@ -22,8 +22,8 @@ class SocieteFactory extends Factory
             'created_at' => Carbon::now(),
             'updated_at' => Carbon::now(),
 
-            'create_by_soc_cli' => User::factory(),
-            'updated_by_soc_cli' => User::factory(),
+            'create_by' => User::first(),
+            'updated_by' => User::first(),
         ];
     }
 }
