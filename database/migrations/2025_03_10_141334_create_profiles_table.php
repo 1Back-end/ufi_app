@@ -11,7 +11,6 @@ return new class extends Migration {
             $table->id();
             $table->string('nom_profile');
             $table->string('status_profile');
-            $table->timestamps('date_creation_profile');
             $table->string('description_profile');
             $table->timestamps();
         });

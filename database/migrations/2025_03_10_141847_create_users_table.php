@@ -12,10 +12,9 @@ return new class extends Migration {
             $table->foreignId('profile_id')->constrained('profiles')->onDelete('cascade');
             $table->string('nom_utilisateur');
             $table->string('mot_de_passe');
-            $table->string('date_expiration_mot_passe');
-            $table->string('email_utilisateur');
+            $table->date('date_expiration_mot_passe'); // Correction : Utilisation de 'date' au lieu de 'string'
+            $table->string('email_utilisateur')->unique(); // Correction : Ajout de 'unique'
             $table->string('status_utilisateur');
-            $table->string('date_creation_utilisateur');
             $table->timestamps();
         });
     }
