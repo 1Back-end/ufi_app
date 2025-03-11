@@ -19,12 +19,11 @@ class Centre extends Model
     {
         return [
             'date_creation_centre' => 'timestamp',
-
         ];
     }
 
     public function users(): BelongsToMany
     {
-        return $this->belongsToMany(User::class);
+        return $this->belongsToMany(User::class, 'user_centre', 'centre_id', 'user_id');
     }
 }
