@@ -16,6 +16,11 @@ class User extends Model
         'status_utilisateur', 'date_creation_utilisateur',
     ];
 
+    protected $casts = [
+        'date_expiration_mot_passe' => 'date',
+        'date_creation_utilisateur' => 'datetime',
+    ];
+
     public function profile(): BelongsTo
     {
         return $this->belongsTo(Profile::class);
