@@ -9,7 +9,7 @@ return new class extends Migration {
     {
         Schema::create('users', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('profile_id')->constrained('profiles');
+            $table->foreignId('profile_id')->constrained('profiles')->onDelete('cascade');
             $table->string('nom_utilisateur');
             $table->string('mot_de_passe');
             $table->string('date_expiration_mot_passe');
