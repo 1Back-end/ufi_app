@@ -49,8 +49,8 @@ return [
 
         'exportclient' => [
             'driver' => 'local',
-            'root' => storage_path('app/public'),
-            'url' => env('APP_URL').'/storage/export-client',
+            'root' => storage_path('app/export-client'),
+            'url' => env('APP_URL').'/export-client',
             'visibility' => 'public',
             'throw' => false,
             'report' => false,
@@ -84,6 +84,7 @@ return [
 
     'links' => [
         public_path('storage') => storage_path('app/public'),
+        public_path('export-client') => storage_path('app/export-client'),
     ],
 
 ];

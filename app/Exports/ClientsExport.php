@@ -25,7 +25,7 @@ class ClientsExport implements FromQuery, WithHeadings, WithMapping, WithColumnF
         return [
             $row->ref_cli,
             $row->fullname,
-            $row->date_naiss_cli,
+            $row->date_naiss_cli->format('d/m/Y'),
             $row->sexe->description_sex,
             $row->statusFamiliale->description_statusfam,
             $row->enfant_cli ? 'OUI' : 'NON',
@@ -43,7 +43,7 @@ class ClientsExport implements FromQuery, WithHeadings, WithMapping, WithColumnF
             $row->date_naiss_cli_estime ? 'OUI' : 'NON',
             $row->status_cli,
             $row->addresse_cli,
-            $row->created_at,
+            $row->created_at->format('d/m/Y H:i'),
         ];
     }
 
@@ -77,6 +77,7 @@ class ClientsExport implements FromQuery, WithHeadings, WithMapping, WithColumnF
     public function columnFormats(): array
     {
         return [
+            "C" => NumberFormat::FORMAT_DATE_DDMMYYYY,
             "H" => NumberFormat::FORMAT_NUMBER,
             "U" => NumberFormat::FORMAT_DATE_DATETIME
         ];
