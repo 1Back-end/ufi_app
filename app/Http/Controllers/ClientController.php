@@ -168,7 +168,9 @@ class ClientController extends Controller
 
         Excel::store(new ClientsExport(), 'client-file.xlsx', 'exportclient');
 
-        return Storage::disk('exportclient')->url('client-file.xlsx');
+        return response()->json([
+            'url' => Storage::disk('exportclient')->url('client-file.xlsx')
+        ]);
     }
 
     public function printFidelityCard()
