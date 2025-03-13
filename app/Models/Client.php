@@ -23,7 +23,7 @@ class Client extends Model
 
     protected $appends = ['fullname', 'age'];
 
-    // Le nom doit être caché pour les client annonyme lorsqu'on l'affiche
+    // Le nom doit être caché pour le client annonyme lorsqu’on l’affiche
     protected function nomCli(): Attribute
     {
         return Attribute::make(
@@ -40,13 +40,14 @@ class Client extends Model
         return Attribute::make(
             get: function () {
                 $prefix = $this->prefix->prefixe; // Champ contenant le préfixe
-                $nom = ucfirst($this->nom ?? ''); // ucfirst pour mettre la première lettre en majuscule
-                $prenom = ucfirst($this->prenom ?? '');
+                $nom = ucfirst($this->nom_cli ?? ''); // ucfirst pour mettre la première lettre en majuscule
+                $prenom = ucfirst($this->prenom_cli ?? '');
+                $secprenom = ucfirst($this->secondprenom_cli ?? '');
 
                 return match ($prefix) {
-                    'Epouse' => "$nom Epouse $prenom",
-                    'Enfant', 'Bebe' => "Enfant $nom $prenom",
-                    default => "$nom $prenom",
+                    'Epouse' => "$nom Epouse $prenom $secprenom",
+                    'Enfant', 'Bebe' => "Enfant $nom $prenom $secprenom",
+                    default => "$nom $prenom $secprenom",
                 };
             }
         );
@@ -55,7 +56,7 @@ class Client extends Model
     protected function age(): Attribute
     {
         return Attribute::make(
-            get: fn() => Carbon::parse($this->date_naissance)->age ,
+            get: fn() => Carbon::parse($this->date_naiss_cli)->age ,
         );
     }
 
@@ -102,14 +103,15 @@ class Client extends Model
     protected function casts()
     {
         return [
-            'date_naiss_cli' => 'date',
+            'date_naiss_cli' => 'date:d/m/Y',
             'enfant_cli' => 'boolean',
             'assure_pa_cli' => 'boolean',
             'afficher_ap' => 'boolean',
             'date_naiss_cli_estime' => 'boolean',
-            'status_cli' => 'boolean',
+            'status_cli' => 'integer',
             'client_anonyme_cli' => 'boolean',
             'tel_whatsapp' => 'boolean',
+            'created_at' => 'date:d/m/Y H:i:s',
         ];
     }
 }
