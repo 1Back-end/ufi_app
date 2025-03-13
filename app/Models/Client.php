@@ -21,7 +21,7 @@ class Client extends Model
         'status_cli', 'client_anonyme_cli', 'addresse_cli', 'create_by_cli', 'update_by_cli', 'tel_whatsapp',
     ];
 
-    protected $appends = ['fullname', 'age'];
+    protected $appends = ['age'];
 
     // Le nom doit être caché pour le client annonyme lorsqu’on l’affiche
     protected function nomCli(): Attribute
@@ -32,24 +32,11 @@ class Client extends Model
         );
     }
 
-    /**
-     * @return Attribute
-     */
-    protected function fullname(): Attribute
+    protected function nomcompletClient(): Attribute
     {
         return Attribute::make(
-            get: function () {
-                $prefix = $this->prefix->prefixe; // Champ contenant le préfixe
-                $nom = ucfirst($this->nom_cli ?? ''); // ucfirst pour mettre la première lettre en majuscule
-                $prenom = ucfirst($this->prenom_cli ?? '');
-                $secprenom = ucfirst($this->secondprenom_cli ?? '');
-
-                return match ($prefix) {
-                    'Epouse' => "$nom Epouse $prenom $secprenom",
-                    'Enfant', 'Bebe' => "Enfant $nom $prenom $secprenom",
-                    default => "$nom $prenom $secprenom",
-                };
-            }
+            get: fn($value, array $attributes) => $this->client_anonyme_cli ? $this->ref_cli : $value,
+            set: fn($value) => $value,
         );
     }
 

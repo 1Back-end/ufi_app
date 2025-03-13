@@ -5,15 +5,18 @@ namespace App\Http\Controllers;
 use App\Enums\StatusClient;
 use App\Exports\ClientsExport;
 use App\Http\Requests\ClientRequest;
+use App\Models\Centre;
 use App\Models\Client;
 use App\Models\Prefix;
 use App\Models\Sexe;
 use App\Models\Societe;
 use App\Models\StatusFamiliale;
 use App\Models\TypeDocument;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rules\Enum;
 use Maatwebsite\Excel\Facades\Excel;
@@ -30,11 +33,12 @@ class ClientController extends Controller
     public function initData()
     {
         // Get all the necessary data for the form
-        $societes = Societe::pluck('nom_soc_cli', 'id')->toArray();
-        $typeDocuments = TypeDocument::pluck('description_typedoc', 'id')->toArray();
-        $prefixes = Prefix::pluck('prefixe', 'id')->toArray();
-        $statusFamiliales = StatusFamiliale::pluck('description_statusfam', 'id')->toArray();
-        $sexes = Sexe::pluck('description_sex', 'id')->toArray();
+        $societes = Societe::select('id', 'nom_soc_cli')->get()->toArray();
+        $typeDocuments = TypeDocument::select('description_typedoc', 'id')->get()->toArray();
+        $prefixes = Prefix::select('prefixe', 'id')->get()->toArray();
+        $statusFamiliales = StatusFamiliale::select('description_statusfam', 'id')->get()->toArray();
+        $sexes = Sexe::select('description_sex', 'id')->get()->toArray();
+        $centres = Centre::select('nom_centre', 'id')->get()->toArray();
 
         // Return the data as a JSON response
         return response()->json([
@@ -43,6 +47,7 @@ class ClientController extends Controller
             'prefixes' => $prefixes,
             'statusFamiliales' => $statusFamiliales,
             'sexes' => $sexes,
+            'centres' => $centres
         ], Response::HTTP_OK);
     }
 
@@ -62,6 +67,7 @@ class ClientController extends Controller
         $clients = Client::with('user', 'societe', 'prefix', 'typeDocument', 'sexe', 'statusFamiliale', 'createByCli', 'updateByCli')
             ->when($search, function (Builder $query) use ($search) {
                 $query->whereLike('nom_cli', "%{$search}%")
+                    ->orWhereLike('nomcomplet_client', "%{$search}%")
                     ->orWhereLike('prenom_cli', "%{$search}%")
                     ->orWhereLike('secondprenom_cli', "%{$search}%")
                     ->orWhereLike('ref_cli', "%{$search}%")
@@ -81,11 +87,22 @@ class ClientController extends Controller
      */
     public function store(ClientRequest $request)
     {
-        $client = Client::create($request->validated());
+        $dataValidated = $request->validated();
+        $authUser = User::first(); // auth()->user();
 
-        // Format the reference of the client
-        // The reference is composed of the year, month, id and the code of the site
-        $refcli = now()->year . now()->month . $client->id . 'Code site'; // Todo: C'est quoi le code du site
+        $dataValidated['enfant_cli'] = Carbon::parse($dataValidated['date_naiss_cli'])->age <= 14;
+        $dataValidated['date_naiss_cli'] = $dataValidated['date_naiss_cli_estime']
+            ?  now()->subYears($dataValidated['age'])->year .'-01-01'
+            : $dataValidated['date_naiss_cli'];
+        $dataValidated['create_by_cli'] = $authUser->id; //auth()->user()->id;
+        $dataValidated['updated_by_cli'] = $authUser->id; //auth()->user()->id;
+        $dataValidated['user_id'] = $authUser->id; // Add User for this client
+
+        unset($dataValidated['age']);
+
+        $client = Client::create($dataValidated);
+
+        $refcli = now()->year . now()->month . $client->id . $dataValidated['site_id']; // Todo: C'est quoi le code du site
 
         // Update the client with the new reference
         $client->update(['ref_cli' => $refcli]);
@@ -98,7 +115,7 @@ class ClientController extends Controller
     /**
      * Display the specified resource.
      *
-     * @param  \App\Models\Client  $client
+     * @param Client $client
      * @return JsonResponse
      */
     public function show(Client $client)
@@ -109,7 +126,20 @@ class ClientController extends Controller
 
     public function update(ClientRequest $request, Client $client)
     {
-        $client->update($request->validated());
+        $dataValidated = $request->validated();
+        $authUser = User::first(); // auth()->user();
+
+        $dataValidated['enfant_cli'] = Carbon::parse($dataValidated['date_naiss_cli'])->age <= 14;
+        $dataValidated['date_naiss_cli'] = $dataValidated['date_naiss_cli_estime']
+            ?  now()->subYears($dataValidated['age'])->year .'-01-01'
+            : $dataValidated['date_naiss_cli'];
+        $dataValidated['create_by_cli'] = $authUser->id; //auth()->user()->id;
+        $dataValidated['updated_by_cli'] = $authUser->id; //auth()->user()->id;
+        $dataValidated['user_id'] = $authUser->id; // Add User for this client
+
+        unset($dataValidated['age']);
+
+        $client->update($dataValidated);
 
         return response()->json([
             'message' => 'Client a été mis à jour avec succès !',
@@ -119,7 +149,7 @@ class ClientController extends Controller
     /**
      * Supprime un client
      *
-     * @param \App\Models\Client $client
+     * @param Client $client
      * @return JsonResponse
      */
     public function destroy(Client $client)
@@ -163,13 +193,12 @@ class ClientController extends Controller
      */
     public function export()
     {
-        // Todo: Exporter les clients en Excel
-        // Todo: le but est de sortir le fichier Excel et de renvoyer un public vers celui-ci afin qu'on puisse le télécharger dans le navigateur
+        $filename = 'client-file-' . now()->format('dmY') . '.xlsx';
 
-        Excel::store(new ClientsExport(), 'client-file.xlsx', 'exportclient');
+        Excel::store(new ClientsExport(), $filename, 'exportclient');
 
         return response()->json([
-            'url' => Storage::disk('exportclient')->url('client-file.xlsx')
+            'url' => Storage::disk('exportclient')->url($filename)
         ]);
     }
 

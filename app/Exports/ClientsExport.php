@@ -24,7 +24,7 @@ class ClientsExport implements FromQuery, WithHeadings, WithMapping, WithColumnF
     {
         return [
             $row->ref_cli,
-            $row->fullname,
+            $row->nomcomplet_client,
             $row->date_naiss_cli->format('d/m/Y'),
             $row->sexe->description_sex,
             $row->statusFamiliale->description_statusfam,
@@ -41,7 +41,7 @@ class ClientsExport implements FromQuery, WithHeadings, WithMapping, WithColumnF
             $row->nom_conjoint_cli,
             $row->email_cli,
             $row->date_naiss_cli_estime ? 'OUI' : 'NON',
-            $row->status_cli,
+            $row->status_cli === 1 ? 'ACTIVÉ' : ($row->status_cli === 0 ? 'DÉSACTIVÉ' : 'ARCHIVÉ'),
             $row->addresse_cli,
             $row->created_at->format('d/m/Y H:i'),
         ];
@@ -51,11 +51,11 @@ class ClientsExport implements FromQuery, WithHeadings, WithMapping, WithColumnF
     {
         return [
             'Référence',
-            'Noms et Prenoms',
+            'Noms complet',
             'Date de naissance',
             'Sexe',
             'Statut familliale',
-            'Pocède des enfants ?',
+            'Enfant',
             'Type de document',
             'Téléphone',
             'Le numéro de téléphone est whatsapp ?',
@@ -79,6 +79,7 @@ class ClientsExport implements FromQuery, WithHeadings, WithMapping, WithColumnF
         return [
             "C" => NumberFormat::FORMAT_DATE_DDMMYYYY,
             "H" => NumberFormat::FORMAT_NUMBER,
+            "J" => NumberFormat::FORMAT_NUMBER,
             "U" => NumberFormat::FORMAT_DATE_DATETIME
         ];
     }
