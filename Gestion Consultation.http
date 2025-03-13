@@ -3,6 +3,5 @@
 #GET http://127.0.0.1:8000/api/consultants/search?nom_consult=Paulin&status_consult=Actif
 #PUT http://127.0.0.1:8000/api/consultants/inactivate/3
 #PUT http://127.0.0.1:8000/api/consultants/3/status/Archivé
-# PUT http://127.0.0.1:8000/api/consultants/8/status/Inactif
+# PUT http://127.0.0.1:8000/api/consultants/1/status/Inactif
 GET http://127.0.0.1:8000/api/consultants/export
-#

@@ -33,7 +33,7 @@ class DatabaseSeeder extends Seeder
             ProfileSeeder::class,
             ProfileDroitSeeder::class,
             UsersTableSeeder::class,
-            UserCentreTableSeeder::class,
+            // UserCentreTableSeeder::class,
             CentresTableSeeder::class,
             HopitalsTableSeeder::class,
             SpecialitesTableSeeder::class,

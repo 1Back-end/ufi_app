@@ -19,31 +19,31 @@ class ConsultantController extends Controller
      */
     public function index()
     {
-        return response()->json(Consultant::latest()->get());
-        //
+        return response()->json(Consultant::paginate(10));
     }
+
     public function updateStatus(Request $request, $id, $status)
-    {
-        // Trouver le consultant
-        $consultant = Consultant::find($id);
+        {
+            $consultant = Consultant::find($id);
 
-        // Vérifier si le consultant existe
-        if (!$consultant) {
-            return response()->json(['message' => 'Consultant non trouvé'], 404);
+            if (!$consultant) {
+                return response()->json(['message' => 'Consultant non trouvé'], 404);
+            }
+
+            if (!in_array($status, ['Actif', 'Inactif', 'Archivé'])) {
+                return response()->json(['message' => 'Statut invalide'], 400);
+            }
+
+            $consultant->status_consult = $status;
+            $consultant->save();
+
+            // Retourner le consultant mis à jour
+            return response()->json([
+                'message' => 'Statut mis à jour avec succès',
+                'consultant' => $consultant
+            ], 200);
         }
 
-        // Vérifier si le statut est valide
-        if (!in_array($status, ['Actif', 'Inactif', 'Archivé'])) {
-            return response()->json(['message' => 'Statut invalide'], 400);
-        }
-
-        // Mettre à jour le statut du consultant
-        $consultant->status_consult = $status;
-        $consultant->save();
-
-        // Retourner une réponse de succès
-        return response()->json(['message' => 'Statut mis à jour avec succès'], 200);
-    }
 
 
     public function search(Request $request)
@@ -86,7 +86,7 @@ class ConsultantController extends Controller
 
     public function export()
     {
-        return Excel::store(new ConsultantsExport, 'liste-consultants.xlsx');
+        return Excel::download(new ConsultantsExport, 'liste-consultants.xlsx',\Maatwebsite\Excel\Excel::XLSX);
     }
 
     /**
@@ -94,8 +94,9 @@ class ConsultantController extends Controller
      */
     public function store(Request $request)
     {
+        // Validation des données
         $validated = $request->validate([
-            'user_id' => 'required|exists:users,id',
+            'user_id' => 'nullable|exists:users,id',
             'code_hopi' => 'required|exists:hopitals,id',
             'code_service_hopi' => 'required|exists:service__hopitals,id',
             'code_specialite' => 'required|exists:specialites,id',
@@ -106,29 +107,34 @@ class ConsultantController extends Controller
             'tel1_consult' => 'nullable|string|unique:consultants,tel1_consult',
             'email_consul' => 'required|email|unique:consultants,email_consul',
             'type_consult' => ['required', new Enum(TypeConsultEnum::class)],
-            'status_consult' => ['required', new Enum(StatusConsultEnum::class)],
             'create_by_consult' => 'nullable|exists:users,id',
-            'update_by_consult' => 'nullable|exists:users,id',
-            'TelWhatsApp' => ['nullable', new Enum(TelWhatsAppEnum::class)],
+            'TelWhatsApp' => 'nullable|in:Oui,Non',
         ]);
 
-        // Récupération du titre
+        // Récupérer le titre
         $titre = Titre::find($validated['code_titre']);
-
         if (!$titre) {
             return response()->json(['message' => 'Titre non trouvé'], 404);
         }
 
-        // Génération du nom complet : Titre + Nom + Prénom
+        // Générer le nom complet du consultant
         $validated['nomcomplet_consult'] = $titre->nom_titre . ' ' . $validated['nom_consult'] . ' ' . $validated['prenom_consult'];
 
-        // Génération de la référence unique
+        // Générer une référence unique
         $validated['ref_consult'] = 'C' . now()->format('ymdHis') . mt_rand(10, 99);
+
+        // Supprimer la clé 'update_by_consult' de l'entrée
+        unset($validated['update_by_consult']);
+
+        // Créer le consultant
         $consultant = Consultant::create($validated);
-        return response()->json($consultant, 201);
+
+        // Retourner la réponse JSON avec l'objet consultant créé
+        return response()->json([
+            'message' => 'Consultant créé avec succès',
+            'consultant' => $consultant
+        ], 201);
     }
-
-
 
     /**
      * Display the specified resource.
@@ -153,40 +159,40 @@ class ConsultantController extends Controller
         if (!$consultant) {
             return response()->json(['message' => 'Consultant non trouvé'], 404);
         }
-
         $validated = $request->validate([
-            'user_id' => 'sometimes|exists:users,id',
+            'user_id' => 'nullable|exists:users,id',
             'code_hopi' => 'sometimes|exists:hopitals,id',
             'code_service_hopi' => 'sometimes|exists:service__hopitals,id',
             'code_specialite' => 'sometimes|exists:specialites,id',
             'code_titre' => 'sometimes|exists:titres,id',
-            'ref_consult' => 'sometimes|string|unique:consultants,ref_consult,' . $id,
             'nom_consult' => 'sometimes|string',
             'prenom_consult' => 'sometimes|string',
-            'tel_consult' => 'sometimes|string|unique:consultants,tel_consult,',
-            'tel1_consult' => 'sometimes|string|unique:consultants,tel1_consult',
+            'tel_consult' => 'sometimes|string',
+            'tel1_consult' => 'sometimes|string',
             'email_consul' => 'sometimes|email|unique:consultants,email_consul,' . $id,
             'type_consult' => ['sometimes', new Enum(TypeConsultEnum::class)],
-            'status_consult' => ['sometimes', new Enum(StatusConsultEnum::class)],
-            'create_by_consult' => 'sometimes|exists:users,id',
-            'update_by_consult' => 'sometimes|exists:users,id',
             'TelWhatsApp' => ['sometimes', new Enum(TelWhatsAppEnum::class)],
         ]);
 
-        // Récupérer le titre
+        // Vérification si un titre est présent dans la requête
         if ($request->has('code_titre') || $request->has('nom_consult') || $request->has('prenom_consult')) {
+            // Récupérer le titre à partir de l'ID dans la requête ou utiliser celui du consultant existant
             $titre = Titre::find($request->code_titre ?? $consultant->code_titre);
             $titreNom = $titre ? $titre->nom_titre : '';
 
-            $validated['nomcomplet_consult'] = trim("$titreNom " . ($request->nom_consult ?? $consultant->nom_consult)
-                                                    . ' ' .
-                                                    ($request->prenom_consult ?? $consultant->prenom_consult));
+            // Construire le nom complet avec titre, nom et prénom
+            $validated['nomcomplet_consult'] = trim("$titreNom " .
+                ($request->nom_consult ?? $consultant->nom_consult) . ' ' .
+                ($request->prenom_consult ?? $consultant->prenom_consult)
+            );
         }
-        $consultant->update($validated);
+
+        // Mise à jour des données du consultant
+                $consultant->update($validated);
+
+        // Retourner la réponse avec le consultant mis à jour
         return response()->json($consultant, 200);
     }
-
-
     /**
      * Remove the specified resource from storage.
      */

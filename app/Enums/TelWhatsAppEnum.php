@@ -9,6 +9,6 @@ enum TelWhatsAppEnum: string
 
     public static function values(): array
     {
-        return array_column(self::cases(), 'value');
+        return [self::OUI->value, self::NON->value];
     }
 }
