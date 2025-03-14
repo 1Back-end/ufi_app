@@ -55,13 +55,13 @@ return [
             'throw' => false,
             'report' => false,
         ],
-
-        'export-consultant' => [
+        'exportconsultant' => [
             'driver' => 'local',
             'root' => storage_path('app/export-consultant'),
             'url' => env('APP_URL') . '/export-consultant',
             'visibility' => 'public',
             'throw' => false,
+            'report' => false,
         ],
 
         's3' => [

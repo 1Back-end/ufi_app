@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Exports\ClientsExport;
 use Illuminate\Http\Request;
 use App\Models\Consultant;
 use App\Models\Titre;
@@ -9,6 +10,7 @@ use App\Exports\ConsultantsExport;
 use App\Enums\StatusConsultEnum;
 use App\Enums\TelWhatsAppEnum;
 use App\Enums\TypeConsultEnum;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rules\Enum;
 use Maatwebsite\Excel\Facades\Excel;
 
@@ -86,7 +88,13 @@ class ConsultantController extends Controller
 
     public function export()
     {
-        return Excel::download(new ConsultantsExport, 'liste-consultants.xlsx',\Maatwebsite\Excel\Excel::XLSX);
+        $filename = 'consultant-file-' . now()->format('Y-d-m') . '.xlsx';
+
+        Excel::store(new ConsultantsExport(), $filename, 'exportconsultant');
+
+        return response()->json([
+            'url' => Storage::disk('exportconsultant')->url($filename)
+        ]);
     }
 
     /**
@@ -94,7 +102,7 @@ class ConsultantController extends Controller
      */
     public function store(Request $request)
     {
-        // Validation des données
+        // Validation des données avec des messages personnalisés pour chaque champ
         $validated = $request->validate([
             'user_id' => 'nullable|exists:users,id',
             'code_hopi' => 'required|exists:hopitals,id',
@@ -111,6 +119,24 @@ class ConsultantController extends Controller
             'TelWhatsApp' => 'nullable|in:Oui,Non',
         ]);
 
+        // Vérifier si des champs requis sont vides et retourner un message d'erreur générique
+        $missingFields = [];
+
+        $fields = [
+            'code_hopi', 'code_service_hopi', 'code_specialite', 'code_titre', 'nom_consult',
+            'prenom_consult', 'tel_consult','tel1_consult', 'email_consul', 'type_consult'
+        ];
+
+        foreach ($fields as $field) {
+            if (empty($request->input($field))) {
+                $missingFields[] = $field;
+            }
+        }
+
+        if (count($missingFields) > 0) {
+            return response()->json(['message' => 'Tous les champs sont requis.'], 400);
+        }
+
         // Récupérer le titre
         $titre = Titre::find($validated['code_titre']);
         if (!$titre) {
@@ -123,9 +149,6 @@ class ConsultantController extends Controller
         // Générer une référence unique
         $validated['ref_consult'] = 'C' . now()->format('ymdHis') . mt_rand(10, 99);
 
-        // Supprimer la clé 'update_by_consult' de l'entrée
-        unset($validated['update_by_consult']);
-
         // Créer le consultant
         $consultant = Consultant::create($validated);
 
@@ -136,19 +159,6 @@ class ConsultantController extends Controller
         ], 201);
     }
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(string $id)
-    {
-        $consultant = Consultant::find($id);
-        if (!$consultant) {
-            return response()->json(['message' => 'Consultant non trouvé'], 404);
-        }
-        return response()->json($consultant, 200);
-
-        //
-    }
 
     /**
      * Update the specified resource in storage.
