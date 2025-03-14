@@ -36,7 +36,7 @@ class DatabaseSeeder extends Seeder
             DroitSeeder::class,
             ProfileSeeder::class,
             ProfileDroitSeeder::class,
-            UsersTableSeeder::class,
+//            UsersTableSeeder::class,
                 // UserCentreTableSeeder::class,
             CentresTableSeeder::class,
             HopitalsTableSeeder::class,
