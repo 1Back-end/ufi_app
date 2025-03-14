@@ -17,7 +17,6 @@ return new class extends Migration {
             $table->string('email_centre');
             $table->string('numero_autorisation_centre');
             $table->string('logo_centre');
-            $table->timestamp('date_creation_centre');
             $table->timestamps();
         });
     }

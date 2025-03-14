@@ -41,7 +41,7 @@ return [
         'public' => [
             'driver' => 'local',
             'root' => storage_path('app/public'),
-            'url' => env('APP_URL').'/storage',
+            'url' => env('APP_URL') . '/storage',
             'visibility' => 'public',
             'throw' => false,
             'report' => false,
@@ -50,10 +50,18 @@ return [
         'exportclient' => [
             'driver' => 'local',
             'root' => storage_path('app/export-client'),
-            'url' => env('APP_URL').'/export-client',
+            'url' => env('APP_URL') . '/export-client',
             'visibility' => 'public',
             'throw' => false,
             'report' => false,
+        ],
+
+        'export-consultant' => [
+            'driver' => 'local',
+            'root' => storage_path('app/export-consultant'),
+            'url' => env('APP_URL') . '/export-consultant',
+            'visibility' => 'public',
+            'throw' => false,
         ],
 
         's3' => [
@@ -83,6 +91,7 @@ return [
     */
 
     'links' => [
+        public_path('export-consultant') => storage_path('app/export-consultant'),
         public_path('storage') => storage_path('app/public'),
         public_path('export-client') => storage_path('app/export-client'),
     ],

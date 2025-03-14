@@ -11,9 +11,17 @@ class User extends Model
 {
     use HasFactory;
     protected $fillable = [
-        'profile_id', 'nom_utilisateur', 'password',
-        'date_expiration_mot_passe', 'email',
+        'profile_id',
+        'nom_utilisateur',
+        'password',
+        'date_expiration_mot_passe',
+        'email',
         'status_utilisateur',
+    ];
+
+    protected $casts = [
+        'date_expiration_mot_passe' => 'date',
+        'date_creation_utilisateur' => 'datetime',
     ];
 
     public function profile(): BelongsTo
