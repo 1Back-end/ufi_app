@@ -11,14 +11,13 @@ class Profile extends Model
     use HasFactory;
 
     protected $fillable = [
-        'nom_profile', 'status_profile', 'date_creation_profile', 'description_profile',
+        'nom_profile', 'status_profile', 'description_profile',
 
     ];
 
     protected function casts(): array
     {
         return [
-            'description_profile' => 'timestamp',
         ];
     }
 

@@ -47,6 +47,15 @@ return [
             'report' => false,
         ],
 
+        'exportclient' => [
+            'driver' => 'local',
+            'root' => storage_path('app/export-client'),
+            'url' => env('APP_URL').'/export-client',
+            'visibility' => 'public',
+            'throw' => false,
+            'report' => false,
+        ],
+
         's3' => [
             'driver' => 's3',
             'key' => env('AWS_ACCESS_KEY_ID'),
@@ -75,6 +84,7 @@ return [
 
     'links' => [
         public_path('storage') => storage_path('app/public'),
+        public_path('export-client') => storage_path('app/export-client'),
     ],
 
 ];

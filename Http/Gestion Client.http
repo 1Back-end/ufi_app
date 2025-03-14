@@ -1,0 +1,69 @@
+### GET init data for client
+GET http://localhost:8000/api/clients/init-data
+
+### Get All clients
+GET http://localhost:8000/api/clients
+
+### Get client with search
+GET http://localhost:8000/api/clients?search=client
+
+### GET client by id
+GET localhost:8000/api/clients/1
+
+### Create client
+POST http://localhost:8000/api/clients
+Content-Type: application/json
+Accept: application/json
+
+{
+    "site_id": 1,
+    "societe_id": 1,
+    "prefix_id":  1,
+    "status_familiale_id": 1,
+    "type_document_id":  1,
+    "sexe_id": 1,
+    "nomcomplet_client":  "Enfant Jean Paulin Noël",
+    "prenom_cli": "Paulin",
+    "nom_cli":  "Jean",
+    "secondprenom_cli": "Noël",
+    "date_naiss_cli":  "2015/06/02",
+    "tel_cli": "656552858",
+    "tel2_cli":  "670320100",
+    "type_cli": "normal",
+    "renseign_clini_cli":  "Renseign clini",
+    "assure_pa_cli": false,
+    "afficher_ap":  true,
+    "nom_assure_principale_cli": "Enfant Jean Paulin Noël",
+    "document_number_cli":  null,
+    "nom_conjoint_cli": null,
+    "email_cli":  "email@email.com",
+    "date_naiss_cli_estime": false,
+    "age":  null,
+    "client_anonyme_cli":  false,
+    "addresse_cli": "Lycée Byem-assi",
+    "tel_whatsapp":  true
+}
+
+### Update client
+PUT http://localhost:8000/api/clients/1
+Content-Type: application/json
+
+{
+    "name": "client"
+}
+
+### Delete client
+DELETE http://localhost:8000/api/clients/1
+
+### Patch Status client
+PATCH localhost:8000/api/clients/1/status
+Content-Type: application/json
+
+{
+    "status": 2
+}
+
+### Get Export Client list
+GET localhost:8000/api/clients/export/clients
+Content-Type: application/json
+Accept: application/json

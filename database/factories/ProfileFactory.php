@@ -15,7 +15,6 @@ class ProfileFactory extends Factory
         return [
             'nom_profile' => $this->faker->word(),
             'status_profile' => $this->faker->word(),
-            'date_creation_profile' => $this->faker->word(),
             'description_profile' => Carbon::now(),
             'created_at' => Carbon::now(),
             'updated_at' => Carbon::now(),
