@@ -35,7 +35,7 @@ Route::controller(ConsultantController::class)->prefix('consultants')->group(fun
     Route::delete('/delete/{id}', 'destroy');  // Supprimer un consultant spécifique
     Route::put('update_status/{id}/status/{status}', 'updateStatus');
     Route::get('/search', 'search');
-    Route::get('/export', 'export');
+    Route::get('/export/consultants', 'export');
     // routes/api.php
 });
 
