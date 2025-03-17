@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Exports\ClientsExport;
+use App\Models\User;
 use Illuminate\Http\Request;
 use App\Models\Consultant;
 use App\Models\Titre;
@@ -21,7 +22,8 @@ class ConsultantController extends Controller
      */
     public function index()
     {
-        return response()->json(Consultant::paginate(10));
+        $consultants = Consultant::with('codeSpecialite:id,nom_specialite')->paginate(10);
+        return response()->json($consultants);
     }
 
     public function updateStatus(Request $request, $id, $status)
@@ -102,9 +104,13 @@ class ConsultantController extends Controller
      */
     public function store(Request $request)
     {
-        // Validation des données avec des messages personnalisés pour chaque champ
+        $authUser = User::first(); // Récupère un utilisateur au hasard
+        if (!$authUser) {
+            return response()->json(['message' => 'Aucun utilisateur par défaut trouvé.'], 400);
+        }
+
+        // Validation des données sans 'user_id'
         $validated = $request->validate([
-            'user_id' => 'nullable|exists:users,id',
             'code_hopi' => 'required|exists:hopitals,id',
             'code_service_hopi' => 'required|exists:service__hopitals,id',
             'code_specialite' => 'required|exists:specialites,id',
@@ -115,7 +121,6 @@ class ConsultantController extends Controller
             'tel1_consult' => 'nullable|string|unique:consultants,tel1_consult',
             'email_consul' => 'required|email|unique:consultants,email_consul',
             'type_consult' => ['required', new Enum(TypeConsultEnum::class)],
-            'create_by_consult' => 'nullable|exists:users,id',
             'TelWhatsApp' => 'nullable|in:Oui,Non',
         ]);
 
@@ -124,7 +129,7 @@ class ConsultantController extends Controller
 
         $fields = [
             'code_hopi', 'code_service_hopi', 'code_specialite', 'code_titre', 'nom_consult',
-            'prenom_consult', 'tel_consult','tel1_consult', 'email_consul', 'type_consult'
+            'prenom_consult', 'tel_consult', 'tel1_consult', 'email_consul', 'type_consult'
         ];
 
         foreach ($fields as $field) {
@@ -149,6 +154,10 @@ class ConsultantController extends Controller
         // Générer une référence unique
         $validated['ref_consult'] = 'C' . now()->format('ymdHis') . mt_rand(10, 99);
 
+        // Assigner user_id et create_by_consult avec l'ID de l'utilisateur authentifié si non fournis
+        $validated['user_id'] = $authUser->id; // Assignation automatique de l'utilisateur authentifié
+        $validated['create_by_consult'] =  $authUser->id;
+
         // Créer le consultant
         $consultant = Consultant::create($validated);
 
@@ -160,6 +169,7 @@ class ConsultantController extends Controller
     }
 
 
+
     /**
      * Update the specified resource in storage.
      */
@@ -169,8 +179,9 @@ class ConsultantController extends Controller
         if (!$consultant) {
             return response()->json(['message' => 'Consultant non trouvé'], 404);
         }
+
+        // Validation des données
         $validated = $request->validate([
-            'user_id' => 'nullable|exists:users,id',
             'code_hopi' => 'sometimes|exists:hopitals,id',
             'code_service_hopi' => 'sometimes|exists:service__hopitals,id',
             'code_specialite' => 'sometimes|exists:specialites,id',
@@ -183,6 +194,11 @@ class ConsultantController extends Controller
             'type_consult' => ['sometimes', new Enum(TypeConsultEnum::class)],
             'TelWhatsApp' => ['sometimes', new Enum(TelWhatsAppEnum::class)],
         ]);
+
+        // Assigner automatiquement l'ID de l'utilisateur authentifié à 'user_id' si ce n'est pas dans la requête
+        $authUser = User::first(); // Par exemple, on récupère un utilisateur authentifié
+        $validated['user_id'] = $authUser->id; // Assignation automatique de l'utilisateur authentifié
+        $validated['update_by_consult'] =  $authUser->id;
 
         // Vérification si un titre est présent dans la requête
         if ($request->has('code_titre') || $request->has('nom_consult') || $request->has('prenom_consult')) {
@@ -198,11 +214,12 @@ class ConsultantController extends Controller
         }
 
         // Mise à jour des données du consultant
-                $consultant->update($validated);
+        $consultant->update($validated);
 
         // Retourner la réponse avec le consultant mis à jour
         return response()->json($consultant, 200);
     }
+
     /**
      * Remove the specified resource from storage.
      */

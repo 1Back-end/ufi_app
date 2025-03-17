@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Specialite;
+use App\Models\User;
 use function Pest\Laravel\json;
 
 class SpecialiteController extends Controller
@@ -31,6 +32,28 @@ class SpecialiteController extends Controller
      */
     public function store(Request $request)
     {
+        // Validation des données d'entrée
+        $validated = $request->validate([
+            'nom_service_hopi' => 'required|unique:service__hopitals,nom_service_hopi',  // Validation du champ obligatoire et unique
+        ]);
+
+        // Récupère l'utilisateur par défaut
+        $authUser = User::first();
+        if (!$authUser) {
+            return response()->json(['message' => 'Aucun utilisateur trouvé'], 404);
+        }
+
+        // Création du service hospitalier
+        $service_hopital = Service_Hopital::create([
+            'nom_service_hopi' => $request->nom_service_hopi,
+            'create_by_service_hopi' => $authUser->id
+        ]);
+
+        // Retourne la réponse de succès
+        return response()->json([
+            'message' => 'Service hospitalier créé avec succès',
+            'data' => $service_hopital
+        ], 201);
         //
     }
 

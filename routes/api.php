@@ -17,7 +17,6 @@ Route::get('/user', function (Request $request) {
 Route::controller(ClientController::class)->prefix('clients')->group(function () {
     // Init data for form client
     Route::get('/init-data', 'initData');
-
     Route::get('/', 'index');
     Route::post('/', 'store');
     Route::get('/{client}', 'show');
@@ -41,12 +40,28 @@ Route::controller(ConsultantController::class)->prefix('consultants')->group(fun
 
 Route::controller(HopitalController::class)->prefix('hopitals')->group(function () {
     Route::get('/list', 'index');
+    Route::post('/create', 'store');
+    Route::get('/get_all_hopitals', 'get_all');
+    Route::get('/get_by_id/{id}', 'show');
+    Route::put('/edit/{id}', 'update');
+    Route::delete('/delete/{id}', 'destroy');
+
 });
 Route::controller(ServiceHopitalController::class)->prefix('services_hopitals')->group(function () {
     Route::get('/list', 'index');
+    Route::post('/create', 'store');
+    Route::put('/edit/{id}', 'update');
+    Route::get('/get_all_services_hopitals', 'get_all');
+    Route::get('/get_by_id/{id}', 'show');
+    Route::delete('/delete/{id}', 'destroy');
 });
 Route::controller(TitreController::class)->prefix('titres')->group(function () {
     Route::get('/list', 'index');
+    Route::post('/create','store');
+    Route::get('/get_all_titres', 'get_all');
+    Route::get('/get_by_id/{id}', 'show');
+    Route::put('/edit/{id}', 'update');
+    Route::delete('/delete/{id}', 'destroy');
 });
 Route::controller(SpecialiteController::class)->prefix('specialites')->group(function () {
     Route::get('/list', 'index');
