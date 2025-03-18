@@ -14,6 +14,8 @@ Route::get('/user', function (Request $request) {
     return $request->user();
 })->middleware('auth:sanctum');
 
+Route::get('/countries', [App\Http\Controllers\CountryController::class, 'index']);
+
 Route::controller(ClientController::class)->prefix('clients')->group(function () {
     // Init data for form client
     Route::get('/init-data', 'initData');
