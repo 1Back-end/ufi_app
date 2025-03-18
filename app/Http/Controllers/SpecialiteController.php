@@ -26,6 +26,10 @@ class SpecialiteController extends Controller
     {
         //
     }
+    public function get_all(){
+        $specialite = Specialite::paginate(10);
+        return response()->json($specialite);
+    }
 
     /**
      * Store a newly created resource in storage.
@@ -34,7 +38,7 @@ class SpecialiteController extends Controller
     {
         // Validation des données d'entrée
         $validated = $request->validate([
-            'nom_service_hopi' => 'required|unique:service__hopitals,nom_service_hopi',  // Validation du champ obligatoire et unique
+            'nom_specialite' => 'required|unique:specialites,nom_specialite',  // Validation du champ obligatoire et unique
         ]);
 
         // Récupère l'utilisateur par défaut
@@ -44,15 +48,15 @@ class SpecialiteController extends Controller
         }
 
         // Création du service hospitalier
-        $service_hopital = Service_Hopital::create([
-            'nom_service_hopi' => $request->nom_service_hopi,
-            'create_by_service_hopi' => $authUser->id
+        $specialite = Specialite::create([
+            'nom_specialite' => $request->nom_specialite,
+            'create_by_specialite' => $authUser->id
         ]);
 
         // Retourne la réponse de succès
         return response()->json([
-            'message' => 'Service hospitalier créé avec succès',
-            'data' => $service_hopital
+            'message' => 'Spécialité créé avec succès',
+            'data' => $specialite
         ], 201);
         //
     }
@@ -62,6 +66,15 @@ class SpecialiteController extends Controller
      */
     public function show(string $id)
     {
+        $specialite = Specialite::find($id);
+        if (!$specialite) {
+            return response()->json([
+                'message' => 'Spécialité introuvable',404
+            ]);
+
+        } else {
+            return  response()->json($specialite);
+        }
         //
     }
 
@@ -78,7 +91,37 @@ class SpecialiteController extends Controller
      */
     public function update(Request $request, string $id)
     {
-        //
+        $authUser = User::first();
+        if (!$authUser) {
+            return response()->json(['message' => 'Aucun utilisateur trouvé'], 404);
+        }
+
+        // Validation des données d'entrée
+        $validated = $request->validate([
+                'nom_specialite' => 'required|unique:specialites,nom_specialite' . $id, // Validation du champ avec exception pour l'enregistrement en cours
+        ]);
+
+        // Trouver le service hospitalier par ID
+        $specialite = Specialite::find($id);
+        if (!$specialite) {
+            return response()->json(['message' => 'Spécialité non trouvé'], 404);
+        }
+
+        // Mettre à jour les informations du service hospitalier
+        try {
+            $specialite->update([
+                'nom_specialite' => $request->nom_specialite,
+                'update_by_specialite' => $authUser->id, // Met à jour avec l'utilisateur qui effectue la modification
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['message' => 'Erreur lors de la mise à jour', 'error' => $e->getMessage()], 500);
+        }
+
+        // Retourner la réponse de succès avec les données mises à jour
+        return response()->json([
+            'message' => 'Spécialité mis à jour avec succès',
+            'data' => $specialite
+        ], 200); //
     }
 
     /**
@@ -86,6 +129,14 @@ class SpecialiteController extends Controller
      */
     public function destroy(string $id)
     {
+        $specialite = Specialite::find($id);
+        if (!$specialite) {
+            return response()->json(['message' => 'Spécialité non trouvé'], 404);
+        }
+        $specialite->delete();
+        return  response()->json([
+            'message' => 'Spécialité supprimée avec succès'
+        ]);
         //
     }
 }

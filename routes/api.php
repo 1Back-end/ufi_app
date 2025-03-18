@@ -35,6 +35,8 @@ Route::controller(ConsultantController::class)->prefix('consultants')->group(fun
     Route::put('update_status/{id}/status/{status}', 'updateStatus');
     Route::get('/search', 'search');
     Route::get('/export/consultants', 'export');
+    Route::get('/searchandexport',  'searchAndExport');
+
     // routes/api.php
 });
 
@@ -65,6 +67,11 @@ Route::controller(TitreController::class)->prefix('titres')->group(function () {
 });
 Route::controller(SpecialiteController::class)->prefix('specialites')->group(function () {
     Route::get('/list', 'index');
+    Route::post('/create','store');
+    Route::get('/get_all_specialites', 'get_all');
+    Route::get('/get_by_id/{id}', 'show');
+    Route::put('/edit/{id}', 'update');
+    Route::delete('/delete/{id}', 'destroy');
 });
 Route::controller(UserController::class)->prefix('users')->group(function () {
     Route::get('/list', 'index');

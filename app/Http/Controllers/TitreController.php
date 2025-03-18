@@ -153,7 +153,7 @@ class TitreController extends Controller
         //
     }
     public function get_all(){
-        $titres = Titre::paginate(10);
+        $titres = Titre::paginate(5);
         return response()->json($titres);
     }
 

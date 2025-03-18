@@ -99,20 +99,19 @@ class ServiceHopitalController extends Controller
     }
 
     // Suppression d'un service hospitalier
-    public function destroy(string $id)
+    public function destroy($id)
     {
-        // Recherche du service hospitalier à supprimer
-        $service_hopital = Service_Hopital::find($id);
-        if (!$service_hopital) {
-            return response()->json(['message' => 'Service Hôpital Introuvable'], 404);
+        $service = Service_Hopital::find($id);
+
+        if (!$service) {
+            return response()->json(['message' => 'Service not found'], 404);
         }
 
-        // Suppression du service hospitalier
-        $service_hopital->delete();
+        $service->delete();
 
-        // Retourne la réponse de succès
-        return response()->json(['message' => 'Service hospitalier supprimé avec succès'], 200);
+        return response()->json(['message' => 'Service deleted successfully'], 200);
     }
+
 
     /**
      * Remove the specified resource from storage.

@@ -102,6 +102,70 @@ class ConsultantController extends Controller
     /**
      * Store a newly created resource in storage.
      */
+
+
+        // Si l'export n'est pas demandé, retourner simplement les résultats de la recherche
+    public function searchAndExport(Request $request)
+    {
+        // Créer une requête de base
+        $query = Consultant::query();
+
+        // Appliquer les filtres de recherche
+        if ($request->has('nom_consult') && $request->input('nom_consult') != '') {
+            $query->where('nom_consult', 'like', '%' . $request->input('nom_consult') . '%');
+        }
+
+        if ($request->has('email_consul') && $request->input('email_consul') != '') {
+            $query->where('email_consul', 'like', '%' . $request->input('email_consul') . '%');
+        }
+
+        if ($request->has('status_consult') && $request->input('status_consult') != '') {
+            $query->where('status_consult', 'like', '%' . $request->input('status_consult') . '%');
+        }
+
+        if ($request->has('type_consult') && $request->input('type_consult') != '') {
+            $query->where('type_consult', 'like', '%' . $request->input('type_consult') . '%');
+        }
+
+        if ($request->has('ref_consult') && $request->input('ref_consult') != '') {
+            $query->where('ref_consult', 'like', '%' . $request->input('ref_consult') . '%');
+        }
+
+        if ($request->has('tel1_consult') && $request->input('tel1_consult') != '') {
+            $query->where('tel1', 'like', '%' . $request->input('tel1_consult') . '%');
+        }
+
+        if ($request->has('nomcomplet_consult') && $request->input('nomcomplet_consult') != '') {
+            $query->where('nomcomplet_consult', 'like', '%' . $request->input('nomcomplet_consult') . '%');
+        }
+
+        // Exécuter la requête et récupérer les consultants filtrés
+        $consultants = $query->get();
+
+        // Si aucune donnée n'est trouvée
+        if ($consultants->isEmpty()) {
+            return response()->json(['message' => 'Aucun consultant trouvé avec ces critères'], 404);
+        }
+
+        // Si l'option d'exportation est activée
+        if ($request->has('export') && $request->input('export') == 'true') {
+            $filename = 'consultants-' . now()->format('Y-d-m') . '.xlsx';
+
+            // Exporter les consultants filtrés
+            Excel::store(new ConsultantsExport($consultants), $filename, 'exportconsultant');
+
+            // Retourner l'URL du fichier exporté
+            return response()->json([
+                'message' => 'Recherche et exportation réussis !',
+                'url' => Storage::disk('exportconsultant')->url($filename)
+            ]);
+        }
+
+        // Si l'export n'est pas demandé, retourner les consultants filtrés
+        return response()->json($consultants);
+    }
+
+
     public function store(Request $request)
     {
         $authUser = User::first(); // Récupère un utilisateur au hasard
