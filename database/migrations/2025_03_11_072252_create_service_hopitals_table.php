@@ -10,8 +10,8 @@ return new class extends Migration {
         Schema::create('service__hopitals', function (Blueprint $table) {
             $table->id();
             $table->string('nom_service_hopi');
-            $table->foreignId('create_by_service_hopi')->references('id')->on('users')->Ondelete('restrict');
-            $table->foreignId('update_by_service_hopi')->references('id')->on('users')->Ondelete('restrict');
+            $table->foreignId('create_by_service_hopi')->nullable()->default(null)->references('id')->on('users')->onDelete('cascade');
+            $table->foreignId('update_by_service_hopi')->nullable()->default(null)->references('id')->on('users')->onDelete('cascade');
             $table->timestamps();
         });
     }
