@@ -15,9 +15,14 @@ use PhpOffice\PhpSpreadsheet\Style\NumberFormat;
 
 class ClientsExport implements FromQuery, WithHeadings, WithMapping, WithColumnFormatting
 {
+    public function __construct(
+        public Builder $clientQuery
+    )
+    {}
+
     public function query(): Relation|Builder|_IH_Client_QB|\Laravel\Scout\Builder|\Illuminate\Database\Query\Builder
     {
-        return Client::query();
+        return $this->clientQuery;
     }
 
     public function map($row): array

@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Prefix extends Model
 {
@@ -12,17 +13,22 @@ class Prefix extends Model
 
     protected $fillable = [
         'prefixe',
-        'create_by_prefix',
-        'update_by_prefix',
+        'create_by',
+        'update_by',
     ];
 
-    public function createByPrefix(): BelongsTo
+    public function createBy(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'create_by_prefix');
+        return $this->belongsTo(User::class, 'create_by');
     }
 
-    public function updateByPrefix(): BelongsTo
+    public function updateBy(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'update_by_prefix');
+        return $this->belongsTo(User::class, 'update_by');
+    }
+
+    public function clients(): HasMany
+    {
+        return $this->hasMany(Client::class, 'prefix_id');
     }
 }

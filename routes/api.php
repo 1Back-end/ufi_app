@@ -1,6 +1,12 @@
 <?php
 
 use App\Http\Controllers\ClientController;
+use App\Http\Controllers\CountryController;
+use App\Http\Controllers\PrefixeController;
+use App\Http\Controllers\SexeController;
+use App\Http\Controllers\SocieteController;
+use App\Http\Controllers\StatusFamilialeController;
+use App\Http\Controllers\TypeDocumentController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\ConsultantController;
@@ -13,6 +19,8 @@ use App\Http\Controllers\UserController;
 Route::get('/user', function (Request $request) {
     return $request->user();
 })->middleware('auth:sanctum');
+
+Route::get('/countries', [CountryController::class, 'index']);
 
 Route::controller(ClientController::class)->prefix('clients')->group(function () {
     // Init data for form client
@@ -27,6 +35,13 @@ Route::controller(ClientController::class)->prefix('clients')->group(function ()
     Route::get('/export/clients', 'export');
     Route::get('/print-fidelity-card', 'printFidelityCard');
 });
+
+// Settings routes for clients module
+Route::apiResource('sexes', SexeController::class)->except(['show']);
+Route::apiResource('status-familiales', StatusFamilialeController::class)->except(['show']);
+Route::apiResource('type-documents', TypeDocumentController::class)->except(['show']);
+Route::apiResource('societes', SocieteController::class)->except(['show']);
+Route::apiResource('prefixes', PrefixeController::class)->except(['show']);
 
 Route::controller(ConsultantController::class)->prefix('consultants')->group(function () {
     Route::get('/list', 'index');  // Afficher la liste des consultants

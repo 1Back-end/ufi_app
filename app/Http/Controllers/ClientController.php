@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\DTO\ClientFilterData;
 use App\Enums\StatusClient;
 use App\Exports\ClientsExport;
 use App\Http\Requests\ClientRequest;
@@ -59,22 +60,10 @@ class ClientController extends Controller
      */
     public function index(Request $request)
     {
-        $search = $request->input('search');
-        $perPage = $request->input('perPage', 10);
-        $page = $request->input('page', 1);
-
         // Search clients by name, first name, second name, reference, email and phone numbers.
-        $clients = Client::with('user', 'societe', 'prefix', 'typeDocument', 'sexe', 'statusFamiliale', 'createByCli', 'updateByCli')
-            ->when($search, function (Builder $query) use ($search) {
-                $query->whereLike('nom_cli', "%{$search}%")
-                    ->orWhereLike('nomcomplet_client', "%{$search}%")
-                    ->orWhereLike('prenom_cli', "%{$search}%")
-                    ->orWhereLike('secondprenom_cli', "%{$search}%")
-                    ->orWhereLike('ref_cli', "%{$search}%")
-                    ->orWhereLike('email_cli', "%{$search}%")
-                    ->orWhereLike('tel_cli', "%{$search}%")
-                    ->orWhereLike('tel2_cli', "%{$search}%");
-            })->paginate(perPage: $perPage, page: $page);
+        $clients = client_filter(
+            ClientFilterData::fromRequest($request)
+        );
 
         return response()->json($clients, Response::HTTP_OK);
     }
@@ -191,11 +180,17 @@ class ClientController extends Controller
      * @throws Exception
      * @throws \PhpOffice\PhpSpreadsheet\Writer\Exception
      */
-    public function export()
+    public function export(Request $request)
     {
         $filename = 'client-file-' . now()->format('dmY') . '.xlsx';
 
-        Excel::store(new ClientsExport(), $filename, 'exportclient');
+        $clients = $request->input('all')
+            ? Client::query()
+            : client_filter(
+                ClientFilterData::fromRequest($request)
+            )->toQuery();
+
+        Excel::store(new ClientsExport($clients), $filename, 'exportclient');
 
         return response()->json([
             'url' => Storage::disk('exportclient')->url($filename)
