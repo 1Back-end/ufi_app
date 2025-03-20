@@ -9,7 +9,7 @@ return new class extends Migration {
     {
         Schema::create('consultants', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->nullable()->default(null)->constrained('users');
+            $table->foreignId('user_id')->nullable()->default(null)->references('id')->on('users')->Ondelete('cascade');
             $table->foreignId('code_hopi')->references('id')->on('hopitals')->Ondelete('cascade');
             $table->foreignId('code_service_hopi')->references('id')->on('service__hopitals')->Ondelete('cascade');
             $table->foreignId('code_specialite')->references('id')->on('specialites')->Ondelete('cascade');

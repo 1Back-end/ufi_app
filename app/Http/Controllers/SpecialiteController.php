@@ -91,6 +91,7 @@ class SpecialiteController extends Controller
      */
     public function update(Request $request, string $id)
     {
+        // Récupérer l'utilisateur authentifié
         $authUser = User::first();
         if (!$authUser) {
             return response()->json(['message' => 'Aucun utilisateur trouvé'], 404);
@@ -98,31 +99,35 @@ class SpecialiteController extends Controller
 
         // Validation des données d'entrée
         $validated = $request->validate([
-                'nom_specialite' => 'required|unique:specialites,nom_specialite' . $id, // Validation du champ avec exception pour l'enregistrement en cours
+            'nom_specialite' => 'required|unique:specialites,nom_specialite,' . $id, // Correctif ici
         ]);
 
-        // Trouver le service hospitalier par ID
+        // Trouver la spécialité par ID
         $specialite = Specialite::find($id);
         if (!$specialite) {
-            return response()->json(['message' => 'Spécialité non trouvé'], 404);
+            return response()->json(['message' => 'Spécialité non trouvée'], 404);
         }
 
-        // Mettre à jour les informations du service hospitalier
+        // Mettre à jour les informations de la spécialité
         try {
             $specialite->update([
                 'nom_specialite' => $request->nom_specialite,
-                'update_by_specialite' => $authUser->id, // Met à jour avec l'utilisateur qui effectue la modification
+                'update_by_specialite' => $authUser->id, // L'utilisateur qui effectue la mise à jour
             ]);
         } catch (\Exception $e) {
-            return response()->json(['message' => 'Erreur lors de la mise à jour', 'error' => $e->getMessage()], 500);
+            return response()->json([
+                'message' => 'Erreur lors de la mise à jour',
+                'error' => $e->getMessage()
+            ], 500);
         }
 
         // Retourner la réponse de succès avec les données mises à jour
         return response()->json([
-            'message' => 'Spécialité mis à jour avec succès',
+            'message' => 'Spécialité mise à jour avec succès',
             'data' => $specialite
-        ], 200); //
+        ], 200);
     }
+
 
     /**
      * Remove the specified resource from storage.
