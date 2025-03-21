@@ -9,13 +9,19 @@ return new class extends Migration {
     {
         Schema::create('users', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('profile_id')->constrained('profiles')->onDelete('cascade');
-            $table->string('nom_utilisateur');
+            $table->foreignId('created_by')->nullable()->references('id')->on('users')->nullOnDelete();
+            $table->foreignId('updated_by')->nullable()->references('id')->on('users')->nullOnDelete();
+            $table->string('login')->unique();
+            $table->string('email')->unique();
             $table->string('password');
-            $table->date('date_expiration_mot_passe'); // Correction : Utilisation de 'date' au lieu de 'string'
-            $table->string('email')->unique(); // Correction : Ajout de 'unique'
-            $table->string('status_utilisateur');
+            $table->string('nom');
+            $table->string('prenom')->nullable();
+            $table->integer('status')->default(1);
+            $table->integer('connexion_counter')->default(0);
+            $table->date('password_expiated_at');
+            $table->boolean('connected');
             $table->timestamps();
+            $table->softDeletes();
         });
     }
 
