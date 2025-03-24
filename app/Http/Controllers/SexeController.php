@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\SexeRequest;
+use App\Models\Prefix;
 use App\Models\Sexe;
 use App\Models\User;
 use Illuminate\Support\Facades\Log;
@@ -13,7 +14,8 @@ class SexeController extends Controller
     public function index()
     {
         return \response()->json([
-            'sexes' => Sexe::with(['createBySex:id,nom_utilisateur', 'updateBySex:id,nom_utilisateur'])->get()
+            'prefixes' => Prefix::select(['id', 'prefixe'])->get(),
+            'sexes' => Sexe::with(['createBySex:id,nom_utilisateur', 'updateBySex:id,nom_utilisateur', 'prefixes:id,prefixe,position', 'status_families:id,description_statusfam'])->get()
         ]);
     }
 
@@ -21,11 +23,15 @@ class SexeController extends Controller
     {
 //        $auth = auth()->user();
         $auth = User::first();
-        Sexe::create([
+        $sex = Sexe::create([
             'description_sex' => $request->description_sex,
             'create_by_sex' => $auth->id,
             'update_by_sex' => $auth->id
         ]);
+
+        if ($request->input('prefixes')) {
+            $sex->prefixes()->sync($request->input('prefixes'));
+        }
 
         return response()->json(['message' => 'Sexe créé avec succès !'], Response::HTTP_CREATED);
     }
@@ -36,6 +42,10 @@ class SexeController extends Controller
         $data = array_merge($request->all(), ['update_by_sex' => $auth->id]);
 
         $sex->update($data);
+
+        if ($request->input('prefixes')) {
+            $sex->prefixes()->sync($request->input('prefixes'));
+        }
 
         return response()->json(['message' => 'Sexe mis à jour avec succès !'], Response::HTTP_ACCEPTED);
     }

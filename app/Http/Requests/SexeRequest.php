@@ -12,19 +12,18 @@ class SexeRequest extends FormRequest
     {
         // Validate Update for unique value
         if ($this->isMethod('PUT')) {
-            return [
-                'description_sex' => [
-                    'required',
-                    (new Unique('sexes', 'description_sex'))->ignore($this->route('sex')),
-                ],
-            ];
+            $unique = (new Unique('sexes', 'description_sex'))->ignore($this->route('sex'));
+        }
+        else {
+            $unique = 'unique:sexes,description_sex';
         }
 
         return [
             'description_sex' => [
                 'required',
-                'unique:sexes,description_sex'
+                $unique
             ],
+            'prefixes' => ['nullable'],
         ];
     }
 

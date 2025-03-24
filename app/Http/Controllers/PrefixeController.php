@@ -22,6 +22,9 @@ class PrefixeController extends Controller
 //        $auth = auth()->user();
         Prefix::create([
             'prefixe' => $request->prefixe,
+            'position' => $request->position,
+            'age_min' => $request->age_min,
+            'age_max' => $request->age_max,
             'create_by' => $auth->id,
             'update_by' => $auth->id
         ]);

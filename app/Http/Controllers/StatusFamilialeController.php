@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\StatusFamilialeRequest;
+use App\Models\Sexe;
 use App\Models\StatusFamiliale;
 use App\Models\User;
 use Symfony\Component\HttpFoundation\Response;
@@ -12,7 +13,8 @@ class StatusFamilialeController extends Controller
     public function index()
     {
         return \response()->json([
-            'status_familiales' => StatusFamiliale::with(['createByStatusfam:id,nom_utilisateur', 'updateByStatusfam:id,nom_utilisateur'])->get()
+            'status_familiales' => StatusFamiliale::with(['createByStatusfam:id,nom_utilisateur', 'updateByStatusfam:id,nom_utilisateur', 'sexes:id,description_sex'])->get(),
+            'sexes' => Sexe::select(['id', 'description_sex'])->get(),
         ]);
     }
 
@@ -20,11 +22,15 @@ class StatusFamilialeController extends Controller
     {
         $auth = User::first();
 //        $auth = auth()->user();
-        StatusFamiliale::create([
+        $statFam = StatusFamiliale::create([
             'description_statusfam' => $request->description_statusfam,
             'create_by_statusfam' => $auth->id,
             'update_by_statusfam' => $auth->id
         ]);
+
+        if ($request->sexes) {
+            $statFam->sexes()->sync($request->sexes);
+        }
 
         return \response()->json([
             'message' => 'Status familial created successfully'
@@ -38,6 +44,10 @@ class StatusFamilialeController extends Controller
         $data = array_merge($request->all(), ['update_by_statusfam' => $auth->id]);
 
         $status_familiale->update($data);
+
+        if ($request->sexes) {
+            $status_familiale->sexes()->sync($request->sexes);
+        }
 
         return \response()->json([
             'message' => 'Status familial updated successfully'

@@ -36,9 +36,9 @@ class ClientController extends Controller
         // Get all the necessary data for the form
         $societes = Societe::select('id', 'nom_soc_cli')->get()->toArray();
         $typeDocuments = TypeDocument::select('description_typedoc', 'id')->get()->toArray();
-        $prefixes = Prefix::select('prefixe', 'id')->get()->toArray();
-        $statusFamiliales = StatusFamiliale::select('description_statusfam', 'id')->get()->toArray();
-        $sexes = Sexe::select('description_sex', 'id')->get()->toArray();
+        $prefixes = Prefix::select(['prefixe', 'id', 'position', 'age_max', 'age_min'])->with(['sexes:id,description_sex'])->get()->toArray();
+        $statusFamiliales = StatusFamiliale::select(['description_statusfam', 'id'])->with(['sexes:id,description_sex'])->get()->toArray();
+        $sexes = Sexe::select(['description_sex', 'id'])->with(['prefixes:id,prefixe,position', 'status_families:id,description_statusfam'])->get()->toArray();
         $centres = Centre::select('nom_centre', 'id')->get()->toArray();
 
         // Return the data as a JSON response

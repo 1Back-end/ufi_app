@@ -14,12 +14,12 @@ return new class extends Migration {
             $table->string('login')->unique();
             $table->string('email')->unique();
             $table->string('password');
-            $table->string('nom');
+            $table->string('nom_utilisateur');
             $table->string('prenom')->nullable();
             $table->integer('status')->default(1);
             $table->integer('connexion_counter')->default(0);
             $table->date('password_expiated_at');
-            $table->boolean('connected');
+            $table->boolean('connected')->default(false);
             $table->timestamps();
             $table->softDeletes();
         });
