@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class StatusFamiliale extends Model
@@ -30,5 +31,10 @@ class StatusFamiliale extends Model
     public function clients(): HasMany
     {
         return $this->hasMany(Client::class, 'status_familiale_id');
+    }
+
+    public function sexes(): BelongsToMany
+    {
+        return $this->belongsToMany(Sexe::class, 'sexe_stat_fam', 'stat_fam_id', 'sex_id');
     }
 }

@@ -10,16 +10,15 @@ class StatusFamilialeRequest extends FormRequest
     public function rules(): array
     {
         if ($this->isMethod('PUT')) {
-            return [
-                'description_statusfam' => [
-                    'required',
-                    (new Unique('status_familiales', 'description_statusfam'))->ignore($this->route('status_familiale')),
-                ],
-            ];
+            $unique = (new Unique('status_familiales', 'description_statusfam'))->ignore($this->route('status_familiale'));
+        }
+        else{
+            $unique = 'unique:status_familiales,description_statusfam';
         }
 
         return [
-            'description_statusfam' => ['required', 'unique:status_familiales,description_statusfam'],
+            'description_statusfam' => ['required', $unique],
+            'sexes' => ['nullable'],
         ];
     }
 

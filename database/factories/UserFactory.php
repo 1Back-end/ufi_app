@@ -6,6 +6,7 @@ use App\Models\Profile;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Hash;
 
 class UserFactory extends Factory
 {
@@ -14,15 +15,12 @@ class UserFactory extends Factory
     public function definition()
     {
         return [
-            'nom_utilisateur' => $this->faker->word(),
-            'password' => $this->faker->word(),
-            'date_expiration_mot_passe' => now()->addDays(30),
-            'email' => $this->faker->unique()->safeEmail(),
-            'status_utilisateur' => $this->faker->word(),
-            'created_at' => Carbon::now(),
-            'updated_at' => Carbon::now(),
-
-            'profile_id' => Profile::factory(),
+            'login' => $this->faker->userName,
+            'email' => $this->faker->safeEmail,
+            'password' => Hash::make('password'),
+            'nom_utilisateur' => $this->faker->name,
+            'prenom' => $this->faker->name,
+            'password_expiated_at' => now()->addDays(15),
         ];
     }
 }

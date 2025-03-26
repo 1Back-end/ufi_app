@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Sexe extends Model
@@ -12,7 +13,7 @@ class Sexe extends Model
     use HasFactory;
 
     protected $fillable = [
-        'description_sex', 'create_by_sex', 'update_by_sex',
+        'description_sex', 'prefix_id', 'create_by_sex', 'update_by_sex',
     ];
 
     public function createBySex(): BelongsTo
@@ -28,5 +29,15 @@ class Sexe extends Model
     public function clients(): HasMany
     {
         return $this->hasMany(Client::class, 'sexe_id');
+    }
+
+    public function prefixes(): BelongsToMany
+    {
+        return $this->belongsToMany(Prefix::class, 'prefix_sexe');
+    }
+
+    public function status_families(): BelongsToMany
+    {
+        return $this->belongsToMany(StatusFamiliale::class, 'sexe_stat_fam', 'sex_id', 'stat_fam_id');
     }
 }

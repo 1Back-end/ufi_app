@@ -36,9 +36,9 @@ class ClientController extends Controller
         // Get all the necessary data for the form
         $societes = Societe::select('id', 'nom_soc_cli')->get()->toArray();
         $typeDocuments = TypeDocument::select('description_typedoc', 'id')->get()->toArray();
-        $prefixes = Prefix::select('prefixe', 'id')->get()->toArray();
-        $statusFamiliales = StatusFamiliale::select('description_statusfam', 'id')->get()->toArray();
-        $sexes = Sexe::select('description_sex', 'id')->get()->toArray();
+        $prefixes = Prefix::select(['prefixe', 'id', 'position', 'age_max', 'age_min'])->with(['sexes:id,description_sex'])->get()->toArray();
+        $statusFamiliales = StatusFamiliale::select(['description_statusfam', 'id'])->with(['sexes:id,description_sex'])->get()->toArray();
+        $sexes = Sexe::select(['description_sex', 'id'])->with(['prefixes:id,prefixe,position', 'status_families:id,description_statusfam'])->get()->toArray();
         $centres = Centre::select('nom_centre', 'id')->get()->toArray();
 
         // Return the data as a JSON response
@@ -81,7 +81,7 @@ class ClientController extends Controller
 
         $dataValidated['enfant_cli'] = Carbon::parse($dataValidated['date_naiss_cli'])->age <= 14;
         $dataValidated['date_naiss_cli'] = $dataValidated['date_naiss_cli_estime']
-            ?  now()->subYears($dataValidated['age'])->year .'-01-01'
+            ? now()->subYears($dataValidated['age'])->year . '-01-01'
             : $dataValidated['date_naiss_cli'];
         $dataValidated['create_by_cli'] = $authUser->id; //auth()->user()->id;
         $dataValidated['updated_by_cli'] = $authUser->id; //auth()->user()->id;
@@ -120,7 +120,7 @@ class ClientController extends Controller
 
         $dataValidated['enfant_cli'] = Carbon::parse($dataValidated['date_naiss_cli'])->age <= 14;
         $dataValidated['date_naiss_cli'] = $dataValidated['date_naiss_cli_estime']
-            ?  now()->subYears($dataValidated['age'])->year .'-01-01'
+            ? now()->subYears($dataValidated['age'])->year . '-01-01'
             : $dataValidated['date_naiss_cli'];
         $dataValidated['create_by_cli'] = $authUser->id; //auth()->user()->id;
         $dataValidated['updated_by_cli'] = $authUser->id; //auth()->user()->id;
@@ -195,6 +195,25 @@ class ClientController extends Controller
         return response()->json([
             'url' => Storage::disk('exportclient')->url($filename)
         ]);
+    }
+
+    public function searchDuplicates(Request $request)
+    {
+        $request->validate([
+            'nomcomplet' => 'required',
+            'date_naiss_cli' => 'required',
+            'sexe_id' => 'required',
+        ]);
+
+        $clients = Client::with(['sexe:id,description_sex'])
+            ->whereNomcompletClient($request->get('nomcomplet'))
+            ->whereDateNaissCli($request->get('date_naiss_cli'))
+            ->whereSexeId($request->get('sexe_id'))
+            ->get();
+
+        return response()->json([
+            'duplicates' => $clients
+        ], $clients->isEmpty() ? Response::HTTP_OK : Response::HTTP_CONFLICT);
     }
 
     public function printFidelityCard()

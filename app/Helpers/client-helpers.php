@@ -1,6 +1,7 @@
 <?php
 
 use App\DTO\ClientFilterData;
+use App\Enums\StatusClient;
 use App\Models\Client;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -36,7 +37,7 @@ if (! function_exists('client_filter')) {
             ->when($filterData->type_cli, function (Builder $query) use ($filterData) {
                 $query->where('type_cli', $filterData->type_cli);
             })
-            ->when($filterData->status_cli, function (Builder $query) use ($filterData) {
+            ->when(in_array($filterData->status_cli, [StatusClient::ARCHIVE->value, StatusClient::ACTIVE->value]) || $filterData->status_cli ===  StatusClient::INACTIVE->value, function (Builder $query) use ($filterData) {
                 $query->where('status_cli', $filterData->status_cli);
             })
             ->when($filterData->sort_colonne && $filterData->sort_direction, function (Builder $query) use ($filterData) {

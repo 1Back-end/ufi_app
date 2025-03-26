@@ -10,7 +10,7 @@ return new class extends Migration {
         Schema::create('clients', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('user_id')->comment("Table configuration Users");
-            $table->unsignedBigInteger('societe_id')->comment("Table configuration Société");
+            $table->unsignedBigInteger('societe_id')->nullable()->comment("Table configuration Société");
             $table->unsignedBigInteger('prefix_id')->comment("Table configuration Prefixes");
             $table->unsignedBigInteger('status_familiale_id')->comment("Table configuration Status Familiale");
             $table->unsignedBigInteger('type_document_id')->comment("Table configuration Type Document");
@@ -43,7 +43,7 @@ return new class extends Migration {
 
             // Foreign Key
             $table->foreign('user_id')->references('id')->on('users');
-            $table->foreign('societe_id')->references('id')->on('societes');
+            $table->foreign('societe_id')->references('id')->on('societes')->nullOnDelete();
             $table->foreign('prefix_id')->references('id')->on('prefixes');
             $table->foreign('status_familiale_id')->references('id')->on('status_familiales');
             $table->foreign('type_document_id')->references('id')->on('type_documents');
