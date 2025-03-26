@@ -11,10 +11,13 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Sexe extends Model
 {
-    use UpdatingUser;
+    use HasFactory, UpdatingUser;
 
     protected $fillable = [
-        'description_sex', 'prefix_id', 'create_by', 'update_by',
+        'description_sex',
+        'prefix_id',
+        'create_by',
+        'update_by',
     ];
 
     public function createBySex(): BelongsTo
