@@ -15,9 +15,22 @@ use App\Http\Controllers\ServiceHopitalController;
 use App\Http\Controllers\TitreController;
 use App\Http\Controllers\SpecialiteController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\Auth\AuthenticatedSessionController;
+use App\Http\Controllers\Auth\EmailVerificationNotificationController;
+use App\Http\Controllers\Auth\NewPasswordController;
+use App\Http\Controllers\Auth\PasswordResetLinkController;
+use App\Http\Controllers\Auth\RegisteredUserController;
+use App\Http\Controllers\Auth\VerifyEmailController;
 
 require __DIR__.'/auth.php';
 require __DIR__.'/authorization.php';
+
+
+
+
+Route::post('/login', [AuthenticatedSessionController::class, 'store'])
+    ->middleware('guest')
+    ->name('login');
 
 Route::middleware(['auth:sanctum', 'check.permission'])->group(function () {
     Route::get('/countries', [CountryController::class, 'index']);

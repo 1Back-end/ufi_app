@@ -37,7 +37,7 @@ class DatabaseSeeder extends Seeder
             TitresTableSeeder::class,
             ServiceHopitalsTableSeeder::class,
 
-            SexesSeeder::class,
+//            SexesSeeder::class,
             PrefixSeeder::class,
             StatusFamilialeSeeder::class,
             TypeDocumentSeeder::class,
