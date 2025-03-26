@@ -10,8 +10,8 @@ return new class extends Migration {
         Schema::create('type_documents', function (Blueprint $table) {
             $table->id();
             $table->string('description_typedoc');
-            $table->foreignId('create_by_typedoc')->references('id')->on('users')->restrictOnDelete();
-            $table->foreignId('update_by_typedoc')->references('id')->on('users')->restrictOnDelete();
+            $table->foreignId('create_by')->references('id')->on('users')->restrictOnDelete();
+            $table->foreignId('update_by')->references('id')->on('users')->restrictOnDelete();
             $table->timestamps();
         });
     }

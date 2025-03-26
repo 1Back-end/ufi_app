@@ -6,11 +6,18 @@ use App\Http\Requests\SexeRequest;
 use App\Models\Prefix;
 use App\Models\Sexe;
 use App\Models\User;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response;
 
 class SexeController extends Controller
 {
+    /**
+     * @return JsonResponse
+     *
+     * @permission SexeController::index
+     * @permission_desc Afficher la liste des sexes
+     */
     public function index()
     {
         return \response()->json([
@@ -19,6 +26,13 @@ class SexeController extends Controller
         ]);
     }
 
+    /**
+     * @param SexeRequest $request
+     * @return JsonResponse
+     *
+     * @permission SexeController::store
+     * @permission_desc Enregistrer un sexe
+     */
     public function store(SexeRequest $request)
     {
 //        $auth = auth()->user();
@@ -36,6 +50,14 @@ class SexeController extends Controller
         return response()->json(['message' => 'Sexe créé avec succès !'], Response::HTTP_CREATED);
     }
 
+    /**
+     * @param SexeRequest $request
+     * @param Sexe $sex
+     * @return JsonResponse
+     *
+     * @permission SexeController::update
+     * @permission_desc Mise à jour d’un sexe
+     */
     public function update(SexeRequest $request, Sexe $sex)
     {
         $auth = User::first();
@@ -50,6 +72,13 @@ class SexeController extends Controller
         return response()->json(['message' => 'Sexe mis à jour avec succès !'], Response::HTTP_ACCEPTED);
     }
 
+    /**
+     * @param Sexe $sex
+     * @return JsonResponse
+     *
+     * @permission SexeController::destroy
+     * @permission_desc Supprimer un sexe
+     */
     public function destroy(Sexe $sex)
     {
         if ($sex->clients()->count() > 0) {

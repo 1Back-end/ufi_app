@@ -57,6 +57,9 @@ class ClientController extends Controller
      *
      * @param Request $request
      * @return JsonResponse
+     *
+     * @permission ClientController::index
+     * @permission_desc Afficher la liste de client via le filtre
      */
     public function index(Request $request)
     {
@@ -73,19 +76,18 @@ class ClientController extends Controller
      *
      * @param ClientRequest $request
      * @return JsonResponse
+     *
+     * @permission ClientController::store
+     * @permission_desc Créer un client
      */
     public function store(ClientRequest $request)
     {
         $dataValidated = $request->validated();
-        $authUser = User::first(); // auth()->user();
 
         $dataValidated['enfant_cli'] = Carbon::parse($dataValidated['date_naiss_cli'])->age <= 14;
         $dataValidated['date_naiss_cli'] = $dataValidated['date_naiss_cli_estime']
             ? now()->subYears($dataValidated['age'])->year . '-01-01'
             : $dataValidated['date_naiss_cli'];
-        $dataValidated['create_by_cli'] = $authUser->id; //auth()->user()->id;
-        $dataValidated['updated_by_cli'] = $authUser->id; //auth()->user()->id;
-        $dataValidated['user_id'] = $authUser->id; // Add User for this client
 
         unset($dataValidated['age']);
 
@@ -106,6 +108,9 @@ class ClientController extends Controller
      *
      * @param Client $client
      * @return JsonResponse
+     *
+     * @permission ClientController::show
+     * @permission_desc Afficher un client
      */
     public function show(Client $client)
     {
@@ -113,18 +118,22 @@ class ClientController extends Controller
         return response()->json($client->load('user', 'societe', 'prefix', 'typeDocument', 'sexe', 'statusFamiliale', 'createByCli', 'updateByCli'), Response::HTTP_OK);
     }
 
+    /**
+     * @param ClientRequest $request
+     * @param Client $client
+     * @return JsonResponse
+     *
+     * @permission ClientController::update
+     * @permission_desc Mise à jour d’un client
+     */
     public function update(ClientRequest $request, Client $client)
     {
         $dataValidated = $request->validated();
-        $authUser = User::first(); // auth()->user();
 
         $dataValidated['enfant_cli'] = Carbon::parse($dataValidated['date_naiss_cli'])->age <= 14;
         $dataValidated['date_naiss_cli'] = $dataValidated['date_naiss_cli_estime']
             ? now()->subYears($dataValidated['age'])->year . '-01-01'
             : $dataValidated['date_naiss_cli'];
-        $dataValidated['create_by_cli'] = $authUser->id; //auth()->user()->id;
-        $dataValidated['updated_by_cli'] = $authUser->id; //auth()->user()->id;
-        $dataValidated['user_id'] = $authUser->id; // Add User for this client
 
         unset($dataValidated['age']);
 
@@ -140,6 +149,9 @@ class ClientController extends Controller
      *
      * @param Client $client
      * @return JsonResponse
+     *
+     * @permission ClientController::destroy
+     * @permission_desc Supprimer un client
      */
     public function destroy(Client $client)
     {
@@ -157,6 +169,9 @@ class ClientController extends Controller
      * @param Client $client
      * @param Request $request
      * @return JsonResponse
+     *
+     * @permission ClientController::updateStatus
+     * @permission_desc Mise à jour du status d'un client
      */
     public function updateStatus(Client $client, Request $request)
     {
@@ -179,6 +194,9 @@ class ClientController extends Controller
     /**
      * @throws Exception
      * @throws \PhpOffice\PhpSpreadsheet\Writer\Exception
+     *
+     * @permission ClientController::export
+     * @permission_desc Exporter les clients en excel
      */
     public function export(Request $request)
     {
@@ -197,6 +215,10 @@ class ClientController extends Controller
         ]);
     }
 
+    /**
+     * @param Request $request
+     * @return JsonResponse
+     */
     public function searchDuplicates(Request $request)
     {
         $request->validate([
@@ -216,6 +238,12 @@ class ClientController extends Controller
         ], $clients->isEmpty() ? Response::HTTP_OK : Response::HTTP_CONFLICT);
     }
 
+    /**
+     * @return void
+     *
+     * @permission ClientController::printFidelityCard
+     * @permission_desc Imprimer une carte de fidélité pour un client
+     */
     public function printFidelityCard()
     {
         // Todo: Renvoyer un PDF de carte de fidelité avec un QR Code

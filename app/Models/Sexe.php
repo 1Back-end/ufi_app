@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Trait\UpdatingUser;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -10,20 +11,23 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Sexe extends Model
 {
-    use HasFactory;
+    use HasFactory, UpdatingUser;
 
     protected $fillable = [
-        'description_sex', 'prefix_id', 'create_by_sex', 'update_by_sex',
+        'description_sex',
+        'prefix_id',
+        'create_by',
+        'update_by',
     ];
 
     public function createBySex(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'create_by_sex');
+        return $this->belongsTo(User::class, 'create_by');
     }
 
     public function updateBySex(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'update_by_sex');
+        return $this->belongsTo(User::class, 'update_by');
     }
 
     public function clients(): HasMany

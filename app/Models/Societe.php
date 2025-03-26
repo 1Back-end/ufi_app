@@ -2,14 +2,16 @@
 
 namespace App\Models;
 
+use App\Models\Trait\UpdatingUser;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Societe extends Model
 {
-    use HasFactory;
+    use HasFactory, UpdatingUser, SoftDeletes;
 
     protected $fillable = [
         'nom_soc_cli',

@@ -5,11 +5,18 @@ namespace App\Http\Controllers;
 use App\Http\Requests\SocieteRequest;
 use App\Models\Societe;
 use App\Models\User;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 class SocieteController extends Controller
 {
+    /**
+     * @return JsonResponse
+     *
+     * @permission SocieteController::index
+     * @permission_desc Afficher la liste des sociétés
+     */
     public function index()
     {
         return response()->json([
@@ -21,6 +28,13 @@ class SocieteController extends Controller
         ]);
     }
 
+    /**
+     * @param SocieteRequest $request
+     * @return JsonResponse
+     *
+     * @permission SocieteController::store
+     * @permission_desc Créer une société
+     */
     public function store(SocieteRequest $request)
     {
 //        $auth = auth()->user();
@@ -40,6 +54,14 @@ class SocieteController extends Controller
         ], Response::HTTP_CREATED);
     }
 
+    /**
+     * @param SocieteRequest $request
+     * @param Societe $societe
+     * @return JsonResponse
+     *
+     * @permission SocieteController::update
+     * @permission_desc Mise à jour d’une société
+     */
     public function update(SocieteRequest $request, Societe $societe)
     {
         $auth = User::first();
@@ -54,11 +76,18 @@ class SocieteController extends Controller
         ], Response::HTTP_ACCEPTED);
     }
 
+    /**
+     * @param Societe $societe
+     * @return JsonResponse
+     *
+     * @permission SocieteController::destroy
+     * @permission_desc Supprimé une société.
+     */
     public function destroy(Societe $societe)
     {
         if ($societe->clients()->count() > 0) {
             return response()->json([
-                'message' => 'Societe ne peutêtre supprimé car il est utilisé par un client'
+                'message' => 'Societe ne peut-être supprimé car il est utilisé par un client'
             ], Response::HTTP_CONFLICT);
         }
 

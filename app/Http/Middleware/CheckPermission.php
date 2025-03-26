@@ -57,12 +57,12 @@ class CheckPermission
 
         // Supposons que l'utilisateur ait une méthode hasPermission($perm)
         foreach ($requiredPermissions as $permission) {
-            $hasPermission = !$user->permissions()->where(function (Builder $query) use($permission) {
+            $hasPermission = $user->permissions()->where(function (Builder $query) use($permission) {
                 $query->where('permissions.name', $permission)
                     ->where('permissions.active', true);
             })->wherePivot('active', true)->exists();
 
-            $hasPermissionByRole = !$user->roles()
+            $hasPermissionByRole = $user->roles()
                 ->where('roles.active', true)
                 ->whereHas('permissions', function (Builder $query) use($permission) {
                     $query->where('permissions.name', $permission)
@@ -70,7 +70,7 @@ class CheckPermission
             })->wherePivot('active', true)
                 ->exists();
 
-            if ($hasPermission || $hasPermissionByRole) {
+            if (! ($hasPermission || $hasPermissionByRole)) {
                 return false;
             }
         }

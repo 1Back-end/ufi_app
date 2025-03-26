@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Trait\UpdatingUser;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -10,16 +11,16 @@ use Illuminate\Support\Carbon;
 
 class Client extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory, SoftDeletes, UpdatingUser;
 
     protected $fillable = [
-        'user_id', 'societe_id', 'prefix_id', 'status_familiale_id',
+        'societe_id', 'prefix_id', 'status_familiale_id',
         'type_document_id', 'sexe_id', 'nomcomplet_client', 'prenom_cli',
         'nom_cli', 'secondprenom_cli', 'date_naiss_cli', 'enfant_cli',
         'ref_cli', 'tel_cli', 'tel2_cli', 'type_cli', 'renseign_clini_cli',
         'assure_pa_cli', 'afficher_ap', 'nom_assure_principale_cli',
         'document_number_cli', 'nom_conjoint_cli', 'email_cli', 'date_naiss_cli_estime',
-        'status_cli', 'client_anonyme_cli', 'addresse_cli', 'create_by_cli', 'update_by_cli', 'tel_whatsapp',
+        'status_cli', 'client_anonyme_cli', 'addresse_cli', 'create_by', 'update_by', 'tel_whatsapp',
     ];
 
     protected $appends = ['age'];
@@ -46,11 +47,6 @@ class Client extends Model
         return Attribute::make(
             get: fn() => Carbon::parse($this->date_naiss_cli)->age ,
         );
-    }
-
-    public function user()
-    {
-        return $this->belongsTo(User::class);
     }
 
     public function societe()
@@ -80,12 +76,12 @@ class Client extends Model
 
     public function createByCli()
     {
-        return $this->belongsTo(User::class, 'create_by_cli');
+        return $this->belongsTo(User::class, 'create_by');
     }
 
     public function updateByCli()
     {
-        return $this->belongsTo(User::class, 'update_by_cli');
+        return $this->belongsTo(User::class, 'update_by');
     }
 
     protected function casts()
