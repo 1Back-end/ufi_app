@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Trait\UpdatingUser;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -9,22 +10,22 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class TypeDocument extends Model
 {
-    use HasFactory;
+    use UpdatingUser;
 
     protected $fillable = [
         'description_typedoc',
-        'create_by_typedoc',
-        'update_by_typedoc',
+        'create_by',
+        'update_by',
     ];
 
     public function createByTypedoc(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'create_by_typedoc');
+        return $this->belongsTo(User::class, 'create_by');
     }
 
     public function updateByTypedoc(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'update_by_typedoc');
+        return $this->belongsTo(User::class, 'update_by');
     }
 
     public function clients(): HasMany

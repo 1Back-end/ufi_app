@@ -18,9 +18,14 @@ class PermissionController extends Controller
      * @permission PermissionController::index
      * @permission_desc Afficher les permissions
      */
-    public function index()
+    public function index(Request $request)
     {
-
+        return  response()->json([
+            'permissions' => Permission::select(['id', 'name', 'menu_id', 'description', 'updated_by', 'updated_at'])->paginate(
+                perPage: $request->input('per_page', 10),
+                page: $request->input('page', 1),
+            )
+        ]);
     }
 
     /**

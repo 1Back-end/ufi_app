@@ -10,8 +10,8 @@ return new class extends Migration {
         Schema::create('status_familiales', function (Blueprint $table) {
             $table->id();
             $table->string('description_statusfam');
-            $table->foreignId('create_by_statusfam')->references('id')->on('users')->restrictOnDelete();
-            $table->foreignId('update_by_statusfam')->references('id')->on('users')->restrictOnDelete();
+            $table->foreignId('create_by')->references('id')->on('users')->restrictOnDelete();
+            $table->foreignId('update_by')->references('id')->on('users')->restrictOnDelete();
             $table->timestamps();
         });
     }

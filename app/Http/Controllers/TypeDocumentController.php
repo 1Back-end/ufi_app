@@ -6,10 +6,17 @@ namespace App\Http\Controllers;
 use App\Http\Requests\TypeDocumentRequest;
 use App\Models\TypeDocument;
 use App\Models\User;
+use Illuminate\Http\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
 
 class TypeDocumentController extends Controller
 {
+    /**
+     * @return JsonResponse
+     *
+     * @permission TypeDocumentController::index
+     * @permission_desc Liste des types de document
+     */
     public function index()
     {
         return response()->json([
@@ -17,14 +24,18 @@ class TypeDocumentController extends Controller
         ]);
     }
 
+    /**
+     * @param TypeDocumentRequest $request
+     * @return JsonResponse
+     *
+     * @permission TypeDocumentController::store
+     * @permission_desc Créer un type de document
+     */
     public function store(TypeDocumentRequest $request)
     {
-        $auth = User::first();
-//        $auth = auth()->user();
+
         TypeDocument::create([
             'description_typedoc' => $request->description_typedoc,
-            'create_by_typedoc' => $auth->id,
-            'update_by_typedoc' => $auth->id
         ]);
 
         return response()->json([
@@ -32,18 +43,30 @@ class TypeDocumentController extends Controller
         ], Response::HTTP_CREATED);
     }
 
+    /**
+     * @param TypeDocumentRequest $request
+     * @param TypeDocument $type_document
+     * @return JsonResponse
+     *
+     * @permission TypeDocumentController::update
+     * @permission_desc Mise à jour d’un type de document
+     */
     public function update(TypeDocumentRequest $request, TypeDocument $type_document)
     {
-        $auth = User::first();
-        $data = array_merge($request->all(), ['update_by_typedoc' => $auth->id]);
-
-        $type_document->update($data);
+        $type_document->update($request->all());
 
         return response()->json([
             'message' => 'Type document updated successfully'
         ], Response::HTTP_ACCEPTED);
     }
 
+    /**
+     * @param TypeDocument $type_document
+     * @return JsonResponse
+     *
+     * @permission TypeDocumentController::destroy
+     * @permission_desc Supprimer un type de document
+     */
     public function destroy(TypeDocument $type_document)
     {
         if ($type_document->clients()->count() > 0) {

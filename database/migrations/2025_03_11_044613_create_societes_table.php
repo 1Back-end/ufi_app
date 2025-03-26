@@ -17,6 +17,7 @@ return new class extends Migration {
             $table->foreignId('create_by')->references('id')->on('users')->restrictOnDelete();
             $table->foreignId('updated_by')->references('id')->on('users')->restrictOnDelete();
             $table->timestamps();
+            $table->softDeletes();
             $table->unique('nom_soc_cli');
         });
     }

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Trait\UpdatingUser;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -10,22 +11,22 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class StatusFamiliale extends Model
 {
-    use HasFactory;
+    use HasFactory, UpdatingUser;
 
     protected $fillable = [
         'description_statusfam',
-        'create_by_statusfam',
-        'update_by_statusfam',
+        'create_by',
+        'update_by',
     ];
 
     public function createByStatusfam(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'create_by_statusfam');
+        return $this->belongsTo(User::class, 'create_by');
     }
 
     public function updateByStatusfam(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'update_by_statusfam');
+        return $this->belongsTo(User::class, 'update_by');
     }
 
     public function clients(): HasMany

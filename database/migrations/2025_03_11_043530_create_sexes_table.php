@@ -10,8 +10,8 @@ return new class extends Migration {
         Schema::create('sexes', function (Blueprint $table) {
             $table->id();
             $table->string('description_sex');
-            $table->foreignId('create_by_sex')->references('id')->on('users')->restrictOnDelete();
-            $table->foreignId('update_by_sex')->references('id')->on('users')->restrictOnDelete();
+            $table->foreignId('create_by')->references('id')->on('users')->restrictOnDelete();
+            $table->foreignId('update_by')->references('id')->on('users')->restrictOnDelete();
             $table->timestamps();
         });
     }

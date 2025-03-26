@@ -5,10 +5,17 @@ namespace App\Http\Controllers;
 use App\Http\Requests\PrefixeRequest;
 use App\Models\Prefix;
 use App\Models\User;
+use Illuminate\Http\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
 
-class PrefixeController extends Controller
+class PrefixController extends Controller
 {
+    /**
+     * @return JsonResponse
+     *
+     * @permission PrefixController::index
+     * @permission_desc Afficher la liste des préfixes
+     */
     public function index()
     {
         return response()->json([
@@ -16,49 +23,62 @@ class PrefixeController extends Controller
         ]);
     }
 
+    /**
+     * @param PrefixeRequest $request
+     * @return JsonResponse
+     *
+     * @permission PrefixController::store
+     * @permission_desc Enrégistrer un préfixe
+     */
     public function store(PrefixeRequest $request)
     {
-        $auth = User::first();
-//        $auth = auth()->user();
         Prefix::create([
             'prefixe' => $request->prefixe,
             'position' => $request->position,
             'age_min' => $request->age_min,
             'age_max' => $request->age_max,
-            'create_by' => $auth->id,
-            'update_by' => $auth->id
         ]);
 
         return response()->json([
-            'message' => 'Prefixe created successfully'
+            'message' => 'Préfixe created successfully'
         ], Response::HTTP_CREATED);
     }
 
+    /**
+     * @param PrefixeRequest $request
+     * @param Prefix $prefix
+     * @return JsonResponse
+     *
+     * @permission PrefixController::update
+     * @permission_desc Mise à jour d’un préfixe
+     */
     public function update(PrefixeRequest $request, Prefix $prefix)
     {
-        $auth = User::first();
-//        $auth = auth()->user();
-
-        $data = array_merge($request->all(), ['update_by' => $auth->id]);
-
-        $prefix->update($data);
+        $prefix->update($request->all());
 
         return response()->json([
-            'message' => 'Prefixe updated successfully'
+            'message' => 'Préfixe updated successfully'
         ], Response::HTTP_ACCEPTED);
     }
 
+    /**
+     * @param Prefix $prefix
+     * @return JsonResponse
+     *
+     * @permission PrefixController::destroy
+     * @permission_desc Supprimer un préfixe
+     */
     public function destroy(Prefix $prefix)
     {
         if ($prefix->clients()->count() > 0) {
             return response()->json([
-                'message' => 'Prefixe ne peutêtre supprimé car il est utilisé par un client'
+                'message' => 'Préfixe ne peut-être supprimé car il est utilisé par un client'
             ], Response::HTTP_CONFLICT);
         }
 
         $prefix->delete();
         return response()->json([
-            'message' => 'Prefixe deleted successfully'
+            'message' => 'Préfixe deleted successfully'
         ], Response::HTTP_ACCEPTED);
     }
 }

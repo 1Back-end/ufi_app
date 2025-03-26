@@ -6,10 +6,17 @@ use App\Http\Requests\StatusFamilialeRequest;
 use App\Models\Sexe;
 use App\Models\StatusFamiliale;
 use App\Models\User;
+use Illuminate\Http\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
 
 class StatusFamilialeController extends Controller
 {
+    /**
+     * @return JsonResponse
+     *
+     * @permission StatusFamilialeController::index
+     * @permission_desc Afficher la liste des status familiaux
+     */
     public function index()
     {
         return \response()->json([
@@ -18,6 +25,13 @@ class StatusFamilialeController extends Controller
         ]);
     }
 
+    /**
+     * @param StatusFamilialeRequest $request
+     * @return JsonResponse
+     *
+     * @permission StatusFamilialeController::store
+     * @permission_desc Enregistrer un status familial
+     */
     public function store(StatusFamilialeRequest $request)
     {
         $auth = User::first();
@@ -37,6 +51,14 @@ class StatusFamilialeController extends Controller
         ], Response::HTTP_CREATED);
     }
 
+    /**
+     * @param StatusFamilialeRequest $request
+     * @param StatusFamiliale $status_familiale
+     * @return JsonResponse
+     *
+     * @permission StatusFamilialeController::update
+     * @permission_desc Mise à jour d’un statut familial
+     */
     public function update(StatusFamilialeRequest $request, StatusFamiliale $status_familiale)
     {
 //        $auth = auth()->user();
@@ -54,6 +76,13 @@ class StatusFamilialeController extends Controller
         ], Response::HTTP_ACCEPTED);
     }
 
+    /**
+     * @param StatusFamiliale $status_familiale
+     * @return JsonResponse
+     *
+     * @permission StatusFamilialeController::destroy
+     * @permission_desc Suppression d'un statut familial
+     */
     public function destroy(StatusFamiliale $status_familiale)
     {
         if ($status_familiale->clients()->count() > 0) {
