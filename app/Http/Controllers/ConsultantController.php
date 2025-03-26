@@ -22,16 +22,22 @@ class ConsultantController extends Controller
      */
     public function index()
     {
-        $consultants = Consultant::with('codeSpecialite:id,nom_specialite')->paginate(10);
+        $consultants = Consultant::where('is_deleted', false) // Add the condition for is_deleted
+        ->with('codeSpecialite:id,nom_specialite', 'codeTitre:id,nom_titre')
+            ->paginate(10);
+
         return response()->json($consultants);
     }
 
     public function updateStatus(Request $request, $id, $status)
         {
             $consultant = Consultant::find($id);
-
             if (!$consultant) {
                 return response()->json(['message' => 'Consultant non trouvé'], 404);
+            }
+            // Check if the consultant is deleted
+            if ($consultant->is_deleted) {
+                return response()->json(['message' => 'Impossible de mettre à jour un consultant supprimé'], 400);
             }
 
             if (!in_array($status, ['Actif', 'Inactif', 'Archivé'])) {
@@ -80,6 +86,8 @@ class ConsultantController extends Controller
         if($request->has('nomcomplet_consult')){
             $query->where('nomcomplet_consult', 'like', '%' . $request->input('nomcomplet_consult') . '%');
         }
+
+        $query->where('is_deleted', false);
 
         // Exécuter la requête et retourner les résultats
         $consultants = $query->get();
@@ -294,7 +302,8 @@ class ConsultantController extends Controller
             return response()->json(['message' => 'Consultant non trouvé'], 404);
         }
 
-        $consultant->delete();
+        $consultant->is_deleted = true;
+        $consultant->save();
         return response()->json(['message' => 'Consultant supprimé'], 200);
         //
     }

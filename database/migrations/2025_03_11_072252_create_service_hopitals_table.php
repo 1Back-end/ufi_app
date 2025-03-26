@@ -12,6 +12,7 @@ return new class extends Migration {
             $table->string('nom_service_hopi');
             $table->foreignId('create_by_service_hopi')->nullable()->default(null)->references('id')->on('users')->onDelete('cascade');
             $table->foreignId('update_by_service_hopi')->nullable()->default(null)->references('id')->on('users')->onDelete('cascade');
+            $table->boolean('is_deleted')->default(false); // Add the is_deleted column
             $table->timestamps();
         });
     }

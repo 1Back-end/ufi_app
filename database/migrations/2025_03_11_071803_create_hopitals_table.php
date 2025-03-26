@@ -14,6 +14,7 @@ return new class extends Migration {
             $table->string('addresse_hopi');
             $table->foreignId('create_by_hopi')->nullable()->default(null)->references('id')->on('users')->onDelete('restrict');
             $table->foreignId('update_by_hopi')->nullable()->default(null)->references('id')->on('users')->onDelete('restrict');
+            $table->boolean('is_deleted')->default(false); // Add the is_deleted column
             $table->timestamps();
         });
     }

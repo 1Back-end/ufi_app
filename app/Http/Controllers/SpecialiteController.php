@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Specialite;
 use App\Models\User;
+use App\Models\Consultant;
 use function Pest\Laravel\json;
 
 class SpecialiteController extends Controller
@@ -14,7 +15,9 @@ class SpecialiteController extends Controller
      */
     public function index()
     {
-        $specialites = Specialite::select('id','nom_specialite')->get();
+        $specialites = Specialite::select('id','nom_specialite')
+            ->where('is_deleted', false)
+            ->get();
         return response()->json($specialites);
         //
     }
@@ -27,7 +30,7 @@ class SpecialiteController extends Controller
         //
     }
     public function get_all(){
-        $specialite = Specialite::paginate(10);
+        $specialite = Specialite::paginate(5);
         return response()->json($specialite);
     }
 
@@ -134,14 +137,25 @@ class SpecialiteController extends Controller
      */
     public function destroy(string $id)
     {
+        // Find the Specialite by its ID
         $specialite = Specialite::find($id);
+
         if (!$specialite) {
-            return response()->json(['message' => 'Spécialité non trouvé'], 404);
+            return response()->json(['message' => 'Spécialité non trouvée'], 404);
         }
-        $specialite->delete();
-        return  response()->json([
+        // Check if the specialité is associated with any consultants
+        $consultantCount = Consultant::where('code_specialite', $specialite->id)->count();
+
+        if ($consultantCount > 0) {
+            return response()->json(['message' => 'La spécialité ne peut pas être supprimée car elle est associée à des consultants'], 400);
+        }
+        // Soft delete by setting is_deleted to true
+        $specialite->is_deleted = true;
+        $specialite->save();
+
+        return response()->json([
             'message' => 'Spécialité supprimée avec succès'
         ]);
-        //
     }
+
 }

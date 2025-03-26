@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Consultant;
 use App\Models\User;
 use Illuminate\Http\Request;
 use App\Models\Titre;
@@ -13,7 +14,8 @@ class TitreController extends Controller
      */
     public function index()
     {
-        $titres = Titre::select('id','nom_titre')->get();
+        $titres = Titre::select('id','nom_titre')
+            ->where('is_deleted',false)->get();
         return response()->json($titres);
         //
     }
@@ -21,14 +23,7 @@ class TitreController extends Controller
     /**
      * Show the form for creating a new resource.
      */
-    public function create()
-    {
-        //
-    }
 
-    /**
-     * Store a newly created resource in storage.
-     */
     public function store(Request $request)
     {
         try {
@@ -55,7 +50,6 @@ class TitreController extends Controller
             if (count($missingFields) > 0) {
                 return response()->json(['message' => 'Tous les champs sont requis !'], 400);
             }
-
             // Récupère un utilisateur par défaut
             $authUser = User::first();
             if (!$authUser) {
@@ -145,7 +139,7 @@ class TitreController extends Controller
      */
     public function show(string $id)
     {
-        $titre = Titre::find($id);
+        $titre = Titre::where('id',$id)->where('is_deleted',false)->first();
         if(!$titre){
             return response()->json(['message','Titre introuvable'],404);
         }
@@ -153,7 +147,7 @@ class TitreController extends Controller
         //
     }
     public function get_all(){
-        $titres = Titre::paginate(5);
+        $titres = Titre::where('is_deleted',false)->paginate(5);
         return response()->json($titres);
     }
 
@@ -179,7 +173,12 @@ class TitreController extends Controller
         if(!$titre){
             return response()->json(['message','Titre introuvable'],404);
         }
-        $titre->delete();
+        $consultantCount = Consultant::where('code_titre', $titre->id)->count();
+        if ($consultantCount > 0) {
+            return  response()->json(['message'=>'Le titre ne peut pas être supprimée car il est associée à des consultants'],400);
+        }
+        $titre->is_deleted=true;
+        $titre->save();
         return response()->json(['message' => 'Titre supprimé avec succès'], 200);
         //
     }
