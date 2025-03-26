@@ -16,9 +16,12 @@ use App\Http\Controllers\TitreController;
 use App\Http\Controllers\SpecialiteController;
 use App\Http\Controllers\UserController;
 
-Route::get('/user', function (Request $request) {
+require __DIR__.'/auth.php';
+require __DIR__.'/authorization.php';
+
+Route::middleware(['auth:sanctum'])->get('/user', function (Request $request) {
     return $request->user();
-})->middleware('auth:sanctum');
+});
 
 Route::get('/countries', [CountryController::class, 'index']);
 
@@ -32,6 +35,7 @@ Route::controller(ClientController::class)->prefix('clients')->group(function ()
     Route::delete('/{client}', 'destroy');
     Route::patch('/{client}/status', 'updateStatus');
     Route::get('/export/clients', 'export');
+    Route::post('/search-duplicates', 'searchDuplicates');
     Route::get('/print-fidelity-card', 'printFidelityCard');
 });
 
@@ -50,7 +54,7 @@ Route::controller(ConsultantController::class)->prefix('consultants')->group(fun
     Route::put('update_status/{id}/status/{status}', 'updateStatus');
     Route::get('/search', 'search');
     Route::get('/export/consultants', 'export');
-    Route::get('/searchandexport',  'searchAndExport');
+    Route::get('/searchandexport', 'searchAndExport');
 
     // routes/api.php
 });
@@ -74,7 +78,7 @@ Route::controller(ServiceHopitalController::class)->prefix('services_hopitals')-
 });
 Route::controller(TitreController::class)->prefix('titres')->group(function () {
     Route::get('/list', 'index');
-    Route::post('/create','store');
+    Route::post('/create', 'store');
     Route::get('/get_all_titres', 'get_all');
     Route::get('/get_by_id/{id}', 'show');
     Route::put('/edit/{id}', 'update');
@@ -82,7 +86,7 @@ Route::controller(TitreController::class)->prefix('titres')->group(function () {
 });
 Route::controller(SpecialiteController::class)->prefix('specialites')->group(function () {
     Route::get('/list', 'index');
-    Route::post('/create','store');
+    Route::post('/create', 'store');
     Route::get('/get_all_specialites', 'get_all');
     Route::get('/get_by_id/{id}', 'show');
     Route::put('/edit/{id}', 'update');

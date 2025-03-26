@@ -20,7 +20,7 @@ class ClientRequest extends FormRequest
     {
         return [
             'site_id' => ['required', 'exists:centres,id'],
-            'societe_id' => ['required', 'exists:societes,id'],
+            'societe_id' => ['nullable', 'exists:societes,id'],
             'prefix_id' => ['required', 'exists:prefixes,id'],
             'status_familiale_id' => ['required', 'exists:status_familiales,id'],
             'type_document_id' => ['required', 'exists:type_documents,id'],

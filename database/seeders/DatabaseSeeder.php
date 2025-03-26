@@ -23,32 +23,25 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         User::factory()->create([
-            'nom_utilisateur' => 'Test User',
-            'email' => 'test@example.com',
+            'nom_utilisateur' => 'SYSTEM',
+            'login' => 'SYSTEM',
+            'email' => 'system@system.sytem',
+            'password' => \Hash::make('SYSTEM@2025'),
+            'password_expiated_at' => now()->addDay(),
         ]);
-        // User::factory(10)->create();
 
-        // User::factory()->create([
-        //     'name' => 'Test User',
-        //     'email' => 'test@example.com',
-        // ]);
         $this->call([
-//            UsersTableSeeder::class,
-                // UserCentreTableSeeder::class,
             CentresTableSeeder::class,
             HopitalsTableSeeder::class,
             SpecialitesTableSeeder::class,
             TitresTableSeeder::class,
             ServiceHopitalsTableSeeder::class,
-        ]);
 
-        $this->call([
             SexesSeeder::class,
             PrefixSeeder::class,
             StatusFamilialeSeeder::class,
             TypeDocumentSeeder::class,
-            SocieteSeeder::class,
-            ClientSeeder::class
+            CountriesTableSeeder::class,
         ]);
     }
 

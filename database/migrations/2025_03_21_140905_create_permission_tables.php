@@ -31,7 +31,9 @@ return new class extends Migration
             $table->string('libelle')->unique();
             $table->string('path')->unique();
             $table->string('parent')->nullable();
-            $table->softDeletes();
+
+            $table->boolean('active')->default(true);
+            $table->timestamps();
 
         });
 
@@ -39,15 +41,15 @@ return new class extends Migration
             // $table->engine('InnoDB');
             $table->bigIncrements('id'); // permission id
 
-            $table->foreignId('menu_id')->references('id')->on('menus')->restrictOnDelete();
+            $table->foreignId('menu_id')->nullable()->references('id')->on('menus')->restrictOnDelete();
             $table->foreignId('created_by')->references('id')->on('users')->restrictOnDelete();
             $table->foreignId('updated_by')->references('id')->on('users')->restrictOnDelete();
 
             $table->string('name');       // For MyISAM use string('name', 225); // (or 166 for InnoDB with Redundant/Compact row format)
             $table->string('guard_name'); // For MyISAM use string('guard_name', 25);
             $table->string('description');
+            $table->boolean('active')->default(true);
             $table->timestamps();
-            $table->softDeletes();
 
             $table->unique(['name', 'guard_name']);
         });
@@ -67,8 +69,8 @@ return new class extends Migration
             $table->string('guard_name'); // For MyISAM use string('guard_name', 25);
             $table->string('description');
             $table->string('accueil_url')->nullable();
+            $table->boolean('active')->default(true);
             $table->timestamps();
-            $table->softDeletes();
 
 
             if ($teams || config('permission.testing')) {
@@ -85,13 +87,15 @@ return new class extends Migration
             $table->unsignedBigInteger($columnNames['model_morph_key']);
             $table->index([$columnNames['model_morph_key'], 'model_type'], 'model_has_permissions_model_id_model_type_index');
 
+            $table->boolean('active')->default(true);
             $table->foreign($pivotPermission)
                 ->references('id') // permission id
                 ->on($tableNames['permissions'])
                 ->onDelete('cascade');
 
             $table->foreignId('created_by')->references('id')->on('users')->restrictOnDelete();
-            $table->softDeletes();
+            $table->foreignId('updated_by')->references('id')->on('users')->restrictOnDelete();
+            $table->timestamps();
 
             if ($teams) {
                 $table->unsignedBigInteger($columnNames['team_foreign_key']);
@@ -112,14 +116,15 @@ return new class extends Migration
             $table->string('model_type');
             $table->unsignedBigInteger($columnNames['model_morph_key']);
             $table->index([$columnNames['model_morph_key'], 'model_type'], 'model_has_roles_model_id_model_type_index');
-
+            $table->boolean('active')->default(true);
             $table->foreign($pivotRole)
                 ->references('id') // role id
                 ->on($tableNames['roles'])
                 ->onDelete('cascade');
 
             $table->foreignId('created_by')->references('id')->on('users')->restrictOnDelete();
-            $table->softDeletes();
+            $table->foreignId('updated_by')->references('id')->on('users')->restrictOnDelete();
+            $table->timestamps();
 
             if ($teams) {
                 $table->unsignedBigInteger($columnNames['team_foreign_key']);
@@ -141,6 +146,7 @@ return new class extends Migration
                 ->references('id') // permission id
                 ->on($tableNames['permissions'])
                 ->onDelete('cascade');
+            $table->boolean('active')->default(true);
 
             $table->foreign($pivotRole)
                 ->references('id') // role id
@@ -148,7 +154,8 @@ return new class extends Migration
                 ->onDelete('cascade');
 
             $table->foreignId('created_by')->references('id')->on('users')->restrictOnDelete();
-            $table->softDeletes();
+            $table->foreignId('updated_by')->references('id')->on('users')->restrictOnDelete();
+            $table->timestamps();
 
             $table->primary([$pivotPermission, $pivotRole], 'role_has_permissions_permission_id_role_id_primary');
         });
