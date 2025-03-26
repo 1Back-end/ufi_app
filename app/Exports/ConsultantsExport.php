@@ -26,7 +26,9 @@ class ConsultantsExport implements FromCollection, WithHeadings
             'TelWhatsApp',
             'created_at',
             'updated_at'
-        )->get();
+        )
+            ->where('is_deleted', false) // Ensure only non-deleted consultants are returned
+            ->get();
     }
 
     public function headings(): array

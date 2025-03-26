@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Consultant;
 use Illuminate\Http\Request;
 use App\Models\Hopital;
 use App\Models\User;
@@ -9,20 +10,23 @@ use App\Models\User;
 class HopitalController extends Controller
 {
     public function index(){
-        $hopital = Hopital::select('id','nom_hopi')->get();
+        $hopital = Hopital::select('id','nom_hopi')
+            ->where('is_deleted', false)  // Filter out deleted hospitals
+            ->get();
         return response()->json($hopital);
     }
     public function get_all()
     {
         // Récupérer les hôpitaux avec pagination de 10 éléments par page
-        $hopis = Hopital::paginate(10);
-
+        $hopis = Hopital::where('is_deleted', false)->paginate(5);
         // Retourner les résultats paginés sous forme de réponse JSON
         return response()->json($hopis);
     }
 
     public function show($id){
-        $hopis = Hopital::find($id);
+        $hopis = Hopital::where('id', $id)
+            ->where('is_deleted', false)  // Filter out deleted hospitals
+            ->first();
         if($hopis){
             return response()->json($hopis);
         }
@@ -131,16 +135,24 @@ class HopitalController extends Controller
         ], 200);
     }
 
-    public  function destroy (string $id)
+    public function destroy(string $id)
     {
         $hopi = Hopital::find($id);
         if (!$hopi) {
             return response()->json(['message' => 'Hôpital non trouvé.'], 404);
         }
-        $hopi->delete();
-        return response()->json(['message' => 'Hôpital supprimé'], 200);
 
+        // Vérification si des consultants sont associés à cet hôpital
+        $consultantCount = Consultant::where('code_hopi', $hopi->id)->count();
+        if ($consultantCount > 0) {
+            return response()->json(['message' => 'L\'hôpital ne peut pas être supprimé car il est associé à des consultants'], 400);
+        }
+        // Si tout va bien, suppression logique
+        $hopi->is_deleted = true;
+        $hopi->save();
+        return response()->json(['message' => 'Titre supprimé avec succès'], 200);
     }
+
 
 
 
