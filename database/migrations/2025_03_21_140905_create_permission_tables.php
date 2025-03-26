@@ -28,7 +28,7 @@ return new class extends Migration {
             $table->foreignId('created_by')->references('id')->on('users')->restrictOnDelete();
             $table->foreignId('updated_by')->references('id')->on('users')->restrictOnDelete();
             $table->string('libelle')->unique();
-            $table->string('path')->unique();
+            $table->string('path')->unique()->nullable();
             $table->string('parent')->nullable();
 
             $table->boolean('active')->default(true);
