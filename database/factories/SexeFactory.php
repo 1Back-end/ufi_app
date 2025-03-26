@@ -17,8 +17,8 @@ class SexeFactory extends Factory
             'description_sex' => $this->faker->text(),
             'created_at' => Carbon::now(),
             'updated_at' => Carbon::now(),
-            'create_by_sex' => User::first(),
-            'update_by_sex' => User::first(),
+            'create_by' => User::first(),
+            'update_by' => User::first(),
         ];
     }
 }

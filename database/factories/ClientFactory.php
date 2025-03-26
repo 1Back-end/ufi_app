@@ -50,8 +50,8 @@ class ClientFactory extends Factory
             'status_familiale_id' => StatusFamiliale::first(),
             'type_document_id' => TypeDocument::first(),
             'sexe_id' => Sexe::first(),
-            'create_by_cli' => User::first(),
-            'update_by_cli' => User::first(),
+            'create_by' => User::first(),
+            'update_by' => User::first(),
         ];
     }
 }
