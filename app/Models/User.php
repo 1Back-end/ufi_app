@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 use Spatie\Permission\Contracts\Permission;
 use Spatie\Permission\Events\RoleAttached;
@@ -17,7 +18,7 @@ use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable
 {
-    use HasFactory, HasRoles, SoftDeletes, HasApiTokens;
+    use HasFactory, HasRoles, SoftDeletes, HasApiTokens, Notifiable;
 
     protected $fillable = [
         'created_by', 'updated_by', 'login', 'email', 'password', 'nom_utilisateur', 'prenom', 'status',

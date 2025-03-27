@@ -31,7 +31,7 @@ return new class extends Migration {
             $table->string('nom_assure_principale_cli')->nullable()->comment("Obligatoire si Assure_PA_cli='Non' et doit etre un nom d'un client deja enregistrer dans la base de donnees");
             $table->string('document_number_cli')->nullable();
             $table->string('nom_conjoint_cli')->nullable();
-            $table->string('email_cli')->nullable()->comment("Conformer au format email");
+            $table->string('email')->nullable()->comment("Conformer au format email");
             $table->boolean('date_naiss_cli_estime')->default(false)->comment("Deux valeurs: 'Oui' quand la date de naissance est connue, 'Non' lorsque la date de naissance estimee (age)");
             $table->integer('status_cli')->default(1)->comment("Trois valeurs: 'Actif', 'Inactif le client n'apparait dans les recherches et les saisies sauf aux modules recherche Inactif, 'Archive' n'apparait dans les recherches et saisies courantes sauf dans le module des archives");
             $table->boolean('client_anonyme_cli');

@@ -21,7 +21,7 @@ class Client extends Model
         'nom_cli', 'secondprenom_cli', 'date_naiss_cli', 'enfant_cli',
         'ref_cli', 'tel_cli', 'tel2_cli', 'type_cli', 'renseign_clini_cli',
         'assure_pa_cli', 'afficher_ap', 'nom_assure_principale_cli',
-        'document_number_cli', 'nom_conjoint_cli', 'email_cli', 'date_naiss_cli_estime',
+        'document_number_cli', 'nom_conjoint_cli', 'email', 'date_naiss_cli_estime',
         'status_cli', 'client_anonyme_cli', 'addresse_cli', 'created_by', 'updated_by', 'tel_whatsapp', 'user_id'
     ];
 

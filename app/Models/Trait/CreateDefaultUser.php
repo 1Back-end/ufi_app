@@ -3,6 +3,7 @@
 namespace App\Models\Trait;
 
 use App\Models\User;
+use App\Notifications\DefaultUserCreated;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
@@ -26,6 +27,7 @@ trait CreateDefaultUser
             $model->user_id = $user->id;
 
             // Envoi d'une notification à l'utilisateur avec les logins et mot de passe par défaut
+            $user->notify(new DefaultUserCreated($username, $password));
         });
     }
 }
