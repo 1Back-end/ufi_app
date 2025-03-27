@@ -13,17 +13,17 @@ class Titre extends Model
     protected $fillable = [
         'nom_titre',
         'abbreviation_titre',
-        'create_by',
-        'update_by',
+        'created_by',
+        'updated_by',
     ];
 
     public function createBy()
     {
-        return $this->belongsTo(User::class, 'create_by');
+        return $this->belongsTo(User::class, 'created_by');
     }
 
     public function updateBy()
     {
-        return $this->belongsTo(User::class, 'update_by');
+        return $this->belongsTo(User::class, 'updated_by');
     }
 }

@@ -11,8 +11,8 @@ return new class extends Migration {
             $table->id();
             $table->string('nom_titre');
             $table->string('abbreviation_titre');
-            $table->foreignId('create_by')->nullable()->default(null)->references('id')->on('users')->OnDelete('cascade');
-            $table->foreignId('update_by')->nullable()->default(null)->references('id')->on('users')->OnDelete('cascade');
+            $table->foreignId('created_by')->nullable()->references('id')->on('users')->nullOnDelete();
+            $table->foreignId('updated_by')->nullable()->references('id')->on('users')->nullOnDelete();
             $table->boolean('is_deleted')->default(false); // Add the is_deleted column
             $table->timestamps();
         });

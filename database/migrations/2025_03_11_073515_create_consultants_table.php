@@ -23,8 +23,8 @@ return new class extends Migration {
             $table->string('email_consul');
             $table->string('type_consult');
             $table->string('status_consult')->default('Actif');
-            $table->foreignId('create_by_consult')->nullable()->default(null)->references('id')->on('users');
-            $table->foreignId('update_by_consult')->nullable()->default(null)->references('id')->on('users');
+            $table->foreignId('created_by')->nullable()->references('id')->on('users')->nullOnDelete();
+            $table->foreignId('updated_by')->nullable()->references('id')->on('users')->nullOnDelete();
             $table->string('TelWhatsApp')->nullable()->default('Non');
             $table->boolean('is_deleted')->default(false); // Add the is_deleted column
             $table->timestamps();

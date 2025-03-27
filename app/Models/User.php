@@ -21,7 +21,7 @@ class User extends Authenticatable
 
     protected $fillable = [
         'created_by', 'updated_by', 'login', 'email', 'password', 'nom_utilisateur', 'prenom', 'status',
-        'connexion_counter', 'password_expiated_at', 'connected',
+        'connexion_counter', 'password_expiated_at', 'connected', 'default'
     ];
 
     protected $hidden = [

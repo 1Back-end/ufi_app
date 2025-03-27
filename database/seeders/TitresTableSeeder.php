@@ -21,22 +21,22 @@ class TitresTableSeeder extends Seeder
             Titre::create([
                 'nom_titre' => 'Docteur',
                 'abbreviation_titre' => 'Dr',
-                'create_by' => $user->id,
-                'update_by' => $user->id,
+                'created_by' => $user->id,
+                'updated_by' => $user->id,
             ]);
 
             Titre::create([
                 'nom_titre' => 'Professeur',
                 'abbreviation_titre' => 'Pr',
-                'create_by' => $user->id,
-                'update_by' => $user->id,
+                'created_by' => $user->id,
+                'updated_by' => $user->id,
             ]);
 
             Titre::create([
                 'nom_titre' => 'Ingénieur',
                 'abbreviation_titre' => 'Ing',
-                'create_by' => $user->id,
-                'update_by' => $user->id,
+                'created_by' => $user->id,
+                'updated_by' => $user->id,
             ]);
         } else {
             echo "Aucun utilisateur trouvé dans la base de données.";

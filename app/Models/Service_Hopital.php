@@ -12,17 +12,17 @@ class Service_Hopital extends Model
 
     protected $fillable = [
         'nom_service_hopi',
-        'create_by_service_hopi',
-        'update_by_service_hopi',
+        'created_by',
+        'updated_by',
     ];
 
     public function createByServiceHopi()
     {
-        return $this->belongsTo(User::class, 'create_by_service_hopi');
+        return $this->belongsTo(User::class, 'created_by');
     }
 
     public function updateByServiceHopi()
     {
-        return $this->belongsTo(User::class, 'update_by_service_hopi');
+        return $this->belongsTo(User::class, 'updated_by');
     }
 }

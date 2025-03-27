@@ -36,9 +36,9 @@ return new class extends Migration {
             $table->integer('status_cli')->default(1)->comment("Trois valeurs: 'Actif', 'Inactif le client n'apparait dans les recherches et les saisies sauf aux modules recherche Inactif, 'Archive' n'apparait dans les recherches et saisies courantes sauf dans le module des archives");
             $table->boolean('client_anonyme_cli');
             $table->string('addresse_cli')->nullable();
-            $table->unsignedBigInteger('create_by');
-            $table->unsignedBigInteger('update_by')->nullable();
             $table->boolean('tel_whatsapp')->default(true);
+            $table->foreignId('created_by')->nullable()->references('id')->on('users')->nullOnDelete();
+            $table->foreignId('updated_by')->nullable()->references('id')->on('users')->nullOnDelete();
             $table->timestamps();
             $table->softDeletes();
 
@@ -49,8 +49,6 @@ return new class extends Migration {
             $table->foreign('status_familiale_id')->references('id')->on('status_familiales');
             $table->foreign('type_document_id')->references('id')->on('type_documents');
             $table->foreign('sexe_id')->references('id')->on('sexes');
-            $table->foreign('create_by')->references('id')->on('users');
-            $table->foreign('update_by')->references('id')->on('users');
         });
     }
 

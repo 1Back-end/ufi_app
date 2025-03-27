@@ -18,18 +18,18 @@ class Prefix extends Model
         'prefixe',
         'position',
         'age_max', 'age_min',
-        'create_by',
-        'update_by',
+        'created_by',
+        'updated_by',
     ];
 
     public function createBy(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'create_by');
+        return $this->belongsTo(User::class, 'created_by');
     }
 
     public function updateBy(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'update_by');
+        return $this->belongsTo(User::class, 'updated_by');
     }
 
     public function clients(): HasMany

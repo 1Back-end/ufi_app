@@ -15,18 +15,18 @@ class StatusFamiliale extends Model
 
     protected $fillable = [
         'description_statusfam',
-        'create_by',
-        'update_by',
+        'created_by',
+        'updated_by',
     ];
 
     public function createByStatusfam(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'create_by');
+        return $this->belongsTo(User::class, 'created_by');
     }
 
     public function updateByStatusfam(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'update_by');
+        return $this->belongsTo(User::class, 'updated_by');
     }
 
     public function clients(): HasMany

@@ -13,17 +13,17 @@ class Hopital extends Model
         'nom_hopi',
         'Abbreviation_hopi',
         'addresse_hopi',
-        'create_by_hopi',
-        'update_by_hopi',
+        'created_by',
+        'updated_by',
     ];
 
     public function createByHopi()
     {
-        return $this->belongsTo(User::class, 'create_by_hopi');
+        return $this->belongsTo(User::class, 'created_by');
     }
 
     public function updateByHopi()
     {
-        return $this->belongsTo(User::class, 'update_by_hopi');
+        return $this->belongsTo(User::class, 'updated_by');
     }
 }

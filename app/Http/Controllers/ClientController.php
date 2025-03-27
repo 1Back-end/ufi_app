@@ -18,6 +18,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rules\Enum;
 use Maatwebsite\Excel\Facades\Excel;
@@ -79,6 +80,7 @@ class ClientController extends Controller
      *
      * @permission ClientController::store
      * @permission_desc Créer un client
+     * @throws \Throwable
      */
     public function store(ClientRequest $request)
     {
@@ -91,9 +93,19 @@ class ClientController extends Controller
 
         unset($dataValidated['age']);
 
-        $client = Client::create($dataValidated);
+        DB::beginTransaction();
+        try {
+            $client = Client::create($dataValidated);
 
-        $refcli = now()->year . now()->month . $client->id . $dataValidated['site_id']; // Todo: C'est quoi le code du site
+            $refcli = now()->year . now()->month . $client->id . $dataValidated['site_id']; // Todo: C'est quoi le code du site
+        }
+        catch (Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'message' => 'Une erreur est survenue lors de la création du client',
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+        DB::commit();
 
         // Update the client with the new reference
         $client->update(['ref_cli' => $refcli]);

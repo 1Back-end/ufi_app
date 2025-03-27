@@ -21,20 +21,20 @@ class ServiceHopitalsTableSeeder extends Seeder
             // Ajouter des services hospitaliers avec des relations create_by_service_hopi et update_by_service_hopi
             Service_Hopital::create([
                 'nom_service_hopi' => 'Cardiologie',
-                'create_by_service_hopi' => $user->id,
-                'update_by_service_hopi' => $user->id,
+                'created_by' => $user->id,
+                'updated_by' => $user->id,
             ]);
 
             Service_Hopital::create([
                 'nom_service_hopi' => 'Pédiatrie',
-                'create_by_service_hopi' => $user->id,
-                'update_by_service_hopi' => $user->id,
+                'created_by' => $user->id,
+                'updated_by' => $user->id,
             ]);
 
             Service_Hopital::create([
                 'nom_service_hopi' => 'Chirurgie Générale',
-                'create_by_service_hopi' => $user->id,
-                'update_by_service_hopi' => $user->id,
+                'created_by' => $user->id,
+                'updated_by' => $user->id,
             ]);
         } else {
             echo "Aucun utilisateur trouvé dans la base de données.";

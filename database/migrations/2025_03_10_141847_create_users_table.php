@@ -12,14 +12,15 @@ return new class extends Migration {
             $table->foreignId('created_by')->nullable()->references('id')->on('users')->nullOnDelete();
             $table->foreignId('updated_by')->nullable()->references('id')->on('users')->nullOnDelete();
             $table->string('login')->unique();
-            $table->string('email')->unique();
+            $table->string('email')->nullable()->unique();
             $table->string('password');
             $table->string('nom_utilisateur');
             $table->string('prenom')->nullable();
             $table->integer('status')->default(1);
             $table->integer('connexion_counter')->default(0);
-            $table->date('password_expiated_at');
+            $table->date('password_expiated_at')->nullable();
             $table->boolean('connected')->default(false);
+            $table->boolean('default')->default(false)->comment("Indique si l'utilisateur a déjà changer son mot de passe par défaut !");
             $table->timestamps();
             $table->softDeletes();
         });

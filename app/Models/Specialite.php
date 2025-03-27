@@ -11,17 +11,17 @@ class Specialite extends Model
 
     protected $fillable = [
         'nom_specialite',
-        'create_by_specialite',
-        'update_by_specialite',
+        'created_by',
+        'updated_by',
     ];
 
     public function createBySpecialite()
     {
-        return $this->belongsTo(User::class, 'create_by_specialite');
+        return $this->belongsTo(User::class, 'created_by');
     }
 
     public function updateBySpecialite()
     {
-        return $this->belongsTo(User::class, 'update_by_specialite');
+        return $this->belongsTo(User::class, 'updated_by');
     }
 }
