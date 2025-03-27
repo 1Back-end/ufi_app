@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\CentreController;
 use App\Http\Controllers\ClientController;
 use App\Http\Controllers\CountryController;
 use App\Http\Controllers\PrefixController;
@@ -20,6 +21,10 @@ require __DIR__.'/auth.php';
 require __DIR__.'/authorization.php';
 
 Route::middleware(['auth:sanctum', 'check.permission'])->group(function () {
+    // Gestion des centres
+    Route::apiResource('centres', CentreController::class);
+
+
     Route::get('/countries', [CountryController::class, 'index']);
 
     Route::controller(ClientController::class)->prefix('clients')->group(function () {
