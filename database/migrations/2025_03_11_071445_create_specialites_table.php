@@ -10,8 +10,8 @@ return new class extends Migration {
         Schema::create('specialites', function (Blueprint $table) {
             $table->id();
             $table->string('nom_specialite');
-            $table->foreignId('create_by_specialite')->nullable()->default(null)->references('id')->on('users')->Ondelete('restrict');
-            $table->foreignId('update_by_specialite')->nullable()->default(null)->references('id')->on('users')->Ondelete('restrict');
+            $table->foreignId('created_by')->nullable()->references('id')->on('users')->nullOnDelete();
+            $table->foreignId('updated_by')->nullable()->references('id')->on('users')->nullOnDelete();
             $table->boolean('is_deleted')->default(false); // Add the is_deleted column
             $table->timestamps();
         });

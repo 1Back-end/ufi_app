@@ -3,7 +3,7 @@
 use App\Http\Controllers\Authorization\PermissionController;
 use App\Http\Controllers\Authorization\RoleController;
 
-Route::middleware(['auth:sanctum', 'check.permission'])->group(function () {
+Route::middleware(['auth:sanctum', 'user.change_password', 'check.permission'])->group(function () {
     Route::controller(RoleController::class)->prefix('roles')->group(function () {
         Route::get('/', 'index');
         Route::post('/', 'store');

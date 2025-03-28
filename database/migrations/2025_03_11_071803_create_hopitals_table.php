@@ -12,8 +12,8 @@ return new class extends Migration {
             $table->string('nom_hopi');
             $table->string('Abbreviation_hopi');
             $table->string('addresse_hopi');
-            $table->foreignId('create_by_hopi')->nullable()->default(null)->references('id')->on('users')->onDelete('restrict');
-            $table->foreignId('update_by_hopi')->nullable()->default(null)->references('id')->on('users')->onDelete('restrict');
+            $table->foreignId('created_by')->nullable()->references('id')->on('users')->nullOnDelete();
+            $table->foreignId('updated_by')->nullable()->references('id')->on('users')->nullOnDelete();
             $table->boolean('is_deleted')->default(false); // Add the is_deleted column
             $table->timestamps();
         });

@@ -27,10 +27,14 @@ class AuthenticatedSessionController extends Controller
             expiresAt: now()->addMinutes(config('sanctum.expiration'))
         );
 
+        $user = \auth()->user();
+
         return \response()->json([
             'access_token' => $access->plainTextToken,
             'expire_in' => $access->accessToken->expires_at,
+            'new_user' => $user->default,
             'permissions' => $permissions,
+            'centres' => $user->centres()->select(['centres.id', 'centres.name', 'centres.reference'])->get()
         ]);
     }
 

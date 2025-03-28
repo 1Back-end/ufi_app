@@ -35,7 +35,11 @@ class ClientRequest extends FormRequest
                 'before_or_equal:' . now()->format('Y-m-d'),
                 'after_or_equal:1900-01-01',
             ],
-            'tel_cli' => ['required'],
+            'date_naiss_cli_estime' => [
+                'boolean',
+            ],
+            'age' => ['nullable', 'required_if:date_naiss_cli_estime,true', 'integer', 'min:0', 'max:120'],
+            'tel_cli' => ['required', 'unique:clients,tel_cli'],
             'tel2_cli' => ['nullable'],
             'type_cli' => ['required', new Enum(TypeClient::class)],
             'renseign_clini_cli' => ['nullable'],
@@ -44,24 +48,8 @@ class ClientRequest extends FormRequest
             'nom_assure_principale_cli' => ['required_if:assure_pa_cli,false', 'nullable', 'exists:clients,nomcomplet_client'],
             'document_number_cli' => ['nullable'],
             'nom_conjoint_cli' => ['nullable'],
-            'email_cli' => ['nullable', 'email'],
-            'date_naiss_cli_estime' => [
-                'boolean',
-//                function ($attribute, $value, $fail) {
-//                    $hasBirthdate = !empty($this->input('date_naiss_cli'));
-//                    $hasEstimatedAge = !empty($age);
-//
-//                    if ($hasBirthdate && $value !== true) {
-//                        $fail("L'option '$attribute' doit être 'Oui' lorsque la date de naissance est connue.");
-//                    }
-//
-//                    if ($hasEstimatedAge && $value !== false) {
-//                        $fail("L'option '$attribute' doit être 'Non' lorsque seule l'âge est estimé.");
-//                    }
-//                },
-            ],
-            'age' => ['nullable', 'required_if:date_naiss_cli_estime,true', 'integer', 'min:0', 'max:120'],
-//            'status_cli' => ['boolean', new Enum(StatusClient::class)],
+            'prenom_conjoint_cli' => ['nullable'],
+            'email' => ['nullable', 'email', 'unique:clients,email'],
             'client_anonyme_cli' => ['boolean'],
             'addresse_cli' => ['nullable'],
             'tel_whatsapp' => ['boolean'],

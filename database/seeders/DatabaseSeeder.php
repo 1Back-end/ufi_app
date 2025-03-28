@@ -31,7 +31,9 @@ class DatabaseSeeder extends Seeder
         ]);*/
 
         $this->call([
-            CentresTableSeeder::class,
+            InitBDForAllDataSeeder::class,
+
+//            CentresTableSeeder::class,
             HopitalsTableSeeder::class,
             SpecialitesTableSeeder::class,
             TitresTableSeeder::class,

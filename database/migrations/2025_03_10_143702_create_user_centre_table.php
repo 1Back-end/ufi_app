@@ -10,9 +10,9 @@ return new class extends Migration {
         Schema::create('user_centre', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('user_id');
-            $table->foreign('user_id')->references('id')->on('users');
+            $table->foreign('user_id')->references('id')->on('users')->restrictOnDelete();
             $table->unsignedBigInteger('centre_id');
-            $table->foreign('centre_id')->references('id')->on('centres');
+            $table->foreign('centre_id')->references('id')->on('centres')->restrictOnDelete();
         });
     }
 

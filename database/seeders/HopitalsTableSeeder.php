@@ -22,24 +22,24 @@ class HopitalsTableSeeder extends Seeder
                 'nom_hopi' => 'Hôpital Central Yaoundé',
                 'Abbreviation_hopi' => 'HCY',
                 'addresse_hopi' => 'Yaoundé, Centre-ville, Cameroon',
-                'create_by_hopi' => $user->id,
-                'update_by_hopi' => $user->id,
+                'created_by' => $user->id,
+                'updated_by' => $user->id,
             ]);
 
             Hopital::create([
                 'nom_hopi' => 'Hôpital de District Douala',
                 'Abbreviation_hopi' => 'HDD',
                 'addresse_hopi' => 'Douala, Littoral, Cameroon',
-                'create_by_hopi' => $user->id,
-                'update_by_hopi' => $user->id,
+                'created_by' => $user->id,
+                'updated_by' => $user->id,
             ]);
 
             Hopital::create([
                 'nom_hopi' => 'Hôpital Général Bafoussam',
                 'Abbreviation_hopi' => 'HGB',
                 'addresse_hopi' => 'Bafoussam, Ouest, Cameroon',
-                'create_by_hopi' => $user->id,
-                'update_by_hopi' => $user->id,
+                'created_by' => $user->id,
+                'updated_by' => $user->id,
             ]);
         } else {
             echo "Aucun utilisateur trouvé dans la base de données.";

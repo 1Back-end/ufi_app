@@ -14,8 +14,8 @@ return new class extends Migration {
             $table->integer('age_max')->nullable()->comment("Valeur max du préfixe.");
             $table->integer('age_min')->nullable()->comment("Valeur min du préfixe.");
 
-            $table->foreignId('create_by')->references('id')->on('users')->restrictOnDelete();;
-            $table->foreignId('update_by')->references('id')->on('users')->restrictOnDelete();
+            $table->foreignId('created_by')->nullable()->references('id')->on('users')->nullOnDelete();
+            $table->foreignId('updated_by')->nullable()->references('id')->on('users')->nullOnDelete();
             $table->timestamps();
         });
     }

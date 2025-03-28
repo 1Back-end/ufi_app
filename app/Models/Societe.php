@@ -19,13 +19,13 @@ class Societe extends Model
         'Adress_soc_cli',
         'num_contrib_soc_cli',
         'email_soc_cli',
-        'create_by',
+        'created_by',
         'updated_by',
     ];
 
     public function createBy(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'create_by');
+        return $this->belongsTo(User::class, 'created_by');
     }
 
     public function updatedBy(): BelongsTo

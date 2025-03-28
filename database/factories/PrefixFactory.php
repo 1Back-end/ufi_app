@@ -18,8 +18,8 @@ class PrefixFactory extends Factory
             'created_at' => Carbon::now(),
             'updated_at' => Carbon::now(),
 
-            'create_by' => User::first(),
-            'update_by' => User::first(),
+            'created_by' => User::first(),
+            'updated_by' => User::first(),
         ];
     }
 }

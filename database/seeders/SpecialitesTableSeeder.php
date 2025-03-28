@@ -19,20 +19,20 @@ class SpecialitesTableSeeder extends Seeder
         if ($user) {
             Specialite::create([
                 'nom_specialite' => 'Cardiologie',
-                'create_by_specialite' => $user->id,
-                'update_by_specialite' => $user->id,
+                'created_by' => $user->id,
+                'updated_by' => $user->id,
             ]);
 
             Specialite::create([
                 'nom_specialite' => 'Pédiatrie',
-                'create_by_specialite' => $user->id,
-                'update_by_specialite' => $user->id,
+                'created_by' => $user->id,
+                'updated_by' => $user->id,
             ]);
 
             Specialite::create([
                 'nom_specialite' => 'Orthopédie',
-                'create_by_specialite' => $user->id,
-                'update_by_specialite' => $user->id,
+                'created_by' => $user->id,
+                'updated_by' => $user->id,
             ]);
         } else {
             echo "Aucun utilisateur trouvé dans la base de données.";

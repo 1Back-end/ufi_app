@@ -2,16 +2,18 @@
 
 namespace App\Models;
 
+use App\Models\Trait\CreateDefaultUser;
 use App\Models\Trait\UpdatingUser;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
 
 class Client extends Model
 {
-    use HasFactory, SoftDeletes, UpdatingUser;
+    use HasFactory, SoftDeletes, UpdatingUser, CreateDefaultUser;
 
     protected $fillable = [
         'societe_id', 'prefix_id', 'status_familiale_id',
@@ -19,8 +21,8 @@ class Client extends Model
         'nom_cli', 'secondprenom_cli', 'date_naiss_cli', 'enfant_cli',
         'ref_cli', 'tel_cli', 'tel2_cli', 'type_cli', 'renseign_clini_cli',
         'assure_pa_cli', 'afficher_ap', 'nom_assure_principale_cli',
-        'document_number_cli', 'nom_conjoint_cli', 'email_cli', 'date_naiss_cli_estime',
-        'status_cli', 'client_anonyme_cli', 'addresse_cli', 'create_by', 'update_by', 'tel_whatsapp',
+        'document_number_cli', 'nom_conjoint_cli', 'email', 'date_naiss_cli_estime',
+        'status_cli', 'client_anonyme_cli', 'addresse_cli', 'created_by', 'updated_by', 'tel_whatsapp', 'user_id'
     ];
 
     protected $appends = ['age'];
@@ -47,6 +49,11 @@ class Client extends Model
         return Attribute::make(
             get: fn() => Carbon::parse($this->date_naiss_cli)->age ,
         );
+    }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'user_id');
     }
 
     public function societe()
@@ -76,12 +83,12 @@ class Client extends Model
 
     public function createByCli()
     {
-        return $this->belongsTo(User::class, 'create_by');
+        return $this->belongsTo(User::class, 'created_by');
     }
 
     public function updateByCli()
     {
-        return $this->belongsTo(User::class, 'update_by');
+        return $this->belongsTo(User::class, 'updated_by');
     }
 
     protected function casts()

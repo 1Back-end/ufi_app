@@ -24,8 +24,8 @@ class Consultant extends Model
         'email_consul',
         'type_consult',
         'status_consult',
-        'create_by_consult',
-        'update_by_consult',
+        'created_by',
+        'updated_by',
         'TelWhatsApp',
     ];
 
@@ -56,11 +56,11 @@ class Consultant extends Model
 
     public function createByConsult()
     {
-        return $this->belongsTo(User::class, 'create_by_consult');
+        return $this->belongsTo(User::class, 'created_by');
     }
 
     public function updateByConsult()
     {
-        return $this->belongsTo(User::class, 'update_by_consult');
+        return $this->belongsTo(User::class, 'updated_by');
     }
 }

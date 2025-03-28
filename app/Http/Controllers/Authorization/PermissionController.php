@@ -9,6 +9,7 @@ use App\Models\Role;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\Response;
 
 class PermissionController extends Controller
 {
@@ -66,7 +67,13 @@ class PermissionController extends Controller
      */
     public function update(PermissionRequest $request, Permission $permission)
     {
-        $permission->update($request->validated());
+        $data = $permission->system ? $request->except('name') : $request->validated();
+
+        $permission->update($data);
+
+        return response()->json([
+            'message' => __("Permission mis à jour avec succès !")
+        ], Response::HTTP_ACCEPTED);
     }
 
     /**
