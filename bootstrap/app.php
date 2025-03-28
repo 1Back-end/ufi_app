@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\EnsureEmailIsVerified;
+use App\Http\Middleware\UserPasswordChangeMiddleware;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -30,6 +31,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->alias([
             'check.permission' => \App\Http\Middleware\CheckPermission::class,
+            'user.change_password' => UserPasswordChangeMiddleware::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

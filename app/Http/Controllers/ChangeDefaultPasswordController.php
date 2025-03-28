@@ -12,18 +12,29 @@ class ChangeDefaultPasswordController extends Controller
     public function __invoke(Request $request)
     {
         $request->validate([
-            'login' => ['required', 'exists:users,login'],
-            'password' => ['required'],
+            'login' => ['required'],
             'new_password' => ['required']
         ]);
 
-        $user = User::whereLogin($request->get('login'))->first();
+        $user = auth()->user();
 
-        if (Hash::check($request->new_password, $user->password)) {
-            return response()->json(['message' => 'Le nouveau mot de passe doit différer du mot de passe actuel.'], Response::HTTP_CONFLICT);
+        if (User::whereNot('id', $user->id)->whereLogin($request->login)->exists()) {
+            return \response()->json([
+                'message' => __("Ce login est déjà existant"),
+            ], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
-        $user->update(['password' => Hash::make($request->new_password)]);
+        if (Hash::check($request->new_password, $user->password) || $user->login === $request->login) {
+            return response()->json([
+                'message' => 'Le nouveau mot de passe et le login doivent être différent de ceux existants.'
+            ], Response::HTTP_CONFLICT);
+        }
+
+        $user->update([
+            'password' => Hash::make($request->new_password),
+            'default' => false,
+            'login' => $request->login
+        ]);
 
         return response()->json(['message' => 'Le mot de passe a été changé avec succès !']);
     }

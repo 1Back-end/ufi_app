@@ -1,26 +1,28 @@
 <?php
 
+use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\CentreController;
 use App\Http\Controllers\ClientController;
+use App\Http\Controllers\ConsultantController;
 use App\Http\Controllers\CountryController;
+use App\Http\Controllers\HopitalController;
 use App\Http\Controllers\PrefixController;
+use App\Http\Controllers\ServiceHopitalController;
 use App\Http\Controllers\SexeController;
 use App\Http\Controllers\SocieteController;
-use App\Http\Controllers\StatusFamilialeController;
-use App\Http\Controllers\TypeDocumentController;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\ConsultantController;
-use App\Http\Controllers\HopitalController;
-use App\Http\Controllers\ServiceHopitalController;
-use App\Http\Controllers\TitreController;
 use App\Http\Controllers\SpecialiteController;
-use App\Http\Controllers\UserController;
+use App\Http\Controllers\StatusFamilialeController;
+use App\Http\Controllers\TitreController;
+use App\Http\Controllers\TypeDocumentController;
+use Illuminate\Support\Facades\Route;
 
 require __DIR__.'/auth.php';
 require __DIR__.'/authorization.php';
+require __DIR__.'/admin.php';
 
-Route::middleware(['auth:sanctum', 'check.permission'])->group(function () {
+Route::middleware(['auth:sanctum', 'user.change_password', 'check.permission'])->group(function () {
+
+
     // Gestion des centres
     Route::controller(CentreController::class)->prefix('centres')->group(function () {
         Route::get('/', 'index');
@@ -28,7 +30,6 @@ Route::middleware(['auth:sanctum', 'check.permission'])->group(function () {
         Route::post('/{centre}', 'update');
         Route::delete('/{centre}', 'destroy');
     });
-
 
     Route::get('/countries', [CountryController::class, 'index']);
 
@@ -98,8 +99,5 @@ Route::middleware(['auth:sanctum', 'check.permission'])->group(function () {
         Route::get('/get_by_id/{id}', 'show');
         Route::put('/edit/{id}', 'update');
         Route::delete('/delete/{id}', 'destroy');
-    });
-    Route::controller(UserController::class)->prefix('users')->group(function () {
-        Route::get('/list', 'index');
     });
 });

@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\Menu;
 use App\Models\Permission;
+use App\Models\Role;
 use App\Models\User;
 use Illuminate\Console\Command;
 use ReflectionClass;
@@ -41,12 +42,19 @@ class ExtractPermissions extends Command
                     continue;
                 }
 
-                Permission::create([
+                $permission = Permission::create([
                     'name' => $perm['permission'],
                     'description' => $perm['permission_desc'],
                     'created_by' => $userSYSTEM->id,
                     'updated_by' => $userSYSTEM->id
                 ]);
+
+                if ($role = Role::whereName('Super Admin')->first()) {
+                    $role->users()->syncWithPivotValues($role->users, [
+                        'created_by' => $userSYSTEM->id,
+                        'updated_by' => $userSYSTEM->id
+                    ], false);
+                }
 
                 $this->info("-----Permission created for this method: $method");
             }

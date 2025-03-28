@@ -76,7 +76,7 @@ class CentreController extends Controller
             if ($request->hasFile('logo')) {
                 delete_media(
                     disk: 'public',
-                    path: 'logo/centre' .'/'. $request->file('logo')->getClientOriginalName(),
+                    path: 'logo/centre' . '/' . $request->file('logo')->getClientOriginalName(),
                 );
             }
 
@@ -132,8 +132,7 @@ class CentreController extends Controller
                     update: $centre->medias()->where('name', 'logo')->first()
                 );
             }
-        }
-        catch (\Exception $e) {
+        } catch (\Exception $e) {
             DB::rollBack();
 
             Log::error('Error create Centre:  ' . $e->getMessage());
@@ -161,11 +160,11 @@ class CentreController extends Controller
         $centre->medias->each(function (Media $media) {
             delete_media(
                 $media->disk,
-                $media->path .'/'. $media->filename,
+                $media->path . '/' . $media->filename,
                 $media
             );
         });
-        
+
         $centre->delete();
 
         return \response()->json([
