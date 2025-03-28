@@ -102,7 +102,9 @@ class CentreController extends Controller
      */
     public function show(Centre $centre): JsonResponse
     {
-
+        return response()->json([
+            'centre' => $centre->load(['createdBy:id,nom_utilisateur', 'updatedBy:id,nom_utilisateur']),
+        ]);
     }
 
     /**
