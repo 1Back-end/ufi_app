@@ -31,6 +31,7 @@ class AuthenticatedSessionController extends Controller
             'access_token' => $access->plainTextToken,
             'expire_in' => $access->accessToken->expires_at,
             'permissions' => $permissions,
+            'user' => $request->user() // Include user details
         ]);
     }
 

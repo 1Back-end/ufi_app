@@ -22,13 +22,13 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        /*User::factory()->create([
-            'nom_utilisateur' => 'SYSTEM',
-            'login' => 'SYSTEM',
-            'email' => 'system@system.sytem',
-            'password' => \Hash::make('SYSTEM@2025'),
-            'password_expiated_at' => now()->addDay(),
-        ]);*/
+//        /*User::factory()->create([
+//            'nom_utilisateur' => 'SYSTEM',
+//            'login' => 'SYSTEM',
+//            'email' => 'system@system.sytem',
+//            'password' => \Hash::make('SYSTEM@2025'),
+//            'password_expiated_at' => now()->addDay(),
+//        ]);*/
 
         $this->call([
             CentresTableSeeder::class,

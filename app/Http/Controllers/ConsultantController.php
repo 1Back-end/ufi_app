@@ -307,4 +307,15 @@ class ConsultantController extends Controller
         return response()->json(['message' => 'Consultant supprimé'], 200);
         //
     }
+    public function show($id)
+    {
+        $consultant = Consultant::find($id);
+        if ($consultant) {
+            return response()->json(['data' => $consultant], 200);
+        }
+        return response()->json(['message' => 'Consultant non trouvé'], 404);
+    }
+
+
+
 }
