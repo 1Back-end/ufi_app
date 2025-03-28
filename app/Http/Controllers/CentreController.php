@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\CentreRequest;
 use App\Models\Centre;
+use App\Models\Media;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -63,7 +64,8 @@ class CentreController extends Controller
                     file: $request->file('logo'),
                     name: 'logo',
                     disk: 'public',
-                    path: 'logo/centre'
+                    path: 'logo/centre',
+                    filename: "$ref-logo-" . now()->timestamp
                 );
             }
 
@@ -95,8 +97,8 @@ class CentreController extends Controller
      * @param Centre $centre
      * @return JsonResponse
      *
-     * @permission CentreController::index
-     * @permission_desc Afficher tous les centres
+     * @permission CentreController::show
+     * @permission_desc Afficher un centre
      */
     public function show(Centre $centre): JsonResponse
     {
@@ -107,16 +109,67 @@ class CentreController extends Controller
      * @param CentreRequest $request
      * @param Centre $centre
      * @return JsonResponse
+     * @throws \Throwable
+     *
+     * @permission CentreController::update
+     * @permission_desc MIse à jour d’un centre
      */
     public function update(CentreRequest $request, Centre $centre): JsonResponse
     {
+        DB::beginTransaction();
+        try {
+            $centre->update($request->validated());
+
+            // Save Logo
+            if ($request->hasFile('logo')) {
+                upload_media(
+                    model: $centre,
+                    file: $request->file('logo'),
+                    name: 'logo',
+                    disk: 'public',
+                    path: 'logo/centre',
+                    filename: "{$centre->reference}-logo-" . now()->timestamp,
+                    update: $centre->medias()->where('name', 'logo')->first()
+                );
+            }
+        }
+        catch (\Exception $e) {
+            DB::rollBack();
+
+            Log::error('Error create Centre:  ' . $e->getMessage());
+
+            return response()->json([
+                'message' => __('Une erreur est survenue lors de la création d\'un centre !')
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+        DB::commit();
+
+        return \response()->json([
+            'message' => __("Mise à jour effectuée avec succès !")
+        ], Response::HTTP_ACCEPTED);
     }
 
     /**
      * @param Centre $centre
      * @return JsonResponse
+     *
+     * @permission CentreController::destroy
+     * @permission_desc Suppression d’un centre
      */
     public function destroy(Centre $centre): JsonResponse
     {
+        $centre->medias->each(function (Media $media) {
+            delete_media(
+                $media->disk,
+                $media->path .'/'. $media->filename,
+                $media
+            );
+        });
+        
+        $centre->delete();
+
+        return \response()->json([
+            'message' => __("Centre supprimé avec succès !")
+        ], Response::HTTP_ACCEPTED);
     }
 }

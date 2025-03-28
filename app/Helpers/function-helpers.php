@@ -13,13 +13,23 @@ if (! function_exists('upload_media')) {
      * @param string $name
      * @param string $disk
      * @param string $path
+     * @param string|null $filename
+     * @param Media|null $update
      * @return void
      */
-    function upload_media(Model $model, UploadedFile $file, string $name, string $disk, string $path): void
+    function upload_media(Model $model, UploadedFile $file, string $name, string $disk, string $path, string $filename = null, Media $update = null): void
     {
-        $fileName = $file->getClientOriginalName();
         $mimetype = $file->getClientMimeType();
         $extension = $file->getClientOriginalExtension();
+        $fileName = $filename ? $filename .'.'. $extension : $file->getClientOriginalName();
+
+        if ($update) {
+            delete_media(
+                $disk,
+                $update->path .'/'. $update->filename,
+                $update
+            );
+        }
 
         $file->storeAs(
             path: $path,
@@ -28,6 +38,7 @@ if (! function_exists('upload_media')) {
                 'disk' => $disk
             ]
         );
+
 
         $model->medias()->create([
             'name' => $name,

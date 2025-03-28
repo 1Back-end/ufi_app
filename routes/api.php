@@ -22,7 +22,12 @@ require __DIR__.'/authorization.php';
 
 Route::middleware(['auth:sanctum', 'check.permission'])->group(function () {
     // Gestion des centres
-    Route::apiResource('centres', CentreController::class);
+    Route::controller(CentreController::class)->prefix('centres')->group(function () {
+        Route::get('/', 'index');
+        Route::post('/', 'store');
+        Route::post('/{centre}', 'update');
+        Route::delete('/{centre}', 'destroy');
+    });
 
 
     Route::get('/countries', [CountryController::class, 'index']);
