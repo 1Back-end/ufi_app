@@ -12,7 +12,6 @@ class Permission extends \Spatie\Permission\Models\Permission
 {
     use UpdatingUser;
 
-    public $wheres = ['active' => true];
 
     public function roles(): BelongsToMany
     {

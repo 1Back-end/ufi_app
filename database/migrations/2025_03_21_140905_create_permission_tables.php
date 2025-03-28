@@ -48,6 +48,7 @@ return new class extends Migration {
             $table->string('guard_name'); // For MyISAM use string('guard_name', 25);
             $table->string('description');
             $table->boolean('active')->default(true);
+            $table->boolean('system')->default(false);
             $table->timestamps();
 
             $table->unique(['name', 'guard_name']);

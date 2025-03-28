@@ -45,6 +45,7 @@ class ExtractPermissions extends Command
                 $permission = Permission::create([
                     'name' => $perm['permission'],
                     'description' => $perm['permission_desc'],
+                    'system' => true,
                     'created_by' => $userSYSTEM->id,
                     'updated_by' => $userSYSTEM->id
                 ]);

@@ -40,7 +40,7 @@ class ClientController extends Controller
         $prefixes = Prefix::select(['prefixe', 'id', 'position', 'age_max', 'age_min'])->with(['sexes:id,description_sex'])->get()->toArray();
         $statusFamiliales = StatusFamiliale::select(['description_statusfam', 'id'])->with(['sexes:id,description_sex'])->get()->toArray();
         $sexes = Sexe::select(['description_sex', 'id'])->with(['prefixes:id,prefixe,position', 'status_families:id,description_statusfam'])->get()->toArray();
-        $centres = Centre::select('nom_centre', 'id')->get()->toArray();
+        $centres = Centre::select('name', 'id')->get()->toArray();
 
         // Return the data as a JSON response
         return response()->json([
@@ -98,8 +98,7 @@ class ClientController extends Controller
             $client = Client::create($dataValidated);
 
             $refcli = now()->year . now()->month . $client->id . $dataValidated['site_id']; // Todo: C'est quoi le code du site
-        }
-        catch (Exception $e) {
+        } catch (Exception $e) {
             DB::rollBack();
             return response()->json([
                 'message' => 'Une erreur est survenue lors de la création du client',
