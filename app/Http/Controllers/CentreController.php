@@ -31,6 +31,7 @@ class CentreController extends Controller
                     $builder->has('client');
                 }
             ])
+            ->latest()
             ->paginate(
                 perPage: $request->input('per_page'),
                 page: $request->input('page')
@@ -121,6 +122,16 @@ class CentreController extends Controller
         DB::beginTransaction();
         try {
             $centre->update($request->validated());
+
+            // Delete logo if request->logo_delete ist true
+            if ($request->input('logo_delete')) {
+                $media = $centre->medias()->where('name', 'logo')->first();
+                delete_media(
+                    disk: $media->disk,
+                    path: $media->path,
+                    media: $media,
+                );
+            }
 
             // Save Logo
             if ($request->hasFile('logo')) {

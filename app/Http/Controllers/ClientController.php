@@ -91,6 +91,8 @@ class ClientController extends Controller
             ? now()->subYears($dataValidated['age'])->year . '-01-01'
             : $dataValidated['date_naiss_cli'];
 
+        $dataValidated['site_id'] = 1;
+
         unset($dataValidated['age']);
 
         DB::beginTransaction();
