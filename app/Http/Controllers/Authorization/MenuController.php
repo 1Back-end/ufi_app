@@ -1,7 +1,8 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Authorization;
 
+use App\Http\Controllers\Controller;
 use App\Http\Requests\Authorization\MenuRequest;
 use App\Models\Menu;
 use App\Models\Permission;
@@ -20,10 +21,10 @@ class MenuController extends Controller
     public function index(Request $request)
     {
         return response()->json([
-           'menus' => Menu::with(['permissions:id,name,description'])->paginate(
-               perPage: $request->input('perPage', 10),
-               page: $request->input('page', 1)
-           )
+            'menus' => Menu::with(['permissions:id,name,description', 'createdBy:id,nom_utilisateur', 'updatedBy:id,nom_utilisateur',])->paginate(
+                perPage: $request->input('perPage', 10),
+                page: $request->input('page', 1)
+            )
         ]);
     }
 
@@ -35,13 +36,10 @@ class MenuController extends Controller
      */
     public function store(MenuRequest $request)
     {
-        $menu = Menu::create($request->except('permission_ids'));
+        $menu = Menu::create($request->except('permission'));
 
-        if ($request->input('permission_ids')) {
-            Permission::findMany($request->input('permission_ids'))->each(function ($permission) use ($menu) {
-                $permission->update(['menu_id' => $menu->id]);
-            });
-        }
+        Permission::find($request->input('permission'))
+            ->update(['menu_id' => $menu->id]);
 
         return response()->json([
             'message' => __("Menu crée avec success !")
@@ -93,7 +91,7 @@ class MenuController extends Controller
         $menu->update(['active' => $activate]);
 
         return response()->json([
-            'message' => __("Le Menu a été " .  $activate ? 'activé' : 'désactivé' . " avec succès !")
+            'message' => __("Le Menu a été " . $activate ? 'activé' : 'désactivé' . " avec succès !")
         ], Response::HTTP_ACCEPTED);
     }
 }

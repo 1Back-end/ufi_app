@@ -12,6 +12,8 @@ class Menu extends Model
 {
     use UpdatingUser;
 
+    protected $table = "menus";
+
     protected $fillable = [
         'created_by',
         'updated_by',

@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Authorization;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rules\Unique;
 
 class PermissionRequest extends FormRequest
@@ -11,13 +12,18 @@ class PermissionRequest extends FormRequest
     {
         if ($this->isMethod('PUT')) {
             $uniqueName = (new Unique('permissions', 'name'))->ignore($this->route('permission'));
-        }
-        else {
+            if ($this->route('permission')->system) {
+                $nameRequired = '';
+            } else {
+                $nameRequired = 'required';
+            }
+        } else {
             $uniqueName = 'unique:permissions,name';
+            $nameRequired = 'required';
         }
 
         return [
-            'name' => ['required', $uniqueName],
+            'name' => [$nameRequired, $uniqueName],
             'description' => ['required'],
         ];
     }

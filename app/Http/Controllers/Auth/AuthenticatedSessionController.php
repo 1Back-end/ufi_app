@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
+use App\Models\Centre;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -18,8 +19,11 @@ class AuthenticatedSessionController extends Controller
     public function store(LoginRequest $request)
     {
         $request->authenticate();
+        $user = $request->user();
 
-        $permissions = $request->user()->getAllPermissions()->pluck('name')->toArray();
+        $permissions = $user->centres_count <= 1
+            ? $user->getAllPermissions()->pluck('name')->toArray()
+            : [];
 
         $access = $request->user()->createToken(
             name: config('app.name'),
@@ -35,6 +39,23 @@ class AuthenticatedSessionController extends Controller
             'new_user' => $user->default,
             'permissions' => $permissions,
             'centres' => $user->centres()->select(['centres.id', 'centres.name', 'centres.reference'])->get()
+        ]);
+    }
+
+    /**
+     * @param Centre $centre
+     * @return JsonResponse
+     */
+    public function getPermissionByCenter(Centre $centre)
+    {
+        $permissions = auth()->user()
+            ->permission()
+            ->wherePivot('centre_id', $centre->id)
+            ->pluck('name')
+            ->toArray();
+
+        return response()->json([
+            'permissions' => $permissions
         ]);
     }
 

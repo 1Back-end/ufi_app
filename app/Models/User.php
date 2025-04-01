@@ -85,7 +85,7 @@ class User extends Authenticatable
             config('permission.table_names.model_has_permissions'),
             config('permission.column_names.model_morph_key'),
             app(PermissionRegistrar::class)->pivotPermission
-        )->withPivot(['created_by', 'updated_by', 'active'])
+        )->withPivot(['created_by', 'updated_by', 'active', 'centre_id'])
             ->withTimestamps();
 
         if (! app(PermissionRegistrar::class)->teams) {

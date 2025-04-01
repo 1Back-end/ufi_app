@@ -11,16 +11,15 @@ class MenuRequest extends FormRequest
     {
         if ($this->isMethod('PUT')) {
             $uniqueRule = (new Unique('menus', 'libelle'))->ignore($this->route('menu'));
-        }
-        else {
-            $uniqueRule = 'unique:menu,libelle';
+        } else {
+            $uniqueRule = 'unique:menus,libelle';
         }
 
         return [
             'parent' => ['nullable'],
             'path' => ['required'],
             'libelle' => ['required', $uniqueRule],
-            'permission_ids' => ['array', 'nullable']
+            'permission' => ['required', 'exists:permissions,id'],
         ];
     }
 }

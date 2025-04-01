@@ -4,11 +4,14 @@ namespace App\Http\Controllers\Authorization;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Authorization\RoleRequest;
+use App\Models\Centre;
 use App\Models\Permission;
 use App\Models\Role;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Log;
 use Symfony\Component\HttpFoundation\Response;
 
 class RoleController extends Controller
@@ -19,15 +22,15 @@ class RoleController extends Controller
      * @permission RoleController::index
      * @permission_desc Liste de tous les roles
      */
-    public function index()
+    public function index(): JsonResponse
     {
-        return response()->json(
-            Role::with([
+        return response()->json([
+            'roles' => Role::with([
                 'createdBy:id,nom_utilisateur',
                 'updatedBy:id,nom_utilisateur',
                 'permissions:id,name',
-            ])->get()
-        );
+            ])->get(),
+        ]);
     }
 
     /**
@@ -39,7 +42,36 @@ class RoleController extends Controller
      */
     public function store(RoleRequest $request)
     {
-        Role::create($request->validated());
+        DB::beginTransaction();
+        try {
+            $role = Role::create($request->validated());
+
+            if ($request->input('permissions')) {
+                foreach ($request->input('permissions') as $permission) {
+                    if ($permission['centres']) {
+                        foreach ($permission['centres'] as $centre) {
+                            $role->permissions()->attach($permission['id'], [
+                                'created_by' => auth()->id(),
+                                'updated_by' => auth()->id(),
+                                'centre_id' => $centre['id'],
+                            ]);
+                        }
+                    } else {
+                        $role->permissions()->attach($permission['id'], [
+                            'created_by' => auth()->id(),
+                            'updated_by' => auth()->id(),
+                        ]);
+                    }
+                }
+            }
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error($e->getMessage());
+            return response()->json([
+                'message' => __("Une erreur s'est produite lors de la création du role !")
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+        DB::commit();
 
         return response()->json([
             'message' => __("Role a été crée avec succès !")
@@ -55,7 +87,9 @@ class RoleController extends Controller
      */
     public function show(Role $role)
     {
-        return response()->json($role);
+        return response()->json([
+            'role' => $role->load(['permissions:id,name']),
+        ]);
     }
 
     /**
@@ -68,10 +102,42 @@ class RoleController extends Controller
      */
     public function update(RoleRequest $request, Role $role)
     {
-        $role->updated($request->validated());
+        DB::beginTransaction();
+        try {
+            $role->update($request->validated());
+
+            if ($request->input('permissions')) {
+                $role->permissions()->detach();
+                foreach ($request->input('permissions') as $permission) {
+                    if ($permission['centres']) {
+                        foreach ($permission['centres'] as $centre) {
+                            $role->permissions()->attach($permission['id'], [
+                                'created_by' => auth()->id(),
+                                'updated_by' => auth()->id(),
+                                'centre_id' => $centre['id'],
+                            ]);
+                        }
+                    } else {
+                        $role->permissions()->attach($permission['id'], [
+                            'created_by' => auth()->id(),
+                            'updated_by' => auth()->id(),
+                        ]);
+                    }
+                }
+            }
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error($e->getMessage());
+            return response()->json([
+                'message' => __("Une erreur s'est produite lors de la création du role !")
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+        DB::commit();
 
         return \response()->json([
-            'message' => __("Mise à jour du role avec succès !")
+            'message' => __("Mise à jour du role avec succès lkoj!"),
+            'role' => $role,
+            'validated' => $request->validated()
         ]);
     }
 
@@ -90,7 +156,7 @@ class RoleController extends Controller
         ]);
 
         return \response()->json([
-            'message' => __("Le role a été " .  $activate ? 'activé' : 'désactivé' . " avec succès !"),
+            'message' => __("Le role a été " . $activate ? 'activé' : 'désactivé' . " avec succès !"),
         ]);
     }
 
@@ -135,7 +201,7 @@ class RoleController extends Controller
         ]);
 
         return \response()->json([
-            'message' => __("La permission a été " .  $activate ? 'activé' : 'désactivé' . " avec succès pour ce rôle !"),
+            'message' => __("La permission a été " . $activate ? 'activé' : 'désactivé' . " avec succès pour ce rôle !"),
         ]);
     }
 
@@ -180,7 +246,7 @@ class RoleController extends Controller
         ]);
 
         return \response()->json([
-            'message' => __("Le rôle a été " .  $activate ? 'activé' : 'désactivé' . " avec succès pour cet utilisateur !"),
+            'message' => __("Le rôle a été " . $activate ? 'activé' : 'désactivé' . " avec succès pour cet utilisateur !"),
         ]);
     }
 }
