@@ -25,21 +25,23 @@ class PermissionController extends Controller
         $page = $request->get("page");
 
         if ($perPage && $page) {
-            return response()->json([
-                'permissions' => Permission::with([
-                    'roles:id,name',
-                    'createdBy:id,nom_utilisateur',
-                    'updatedBy:id,nom_utilisateur',
-                ])->paginate(perPage: $perPage, page: $page),
-            ]);
-        }
-
-        return response()->json([
-            'permissions' => Permission::with([
+            $permissions = Permission::with([
                 'roles:id,name',
                 'createdBy:id,nom_utilisateur',
                 'updatedBy:id,nom_utilisateur',
-            ])->get(),
+                'menu:id,libelle',
+            ])->paginate(perPage: $perPage, page: $page);
+        }
+        else {
+            $permissions = Permission::with([
+                'roles:id,name',
+                'createdBy:id,nom_utilisateur',
+                'updatedBy:id,nom_utilisateur',
+            ])->get();
+        }
+
+        return response()->json([
+            'permissions' => $permissions,
         ]);
     }
 

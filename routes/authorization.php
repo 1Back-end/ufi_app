@@ -35,5 +35,6 @@ Route::middleware(['auth:sanctum', 'user.change_password', 'check.permission'])-
         Route::get('/{menu}', 'show');
         Route::put('/{menu}/activate/{activate}', 'activate');
         Route::put('/{menu}', 'update');
+        Route::post('/check-menu', 'checkMenu');
     });
 });

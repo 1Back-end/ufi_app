@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Menu extends Model
 {
@@ -32,8 +33,8 @@ class Menu extends Model
         return $this->belongsTo(User::class, 'updated_by');
     }
 
-    public function permissions(): HasMany
+    public function permission(): HasOne
     {
-        return $this->hasMany(Permission::class, 'menu_id');
+        return $this->hasOne(Permission::class, 'menu_id');
     }
 }
