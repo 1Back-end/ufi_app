@@ -61,8 +61,9 @@ Route::middleware(['auth:sanctum', 'user.change_password', 'check.permission'])-
         Route::delete('/delete/{id}', 'destroy');  // Supprimer un consultant spécifique
         Route::put('update_status/{id}/status/{status}', 'updateStatus');
         Route::get('/search', 'search');
-        Route::get('/export/consultants', 'export');
+        Route::get('/export', 'export');
         Route::get('/searchandexport', 'searchAndExport');
+        Route::get('/get_by_id/{id}','show');
 
         // routes/api.php
     });

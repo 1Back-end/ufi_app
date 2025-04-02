@@ -55,6 +55,20 @@ class ConsultantController extends Controller
         }
 
 
+    public function show(string $id)
+    {
+        $consultant = Consultant::find($id);
+
+        if (!$consultant) {
+            return response()->json([
+                'message' => 'Consultant Introuvable'
+            ], 404);
+        }
+
+        return response()->json(['data' => $consultant], 200);
+    }
+
+
 
     public function search(Request $request)
     {
@@ -239,9 +253,6 @@ class ConsultantController extends Controller
             'consultant' => $consultant
         ], 201);
     }
-
-
-
     /**
      * Update the specified resource in storage.
      */

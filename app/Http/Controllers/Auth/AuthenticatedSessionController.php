@@ -34,6 +34,7 @@ class AuthenticatedSessionController extends Controller
             'expire_in' => $access->accessToken->expires_at,
             'new_user' => $user->default,
             'permissions' => $permissions,
+            'user' => $user,
             'centres' => $user->centres()->select(['centres.id', 'centres.name', 'centres.reference'])->get()
         ]);
     }
