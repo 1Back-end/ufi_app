@@ -32,10 +32,7 @@ class CentreController extends Controller
                 }
             ])
             ->latest()
-            ->paginate(
-                perPage: $request->input('per_page'),
-                page: $request->input('page')
-            );
+            ->get();
 
         return response()->json([
             'centres' => $centres

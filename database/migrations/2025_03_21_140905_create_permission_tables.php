@@ -28,7 +28,7 @@ return new class extends Migration {
             $table->foreignId('created_by')->references('id')->on('users')->restrictOnDelete();
             $table->foreignId('updated_by')->references('id')->on('users')->restrictOnDelete();
             $table->string('libelle')->unique();
-            $table->string('path')->unique()->nullable();
+            $table->string('path')->nullable();
             $table->string('parent')->nullable();
 
             $table->boolean('active')->default(true);
@@ -88,6 +88,7 @@ return new class extends Migration {
             $table->index([$columnNames['model_morph_key'], 'model_type'], 'model_has_permissions_model_id_model_type_index');
 
             $table->boolean('active')->default(true);
+            $table->foreignId('centre_id')->nullable()->references('id')->on('centres')->nullOnDelete();
             $table->foreign($pivotPermission)
                 ->references('id') // permission id
                 ->on($tableNames['permissions'])
@@ -106,10 +107,10 @@ return new class extends Migration {
                     'model_has_permissions_permission_model_type_primary'
                 );
             } else {
-                $table->primary(
-                    [$pivotPermission, $columnNames['model_morph_key'], 'model_type'],
-                    'model_has_permissions_permission_model_type_primary'
-                );
+                // $table->primary(
+                //     [$pivotPermission, $columnNames['model_morph_key'], 'model_type'],
+                //     'model_has_permissions_permission_model_type_primary'
+                // );
             }
 
         });
@@ -125,6 +126,7 @@ return new class extends Migration {
                 ->references('id') // role id
                 ->on($tableNames['roles'])
                 ->onDelete('cascade');
+            $table->foreignId('centre_id')->nullable()->references('id')->on('centres')->nullOnDelete();
 
             $table->foreignId('created_by')->references('id')->on('users')->restrictOnDelete();
             $table->foreignId('updated_by')->references('id')->on('users')->restrictOnDelete();
@@ -139,10 +141,10 @@ return new class extends Migration {
                     'model_has_roles_role_model_type_primary'
                 );
             } else {
-                $table->primary(
-                    [$pivotRole, $columnNames['model_morph_key'], 'model_type'],
-                    'model_has_roles_role_model_type_primary'
-                );
+                // $table->primary(
+                //     [$pivotRole, $columnNames['model_morph_key'], 'model_type'],
+                //     'model_has_roles_role_model_type_primary'
+                // );
             }
         });
 
@@ -160,12 +162,13 @@ return new class extends Migration {
                 ->references('id') // role id
                 ->on($tableNames['roles'])
                 ->onDelete('cascade');
+            $table->foreignId('centre_id')->nullable()->references('id')->on('centres')->nullOnDelete();
 
             $table->foreignId('created_by')->references('id')->on('users')->restrictOnDelete();
             $table->foreignId('updated_by')->references('id')->on('users')->restrictOnDelete();
             $table->timestamps();
 
-            $table->primary([$pivotPermission, $pivotRole], 'role_has_permissions_permission_id_role_id_primary');
+            // $table->primary([$pivotPermission, $pivotRole], 'role_has_permissions_permission_id_role_id_primary');
         });
 
         app('cache')

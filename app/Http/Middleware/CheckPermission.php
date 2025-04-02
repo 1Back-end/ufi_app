@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\Centre;
 use Closure;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
@@ -18,7 +19,9 @@ class CheckPermission
 
         $requiredPermissions = $this->getMethodPermissions($controller, $method);
 
-        if (!empty($requiredPermissions) && !$this->userHasPermission($requiredPermissions)) {
+        $centreId = $request->header('centre');
+
+        if (!empty($requiredPermissions) && !$this->userHasPermission($requiredPermissions, $centreId)) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
@@ -48,29 +51,18 @@ class CheckPermission
         return array_map('trim', $matches[1] ?? []);
     }
 
-    private function userHasPermission($requiredPermissions): bool
+    private function userHasPermission($requiredPermissions, ?int $centreId = null): bool
     {
         $user = Auth::user();
         if (!$user) {
             return false;
         }
 
+        $centre = $centreId ? Centre::find($centreId) : null;
+
         // Supposons que l'utilisateur ait une méthode hasPermission($perm)
         foreach ($requiredPermissions as $permission) {
-            $hasPermission = $user->permissions()->where(function (Builder $query) use($permission) {
-                $query->where('permissions.name', $permission)
-                    ->where('permissions.active', true);
-            })->wherePivot('active', true)->exists();
-
-            $hasPermissionByRole = $user->roles()
-                ->where('roles.active', true)
-                ->whereHas('permissions', function (Builder $query) use($permission) {
-                    $query->where('permissions.name', $permission)
-                    ->where('permissions.active', true);
-            })->wherePivot('active', true)
-                ->exists();
-
-            if (! ($hasPermission || $hasPermissionByRole)) {
+            if (! in_array($permission, load_permissions($user, $centre))) {
                 return false;
             }
         }

@@ -1,7 +1,8 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Authorization;
 
+use App\Http\Controllers\Controller;
 use App\Http\Requests\Authorization\MenuRequest;
 use App\Models\Menu;
 use App\Models\Permission;
@@ -20,12 +21,13 @@ class MenuController extends Controller
     public function index(Request $request)
     {
         return response()->json([
-           'menus' => Menu::with(['permissions:id,name,description'])->paginate(
-               perPage: $request->input('perPage', 10),
-               page: $request->input('page', 1)
-           )
+            'menus' => Menu::with(['permission:id,name,description,menu_id', 'createdBy:id,nom_utilisateur', 'updatedBy:id,nom_utilisateur',])->paginate(
+                perPage: $request->input('per_page', 10),
+                page: $request->input('page', 1)
+            )
         ]);
     }
+
 
     /**
      * @return JsonResponse
@@ -35,17 +37,34 @@ class MenuController extends Controller
      */
     public function store(MenuRequest $request)
     {
-        $menu = Menu::create($request->except('permission_ids'));
+        $menu = Menu::create($request->except('permission'));
 
-        if ($request->input('permission_ids')) {
-            Permission::findMany($request->input('permission_ids'))->each(function ($permission) use ($menu) {
-                $permission->update(['menu_id' => $menu->id]);
-            });
-        }
+        Permission::find($request->input('permission'))
+            ->update(['menu_id' => $menu->id]);
 
         return response()->json([
             'message' => __("Menu crée avec success !")
         ], Response::HTTP_CREATED);
+    }
+
+    /**
+     * Verifies qu’une permission est associée au menu
+     *
+     * @permission MenuController::store
+     * @permission_desc Créer un menu et l’associé avec des permissions
+     */
+    public function checkMenu(Request $request): JsonResponse
+    {
+        $request->validate([
+            'permission' => ['required', 'exists:permissions,id'],
+            'menu_id' => ['nullable', 'exists:menus,id']
+        ]);
+
+        $permission = Permission::find($request->input('permission'));
+
+        return \response()->json([
+            'menu' => $request->input('menu_id') && $permission->menu_id === $request->input('menu_id') ? null : $permission->menu
+        ]);
     }
 
     /**
@@ -69,12 +88,14 @@ class MenuController extends Controller
      */
     public function update(MenuRequest $request, Menu $menu)
     {
-        $menu->update($request->except('permission_ids'));
+        $menu->update($request->except('permission'));
 
-        if ($request->input('permission_ids')) {
-            Permission::findMany($request->input('permission_ids'))->each(function ($permission) use ($menu) {
-                $permission->update(['menu_id' => $menu->id]);
-            });
+        if ($menu->permission) {
+            $menu->permission->update(['menu_id' => $menu->id]);
+        }
+        else {
+            Permission::find($request->input('permission'))
+                ->update(['menu_id' => $menu->id]);
         }
 
         return response()->json([
@@ -93,7 +114,7 @@ class MenuController extends Controller
         $menu->update(['active' => $activate]);
 
         return response()->json([
-            'message' => __("Le Menu a été " .  $activate ? 'activé' : 'désactivé' . " avec succès !")
+            'message' => __("Le Menu a été " . $activate ? 'activé' : 'désactivé' . " avec succès !")
         ], Response::HTTP_ACCEPTED);
     }
 }

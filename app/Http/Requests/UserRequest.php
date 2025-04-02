@@ -14,6 +14,9 @@ class UserRequest extends FormRequest
             'password' => ['required'],
             'email' => ['required', 'email', 'max:254', 'unique:users,email'],
             'login' => ['required', 'unique:users,login'],
+            'centres' => ['array', 'required'],
+            'centres.*.id' => ['required', 'exists:centres,id'],
+            'centres.*.default' => ['required', 'boolean'],
         ];
     }
 }

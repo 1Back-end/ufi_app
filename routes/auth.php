@@ -28,3 +28,5 @@ Route::post('/forgot-password', [PasswordResetLinkController::class, 'store'])
 Route::post('/reset-password', [NewPasswordController::class, 'store'])
     ->middleware('guest')
     ->name('password.store');
+
+Route::middleware(['auth:sanctum', 'user.change_password'])->get('/get-permissions-by-center/{centre}', [AuthenticatedSessionController::class, 'getPermissionByCenter']) ;
