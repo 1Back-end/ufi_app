@@ -13,6 +13,7 @@ return new class extends Migration {
             $table->foreign('user_id')->references('id')->on('users')->restrictOnDelete();
             $table->unsignedBigInteger('centre_id');
             $table->foreign('centre_id')->references('id')->on('centres')->restrictOnDelete();
+            $table->boolean('default')->default(false);
         });
     }
 

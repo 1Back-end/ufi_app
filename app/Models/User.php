@@ -36,7 +36,8 @@ class User extends Authenticatable
 
     public function centres(): BelongsToMany
     {
-        return $this->belongsToMany(Centre::class, 'user_centre');
+        return $this->belongsToMany(Centre::class, 'user_centre')
+            ->withPivot(['default']);
     }
 
     public function client(): HasOne
