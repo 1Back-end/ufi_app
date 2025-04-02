@@ -19,7 +19,7 @@ class Role extends \Spatie\Permission\Models\Role
             config('permission.table_names.role_has_permissions'),
             app(PermissionRegistrar::class)->pivotRole,
             app(PermissionRegistrar::class)->pivotPermission
-        )->withPivot(['created_by', 'updated_by', 'active'])
+        )->withPivot(['created_by', 'updated_by', 'active', 'centre_id'])
             ->withTimestamps();
     }
 

@@ -39,7 +39,8 @@ class Centre extends Model
 
     public function users(): BelongsToMany
     {
-        return $this->belongsToMany(User::class, 'user_centre');
+        return $this->belongsToMany(User::class, 'user_centre')
+            ->withPivot(['default']);
     }
 
     public function medias(): MorphMany

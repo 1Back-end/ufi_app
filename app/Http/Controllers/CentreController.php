@@ -31,10 +31,8 @@ class CentreController extends Controller
                     $builder->has('client');
                 }
             ])
-            ->paginate(
-                perPage: $request->input('per_page'),
-                page: $request->input('page')
-            );
+            ->latest()
+            ->get();
 
         return response()->json([
             'centres' => $centres
@@ -102,7 +100,9 @@ class CentreController extends Controller
      */
     public function show(Centre $centre): JsonResponse
     {
-
+        return response()->json([
+            'centre' => $centre->load(['createdBy:id,nom_utilisateur', 'updatedBy:id,nom_utilisateur']),
+        ]);
     }
 
     /**
@@ -119,6 +119,16 @@ class CentreController extends Controller
         DB::beginTransaction();
         try {
             $centre->update($request->validated());
+
+            // Delete logo if request->logo_delete ist true
+            if ($request->input('logo_delete')) {
+                $media = $centre->medias()->where('name', 'logo')->first();
+                delete_media(
+                    disk: $media->disk,
+                    path: $media->path,
+                    media: $media,
+                );
+            }
 
             // Save Logo
             if ($request->hasFile('logo')) {

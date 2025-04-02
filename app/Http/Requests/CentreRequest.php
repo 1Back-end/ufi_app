@@ -15,14 +15,13 @@ class CentreRequest extends FormRequest
         if ($this->route('centre')) {
             $uniqueName = (new Unique('centres', 'name'))->ignore($this->route('centre'));
             $uniqueShortName = (new Unique('centres', 'short_name'))->ignore($this->route('centre'));
-        }
-        else {
+        } else {
             $uniqueName = 'unique:centres,name';
             $uniqueShortName = 'unique:centres,short_name';
         }
 
         return [
-            'name' => ['required',  $uniqueName],
+            'name' => ['required', $uniqueName],
             'short_name' => ['required', $uniqueShortName],
             'address' => ['required'],
             'tel' => ['required'],
@@ -35,6 +34,15 @@ class CentreRequest extends FormRequest
             'email' => ['nullable', 'email', 'max:254'],
             'website' => ['nullable'],
             'logo' => ['nullable', 'file', 'max:2048', 'mimes:jpg,jpeg,png'],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'tel.required' => __("Le numéro de téléphone est requis !"),
+            'logo.max' => __("La taille maximale d'un logo doit être de 2Mo"),
+            'logo.mimes' => __("Le logo doit prendre en compte uniquement ce type de fichier: jpg, jpeg et png"),
         ];
     }
 }

@@ -27,6 +27,7 @@ Route::middleware(['auth:sanctum', 'user.change_password', 'check.permission'])-
     Route::controller(CentreController::class)->prefix('centres')->group(function () {
         Route::get('/', 'index');
         Route::post('/', 'store');
+        Route::get('/{centre}', 'show');
         Route::post('/{centre}', 'update');
         Route::delete('/{centre}', 'destroy');
     });

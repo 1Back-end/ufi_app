@@ -11,8 +11,7 @@ class RoleRequest extends FormRequest
     {
         if ($this->isMethod('PUT')) {
             $uniqueRule = (new Unique('roles', 'name'))->ignore($this->route('role'));
-        }
-        else {
+        } else {
             $uniqueRule = 'unique:roles,name';
         }
 
@@ -20,6 +19,7 @@ class RoleRequest extends FormRequest
             'name' => ['required', $uniqueRule],
             'description' => ['required'],
             'accueil_url' => ['nullable'],
+            'permissions' => ['array']
         ];
     }
 }

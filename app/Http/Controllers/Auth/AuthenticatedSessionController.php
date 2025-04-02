@@ -4,6 +4,9 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
+use App\Models\Centre;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -18,8 +21,11 @@ class AuthenticatedSessionController extends Controller
     public function store(LoginRequest $request)
     {
         $request->authenticate();
+        $user = $request->user();
 
-        $permissions = $request->user()->getAllPermissions()->pluck('name')->toArray();
+        $centre = $user->centres()->wherePivot('default', true)->first();
+
+        $permissions = load_permissions($user, $centre);
 
         $access = $request->user()->createToken(
             name: config('app.name'),
@@ -34,8 +40,25 @@ class AuthenticatedSessionController extends Controller
             'expire_in' => $access->accessToken->expires_at,
             'new_user' => $user->default,
             'permissions' => $permissions,
-            'user' => $user,
-            'centres' => $user->centres()->select(['centres.id', 'centres.name', 'centres.reference'])->get()
+            'centres' => $user->centres()->select(['centres.id', 'centres.name', 'centres.reference'])->get(),
+            'centre_default' => $centre->select(['id', 'name', 'reference'])->first()
+        ]);
+    }
+
+    /**
+     * @param Centre $centre
+     * @return JsonResponse
+     */
+    public function getPermissionByCenter(Centre $centre)
+    {
+        $permissions = auth()->user()
+            ->permission()
+            ->wherePivot('centre_id', $centre->id)
+            ->pluck('name')
+            ->toArray();
+
+        return response()->json([
+            'permissions' => $permissions
         ]);
     }
 

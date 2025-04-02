@@ -19,13 +19,29 @@ class PermissionController extends Controller
      * @permission PermissionController::index
      * @permission_desc Afficher les permissions
      */
-    public function index(Request $request)
+    public function index(Request $request): JsonResponse
     {
-        return  response()->json([
-            'permissions' => Permission::select(['id', 'name', 'menu_id', 'description', 'updated_by', 'updated_at'])->paginate(
-                perPage: $request->input('per_page', 10),
-                page: $request->input('page', 1),
-            )
+        $perPage = $request->get("per_page");
+        $page = $request->get("page");
+
+        if ($perPage && $page) {
+            $permissions = Permission::with([
+                'roles:id,name',
+                'createdBy:id,nom_utilisateur',
+                'updatedBy:id,nom_utilisateur',
+                'menu:id,libelle',
+            ])->paginate(perPage: $perPage, page: $page);
+        }
+        else {
+            $permissions = Permission::with([
+                'roles:id,name',
+                'createdBy:id,nom_utilisateur',
+                'updatedBy:id,nom_utilisateur',
+            ])->get();
+        }
+
+        return response()->json([
+            'permissions' => $permissions,
         ]);
     }
 
@@ -91,7 +107,7 @@ class PermissionController extends Controller
         ]);
 
         return \response()->json([
-            'message' => __("Le permission a été " .  $activate ? 'activé' : 'désactivé' . " avec succès !"),
+            'message' => __("Le permission a été " . $activate ? 'activé' : 'désactivé' . " avec succès !"),
         ]);
     }
 
@@ -136,7 +152,7 @@ class PermissionController extends Controller
         ]);
 
         return \response()->json([
-            'message' => __("Le Role a été " .  $activate ? 'activé' : 'désactivé' . " avec succès pour cette permission !"),
+            'message' => __("Le Role a été " . $activate ? 'activé' : 'désactivé' . " avec succès pour cette permission !"),
         ]);
     }
 
@@ -181,7 +197,7 @@ class PermissionController extends Controller
         ]);
 
         return \response()->json([
-            'message' => __("La permission a été " .  $activate ? 'activée' : 'désactivée' . " avec succès pour cet utilisateur !"),
+            'message' => __("La permission a été " . $activate ? 'activée' : 'désactivée' . " avec succès pour cet utilisateur !"),
         ]);
     }
 }

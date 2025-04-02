@@ -33,6 +33,7 @@ class UserController extends Controller
                 $query->whereIn('id', $request->input('permissions'));
             });
         })
+        ->with(['client:id,nomcomplet_client', 'roles:id,name'])
         ->whereNot('login', 'SYSTEM')
         ->paginate(
             perPage: $request->input('per_page', 25),
@@ -57,6 +58,13 @@ class UserController extends Controller
         $user = User::create(array_merge($request->validated(), ['password' => Hash::make($request->password), 'default' => true]));
 
         $user->notify(new DefaultUserCreated($user->login, $request->password));
+
+        // Associée au centre
+        foreach ($request->centres as $centre) {
+            $user->centres()->attach($centre['id'], [
+                'default' => $centre['default']
+            ]);
+        }
 
         return response()->json([
             'message' => __("L'utilisateur a été crée avec success !")
