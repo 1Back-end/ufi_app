@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Trait\UpdatingUser;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -19,11 +20,21 @@ use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable
 {
-    use HasFactory, HasRoles, SoftDeletes, HasApiTokens, Notifiable;
+    use HasFactory, HasRoles, SoftDeletes, HasApiTokens, Notifiable, UpdatingUser;
 
     protected $fillable = [
-        'created_by', 'updated_by', 'login', 'email', 'password', 'nom_utilisateur', 'prenom', 'status',
-        'connexion_counter', 'password_expiated_at', 'connected', 'default'
+        'created_by',
+        'updated_by',
+        'login',
+        'email',
+        'password',
+        'nom_utilisateur',
+        'prenom',
+        'status',
+        'connexion_counter',
+        'password_expiated_at',
+        'connected',
+        'default'
     ];
 
     protected $hidden = [
@@ -38,6 +49,16 @@ class User extends Authenticatable
     {
         return $this->belongsToMany(Centre::class, 'user_centre')
             ->withPivot(['default']);
+    }
+
+    public function createdBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function updatedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'updated_by');
     }
 
     public function client(): HasOne
@@ -66,16 +87,16 @@ class User extends Authenticatable
         )->withPivot(['created_by', 'updated_by', 'active'])
             ->withTimestamps();
 
-        if (! app(PermissionRegistrar::class)->teams) {
+        if (!app(PermissionRegistrar::class)->teams) {
             return $relation;
         }
 
         $teamsKey = app(PermissionRegistrar::class)->teamsKey;
         $relation->withPivot($teamsKey);
-        $teamField = config('permission.table_names.roles').'.'.$teamsKey;
+        $teamField = config('permission.table_names.roles') . '.' . $teamsKey;
 
         return $relation->wherePivot($teamsKey, getPermissionsTeamId())
-            ->where(fn ($q) => $q->whereNull($teamField)->orWhere($teamField, getPermissionsTeamId()));
+            ->where(fn($q) => $q->whereNull($teamField)->orWhere($teamField, getPermissionsTeamId()));
     }
 
     public function permissions(): BelongsToMany
@@ -89,7 +110,7 @@ class User extends Authenticatable
         )->withPivot(['created_by', 'updated_by', 'active', 'centre_id'])
             ->withTimestamps();
 
-        if (! app(PermissionRegistrar::class)->teams) {
+        if (!app(PermissionRegistrar::class)->teams) {
             return $relation;
         }
 
