@@ -25,12 +25,6 @@ class CentreController extends Controller
     public function index(Request $request): JsonResponse
     {
         $centres = Centre::with(['createdBy:id,nom_utilisateur', 'updatedBy:id,nom_utilisateur'])
-            ->withCount([
-                'users',
-                'users as clients' => function (Builder $builder) {
-                    $builder->has('client');
-                }
-            ])
             ->latest()
             ->get();
 

@@ -50,11 +50,12 @@ class ExtractPermissions extends Command
                     'updated_by' => $userSYSTEM->id
                 ]);
 
-                if ($role = Role::whereName('Super Admin')->first()) {
+                if ($role = Role::find(1)) {
                     $role->users()->syncWithPivotValues($role->users, [
                         'created_by' => $userSYSTEM->id,
                         'updated_by' => $userSYSTEM->id
                     ], false);
+                    $this->info("-----Permission ajoutée au role : $role->name");
                 }
 
                 $this->info("-----Permission created for this method: $method");
