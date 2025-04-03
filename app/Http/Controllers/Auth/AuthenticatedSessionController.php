@@ -51,14 +51,8 @@ class AuthenticatedSessionController extends Controller
      */
     public function getPermissionByCenter(Centre $centre)
     {
-        $permissions = auth()->user()
-            ->permission()
-            ->wherePivot('centre_id', $centre->id)
-            ->pluck('name')
-            ->toArray();
-
         return response()->json([
-            'permissions' => $permissions
+            'permissions' => load_permissions(\auth()->user(), $centre)
         ]);
     }
 
