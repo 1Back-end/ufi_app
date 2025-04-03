@@ -3,18 +3,31 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rules\Unique;
 
 class UserRequest extends FormRequest
 {
     public function rules(): array
     {
+        if ($this->method() == "PUT") {
+            $uniqueEmail = (new Unique('users', 'email'))->ignore($this->route('user'));
+            $uniqueLogin = (new Unique('users', 'login'))->ignore($this->route('user'));
+            $requiredPassword = '';
+        } else {
+            $uniqueEmail = 'unique:users,email';
+            $uniqueLogin = 'unique:users,login';
+            $requiredPassword = 'required';
+        }
+
         return [
             'prenom' => ['nullable'],
             'nom_utilisateur' => ['required'],
-            'password' => ['required'],
-            'email' => ['required', 'email', 'max:254', 'unique:users,email'],
-            'login' => ['required', 'unique:users,login'],
+            'password' => [$requiredPassword],
+            'email' => ['required', 'email', 'max:254', $uniqueEmail],
+            'login' => ['required', $uniqueLogin],
             'centres' => ['array', 'required'],
+            'roles' => ['array', 'required'],
+            'roles.*' => ['int', 'required', 'exists:roles,id'],
             'centres.*.id' => ['required', 'exists:centres,id'],
             'centres.*.default' => ['required', 'boolean'],
         ];

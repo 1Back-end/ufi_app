@@ -9,7 +9,9 @@ use App\Notifications\DefaultUserCreated;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response;
 
 class UserController extends Controller
@@ -23,22 +25,29 @@ class UserController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $users = User::when($request->input('roles'), function (Builder $query) use($request) {
-            $query->whereHas('roles', function (Builder $query) use($request){
+        $users = User::when($request->input('roles'), function (Builder $query) use ($request) {
+            $query->whereHas('roles', function (Builder $query) use ($request) {
                 $query->whereIn('id', $request->input('roles'));
             });
         })
-        ->when($request->input('permissions'), function (Builder $query) use($request) {
-            $query->whereHas('permissions', function (Builder $query) use($request){
-                $query->whereIn('id', $request->input('permissions'));
-            });
-        })
-        ->with(['client:id,nomcomplet_client', 'roles:id,name'])
-        ->whereNot('login', 'SYSTEM')
-        ->paginate(
-            perPage: $request->input('per_page', 25),
-            page: $request->input('page', 1)
-        );
+            ->when($request->input('permissions'), function (Builder $query) use ($request) {
+                $query->whereHas('permissions', function (Builder $query) use ($request) {
+                    $query->whereIn('id', $request->input('permissions'));
+                });
+            })
+            ->with([
+                'client:id,nomcomplet_client',
+                'roles:id,name',
+                'createdBy:id,nom_utilisateur',
+                'updatedBy:id,nom_utilisateur',
+                'centres:id,name'
+            ])
+            ->whereNot('login', 'SYSTEM')
+            ->latest()
+            ->paginate(
+                perPage: $request->input('per_page', 25),
+                page: $request->input('page', 1)
+            );
 
 
         return response()->json([
@@ -55,16 +64,36 @@ class UserController extends Controller
      */
     public function store(UserRequest $request): JsonResponse
     {
-        $user = User::create(array_merge($request->validated(), ['password' => Hash::make($request->password), 'default' => true]));
+        DB::beginTransaction();
+        try {
+            $user = User::create(array_merge($request->validated(), ['password' => Hash::make($request->password), 'default' => true]));
 
-        $user->notify(new DefaultUserCreated($user->login, $request->password));
+            $user->notify(new DefaultUserCreated($user->login, $request->password));
 
-        // Associée au centre
-        foreach ($request->centres as $centre) {
-            $user->centres()->attach($centre['id'], [
-                'default' => $centre['default']
-            ]);
+            // Associée au centre
+            foreach ($request->centres as $centre) {
+                $user->centres()->attach($centre['id'], [
+                    'default' => $centre['default']
+                ]);
+            }
+
+            // Associée aux roles
+            foreach ($request->roles as $role) {
+                $user->roles()->attach($role, [
+                    'created_by' => auth()->id(),
+                    'updated_by' => auth()->id()
+                ]);
+            }
+        } catch (\Exception $th) {
+            DB::rollBack();
+            Log::error($th->getMessage());
+
+            return response()->json([
+                'error' => $th->getMessage(),
+            ], 500);
         }
+        DB::commit();
+
 
         return response()->json([
             'message' => __("L'utilisateur a été crée avec success !")
@@ -81,7 +110,7 @@ class UserController extends Controller
     public function show(User $user): JsonResponse
     {
         return response()->json([
-            'user' => $user,
+            'user' => $user->load(['roles:id,name', 'centres:id,name']),
         ]);
     }
 
@@ -95,10 +124,63 @@ class UserController extends Controller
      */
     public function update(UserRequest $request, User $user): JsonResponse
     {
-        $user->update($request->except('password'));
+        DB::beginTransaction();
+        try {
+            $data = $request->except('password');
+            if ($request->password) {
+                $data['password'] = Hash::make($request->password);
+            }
 
-        return  response()->json([
+            $user->update($data);
+
+            // Associée au centre
+            $user->centres()->detach();
+            foreach ($request->centres as $centre) {
+                $user->centres()->attach($centre['id'], [
+                    'default' => $centre['default']
+                ]);
+            }
+
+            $user->roles()->detach();
+            // Associée aux roles
+            foreach ($request->roles as $role) {
+                $user->roles()->attach($role, [
+                    'created_by' => auth()->id(),
+                    'updated_by' => auth()->id()
+                ]);
+            }
+
+        } catch (\Exception $th) {
+            DB::rollBack();
+            Log::error($th->getMessage());
+
+            return response()->json([
+                'error' => $th->getMessage(),
+            ], 500);
+        }
+        DB::commit();
+
+        return response()->json([
             'message' => __("Utilisateur a été mis à jour avec succès !"),
+        ]);
+    }
+
+    /**
+     * @param Request $request
+     * @param User $user
+     * @return JsonResponse
+     *
+     * @permission UserController::changeStatus
+     * @permission_desc Changer le status de l'utilisateur
+     */
+    public function changeStatus(Request $request, User $user): JsonResponse
+    {
+        $request->validate(['status' => ['required', 'boolean']]);
+
+        $user->update(['status' => $request->status]);
+
+        return response()->json([
+            'message' => __('L\'utilisateur a été mis à jour avec succès !'),
         ]);
     }
 

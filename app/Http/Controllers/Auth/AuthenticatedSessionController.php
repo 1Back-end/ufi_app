@@ -33,7 +33,7 @@ class AuthenticatedSessionController extends Controller
             expiresAt: now()->addMinutes(config('sanctum.expiration'))
         );
 
-        $user = \auth()->user();
+        $user->increment('connexion_counter');
 
         return \response()->json([
             'access_token' => $access->plainTextToken,
@@ -41,7 +41,7 @@ class AuthenticatedSessionController extends Controller
             'new_user' => $user->default,
             'permissions' => $permissions,
             'centres' => $user->centres()->select(['centres.id', 'centres.name', 'centres.reference'])->get(),
-            'centre_default' => $centre->select(['id', 'name', 'reference'])->first()
+            'centre_default' => $centre?->select(['id', 'name', 'reference'])->first()
         ]);
     }
 

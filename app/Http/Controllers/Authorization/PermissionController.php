@@ -31,8 +31,7 @@ class PermissionController extends Controller
                 'updatedBy:id,nom_utilisateur',
                 'menu:id,libelle',
             ])->paginate(perPage: $perPage, page: $page);
-        }
-        else {
+        } else {
             $permissions = Permission::with([
                 'roles:id,name',
                 'createdBy:id,nom_utilisateur',
