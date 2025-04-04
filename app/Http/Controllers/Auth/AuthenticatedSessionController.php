@@ -23,7 +23,7 @@ class AuthenticatedSessionController extends Controller
         $request->authenticate();
         $user = $request->user();
 
-        $centre = $user->centres()->wherePivot('default', true)->first();
+        $centre = $user->centres()->select(['centres.id', 'centres.name', 'centres.reference'])->wherePivot('default', true)->first();
 
         $permissions = load_permissions($user, $centre);
 
@@ -41,7 +41,7 @@ class AuthenticatedSessionController extends Controller
             'new_user' => $user->default,
             'permissions' => $permissions,
             'centres' => $user->centres()->select(['centres.id', 'centres.name', 'centres.reference'])->get(),
-            'centre_default' => $centre?->select(['id', 'name', 'reference'])->first()
+            'centre_default' => $centre
         ]);
     }
 

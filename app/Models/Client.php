@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
 
@@ -16,16 +17,39 @@ class Client extends Model
     use HasFactory, SoftDeletes, UpdatingUser, CreateDefaultUser;
 
     protected $fillable = [
-        'societe_id', 'prefix_id', 'status_familiale_id',
-        'type_document_id', 'sexe_id', 'nomcomplet_client', 'prenom_cli',
-        'nom_cli', 'secondprenom_cli', 'date_naiss_cli', 'enfant_cli',
-        'ref_cli', 'tel_cli', 'tel2_cli', 'type_cli', 'renseign_clini_cli',
-        'assure_pa_cli', 'afficher_ap', 'nom_assure_principale_cli',
-        'document_number_cli', 'nom_conjoint_cli', 'email', 'date_naiss_cli_estime',
-        'status_cli', 'client_anonyme_cli', 'addresse_cli', 'created_by', 'updated_by', 'tel_whatsapp', 'user_id'
+        'societe_id',
+        'prefix_id',
+        'status_familiale_id',
+        'type_document_id',
+        'sexe_id',
+        'nomcomplet_client',
+        'prenom_cli',
+        'nom_cli',
+        'secondprenom_cli',
+        'date_naiss_cli',
+        'enfant_cli',
+        'ref_cli',
+        'tel_cli',
+        'tel2_cli',
+        'type_cli',
+        'renseign_clini_cli',
+        'assure_pa_cli',
+        'afficher_ap',
+        'nom_assure_principale_cli',
+        'document_number_cli',
+        'nom_conjoint_cli',
+        'email',
+        'date_naiss_cli_estime',
+        'status_cli',
+        'client_anonyme_cli',
+        'addresse_cli',
+        'created_by',
+        'updated_by',
+        'tel_whatsapp',
+        'user_id'
     ];
 
-    protected $appends = ['age'];
+    protected $appends = ['age', 'validity_card'];
 
     // Le nom doit être caché pour le client annonyme lorsqu’on l’affiche
     protected function nomCli(): Attribute
@@ -33,6 +57,16 @@ class Client extends Model
         return Attribute::make(
             get: fn($value, array $attributes) => $this->client_anonyme_cli ? $this->ref_cli : $value,
             set: fn($value) => $value,
+        );
+    }
+
+    protected function validityCard(): Attribute
+    {
+        return Attribute::make(
+            get: function () {
+                $fidelityCard = $this->fidelityCard()->where('name', 'fidelityCard')->latest()->first();
+                return $fidelityCard ? $fidelityCard->created_at->greaterThan(now()->subDays($fidelityCard->validity)) : null;
+            },
         );
     }
 
@@ -47,7 +81,7 @@ class Client extends Model
     protected function age(): Attribute
     {
         return Attribute::make(
-            get: fn() => Carbon::parse($this->date_naiss_cli)->age ,
+            get: fn() => Carbon::parse($this->date_naiss_cli)->age,
         );
     }
 
@@ -89,6 +123,11 @@ class Client extends Model
     public function updateByCli()
     {
         return $this->belongsTo(User::class, 'updated_by');
+    }
+
+    public function fidelityCard(): MorphMany
+    {
+        return $this->morphMany(Media::class, 'mediable');
     }
 
     protected function casts()

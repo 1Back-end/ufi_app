@@ -45,7 +45,7 @@ Route::middleware(['auth:sanctum', 'user.change_password', 'check.permission'])-
         Route::patch('/{client}/status', 'updateStatus');
         Route::get('/export/clients', 'export');
         Route::post('/search-duplicates', 'searchDuplicates');
-        Route::get('/print-fidelity-card', 'printFidelityCard');
+        Route::get('/print-fidelity-card/{client}', 'printFidelityCard');
     });
 
 // Settings routes for clients module
