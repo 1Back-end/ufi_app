@@ -11,3 +11,4 @@ GET http://127.0.0.1:8000/api/consultants/export
 #GET http://localhost:8000/api/searchandexport?status_consult=Actif
 
 #GET http://127.0.0.1:8000/api/titres/get_all_titres
+
