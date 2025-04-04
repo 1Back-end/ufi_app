@@ -14,6 +14,7 @@ use App\Models\Societe;
 use App\Models\StatusFamiliale;
 use App\Models\TypeDocument;
 use App\Models\User;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -84,6 +85,12 @@ class ClientController extends Controller
      */
     public function store(ClientRequest $request)
     {
+        if (!$request->header('centre')) {
+            return \response()->json([
+                'message' => __("Vous devez vous connectez à un centre !")
+            ], Response::HTTP_UNAUTHORIZED);
+        }
+
         $dataValidated = $request->validated();
 
         $dataValidated['enfant_cli'] = Carbon::parse($dataValidated['date_naiss_cli'])->age <= 14;
@@ -91,7 +98,7 @@ class ClientController extends Controller
             ? now()->subYears($dataValidated['age'])->year . '-01-01'
             : $dataValidated['date_naiss_cli'];
 
-        $dataValidated['site_id'] = 1;
+        $dataValidated['site_id'] = $request->header('centre');
 
         unset($dataValidated['age']);
 
@@ -238,12 +245,16 @@ class ClientController extends Controller
             'nomcomplet' => 'required',
             'date_naiss_cli' => 'required',
             'sexe_id' => 'required',
+            'client_id' => ['nullable', 'exists:clients,id'],
         ]);
 
         $clients = Client::with(['sexe:id,description_sex'])
             ->whereNomcompletClient($request->get('nomcomplet'))
             ->whereDateNaissCli($request->get('date_naiss_cli'))
             ->whereSexeId($request->get('sexe_id'))
+            ->when($request->client_id, function ($query) use ($request) {
+                $query->where('id', '!=', $request->client_id);
+            })
             ->get();
 
         return response()->json([
@@ -252,13 +263,43 @@ class ClientController extends Controller
     }
 
     /**
-     * @return void
+     * @return JsonResponse
      *
      * @permission ClientController::printFidelityCard
      * @permission_desc Imprimer une carte de fidélité pour un client
      */
-    public function printFidelityCard()
+    public function printFidelityCard(Client $client, Request $request)
     {
-        // Todo: Renvoyer un PDF de carte de fidelité avec un QR Code
+        $fidelityCard = $client->fidelityCard()->latest()->first();
+
+        if ($fidelityCard) {
+            $path = $fidelityCard->path;
+        } else {
+            $data = [
+                'validity' => $request->input('validity', 30),
+                'client' => $client
+            ];
+
+            $path = 'fidelity-card/' . $client->ref_cli . '.pdf';
+            $fileName = $client->ref_cli . '.pdf';
+
+            PDF::loadView('pdfs.fidelity-cart', $data)
+                ->setPaper('a6', 'landscape')
+                ->save($path, 'public');
+
+            $client->fidelityCard()->create([
+                'name' => "fidelityCard",
+                'disk' => 'public',
+                'path' => $path,
+                'filename' => $fileName,
+                'mimetype' => 'pdf',
+                'extension' => 'pdf',
+                'validity' => $data['validity']
+            ]);
+        }
+
+        return \response()->json([
+            'url' => Storage::disk('public')->url($path)
+        ]);
     }
 }

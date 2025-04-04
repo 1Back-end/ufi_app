@@ -16,6 +16,7 @@ return new class extends Migration {
             $table->string('filename');
             $table->string('mimetype');
             $table->string('extension');
+            $table->integer('validity')->nullable();
 
             $table->timestamps();
         });

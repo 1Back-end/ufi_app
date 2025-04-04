@@ -7,6 +7,7 @@ use App\Enums\TypeClient;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Carbon;
 use Illuminate\Validation\Rules\Enum;
+use Illuminate\Validation\Rules\Unique;
 
 class ClientRequest extends FormRequest
 {
@@ -18,6 +19,13 @@ class ClientRequest extends FormRequest
 
     public function rules(): array
     {
+        if ($this->isMethod('PUT')) {
+            $uniqueEmail = (new Unique('clients', 'email'))->ignore($this->route('client'));
+        }
+        else {
+            $uniqueEmail = 'unique:clients,email';
+        }
+
         return [
             'site_id' => ['required', 'exists:centres,id'],
             'societe_id' => ['nullable', 'exists:societes,id'],
@@ -39,7 +47,7 @@ class ClientRequest extends FormRequest
                 'boolean',
             ],
             'age' => ['nullable', 'required_if:date_naiss_cli_estime,true', 'integer', 'min:0', 'max:120'],
-            'tel_cli' => ['required', 'unique:clients,tel_cli'],
+            'tel_cli' => ['required'],
             'tel2_cli' => ['nullable'],
             'type_cli' => ['required', new Enum(TypeClient::class)],
             'renseign_clini_cli' => ['nullable'],
@@ -49,7 +57,7 @@ class ClientRequest extends FormRequest
             'document_number_cli' => ['nullable'],
             'nom_conjoint_cli' => ['nullable'],
             'prenom_conjoint_cli' => ['nullable'],
-            'email' => ['nullable', 'email', 'unique:clients,email'],
+            'email' => ['nullable', 'email', $uniqueEmail],
             'client_anonyme_cli' => ['boolean'],
             'addresse_cli' => ['nullable'],
             'tel_whatsapp' => ['boolean'],

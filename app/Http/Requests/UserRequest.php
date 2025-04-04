@@ -32,4 +32,12 @@ class UserRequest extends FormRequest
             'centres.*.default' => ['required', 'boolean'],
         ];
     }
+
+    public function messages(): array
+    {
+        return [
+            'login.unique' => 'Ce login est deja utilisé',
+            'email.unique' => 'Ce email est deja utilisé',
+        ];
+    }
 }

@@ -61,6 +61,7 @@ class UserController extends Controller
      *
      * @permission UserController::store
      * @permission_desc Créer un utilisateur
+     * @throws \Throwable
      */
     public function store(UserRequest $request): JsonResponse
     {

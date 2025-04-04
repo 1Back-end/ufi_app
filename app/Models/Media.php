@@ -10,7 +10,7 @@ class Media extends Model
     protected $table = 'medias';
 
     protected $fillable = [
-        'mediable', 'name', 'disk', 'path', 'filename', 'mimetype', 'extension',
+        'mediable', 'name', 'disk', 'path', 'filename', 'mimetype', 'extension', 'validity'
     ];
 
     public function centre(): MorphTo
