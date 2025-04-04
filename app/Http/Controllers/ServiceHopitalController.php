@@ -10,6 +10,8 @@ class ServiceHopitalController extends Controller
 {
     /**
      * Display a listing of the resource.
+     * @permission ServiceHopitalController::index
+     * @permission_desc Afficher l'id et le nom de l'id du service hospitalié
      */
     public function index()
     {
@@ -21,6 +23,11 @@ class ServiceHopitalController extends Controller
     }
 
     // Affiche la liste des services hospitaliers avec pagination
+    /**
+     * Display a listing of the resource.
+     * @permission ServiceHopitalController::get_all
+     * @permission_desc Afficher la liste des services hospitaliers
+     */
     public function get_all()
     {
         $services_hopitals = Service_Hopital::where('is_deleted',false)->paginate(5);
@@ -28,6 +35,11 @@ class ServiceHopitalController extends Controller
     }
 
     // Crée un nouveau service hospitalier
+    /**
+     * Display a listing of the resource.
+     * @permission ServiceHopitalController::sotre
+     * @permission_desc Enregistrer un service hospitalier
+     */
     public function store(Request $request)
     {
         // Validation des données d'entrée
@@ -56,6 +68,11 @@ class ServiceHopitalController extends Controller
 
 
     // Affiche un service hospitalier spécifique
+    /**
+     * Display a listing of the resource.
+     * @permission ServiceHopitalController::get_all
+     * @permission_desc Afficher un service hospitalier spécifique
+     */
     public function show(string $id)
     {
         $service_hopital = Service_Hopital::where('id',$id)
@@ -65,7 +82,11 @@ class ServiceHopitalController extends Controller
         }
         return response()->json($service_hopital);
     }
-
+    /**
+     * Display a listing of the resource.
+     * @permission ServiceHopitalController::update
+     * @permission_desc Modifier un service hospitalier
+     */
     public function update(Request $request, string $id)
     {
         // Vérifier si l'utilisateur est authentifié
@@ -103,6 +124,11 @@ class ServiceHopitalController extends Controller
     }
 
     // Suppression d'un service hospitalier
+    /**
+     * Display a listing of the resource.
+     * @permission ServiceHopitalController::destroy
+     * @permission_desc Suppression d'un service hospitalier
+     */
     public function destroy($id)
     {
         $service = Service_Hopital::find($id);
