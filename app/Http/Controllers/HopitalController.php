@@ -9,12 +9,22 @@ use App\Models\User;
 
 class HopitalController extends Controller
 {
+    /**
+     * Display a listing of the resource.
+     * @permission HopitalController::index
+     * @permission_desc Afficher l'id et le nom de l'id et le nom de l'hôpital
+     */
     public function index(){
         $hopital = Hopital::select('id','nom_hopi')
             ->where('is_deleted', false)  // Filter out deleted hospitals
             ->get();
         return response()->json($hopital);
     }
+    /**
+     * Display a listing of the resource.
+     * @permission HopitalController::get_all
+     * @permission_desc Afficher tous les hôpitaux
+     */
     public function get_all()
     {
         // Récupérer les hôpitaux avec pagination de 10 éléments par page
@@ -23,6 +33,12 @@ class HopitalController extends Controller
         return response()->json($hopis);
     }
 
+
+    /**
+     * Display a listing of the resource.
+     * @permission HopitalController::show
+     * @permission_desc Afficher un hôpital spécifique
+     */
     public function show($id){
         $hopis = Hopital::where('id', $id)
             ->where('is_deleted', false)  // Filter out deleted hospitals
@@ -32,6 +48,11 @@ class HopitalController extends Controller
         }
         return  response()->json(['message' => 'Hopital non found'], 404);
     }
+    /**
+     * Display a listing of the resource.
+     * @permission HopitalController::store
+     * @permission_desc Enregistrer un hôpital
+     */
     public function store(Request $request)
     {
         $validated = $request->validate([
@@ -73,6 +94,11 @@ class HopitalController extends Controller
             'message' => 'Hopital créé avec succès',
             'data' => $hopi], 201);
     }
+    /**
+     * Display a listing of the resource.
+     * @permission HopitalController::update
+     * @permission_desc Modifier un hôpital
+     */
 
     public function update(Request $request, $id)
     {
@@ -134,6 +160,11 @@ class HopitalController extends Controller
             'data' => $hopi
         ], 200);
     }
+    /**
+     * Display a listing of the resource.
+     * @permission HopitalController::destroy
+     * @permission_desc Supprimer un hôpital
+     */
 
     public function destroy(string $id)
     {

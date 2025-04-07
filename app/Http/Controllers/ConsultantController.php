@@ -17,8 +17,10 @@ use Maatwebsite\Excel\Facades\Excel;
 
 class ConsultantController extends Controller
 {
+
     /**
-     * Display a listing of the resource.
+     * @permission ConsultantController::index
+     * @permission_desc Afficher la liste des consultants
      */
     public function index()
     {
@@ -28,6 +30,10 @@ class ConsultantController extends Controller
 
         return response()->json($consultants);
     }
+    /**
+     * @permission ConsultantController::updateStatus
+     * @permission_desc Mettre à jour le statut d'un consultant
+     */
 
     public function updateStatus(Request $request, $id, $status)
         {
@@ -54,7 +60,10 @@ class ConsultantController extends Controller
             ], 200);
         }
 
-
+    /**
+     * @permission ConsultantController::show
+     * @permission_desc Afficher un consultant spécifique
+     */
     public function show(string $id)
     {
         $consultant = Consultant::find($id);
@@ -69,7 +78,10 @@ class ConsultantController extends Controller
     }
 
 
-
+    /**
+     * @permission ConsultantController::search
+     * @permission_desc Rechercher des consultants
+     */
     public function search(Request $request)
     {
         // Récupérer les paramètres de la requête
@@ -109,7 +121,10 @@ class ConsultantController extends Controller
         return response()->json($consultants);
     }
 
-
+    /**
+     * @permission ConsultantController::export
+     * @permission_desc Exporter les données des consultants
+     */
     public function export()
     {
         $filename = 'consultant-file-' . now()->format('Y-d-m') . '.xlsx';
@@ -126,7 +141,10 @@ class ConsultantController extends Controller
      */
 
 
-        // Si l'export n'est pas demandé, retourner simplement les résultats de la recherche
+    /**
+     * @permission ConsultantController::searchAndExport
+     * @permission_desc Filtrer et exporter les données des consultants
+     */
     public function searchAndExport(Request $request)
     {
         // Créer une requête de base
@@ -187,7 +205,10 @@ class ConsultantController extends Controller
         return response()->json($consultants);
     }
 
-
+    /**
+     * @permission ConsultantController::store
+     * @permission_desc Enregistrer un consultant
+     */
     public function store(Request $request)
     {
         $authUser = User::first(); // Récupère un utilisateur au hasard
@@ -256,6 +277,11 @@ class ConsultantController extends Controller
     /**
      * Update the specified resource in storage.
      */
+    /**
+     * Display a listing of the resource.
+     * @permission ConsultantController::update
+     * @permission_desc Modifier un consultant
+     */
     public function update(Request $request, string $id)
     {
         $consultant = Consultant::find($id);
@@ -304,7 +330,9 @@ class ConsultantController extends Controller
     }
 
     /**
-     * Remove the specified resource from storage.
+     * Display a listing of the resource.
+     * @permission ConsultantController::destroy
+     * @permission_desc Supprimer un consultant
      */
     public function destroy(string $id)
     {

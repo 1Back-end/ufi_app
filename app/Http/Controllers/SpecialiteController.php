@@ -12,6 +12,8 @@ class SpecialiteController extends Controller
 {
     /**
      * Display a listing of the resource.
+     * @permission SpecialiteController::index
+     * @permission_desc Afficher l'id et le nom de la spécialité
      */
     public function index()
     {
@@ -29,6 +31,11 @@ class SpecialiteController extends Controller
     {
         //
     }
+    /**
+     * Display a listing of the resource.
+     * @permission SpecialiteController::get_all
+     * @permission_desc Afficher toutes les spécialitées
+     */
     public function get_all(){
         $specialite = Specialite::paginate(5);
         return response()->json($specialite);
@@ -36,6 +43,8 @@ class SpecialiteController extends Controller
 
     /**
      * Store a newly created resource in storage.
+     * @permission SpecialiteController::store
+     * @permission_desc Enregister une spécialité
      */
     public function store(Request $request)
     {
@@ -66,6 +75,8 @@ class SpecialiteController extends Controller
 
     /**
      * Display the specified resource.
+     * @permission SpecialiteController::show
+     * @permission_desc Afficher les détails d'une spécialité
      */
     public function show(string $id)
     {
@@ -91,6 +102,8 @@ class SpecialiteController extends Controller
 
     /**
      * Update the specified resource in storage.
+     * @permission SpecialiteController::update
+     * @permission_desc Mettre à jour une spécialité
      */
     public function update(Request $request, string $id)
     {
@@ -134,6 +147,8 @@ class SpecialiteController extends Controller
 
     /**
      * Remove the specified resource from storage.
+     * @permission SpecialiteController::destroy
+     * @permission_desc Supprimer une spécialité
      */
     public function destroy(string $id)
     {

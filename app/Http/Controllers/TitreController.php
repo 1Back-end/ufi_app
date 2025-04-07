@@ -11,7 +11,10 @@ class TitreController extends Controller
 {
     /**
      * Display a listing of the resource.
+     * @permission TitreController::index
+     * @permission_desc Afficher l'id et le nom du titre
      */
+
     public function index()
     {
         $titres = Titre::select('id','nom_titre')
@@ -22,6 +25,9 @@ class TitreController extends Controller
 
     /**
      * Show the form for creating a new resource.
+     *
+     * @permission TitreController::store
+     * @permission_desc Enregister un titre
      */
 
     public function store(Request $request)
@@ -76,6 +82,12 @@ class TitreController extends Controller
             ], 500);
         }
     }
+    /**
+     * Show the form for creating a new resource.
+     *
+     * @permission TitreController::update
+     * @permission_desc Mettre à jour un titre
+     */
 
     public function update(Request $request, $id)
     {
@@ -136,6 +148,8 @@ class TitreController extends Controller
 
     /**
      * Display the specified resource.
+     * @permission TitreController::show
+     * @permission_desc Voir les détails
      */
     public function show(string $id)
     {
@@ -146,6 +160,10 @@ class TitreController extends Controller
         return  response()->json($titre);
         //
     }
+    /**
+     * @permission TitreController::get_all
+     * @permission_desc Afficher tous les titres
+     */
     public function get_all(){
         $titres = Titre::where('is_deleted',false)->paginate(5);
         return response()->json($titres);
@@ -166,6 +184,8 @@ class TitreController extends Controller
 
     /**
      * Remove the specified resource from storage.
+     * @permission TitreController::destroy
+     * @permission_desc Supprimer un titre
      */
     public function destroy(string $id)
     {
