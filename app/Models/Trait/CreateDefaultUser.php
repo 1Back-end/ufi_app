@@ -26,6 +26,11 @@ trait CreateDefaultUser
 
             $model->user_id = $user->id;
 
+            // Link user to centre
+            if (request()->header('centre')) {
+                $user->centres()->attach(request()->header('centre'));
+            }
+
             // Envoi d'une notification à l'utilisateur avec les logins et mot de passe par défaut
             $user->notify(new DefaultUserCreated($username, $password));
         });

@@ -39,6 +39,7 @@ class RoleController extends Controller
      *
      * @permission RoleController::store
      * @permission_desc Créer un role
+     * @throws \Throwable
      */
     public function store(RoleRequest $request)
     {
@@ -99,12 +100,18 @@ class RoleController extends Controller
      *
      * @permission RoleController::update
      * @permission_desc Mise à jour d’un rôle
+     * @throws \Throwable
      */
     public function update(RoleRequest $request, Role $role)
     {
         DB::beginTransaction();
         try {
-            $role->update($request->validated());
+            $data = $request->validated();
+            if ($role->id === 1) {
+                $data = $request->except('name');
+            }
+
+            $role->update($data);
 
             if ($request->input('permissions')) {
                 $role->permissions()->detach();
