@@ -42,6 +42,8 @@ class ExtractPermissions extends Command
                     continue;
                 }
 
+                $role = Role::find(1);
+
                 $permission = Permission::create([
                     'name' => $perm['permission'],
                     'description' => $perm['permission_desc'],
@@ -50,15 +52,15 @@ class ExtractPermissions extends Command
                     'updated_by' => $userSYSTEM->id
                 ]);
 
-                if ($role = Role::find(1)) {
-                    $role->users()->syncWithPivotValues($role->users, [
+                $this->info("-----Permission created for this method: $method");
+
+                if ($role) {
+                    $role->permissions()->syncWithPivotValues([$permission->id], [
                         'created_by' => $userSYSTEM->id,
                         'updated_by' => $userSYSTEM->id
                     ], false);
                     $this->info("-----Permission ajoutée au role : $role->name");
                 }
-
-                $this->info("-----Permission created for this method: $method");
             }
         }
     }
