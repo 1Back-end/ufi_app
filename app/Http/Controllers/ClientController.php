@@ -21,6 +21,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Enum;
 use Maatwebsite\Excel\Facades\Excel;
 use PhpOffice\PhpSpreadsheet\Exception;
@@ -106,7 +107,9 @@ class ClientController extends Controller
         try {
             $client = Client::create($dataValidated);
 
-            $refcli = now()->year . now()->month . $client->id . $dataValidated['site_id']; // Todo: C'est quoi le code du site
+            $centre = Centre::find($dataValidated['site_id']);
+
+            $refcli = Str::substr($centre->reference, 0, 4) . now()->year . Str::padLeft($client->id, 6, 0);
         } catch (Exception $e) {
             DB::rollBack();
             return response()->json([
@@ -275,9 +278,14 @@ class ClientController extends Controller
         if ($fidelityCard) {
             $path = $fidelityCard->path;
         } else {
+            $centre = $client->user->centres()->first();
+            $media = $centre?->medias()->whereName('logo')->first();
+
             $data = [
                 'validity' => $request->input('validity', 30),
-                'client' => $client
+                'client' => $client,
+                'centre' => $centre,
+                'logo' => $media ?  'storage/' . $media->path . '/'. $media->filename : ''
             ];
 
             $path = 'fidelity-card/' . $client->ref_cli . '.pdf';

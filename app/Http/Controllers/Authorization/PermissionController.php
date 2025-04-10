@@ -9,6 +9,7 @@ use App\Models\Role;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response;
 
 class PermissionController extends Controller
@@ -167,12 +168,30 @@ class PermissionController extends Controller
     {
         $request->validate([
             'user_ids' => ['required', 'array'],
+            'user_ids.*' => ['required', 'exists:users,id'],
+            'permissions' => ['array'],
         ]);
 
-        $permission->users()->syncWithPivotValues($request->input('user_ids'), [
-            'created_by' => auth()->id(),
-            'updated_by' => auth()->id()
-        ], false);
+        foreach (User::findMany($request->input('user_ids')) as $user) {
+            $user->permissions()->detach();
+            foreach ($request->input('permissions') as $permission) {
+                if($permission['centres']) {
+                    foreach ($permission['centres'] as $centre_id) {
+                        $user->permissions()->attach($permission['id'], [
+                            'created_by' => auth()->id(),
+                            'updated_by' => auth()->id(),
+                            'centre_id' => $centre_id,
+                        ]);
+                    }
+                }
+                else {
+                    $user->permissions()->attach($permission['id'], [
+                        'created_by' => auth()->id(),
+                        'updated_by' => auth()->id(),
+                    ]);
+                }
+            }
+        }
 
         return \response()->json([
             'message' => __("Permissions ont été assignées avec succès à ces utilisateurs!")

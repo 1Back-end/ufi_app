@@ -26,7 +26,7 @@ class UserRequest extends FormRequest
             'email' => ['required', 'email', 'max:254', $uniqueEmail],
             'login' => ['required', $uniqueLogin],
             'centres' => ['array', 'required'],
-            'roles' => ['array', 'required'],
+            'roles' => ['array'],
             'roles.*' => ['int', 'required', 'exists:roles,id'],
             'centres.*.id' => ['required', 'exists:centres,id'],
             'centres.*.default' => ['required', 'boolean'],

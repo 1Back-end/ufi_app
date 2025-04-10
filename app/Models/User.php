@@ -99,6 +99,11 @@ class User extends Authenticatable
             ->where(fn($q) => $q->whereNull($teamField)->orWhere($teamField, getPermissionsTeamId()));
     }
 
+    /**
+     * Get the permissions that belong to the user.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsToMany
+     */
     public function permissions(): BelongsToMany
     {
         $relation = $this->morphToMany(
