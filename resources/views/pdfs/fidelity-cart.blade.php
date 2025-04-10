@@ -1,73 +1,125 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
     <title>Carte de fidélité</title>
     <style>
         * {
             margin: 0;
             padding: 0;
-            color: white;
         }
+
+        @font-face {
+            font-family: 'Oswald';
+            src: url({{ storage_path("fonts/Oswald.ttf") }}) format("truetype");
+            font-weight: 600;
+            font-style: normal;
+        }
+
         body {
-            font-family: 'Arial, sans-serif', serif;
-            background: center / cover no-repeat url("data:image/png;base64,{{ base64_encode(file_get_contents(public_path('assets/background-fidelity-card.png'))) }}");
+            font-family: "Oswald", "Helvetica", serif;
+            margin: 0;
+            padding: 0;
+            position: relative;
+            min-height: 100vh;
+            background: center / cover no-repeat url("data:image/png;base64,{{ base64_encode(file_get_contents(public_path('assets/background-fidelity-card.jpg'))) }}");
         }
+
         .container {
+            width: 90%;
             margin: 0 auto;
             padding: 20px;
-            text-align: center;
         }
-        .header {
+
+        .title-section {
+            text-align: center;
             margin-bottom: 20px;
         }
-        .header h1 {
-            text-transform: uppercase;
+
+        .logo-container {
+            text-align: right;
+            margin-right: 30px;
+            position: absolute;
+            right: 20px;
+            top: 15px;
         }
-        .fidelity-table {
-            display: table;
-            margin: 20px auto;
-            border-spacing: 10px;
-        }
-        .fidelity-table td {
-            width: 5.2rem;
-            height: 5.2rem;
-            background-color: white;
+
+        .logo-container img {
+            height:90px;
+            width: 90px;
             border-radius: 50%;
         }
-        .gift {
-            position: relative;
+
+        .content-table {
+            width: 100%;
             text-align: center;
-            background-color: white;
+            margin: 40px 0;
         }
-        .gift > img {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-60%, -65%);
+
+        .content-table td {
+            padding: 5px;
+            font-size: 0.9em;
+            font-weight: bold;
         }
+
+        .barcode-img {
+            max-width: 250px;
+            height: auto;
+        }
+
         .footer {
-            margin-top: 20px;
+            position: absolute;
+            bottom: 20px;
+            left: 0;
+            right: 0;
+            text-align: center;
+            font-size: 0.5em;
+        }
+
+        .footer div {
+            margin-top: 5px;
         }
     </style>
 </head>
 <body>
 <div class="container">
-    <div class="header">
-        <h1>Carte de fidélité</h1>
-        <p>{{ $client->nomcomplet_client }}</p>
+
+    <!-- Titre centré sur toute la largeur -->
+    <div class="title-section">
+        <span style="font-size: 0.7em">{{ \Illuminate\Support\Str::upper('Carte de fidélité') }}</span><br>
+        <span style="font-size: 1.4em; font-weight: bold; color: #0046aa;">{{ \Illuminate\Support\Str::upper($centre->name) }}</span>
     </div>
-    <table class="fidelity-table">
+
+    <!-- Logo à droite -->
+    @if($logo)
+        <div class="logo-container">
+            <img src="data:image/png;base64,{{ base64_encode(file_get_contents($logo)) }}" alt="Logo">
+        </div>
+    @endif
+
+    <!-- Contenu principal -->
+    <table class="content-table">
         <tr>
-            <td></td> <td></td> <td></td> <td></td> <td></td>
+            <td style="font-size: 1.8em; font-weight: bold; color: #1e9178;">{{ \Illuminate\Support\Str::upper($client->nomcomplet_client) }}</td>
         </tr>
         <tr>
-            <td></td> <td></td> <td></td> <td></td> <td class="gift"><img src="data:image/png;base64,{{ base64_encode(file_get_contents(public_path('assets/gift.svg'))) }}" alt="" width="50" height="50"></td>
+            <td>
+                <img class="barcode-img"
+                     src="data:image/png;base64,{{ DNS1D::getBarcodePNG(code: $client->ref_cli, type: 'C128', w: 1, showCode: true) }}"
+                     alt="Code-barres">
+            </td>
         </tr>
     </table>
+
+    <!-- Footer -->
     <div class="footer">
-        <p>Consulter 9 fois, Et la 10e est offerte!</p>
-        <p>Valide jusqu'en {{ now()->addDays($validity)->format('d/m/y') }}</p>
+        <p>Cette carte donne droit à une consultation gratuite à chaque 10ième consultation.</p>
+        <div>
+            <span style="margin-right: 10px">VALIDE JUSQU'AU : {{ now()->locale('fr')->addDays($validity)->format('d F Y') }}</span>
+            <span style="font-style: italic">Appeler ce numéro <strong>{{ $centre?->tel }}</strong> si vous retrouvez cette carte égarée.</span>
+        </div>
     </div>
+
 </div>
 </body>
 </html>

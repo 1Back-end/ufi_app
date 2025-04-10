@@ -32,7 +32,7 @@ class Permission extends \Spatie\Permission\Models\Permission
             config('permission.table_names.model_has_permissions'),
             app(PermissionRegistrar::class)->pivotPermission,
             config('permission.column_names.model_morph_key')
-        )->withPivot(['created_by', 'updated_by', 'active'])
+        )->withPivot(['created_by', 'updated_by', 'active', 'centre_id'])
             ->withTimestamps();
     }
 

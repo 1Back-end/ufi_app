@@ -40,7 +40,8 @@ class UserController extends Controller
                 'roles:id,name',
                 'createdBy:id,nom_utilisateur',
                 'updatedBy:id,nom_utilisateur',
-                'centres:id,name'
+                'centres:id,name',
+                'permissions:id,name',
             ])
             ->whereNot('login', 'SYSTEM')
             ->latest()

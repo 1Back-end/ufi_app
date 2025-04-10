@@ -25,7 +25,7 @@ Route::middleware(['auth:sanctum', 'user.change_password', 'check.permission'])-
         Route::put('/{permission}', 'update');
         Route::post('/{permission}/roles', 'assignPermissionToRole');
         Route::post('/{permission}/roles/{role}/activate/{activate}', 'activatePermissionToRole');
-        Route::post('/{permission}/users', 'assignPermissionToUser');
+        Route::post('/users', 'assignPermissionToUser');
         Route::post('/{permission}/users/{user}/activate/{activate}', 'activatePermissionToUser');
     });
 

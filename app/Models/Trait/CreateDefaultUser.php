@@ -28,7 +28,7 @@ trait CreateDefaultUser
 
             // Link user to centre
             if (request()->header('centre')) {
-                $user->centres()->attach(request()->header('centre'));
+                $user->centres()->attach(request()->header('centre'), ['default' => true]);
             }
 
             // Envoi d'une notification à l'utilisateur avec les logins et mot de passe par défaut
