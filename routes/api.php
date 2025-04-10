@@ -13,6 +13,7 @@ use App\Http\Controllers\SocieteController;
 use App\Http\Controllers\SpecialiteController;
 use App\Http\Controllers\StatusFamilialeController;
 use App\Http\Controllers\TitreController;
+use App\Http\Controllers\TypeActeController;
 use App\Http\Controllers\TypeDocumentController;
 use Illuminate\Support\Facades\Route;
 
@@ -56,6 +57,8 @@ Route::middleware(['activity'])->group(function () {
         Route::apiResource('type-documents', TypeDocumentController::class)->except(['show']);
         Route::apiResource('societes', SocieteController::class)->except(['show']);
         Route::apiResource('prefixes', PrefixController::class)->except(['show']);
+        Route::apiResource('type-actes', TypeActeController::class)->except(['show']);
+        Route::patch('/type-actes/{typeActe}/activate', [TypeActeController::class, 'changeStatus']);
 
         Route::controller(ConsultantController::class)->prefix('consultants')->group(function () {
             Route::get('/list', 'index');  // Afficher la liste des consultants

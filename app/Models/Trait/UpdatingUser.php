@@ -16,10 +16,12 @@ trait UpdatingUser
         });
 
         static::creating(function ($model) {
-            $authId = auth()->user()?->id;
+            if (! $model->created_by) {
+                $authId = auth()->user()?->id;
 
-            $model->created_by = $authId;
-            $model->updated_by = $authId;
+                $model->created_by = $authId;
+                $model->updated_by = $authId;
+            }
         });
     }
 }
