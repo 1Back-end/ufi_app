@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\TypePrestation;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -20,6 +21,7 @@ class Prestation extends Model
         'programmation_date',
         'created_by',
         'updated_by',
+        'type'
     ];
 
     public function client(): BelongsTo
@@ -52,6 +54,7 @@ class Prestation extends Model
         return [
             'payable' => 'boolean',
             'programmation_date' => 'datetime',
+            'type' => TypePrestation::class
         ];
     }
 }

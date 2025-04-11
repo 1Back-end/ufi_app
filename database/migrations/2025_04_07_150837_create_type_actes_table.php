@@ -12,7 +12,9 @@ return new class extends Migration {
             $table->unsignedBigInteger('created_by');
             $table->unsignedBigInteger('updated_by');
             $table->string('name');
-            $table->integer('k_modulateur');
+            $table->integer('k_modulateur')->default(0);
+            $table->integer('coefficient')->default(0);
+            $table->integer('cotation')->default(0);
             $table->boolean('state')->default(true);
             $table->timestamps();
 

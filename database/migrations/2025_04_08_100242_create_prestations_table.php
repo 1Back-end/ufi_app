@@ -14,11 +14,12 @@ return new class extends Migration {
             $table->unsignedBigInteger('prise_charge_id')->nullable();
             $table->unsignedBigInteger('client_id');
             $table->unsignedBigInteger('consultant_id');
-            $table->unsignedBigInteger('assureur')->nullable();
+            $table->unsignedBigInteger('assureur_id')->nullable();
             $table->boolean('payable');
             $table->unsignedBigInteger('payable_by')->nullable();
             $table->timestamp('programmation_date')->comment('Date de programmation de la prestation');
             $table->boolean('state')->default(true);
+            $table->integer('type');
 
             $table->timestamps();
 
@@ -28,6 +29,7 @@ return new class extends Migration {
             $table->foreign('created_by')->references('id')->on('users')->restrictOnDelete();
             $table->foreign('updated_by')->references('id')->on('users')->restrictOnDelete();
             $table->foreign('prise_charge_id')->references('id')->on('prise_en_charges')->restrictOnDelete();
+            $table->foreign('assureur_id')->references('id')->on('assureurs')->restrictOnDelete();
         });
     }
 

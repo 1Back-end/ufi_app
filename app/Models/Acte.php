@@ -2,13 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Trait\UpdatingUser;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Acte extends Model
 {
-    use HasFactory;
+    use HasFactory, UpdatingUser;
 
     protected $fillable = [
         'created_by',
@@ -18,6 +19,9 @@ class Acte extends Model
         'type_acte_id',
         'delay',
         'state',
+        'k_modulateur',
+        'coefficient',
+        'cotation',
     ];
 
     public function createdBy(): BelongsTo

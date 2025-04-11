@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\ActeController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\CentreController;
 use App\Http\Controllers\ClientController;
@@ -68,6 +69,9 @@ Route::middleware(['activity'])->group(function () {
         Route::apiResource('prefixes', PrefixController::class)->except(['show']);
         Route::apiResource('type-actes', TypeActeController::class)->except(['show']);
         Route::patch('/type-actes/{typeActe}/activate', [TypeActeController::class, 'changeStatus']);
+        // Actes
+        Route::apiResource('actes', ActeController::class)->except(['show']);
+        Route::patch('/actes/{acte}/activate', [ActeController::class, 'changeStatus']);
 
         Route::controller(ConsultantController::class)->prefix('consultants')->group(function () {
             Route::get('/list', 'index');  // Afficher la liste des consultants

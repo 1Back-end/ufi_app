@@ -17,7 +17,9 @@ class TypeActe extends Model
         'updated_by',
         'name',
         'k_modulateur',
+        'coefficient',
         'state',
+        'cotation',
     ];
 
     public function createdBy(): BelongsTo

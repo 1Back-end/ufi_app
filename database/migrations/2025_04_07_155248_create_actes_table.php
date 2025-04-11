@@ -15,6 +15,9 @@ return new class extends Migration {
             $table->string('name');
             $table->integer('pu')->comment("Prix unitaire");
             $table->integer('delay');
+            $table->integer('k_modulateur')->default(0);
+            $table->integer('coefficient')->default(0);
+            $table->integer('cotation')->default(0);
             $table->boolean('state')->default(1)->comment("0: Inactif, 1: Actif");
             $table->timestamps();
             $table->foreign('created_by')->references('id')->on('users');

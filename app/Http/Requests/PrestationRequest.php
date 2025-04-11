@@ -10,11 +10,11 @@ class PrestationRequest extends FormRequest
     {
         return [
             'prise_charge_id' => ['nullable', 'integer'],
-            'client_id' => ['required', 'exists:clients'],
-            'consultant_id' => ['required', 'exists:consultants'],
-            'assureur' => ['nullable', 'integer'],
+            'client_id' => ['required', 'exists:clients,id'],
+            'consultant_id' => ['required', 'exists:consultants,id'],
+            'assureur_id' => ['nullable', 'integer', 'exists:assureurs,id'],
             'payable' => ['boolean'],
-            'payable_by' => ['required', 'exists:clients'],
+            'payable_by' => ['required', 'exists:clients,id'],
             'programmation_date' => ['required', 'date'],
         ];
     }
