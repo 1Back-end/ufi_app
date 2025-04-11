@@ -35,7 +35,7 @@ class ClientFactory extends Factory
             'nom_assure_principale_cli' => $this->faker->word(),
             'document_number_cli' => $this->faker->word(),
             'nom_conjoint_cli' => $this->faker->word(),
-            'email_cli' => $this->faker->unique()->safeEmail(),
+            'email' => $this->faker->unique()->safeEmail(),
             'date_naiss_cli_estime' => $this->faker->boolean(),
             'status_cli' => $this->faker->boolean(),
             'client_anonyme_cli' => $this->faker->boolean(),
@@ -50,8 +50,8 @@ class ClientFactory extends Factory
             'status_familiale_id' => StatusFamiliale::first(),
             'type_document_id' => TypeDocument::first(),
             'sexe_id' => Sexe::first(),
-            'create_by' => User::first(),
-            'update_by' => User::first(),
+            'created_by' => User::first(),
+            'updated_by' => User::first(),
         ];
     }
 }

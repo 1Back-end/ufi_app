@@ -1,28 +1,44 @@
 <?php
+
 namespace App\Exports;
 
-use Maatwebsite\Excel\Concerns\FromCollection;
 use App\Models\Assureur;
 use Carbon\Carbon;
-class AssureurSearchExport implements FromCollection
+use Maatwebsite\Excel\Concerns\FromCollection;
+
+class AssureurExport implements FromCollection
 {
-    protected $assureurs;
-
-    // Accepter les assureurs filtrés par la recherche
-    public function __construct($assureurs)
-    {
-        $this->assureurs = $assureurs;
-    }
-
+    /**
+    * @return \Illuminate\Support\Collection
+    */
     public function collection()
     {
-        // Vérifier si des assureurs existent
-        if ($this->assureurs->isEmpty()) {
-            throw new \Exception('Aucun assureur trouvé pour cette recherche');
+        $assureurs = Assureur::select(
+            'id',
+            'ref',
+            'nom',
+            'nom_abrege',
+            'adresse',
+            'tel',
+            'tel1',
+            'reg_com',
+            'num_com',
+            'code_type',
+            'bp',
+            'fax',
+            'email',
+            'BM',
+            'ref',
+            'status',
+            'created_at',
+            'updated_at'
+        )->where('is_deleted', false)->get();
+
+        if ($assureurs->isEmpty()) {
+            throw new \Exception('Aucun assureur à exporter');
         }
 
-        // Mapper les assureurs à exporter avec les bonnes colonnes
-        return $this->assureurs->map(function($assureur) {
+        return $assureurs->map(function($assureur) {
             return [
                 'id' => $assureur->id,
                 'ref' => $assureur->ref,
@@ -68,4 +84,5 @@ class AssureurSearchExport implements FromCollection
             'Date de Modification'
         ];
     }
+
 }

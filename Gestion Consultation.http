@@ -4,11 +4,18 @@
 #PUT http://127.0.0.1:8000/api/consultants/inactivate/3
 #PUT http://127.0.0.1:8000/api/consultants/3/status/Archivé
 # PUT http://127.0.0.1:8000/api/consultants/1/status/Inactif
-GET http://127.0.0.1:8000/api/consultants/export
+#GET http://127.0.0.1:8000/api/consultants/export
 
 #POST http://localhost:8000/api/hopitals/create
 
 #GET http://localhost:8000/api/searchandexport?status_consult=Actif
 
 #GET http://127.0.0.1:8000/api/titres/get_all_titres
+
+#http://127.0.0.1:8000/api/login
+#1|tO9whga2yQMjj3SuEAvkEwcXokDupPIhj1b9HILFa9cde3e2
+#GET http://127.0.0.1:8000/api/assureurs/export-assureurs
+
+#GET http://127.0.0.1:8000/api/assureurs/list
+GET http://localhost:8000/api/assureurs/export-assureurs
 

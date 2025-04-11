@@ -6,17 +6,13 @@ use Illuminate\Database\Eloquent\Model;
 
 class PriseEnCharge extends Model
 {
-    use HasFactory;
-
-    protected $table = 'prise_en_charges';
-
     protected $fillable = [
-        'code_assureur',
-        'code_quotation',
-        'date_pc',
-        'date_debut_pc',
-        'date_fin_pc',
-        'code_client',
+        'assureurs_id',
+        'quotations_id',
+        'date',
+        'date_debut',
+        'date_fin',
+        'clients_id',
         'taux_pc',
         'created_by',
         'updated_by',
@@ -24,9 +20,9 @@ class PriseEnCharge extends Model
     ];
 
     protected $casts = [
-        'date_pc' => 'date',
-        'date_debut_pc' => 'date',
-        'date_fin_pc' => 'date',
+        'date' => 'date',
+        'date_debut' => 'date',
+        'date_fin' => 'date',
         'is_deleted' => 'boolean',
         'taux_pc' => 'float',
     ];
@@ -34,17 +30,17 @@ class PriseEnCharge extends Model
     // Relations
     public function assureur()
     {
-        return $this->belongsTo(Assureur::class, 'code_assureur');
+        return $this->belongsTo(Assureur::class, 'assureurs_id');
     }
 
     public function quotation()
     {
-        return $this->belongsTo(Quotation::class, 'code_quotation');
+        return $this->belongsTo(Quotation::class, 'quotations_id');
     }
 
     public function client()
     {
-        return $this->belongsTo(Client::class, 'code_client');
+        return $this->belongsTo(Client::class, 'clients_id');
     }
 
     public function creator()
@@ -56,5 +52,4 @@ class PriseEnCharge extends Model
     {
         return $this->belongsTo(User::class, 'updated_by');
     }
-    //
 }

@@ -46,7 +46,6 @@ class SexeController extends Controller
         if ($request->input('prefixes')) {
             $sex->prefixes()->sync($request->input('prefixes'));
         }
-
         return response()->json(['message' => 'Sexe créé avec succès !'], Response::HTTP_CREATED);
     }
 
