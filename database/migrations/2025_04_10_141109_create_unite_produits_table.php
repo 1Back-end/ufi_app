@@ -11,13 +11,12 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('quotations', function (Blueprint $table) {
+        Schema::create('unite_produits', function (Blueprint $table) {
             $table->id();
-            $table->string('code');
-            $table->string('taux');
-            $table->string('description')->nullable();
+            $table->string('name')->unique();  // Le nom de la catégorie
+            $table->foreignId('created_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->foreignId('updated_by')->nullable()->constrained('users')->nullOnDelete();
             $table->boolean('is_deleted')->default(false);
-
             $table->timestamps();
         });
     }
@@ -27,6 +26,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('quotations');
+        Schema::dropIfExists('unite_produits');
     }
 };

@@ -64,6 +64,13 @@ return [
             'report' => false,
         ],
 
+        'exportassureurs' => [
+            'driver' => 'local',
+            'root' => public_path('export-assureurs'),
+            'url' => env('APP_URL') . '/export-assureurs',
+            'visibility' => 'public',
+        ],
+
         's3' => [
             'driver' => 's3',
             'key' => env('AWS_ACCESS_KEY_ID'),
@@ -91,6 +98,7 @@ return [
     */
 
     'links' => [
+        public_path('export-assureurs') => storage_path('app/export-assureurs'),
         public_path('export-consultant') => storage_path('app/export-consultant'),
         public_path('storage') => storage_path('app/public'),
         public_path('export-client') => storage_path('app/export-client'),

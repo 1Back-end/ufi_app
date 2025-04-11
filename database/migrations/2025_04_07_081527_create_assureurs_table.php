@@ -21,8 +21,8 @@ return new class extends Migration
             $table->string('ref')->unique()->nullable();
             $table->foreignId('code_quotation')->constrained('quotations')->onDelete('cascade')->comment('Table ConfigTbl_Quotation');
             $table->foreignId('code_centre')->constrained('centres')->onDelete('cascade');
-            $table->string('Reg_com',20)->unique(); // Registre de commerce unique
-            $table->string('num_com',20)->unique(); // Numéro contribuable unique
+            $table->string('Reg_com')->unique(); // Registre de commerce unique
+            $table->string('num_com')->unique(); // Numéro contribuable unique
             $table->integer('bp');
             $table->string('fax');
             $table->string('code_type')->default('Principale')->comment('Valeurs: "Principale" ou "Auxiliaire"');
