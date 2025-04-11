@@ -47,7 +47,6 @@
         .logo-container img {
             height:90px;
             width: 90px;
-            border-radius: 50%;
         }
 
         .content-table {
@@ -105,7 +104,7 @@
         <tr>
             <td>
                 <img class="barcode-img"
-                     src="data:image/png;base64,{{ DNS1D::getBarcodePNG(code: $client->ref_cli, type: 'C128', w: 1, showCode: true) }}"
+                     src="data:image/png;base64,{{ DNS1D::getBarcodePNG(code: $client->ref_cli, type: 'C128', w: 1, h: 60, showCode: true) }}"
                      alt="Code-barres">
             </td>
         </tr>
@@ -115,7 +114,7 @@
     <div class="footer">
         <p>Cette carte donne droit à une consultation gratuite à chaque 10ième consultation.</p>
         <div>
-            <span style="margin-right: 10px">VALIDE JUSQU'AU : {{ now()->locale('fr')->addDays($validity)->format('d F Y') }}</span>
+            <span style="margin-right: 10px">VALIDE JUSQU'AU : {{ now()->locale('fr')->addDays($validity)->isoFormat('LL') }}</span>
             <span style="font-style: italic">Appeler ce numéro <strong>{{ $centre?->tel }}</strong> si vous retrouvez cette carte égarée.</span>
         </div>
     </div>

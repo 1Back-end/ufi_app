@@ -33,7 +33,7 @@ class CentreRequest extends FormRequest
             'fax' => ['nullable'],
             'email' => ['nullable', 'email', 'max:254'],
             'website' => ['nullable'],
-            'logo' => ['nullable', 'file', 'max:2048', 'mimes:jpg,jpeg,png'],
+            'logo' => ['nullable', 'file', 'max:2048', 'mimes:jpg,jpeg,png,svg'],
         ];
     }
 
