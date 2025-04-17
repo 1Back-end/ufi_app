@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 use App\Models\PriseEnCharge;
-
+use Illuminate\Contracts\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 
 class PriseEnChargeController extends Controller
@@ -23,6 +23,14 @@ class PriseEnChargeController extends Controller
                 'creator:id,login',
                 'updater:id,login'
             ])
+            ->when($request->input('client'), function ($query) use ($request) {
+                $query->where('clients_id', $request->input('client'))
+                    ->when($request->input('assureur'), function ($query) use ($request) {
+                        $query->whereHas('assureur', function ($query) use ($request) {
+                            $query->where('nom', 'like', '%' . $request->input('assureur') . '%');
+                    });
+                });
+            })
             ->paginate($perPage, ['*'], 'page', $page);
 
         return response()->json([

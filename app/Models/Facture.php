@@ -3,24 +3,29 @@
 namespace App\Models;
 
 use App\Models\Trait\UpdatingUser;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 
-class TypeActe extends Model
+class Facture extends Model
 {
-    use HasFactory, UpdatingUser;
+    use UpdatingUser;
 
     protected $fillable = [
+        'code',
+        'prestation_id',
         'created_by',
         'updated_by',
-        'name',
-        'k_modulateur',
-        'state',
-        'b',
-        'b1',
+        'date_fact',
+        'amount',
+        'amount_pc',
+        'amount_remise',
+        'type',
     ];
+
+    public function prestation(): BelongsTo
+    {
+        return $this->belongsTo(Prestation::class, 'prestation_id');
+    }
 
     public function createdBy(): BelongsTo
     {
@@ -32,8 +37,10 @@ class TypeActe extends Model
         return $this->belongsTo(User::class, 'updated_by');
     }
 
-    public function actes(): HasMany
+    protected function casts(): array
     {
-        return $this->hasMany(Acte::class, 'type_acte_id');
+        return [
+            'date_fact' => 'datetime',
+        ];
     }
 }

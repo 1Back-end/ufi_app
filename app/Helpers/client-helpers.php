@@ -16,14 +16,16 @@ if (! function_exists('client_filter')) {
 
         return Client::with('user', 'societe', 'prefix', 'typeDocument', 'sexe', 'statusFamiliale', 'createByCli', 'updateByCli', 'fidelityCard')
             ->when($search, function (Builder $query) use ($search) {
-                $query->whereLike('nom_cli', "%{$search}%")
-                    ->orWhereLike('nomcomplet_client', "%{$search}%")
-                    ->orWhereLike('prenom_cli', "%{$search}%")
-                    ->orWhereLike('secondprenom_cli', "%{$search}%")
-                    ->orWhereLike('ref_cli', "%{$search}%")
-                    ->orWhereLike('email', "%{$search}%")
-                    ->orWhereLike('tel_cli', "%{$search}%")
-                    ->orWhereLike('tel2_cli', "%{$search}%");
+                $query->where(function (Builder $query) use ($search) {
+                    $query->whereLike('nom_cli', "%{$search}%")
+                        ->orWhereLike('nomcomplet_client', "%{$search}%")
+                        ->orWhereLike('prenom_cli', "%{$search}%")
+                        ->orWhereLike('secondprenom_cli', "%{$search}%")
+                        ->orWhereLike('ref_cli', "%{$search}%")
+                        ->orWhereLike('email', "%{$search}%")
+                        ->orWhereLike('tel_cli', "%{$search}%")
+                        ->orWhereLike('tel2_cli', "%{$search}%");
+                });
             })
             ->when($filterData->sexe, function (Builder $query) use ($filterData) {
                 $query->where('sexe_id', $filterData->sexe);

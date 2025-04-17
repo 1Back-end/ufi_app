@@ -14,8 +14,8 @@ class ActeRequest extends FormRequest
             'type_acte_id' => ['required', 'exists:type_actes,id'],
             'delay' => ['required', 'integer'],
             'k_modulateur' => ['required', 'integer'],
-            'coefficient' => ['required', 'integer'],
-            'cotation' => ['required', 'integer'],
+            'b' => ['required', 'integer'],
+            'b1' => ['required', 'integer'],
         ];
     }
 }

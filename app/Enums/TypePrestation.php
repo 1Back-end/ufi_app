@@ -2,6 +2,8 @@
 
 namespace App\Enums;
 
+use Illuminate\Support\Facades\Log;
+
 enum TypePrestation: int
 {
     case ACTES = 1;
@@ -19,5 +21,16 @@ enum TypePrestation: int
             self::PRODUITS->value => 'Produits',
             self::LABORATOIR->value => 'Laboratoire',
         ];
+    }
+
+    public static function label($value): string
+    {
+        return match ($value) {
+            self::ACTES->value => 'Actes',
+            self::CONSULTATIONS->value => 'Consultations',
+            self::SOINS->value => 'Soins',
+            self::PRODUITS->value => 'Produits',
+            self::LABORATOIR->value => 'Laboratoire',
+        };
     }
 }

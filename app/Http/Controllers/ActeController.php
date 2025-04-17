@@ -11,14 +11,25 @@ use Illuminate\Http\Request;
 class ActeController extends Controller
 {
     /**
-     * @param Request $request
      * @return JsonResponse
      *
      * @permission ActeController::index
      * @permission_desc Afficher la liste des actes
      */
-    public function index()
+    public function index(Request $request)
     {
+        if($request->input('actes')) {
+            $query = Acte::with(['typeActe', 'createdBy:id,nom_utilisateur', 'updatedBy:id,nom_utilisateur']);
+
+            if ($request->has('search')) {
+                $query->where('name', 'like', '%' . $request->input('search') . '%');
+            }
+
+            return response()->json([
+                'actes' => $query->paginate($request->input('per_page', 10))
+            ]);
+        }
+    
         return response()->json([
             'type_actes' => TypeActe::with(['actes', 'actes.createdBy:id,nom_utilisateur', 'actes.updatedBy:id,nom_utilisateur'])->get()
         ]);

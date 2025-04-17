@@ -6,6 +6,7 @@ use App\Models\Trait\UpdatingUser;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Acte extends Model
 {
@@ -20,8 +21,8 @@ class Acte extends Model
         'delay',
         'state',
         'k_modulateur',
-        'coefficient',
-        'cotation',
+        'b',
+        'b1',
     ];
 
     public function createdBy(): BelongsTo
@@ -37,6 +38,11 @@ class Acte extends Model
     public function typeActe(): BelongsTo
     {
         return $this->belongsTo(TypeActe::class);
+    }
+
+    public function assureurs(): BelongsToMany
+    {
+        return $this->belongsToMany(Assureur::class, 'assureur_acte')->withPivot(['k_modulateur', 'b', 'b1']);
     }
 
     protected function casts(): array

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class PriseEnCharge extends Model
 {
@@ -51,5 +52,10 @@ class PriseEnCharge extends Model
     public function updater()
     {
         return $this->belongsTo(User::class, 'updated_by');
+    }
+
+    public function prestations(): HasMany
+    {
+        return $this->hasMany(Prestation::class);
     }
 }
