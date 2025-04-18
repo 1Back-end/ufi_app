@@ -3,10 +3,26 @@
 namespace App\Http\Controllers;
 
 use App\Models\GroupProduct;
+use App\Models\Product;
 use Illuminate\Http\Request;
 
 class GroupProduitController extends Controller
 {
+    public function listIdName()
+    {
+        $groupProduits = GroupProduct::select('id', 'name')
+            ->where('is_deleted', false)
+            ->get();
+
+        return response()->json([
+            'group_produits' => $groupProduits
+        ]);
+    }
+    /**
+     * Display a listing of the resource.
+     * @permission GroupProduitController::index
+     * @permission_desc Afficher la liste des groupes de produits
+     */
     public function index(Request $request)
     {
         $perPage = $request->input('limit', 10);  // Par défaut, 10 éléments par page
@@ -34,7 +50,9 @@ class GroupProduitController extends Controller
     }
 
     /**
-     * Store a newly created resource in storage.
+     * Display a listing of the resource.
+     * @permission GroupProduitController::store
+     * @permission_desc Créer un groupe de produit
      */
     public function store(Request $request)
     {
@@ -53,6 +71,11 @@ class GroupProduitController extends Controller
 
     /**
      * Display the specified resource.
+     */
+    /**
+     * Display a listing of the resource.
+     * @permission GroupProduitController::show
+     * @permission_desc Afficher les détails d'un groupe produits
      */
     public function show(string $id)
     {
@@ -77,6 +100,11 @@ class GroupProduitController extends Controller
     /**
      * Update the specified resource in storage.
      */
+    /**
+     * Display a listing of the resource.
+     * @permission GroupProduitController::update
+     * @permission_desc Modifier un groupe produit
+     */
     public function update(Request $request, string $id)
     {
         $groupe_produit = GroupProduct::where('id', $id)->where('is_deleted', false)->first();
@@ -100,8 +128,31 @@ class GroupProduitController extends Controller
     /**
      * Remove the specified resource from storage.
      */
+    /**
+     * Display a listing of the resource.
+     * @permission GroupProduitController::destroy
+     * @permission_desc Supprimer un gorupe produits
+     */
     public function destroy(string $id)
     {
-        //
+        $group_product = GroupProduct::findOrFail($id);
+
+        // Vérifie s'il est utilisé dans un produit
+        $isUsed = Product::where('group_products_id', $id)->exists();
+
+        if ($isUsed) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Impossible de supprimer : cette groupe de produit est utilisée par au moins un produit.'
+            ], 400);
+        }
+
+        $group_product->is_deleted = true;
+        $group_product->save();
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Suppression éffectué avec succès'
+        ]);
     }
 }

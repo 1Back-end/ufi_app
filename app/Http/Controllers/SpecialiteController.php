@@ -54,15 +54,12 @@ class SpecialiteController extends Controller
         ]);
 
         // Récupère l'utilisateur par défaut
-        $authUser = User::first();
-        if (!$authUser) {
-            return response()->json(['message' => 'Aucun utilisateur trouvé'], 404);
-        }
+        $auth = auth()->user();
 
         // Création du service hospitalier
         $specialite = Specialite::create([
             'nom_specialite' => $request->nom_specialite,
-            'create_by_specialite' => $authUser->id
+            'create_by_specialite' => $auth->id
         ]);
 
         // Retourne la réponse de succès
@@ -108,10 +105,7 @@ class SpecialiteController extends Controller
     public function update(Request $request, string $id)
     {
         // Récupérer l'utilisateur authentifié
-        $authUser = User::first();
-        if (!$authUser) {
-            return response()->json(['message' => 'Aucun utilisateur trouvé'], 404);
-        }
+        $auth = auth()->user();
 
         // Validation des données d'entrée
         $validated = $request->validate([
@@ -128,7 +122,7 @@ class SpecialiteController extends Controller
         try {
             $specialite->update([
                 'nom_specialite' => $request->nom_specialite,
-                'update_by_specialite' => $authUser->id, // L'utilisateur qui effectue la mise à jour
+                'update_by_specialite' => $auth->id, // L'utilisateur qui effectue la mise à jour
             ]);
         } catch (\Exception $e) {
             return response()->json([

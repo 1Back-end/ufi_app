@@ -16,7 +16,18 @@ use Symfony\Component\HttpFoundation\Response;
 
 class AssureurController extends Controller
 {
+    public function listIdName(){
+        $data = Assureur::select('id','nom')->where('is_deleted',false)->get();
+        return response()->json([
+            'assureur' => $data
+        ]);
+    }
 
+    /**
+     * Display a listing of the resource.
+     * @permission AssureurController::searchAndExport
+     * @permission_desc Filtrer et exporter les données des assureurs
+     */
     public function searchAndExport(Request $request)
     {
         // Validation du paramètre de recherche
@@ -70,7 +81,11 @@ class AssureurController extends Controller
     }
 
 
-
+    /**
+     * Display a listing of the resource.
+     * @permission AssureurController::export
+     * @permission_desc Exporter les données des assureurs
+     */
     public function export()
     {
         $fileName = 'assureurs-' . Carbon::now()->format('Y-m-d') . '.xlsx';
@@ -83,7 +98,11 @@ class AssureurController extends Controller
             "url" => Storage::disk('exportassureurs')->url($fileName)
         ]);
     }
-
+    /**
+     * Display a listing of the resource.
+     * @permission AssureurController::index
+     * @permission_desc Afficher  les données des assureurs avec la pagination
+     */
     public function index(Request $request){
         $perPage = $request->input('limit', 10);  // Par défaut, 10 éléments par page
         $page = $request->input('page', 1);  // Page courante
@@ -99,7 +118,11 @@ class AssureurController extends Controller
             'total' => $assureurs->total(),  // Nombre total d'éléments
         ]);
     }
-
+    /**
+     * Display a listing of the resource.
+     * @permission AssureurController::searchAndExport
+     * @permission_desc Afficher les détails d'un assureur
+     */
    public function show($id){
         $assureur = Assureur::where('id', $id)->where('is_deleted', false)->first();
         if(!$assureur){
@@ -108,18 +131,31 @@ class AssureurController extends Controller
             return response()->json($assureur, 200);
         }
    }
-
+    /**
+     * Display a listing of the resource.
+     * @permission AssureurController::store
+     * @permission_desc Enregistrer des assureurs
+     */
     public function store(Request $request)
     {
         // Vérifie si l'utilisateur est authentifié
         $auth = auth()->user();
-//        if (!$request->header('centre')) {
-//            return \response()->json([
-//                'message' => __("Vous devez vous connectez à un centre !")
-//            ], Response::HTTP_UNAUTHORIZED);
-//        }
-        // Vérifie si un centre est disponible
-        $centre = Centre::first(); // À adapter selon ton besoin
+        // Vérifie si un ID de centre est envoyé dans le header
+        $centreId = $request->header('centre');
+        if (!$centreId) {
+            return response()->json([
+                'message' => __("Vous devez vous connecter à un centre !")
+            ], Response::HTTP_UNAUTHORIZED);
+        }
+
+        // Recherche du centre
+        $centre = Centre::find($centreId);
+        if (!$centre) {
+            return response()->json([
+                'message' => __("Centre introuvable.")
+            ], Response::HTTP_NOT_FOUND);
+        }
+
 
         try {
             // Valider les données du formulaire
@@ -186,14 +222,30 @@ class AssureurController extends Controller
         }
     }
 
-
+    /**
+     * Display a listing of the resource.
+     * @permission AssureurController::update
+     * @permission_desc Modifier les informations des assureurs
+     */
     public function update(Request $request, $id)
     {
         // Vérifie si l'utilisateur est authentifié
         $auth = auth()->user();
 
-        // Vérifie si un centre est disponible
-        $centre = Centre::first();
+        $centreId = $request->header('centre');
+        if (!$centreId) {
+            return response()->json([
+                'message' => __("Vous devez vous connecter à un centre !")
+            ], Response::HTTP_UNAUTHORIZED);
+        }
+
+        // Recherche du centre
+        $centre = Centre::find($centreId);
+        if (!$centre) {
+            return response()->json([
+                'message' => __("Centre introuvable.")
+            ], Response::HTTP_NOT_FOUND);
+        }
 
         // Récupère l'assureur à modifier
         $assureur = Assureur::findOrFail($id);
@@ -257,7 +309,11 @@ class AssureurController extends Controller
             ], 500);
         }
     }
-
+    /**
+     * Display a listing of the resource.
+     * @permission AssureurController::search
+     * @permission_desc Rechercher des assureurs
+     */
     public function search(Request $request)
     {
         // Validation du paramètre de recherche
@@ -291,7 +347,11 @@ class AssureurController extends Controller
 
 
 
-
+    /**
+     * Display a listing of the resource.
+     * @permission AssureurController::getAssureursPrincipaux
+     * @permission_desc Afficher les references et le nom des assureurs principaux
+     */
     public function getAssureursPrincipaux()
     {
         try {
@@ -322,7 +382,11 @@ class AssureurController extends Controller
             ], 500);
         }
     }
-
+    /**
+     * Display a listing of the resource.
+     * @permission AssureurController::delete
+     * @permission_desc Supprimer un assureur
+     */
     public function delete($id)
     {
         // Vérifier si l'assureur existe
@@ -345,6 +409,11 @@ class AssureurController extends Controller
             ], 500);
         }
     }
+    /**
+     * Display a listing of the resource.
+     * @permission AssureurController::updateStatus
+     * @permission_desc Changer le statut d'un assureur
+     */
     public function updateStatus(Request $request, $id, $status)
     {
         // Find the assureur by ID

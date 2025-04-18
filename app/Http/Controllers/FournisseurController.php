@@ -2,11 +2,27 @@
 
 namespace App\Http\Controllers;
 use App\Models\Fournisseurs ;
+use App\Models\Product;
 use App\Models\User;
 use Illuminate\Http\Request;
 
 class FournisseurController extends Controller
 {
+    public function ListIdName()
+    {
+        $fournisseurs = Fournisseurs::select('id', 'nom')
+            ->where('is_deleted', false)
+            ->get();
+
+        return response()->json([
+            'fournisseurs' => $fournisseurs
+        ]);
+    }
+    /**
+     * Display a listing of the resource.
+     * @permission FournisseurController::index
+     * @permission_desc Afficher la liste des fournisseurs avec pagination
+     */
     public function index(Request $request){
         $perPage = $request->input('limit', 10);  // Par défaut, 10 éléments par page
         $page = $request->input('page', 1);  // Page courante
@@ -22,7 +38,11 @@ class FournisseurController extends Controller
             'total' => $fournisseurs->total(),  // Nombre total d'éléments
         ]);
     }
-
+    /**
+     * Display a listing of the resource.
+     * @permission FournisseurController::show
+     * @permission_desc Afficher les détails d'un fournisseur
+     */
     public function show($id){
         $fournisseur = Fournisseurs::where('id', $id)->where('is_deleted', false)->first();
         if(!$fournisseur){
@@ -33,10 +53,19 @@ class FournisseurController extends Controller
 
 }
 
+    /**
+     * Display a listing of the resource.
+     * @permission FournisseurController::store
+     * @permission_desc Enregistrer un fournisseur
+     */
+
     public function store(Request $request)
     {
         // Authentifier l'utilisateur
         $auth = auth()->user();
+        if(!$auth){
+            return response()->json(['message' => 'Unauthorized'], 401);
+        }
 
         // Validation des données entrantes
         $data = $request->validate([
@@ -62,6 +91,11 @@ class FournisseurController extends Controller
             'fournisseur' => $fournisseur
         ], 201); // Code de statut HTTP 201 pour une ressource créée
     }
+    /**
+     * Display a listing of the resource.
+     * @permission FournisseurController::search
+     * @permission_desc Rechercher des fournisseurs
+     */
     public function search(Request $request)
     {
         $query = $request->input('query');
@@ -87,6 +121,12 @@ class FournisseurController extends Controller
             'fournisseurs' => $fournisseurs
         ], 200);
     }
+
+    /**
+     * Display a listing of the resource.
+     * @permission FournisseurController::update
+     * @permission_desc Modifier un fournisseur
+     */
 
     public function update(Request $request, $id)
     {
@@ -126,14 +166,30 @@ class FournisseurController extends Controller
             ], 500);
         }
     }
+    /**
+     * Display a listing of the resource.
+     * @permission FournisseurController::delete
+     * @permission_desc Supprimer un fournisseur
+     */
     public function delete($id)
     {
         // Rechercher le fournisseur non supprimé
-        $fournisseur = Fournisseurs::where('id', $id)->where('is_deleted', false)->first();
+        $fournisseur = Fournisseurs::where('id', $id)
+            ->where('is_deleted', false)
+            ->first();
 
         // Si non trouvé
         if (!$fournisseur) {
             return response()->json(['message' => 'Fournisseur introuvable ou déjà supprimé'], 404);
+        }
+
+        // Vérifier s'il est utilisé dans la table products
+        $isUsed = Product::where('fournisseurs_id', $id)->exists();
+
+        if ($isUsed) {
+            return response()->json([
+                'message' => 'Impossible de supprimer : ce fournisseur est utilisé dans des produits.'
+            ], 400);
         }
 
         try {
@@ -150,6 +206,7 @@ class FournisseurController extends Controller
             ], 500);
         }
     }
+
 
 
 

@@ -1,12 +1,23 @@
 <?php
 
 namespace App\Http\Controllers;
+use App\Models\Client;
 use App\Models\PriseEnCharge;
 
 use Illuminate\Http\Request;
 
 class PriseEnChargeController extends Controller
 {
+
+    public function getAllClients()
+    {
+        $clients = Client::select('id', 'nomcomplet_client')
+            ->get();
+
+        return response()->json([
+            'clients' => $clients
+        ]);
+    }
     /**
      * Display a listing of the resource.
      */
@@ -88,25 +99,10 @@ class PriseEnChargeController extends Controller
     public function show(string $id)
     {
         try {
-            $prise_en_charge = PriseEnCharge::with([
-                'assureur:id,nom',
-                'quotation:id,code',
-                'client:id,nomcomplet_client'
-            ])->where('is_deleted', false)->findOrFail($id);
-
-            return response()->json([
-                'data' => $prise_en_charge,
-                'message' => 'Détails de la prise en charge récupérés avec succès'
-            ]);
+            $prise_en_charge = PriseEnCharge::where('is_deleted', false)->findOrFail($id);
+            return response()->json($prise_en_charge);
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
-            return response()->json([
-                'error' => 'Prise en charge non trouvée'
-            ], 404);
-        } catch (\Exception $e) {
-            return response()->json([
-                'error' => 'Une erreur est survenue',
-                'message' => $e->getMessage()
-            ], 500);
+            return response()->json(['message' => 'Prise en charge introuvable'], 404);
         }
     }
 
