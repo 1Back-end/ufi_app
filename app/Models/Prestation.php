@@ -2,25 +2,58 @@
 
 namespace App\Models;
 
+use App\Enums\TypePrestation;
+use App\Models\Trait\UpdatingUser;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
+use Illuminate\Database\Eloquent\Relations\MorphToMany;
+use Illuminate\Support\Facades\Log;
 
 class Prestation extends Model
 {
-    use HasFactory;
+    use HasFactory, UpdatingUser;
 
     protected $fillable = [
         'prise_charge_id',
         'client_id',
         'consultant_id',
-        'assureur',
-        'payable',
         'payable_by',
         'programmation_date',
         'created_by',
         'updated_by',
+        'type',
+        'regulated',
+        'centre_id',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'payable' => 'boolean',
+            'programmation_date' => 'datetime',
+            'regulated' => 'boolean',
+        ];
+    }
+
+    protected function type(): Attribute
+    {
+        return Attribute::make(
+            get: fn ($value, array $attributes)  => TypePrestation::label($value)
+        );
+    }
+
+    public function centre() {
+        return $this->belongsTo(Centre::class, 'centre_id');
+    }
+
+    public function facture(): HasOne
+    {
+        return $this->hasOne(Facture::class, 'prestation_id');
+    }
 
     public function client(): BelongsTo
     {
@@ -39,19 +72,23 @@ class Prestation extends Model
 
     public function createdBy(): BelongsTo
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(User::class, 'created_by');
     }
 
     public function updatedBy(): BelongsTo
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(User::class, 'updated_by');
     }
 
-    protected function casts(): array
+    public function priseCharge(): BelongsTo
     {
-        return [
-            'payable' => 'boolean',
-            'programmation_date' => 'datetime',
-        ];
+        return $this->belongsTo(PriseEnCharge::class, 'prise_charge_id');
+    }
+
+    public function actes(): MorphToMany
+    {
+        return $this->morphedByMany(Acte::class, 'prestationable')
+            ->withPivot(['remise', 'quantity', 'date_rdv'])
+            ->withTimestamps();
     }
 }

@@ -20,6 +20,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Enum;
@@ -282,7 +283,7 @@ class ClientController extends Controller
             $media = $centre?->medias()->whereName('logo')->first();
 
             $data = [
-                'validity' => $request->input('validity', 30),
+                'validity' => intval($request->input('validity')),
                 'client' => $client,
                 'centre' => $centre,
                 'logo' => $media ?  'storage/' . $media->path . '/'. $media->filename : ''

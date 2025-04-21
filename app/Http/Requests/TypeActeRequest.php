@@ -11,6 +11,8 @@ class TypeActeRequest extends FormRequest
         return [
             'name' => ['required'],
             'k_modulateur' => ['required', 'integer'],
+            'b' => ['required', 'integer'],
+            'b1' => ['required', 'integer'],
         ];
     }
 }

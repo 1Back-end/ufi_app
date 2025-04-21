@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\TypeActeRequest;
 use App\Models\TypeActe;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class TypeActeController extends Controller
@@ -11,8 +12,8 @@ class TypeActeController extends Controller
     /**
      * Affiche la liste des types d'actes.
      *
-     * @return \Illuminate\Http\JsonResponse
-     * 
+     * @return JsonResponse
+     *
      * @permission TypeActeController::index
      * @permission_desc Afficher la liste des types d'actes
      */
@@ -26,8 +27,8 @@ class TypeActeController extends Controller
     /**
      * Enregistrer un type d'acte.
      *
-     * @return \Illuminate\Http\JsonResponse
-     * 
+     * @return JsonResponse
+     *
      * @permission TypeActeController::store
      * @permission_desc Enregistrer un type d'acte
      */
@@ -43,8 +44,8 @@ class TypeActeController extends Controller
     /**
      * Mise à jour d'un type d'acte.
      *
-     * @return \Illuminate\Http\JsonResponse
-     * 
+     * @return JsonResponse
+     *
      * @permission TypeActeController::update
      * @permission_desc Mise à jour d'un type d'acte
      */
@@ -60,8 +61,8 @@ class TypeActeController extends Controller
     /**
      * Changer le status d'un type d'acte.
      *
-     * @return \Illuminate\Http\JsonResponse
-     * 
+     * @return JsonResponse
+     *
      * @permission TypeActeController::changeStatus
      * @permission_desc Changer le status d'un type d'acte
      */

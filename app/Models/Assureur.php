@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Assureur extends Model
 
@@ -61,4 +62,9 @@ class Assureur extends Model
         return $this->belongsTo(Assureur::class, 'code_main');
     }
     //
+
+    public function actes(): BelongsToMany
+    {
+        return $this->belongsToMany(Acte::class, 'assureur_acte');
+    }
 }

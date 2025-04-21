@@ -24,8 +24,11 @@ class ConsultantController extends Controller
      */
     public function index()
     {
-        $consultants = Consultant::where('is_deleted', false) // Add the condition for is_deleted
-        ->with('codeSpecialite:id,nom_specialite', 'codeTitre:id,nom_titre')
+        $consultants = Consultant::where('is_deleted', false)
+            ->when(request('search'), function ($query, $search) {
+                $query->where('nom_consult','like', '%'. $search .'%');
+            })
+            ->with('codeSpecialite:id,nom_specialite', 'codeTitre:id,nom_titre')
             ->paginate(10);
 
         return response()->json($consultants);

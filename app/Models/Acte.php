@@ -2,13 +2,15 @@
 
 namespace App\Models;
 
+use App\Models\Trait\UpdatingUser;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Acte extends Model
 {
-    use HasFactory;
+    use HasFactory, UpdatingUser;
 
     protected $fillable = [
         'created_by',
@@ -18,6 +20,9 @@ class Acte extends Model
         'type_acte_id',
         'delay',
         'state',
+        'k_modulateur',
+        'b',
+        'b1',
     ];
 
     public function createdBy(): BelongsTo
@@ -33,6 +38,11 @@ class Acte extends Model
     public function typeActe(): BelongsTo
     {
         return $this->belongsTo(TypeActe::class);
+    }
+
+    public function assureurs(): BelongsToMany
+    {
+        return $this->belongsToMany(Assureur::class, 'assureur_acte')->withPivot(['k_modulateur', 'b', 'b1']);
     }
 
     protected function casts(): array

@@ -11,9 +11,11 @@ class ActeRequest extends FormRequest
         return [
             'name' => ['required'],
             'pu' => ['required', 'integer'],
-            'type_acte_id' => ['required', 'exists:type_actes'],
+            'type_acte_id' => ['required', 'exists:type_actes,id'],
             'delay' => ['required', 'integer'],
-            'state' => ['boolean'],
+            'k_modulateur' => ['required', 'integer'],
+            'b' => ['required', 'integer'],
+            'b1' => ['required', 'integer'],
         ];
     }
 }

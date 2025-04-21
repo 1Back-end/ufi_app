@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\ActeController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\CentreController;
 use App\Http\Controllers\ClientController;
@@ -23,7 +24,7 @@ use App\Http\Controllers\VoixTransmissionController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\UniteProduitController;
 use App\Http\Controllers\GroupProduitController;
-
+use App\Http\Controllers\PrestationController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['activity'])->group(function () {
@@ -68,6 +69,14 @@ Route::middleware(['activity'])->group(function () {
         Route::apiResource('prefixes', PrefixController::class)->except(['show']);
         Route::apiResource('type-actes', TypeActeController::class)->except(['show']);
         Route::patch('/type-actes/{typeActe}/activate', [TypeActeController::class, 'changeStatus']);
+        // Actes
+        Route::apiResource('actes', ActeController::class)->except(['show']);
+        Route::patch('/actes/{acte}/activate', [ActeController::class, 'changeStatus']);
+
+        // Prestations
+        Route::get('prestations/types', [PrestationController::class, 'typePrestation']);
+        Route::apiResource('prestations', PrestationController::class)->except(['show', 'destroy']);
+        Route::post('prestations/{prestation}/facture', [PrestationController::class, 'saveFacture']);
 
         Route::controller(ConsultantController::class)->prefix('consultants')->group(function () {
             Route::get('/list', 'index');  // Afficher la liste des consultants
@@ -116,70 +125,71 @@ Route::middleware(['activity'])->group(function () {
             Route::put('/edit/{id}', 'update');
             Route::delete('/delete/{id}', 'destroy');
         });
-    });
-    Route::controller(QuotationController::class)->prefix('quotations')->group(function () {
-        Route::get('/list', 'index');
-        Route::post('/create', 'store');
-        route::get('/get_by_id/{id}', 'show');
-        Route::put('/edit/{id}', 'update');
-        Route::delete('/delete/{id}', 'destroy');
-        Route::get('/quotations-data', 'getAllCodes');
-    });
-    Route::controller(AssureurController::class)->prefix('assureurs')->group(function (){
-        route::get('/list','index');
-        Route::post('/create','store');
-        Route::get('/get_by_id/{id}', 'show');
-        Route::put('/edit/{id}', 'update');
-        Route::delete('/delete/{id}', 'destroy');
-        Route::get('/assureurs-principaux',  'getAssureursPrincipaux');
-        Route::delete('/delete/{id}',  'delete');
-        Route::put('update_status/{id}/status/{status}', 'updateStatus');
-        Route::get('/export-assureurs',  'export');
-        Route::get('/search',  'search');
-        Route::get('/search-and-export', 'searchAndExport');
-    });
-    Route::controller(FournisseurController::class)->prefix('fournisseurs')->group(function (){
-        Route::get('/list', 'index');
-        Route::post('/create', 'store');
-        Route::get('/get_by_id/{id}', 'show');
-        Route::put('/edit/{id}', 'update');
-        Route::delete('/delete/{id}', 'delete');
-        Route::get('/search','search');
-    });
-    Route::controller(PriseEnChargeController::class)->prefix('prise_en_charges')->group(function (){
-        Route::get('/list','index');
-        Route::post('/create','store');
-        Route::get('/get_by_id/{id}', 'show');
-        Route::put('/edit/{id}', 'update');
-        Route::delete('/delete/{id}', 'destroy');
-    });
-    Route::controller(VoixTransmissionController::class)->prefix('voie_administrations')->group(function (){
-        Route::get('/list', 'index');
-        Route::post('/create', 'store');
-        Route::get('/get_by_id/{id}', 'show');
-        Route::put('/edit/{id}', 'update');
-        Route::delete('/delete/{id}', 'destroy');
+    
+        Route::controller(QuotationController::class)->prefix('quotations')->group(function () {
+            Route::get('/list', 'index');
+            Route::post('/create', 'store');
+            route::get('/get_by_id/{id}', 'show');
+            Route::put('/edit/{id}', 'update');
+            Route::delete('/delete/{id}', 'destroy');
+            Route::get('/quotations-data', 'getAllCodes');
+        });
+        Route::controller(AssureurController::class)->prefix('assureurs')->group(function (){
+            route::get('/list','index');
+            Route::post('/create','store');
+            Route::get('/get_by_id/{id}', 'show');
+            Route::put('/edit/{id}', 'update');
+            Route::delete('/delete/{id}', 'destroy');
+            Route::get('/assureurs-principaux',  'getAssureursPrincipaux');
+            Route::delete('/delete/{id}',  'delete');
+            Route::put('update_status/{id}/status/{status}', 'updateStatus');
+            Route::get('/export-assureurs',  'export');
+            Route::get('/search',  'search');
+            Route::get('/search-and-export', 'searchAndExport');
+        });
+        Route::controller(FournisseurController::class)->prefix('fournisseurs')->group(function (){
+            Route::get('/list', 'index');
+            Route::post('/create', 'store');
+            Route::get('/get_by_id/{id}', 'show');
+            Route::put('/edit/{id}', 'update');
+            Route::delete('/delete/{id}', 'delete');
+            Route::get('/search','search');
+        });
+        Route::controller(PriseEnChargeController::class)->prefix('prise_en_charges')->group(function (){
+            Route::get('/list','index');
+            Route::post('/create','store');
+            Route::get('/get_by_id/{id}', 'show');
+            Route::put('/edit/{id}', 'update');
+            Route::delete('/delete/{id}', 'destroy');
+        });
+        Route::controller(VoixTransmissionController::class)->prefix('voie_administrations')->group(function (){
+            Route::get('/list', 'index');
+            Route::post('/create', 'store');
+            Route::get('/get_by_id/{id}', 'show');
+            Route::put('/edit/{id}', 'update');
+            Route::delete('/delete/{id}', 'destroy');
 
-    });
-    Route::controller(CategoryController::class)->prefix('category_products')->group(function (){
-        Route::get('/list', 'index');
-        Route::post('/create', 'store');
-        Route::get('/get_by_id/{id}', 'show');
-        Route::put('/edit/{id}', 'update');
-        Route::delete('/delete/{id}', 'destroy');
-    });
-    Route::controller(UniteProduitController::class)->prefix('unity_products')->group(function (){
-        Route::get('/list', 'index');
-        Route::post('/create', 'store');
-        Route::get('/get_by_id/{id}', 'show');
-        Route::put('/edit/{id}', 'update');
-        Route::delete('/delete/{id}', 'destroy');
-    });
-    Route::controller(GroupProduitController::class)->prefix('group_products')->group(function (){
-        Route::get('/list', 'index');
-        Route::post('/create', 'store');
-        Route::get('/get_by_id/{id}', 'show');
-        Route::put('/edit/{id}', 'update');
-        Route::delete('/delete/{id}', 'destroy');
+        });
+        Route::controller(CategoryController::class)->prefix('category_products')->group(function (){
+            Route::get('/list', 'index');
+            Route::post('/create', 'store');
+            Route::get('/get_by_id/{id}', 'show');
+            Route::put('/edit/{id}', 'update');
+            Route::delete('/delete/{id}', 'destroy');
+        });
+        Route::controller(UniteProduitController::class)->prefix('unity_products')->group(function (){
+            Route::get('/list', 'index');
+            Route::post('/create', 'store');
+            Route::get('/get_by_id/{id}', 'show');
+            Route::put('/edit/{id}', 'update');
+            Route::delete('/delete/{id}', 'destroy');
+        });
+        Route::controller(GroupProduitController::class)->prefix('group_products')->group(function (){
+            Route::get('/list', 'index');
+            Route::post('/create', 'store');
+            Route::get('/get_by_id/{id}', 'show');
+            Route::put('/edit/{id}', 'update');
+            Route::delete('/delete/{id}', 'destroy');
+        });
     });
 });
