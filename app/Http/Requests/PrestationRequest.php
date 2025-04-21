@@ -17,10 +17,11 @@ class PrestationRequest extends FormRequest
             'payable_by' => ['nullable', 'exists:clients,id'],
             'programmation_date' => ['required', 'date'],
             'type' => ['required', new Enum(TypePrestation::class)],
-            'acte_id' => ['nullable', 'required_if:type,' . TypePrestation::ACTES->value, 'exists:actes,id'],
-            'remise' => ['nullable', 'integer'],
-            'quantity' => ['nullable', 'required_if:type,' . TypePrestation::ACTES->value, 'min:1'],
-            'date_rdv' => ['nullable', 'required_if:type,' . TypePrestation::ACTES->value,]
+            'actes' => ['nullable', 'array', 'required_if:type,' . TypePrestation::ACTES->value],
+            'actes.*.id' => ['required_if:type,' . TypePrestation::ACTES->value, 'exists:actes,id'],
+            'actes.*.remise' => ['min:0', 'integer'],
+            'actes.*.quantity' => ['integer', 'required_if:type,' . TypePrestation::ACTES->value, 'min:1'],
+            'actes.*.date_rdv' => ['required_if:type,' . TypePrestation::ACTES->value,]
         ];
     }
 }

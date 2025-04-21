@@ -124,6 +124,7 @@ class ClientController extends Controller
 
         return response()->json([
             'message' => 'Client a été créé avec succès !',
+            'client' => $client
         ], Response::HTTP_CREATED);
     }
 

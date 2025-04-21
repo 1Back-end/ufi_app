@@ -4,10 +4,12 @@ namespace App\Http\Controllers;
 
 use App\Enums\TypePrestation;
 use App\Http\Requests\PrestationRequest;
+use App\Models\Acte;
 use App\Models\Facture;
 use App\Models\Prestation;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use PHPUnit\Framework\Exception;
@@ -62,20 +64,47 @@ class PrestationController extends Controller
         DB::beginTransaction();
         try {
             $centre = $request->header('centre');
-            $data = array_merge($request->except(['remise', 'quantity', 'date_rdv']), ['centre_id' => $centre]);
+            $data = array_merge($request->except(['actes']), ['centre_id' => $centre]);
             $prestation = Prestation::create($data);
             switch ($request->type){
                 case TypePrestation::ACTES->value:
-                    $prestation->actes()->attach($request->acte_id, [
-                        'remise' => $request->input('remise'),
-                        'quantity' => $request->input('quantity'),
-                        'date_rdv' => $request->input('date_rdv')
-                    ]);
+                    $unavailable = [];
+                    foreach ($request->post('actes') as $item) {
+                        // Check if un consultant is unavailable for this acte
+                        $acte = Acte::find($item['id']);
+                        $prestation = $acte->prestation()
+                            ->where('consultant_id', $prestation->consultant_id)
+                            ->wherePivot('date_rdv_end', '>=', Carbon::createFromTimeString($item['date_rdv'])->addDays($acte->delay))
+                            ->first();
+
+                        if ($prestation) {
+                            $unavailable = [
+                                'id' => $item['id'],
+                                'acte' => $acte
+                            ];
+                            break;
+                        }
+
+                        $prestation->actes()->attach($item['id'], [
+                            'remise' => $item['remise'],
+                            'quantity' => $item['quantity'],
+                            'date_rdv' => $item['date_rdv'],
+                            'date_rdv_end' => Carbon::createFromTimeString($item['date_rdv'])->addDays($acte->delay)
+                        ]);
+                    }
+
+                    if ($unavailable) {
+                        return response()->json([
+                            'message' => __("Le consultant est indisponible pour ce rendez-vous"),
+                            'unavailable' => $unavailable
+                        ], Response::HTTP_CONFLICT);
+                    }
                     break;
                 default:
                     throw new Exception("Ce type de prestation n'est pas encore implémenté", Response::HTTP_BAD_REQUEST);
             }
-        } catch (\Exception $e) {
+        }
+        catch (\Exception $e) {
             DB::rollBack();
             return response()->json([
                 'message' => $e->getMessage()

@@ -88,7 +88,7 @@ class Prestation extends Model
     public function actes(): MorphToMany
     {
         return $this->morphedByMany(Acte::class, 'prestationable')
-            ->withPivot(['remise', 'quantity', 'date_rdv'])
+            ->withPivot(['remise', 'quantity', 'date_rdv', 'date_rdv_end'])
             ->withTimestamps();
     }
 }

@@ -14,6 +14,7 @@ return new class extends Migration {
             $table->integer('remise')->default(0);
             $table->integer('quantity')->nullable();
             $table->dateTime('date_rdv')->nullable();
+            $table->dateTime('date_rdv_end')->nullable();
             $table->integer('nbr_days')->nullable();
             $table->integer('type_salle')->nullable();
             $table->integer('honoraire')->nullable();
