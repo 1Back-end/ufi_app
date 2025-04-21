@@ -38,37 +38,13 @@ class TitreController extends Controller
                 'nom_titre' => 'required|unique:titres,nom_titre',  // Validation obligatoire et unique
                 'abbreviation_titre' => 'required'
             ]);
-
-            // Vérification des champs manquants
-            $missingFields = [];
-            $fields = [
-                'nom_titre',
-                'abbreviation_titre'
-            ];
-
-            foreach ($fields as $field) {
-                if (empty($request->input($field))) {
-                    $missingFields[] = $field;
-                }
-            }
-
-            // Si des champs sont manquants
-            if (count($missingFields) > 0) {
-                return response()->json(['message' => 'Tous les champs sont requis !'], 400);
-            }
-            // Récupère un utilisateur par défaut
-            $authUser = User::first();
-            if (!$authUser) {
-                return response()->json(['message' => 'Aucun utilisateur par défaut trouvé.'], 400);
-            }
-
+            $auth = auth()->user();
             // Création du titre
             $titre = Titre::create([
                 'nom_titre' => $request->nom_titre,
                 'abbreviation_titre' => $request->abbreviation_titre,
-                'create_by' => $authUser->id
+                'create_by' => $auth->id
             ]);
-
             // Retourne la réponse de succès
             return response()->json([
                 'message' => 'Titre créé avec succès.',
@@ -96,44 +72,22 @@ class TitreController extends Controller
             'nom_titre' => 'required|unique:titres,nom_titre,' . $id, // Validation obligatoire et unique, en excluant l'ID courant
             'abbreviation_titre' => 'required'
         ]);
-
-        // Vérification des champs manquants
-        $missingFields = [];
-        $fields = [
-            'nom_titre',
-            'abbreviation_titre'
-        ];
-
-        foreach ($fields as $field) {
-            if (empty($request->input($field))) {
-                $missingFields[] = $field;
-            }
-        }
-
-        // Si des champs sont manquants
-        if (count($missingFields) > 0) {
-            return response()->json(['message' => 'Tous les champs sont requis !'], 400);
-        }
-
         // Récupérer le titre à mettre à jour
         $titre = Titre::find($id);
-
         // Si le titre n'existe pas
         if (!$titre) {
             return response()->json(['message' => 'Titre non trouvé.'], 404);
         }
 
         // Récupère un utilisateur par défaut pour la mise à jour
-        $authUser = User::first();
-        if (!$authUser) {
-            return response()->json(['message' => 'Aucun utilisateur par défaut trouvé.'], 400);
-        }
+        $auth = auth()->user();
+
 
         // Mise à jour du titre
         $titre->update([
             'nom_titre' => $request->nom_titre,
             'abbreviation_titre' => $request->abbreviation_titre,
-            'update_by' => $authUser->id
+            'update_by' => $auth->id
         ]);
 
         // Retourne la réponse de succès

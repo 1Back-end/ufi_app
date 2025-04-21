@@ -25,6 +25,11 @@ use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\UniteProduitController;
 use App\Http\Controllers\GroupProduitController;
 use App\Http\Controllers\PrestationController;
+use App\Http\Controllers\ProduitController;
+use App\Http\Controllers\TypeconsultationController;
+use App\Http\Controllers\ConsultationController;
+use App\Http\Controllers\TypeSoinsController;
+use App\Http\Controllers\SoinsController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['activity'])->group(function () {
@@ -125,7 +130,6 @@ Route::middleware(['activity'])->group(function () {
             Route::put('/edit/{id}', 'update');
             Route::delete('/delete/{id}', 'destroy');
         });
-    
         Route::controller(QuotationController::class)->prefix('quotations')->group(function () {
             Route::get('/list', 'index');
             Route::post('/create', 'store');
@@ -146,6 +150,7 @@ Route::middleware(['activity'])->group(function () {
             Route::get('/export-assureurs',  'export');
             Route::get('/search',  'search');
             Route::get('/search-and-export', 'searchAndExport');
+            Route::get('/get_data',  'listIdName');
         });
         Route::controller(FournisseurController::class)->prefix('fournisseurs')->group(function (){
             Route::get('/list', 'index');
@@ -154,6 +159,7 @@ Route::middleware(['activity'])->group(function () {
             Route::put('/edit/{id}', 'update');
             Route::delete('/delete/{id}', 'delete');
             Route::get('/search','search');
+            Route::get('/get_data',  'listIdName');
         });
         Route::controller(PriseEnChargeController::class)->prefix('prise_en_charges')->group(function (){
             Route::get('/list','index');
@@ -161,6 +167,7 @@ Route::middleware(['activity'])->group(function () {
             Route::get('/get_by_id/{id}', 'show');
             Route::put('/edit/{id}', 'update');
             Route::delete('/delete/{id}', 'destroy');
+            Route::get('/get_data',  'getAllClients');
         });
         Route::controller(VoixTransmissionController::class)->prefix('voie_administrations')->group(function (){
             Route::get('/list', 'index');
@@ -168,6 +175,7 @@ Route::middleware(['activity'])->group(function () {
             Route::get('/get_by_id/{id}', 'show');
             Route::put('/edit/{id}', 'update');
             Route::delete('/delete/{id}', 'destroy');
+            Route::get('/get_data',  'listIdName');
 
         });
         Route::controller(CategoryController::class)->prefix('category_products')->group(function (){
@@ -176,6 +184,7 @@ Route::middleware(['activity'])->group(function () {
             Route::get('/get_by_id/{id}', 'show');
             Route::put('/edit/{id}', 'update');
             Route::delete('/delete/{id}', 'destroy');
+            Route::get('/get_data',  'listIdName');
         });
         Route::controller(UniteProduitController::class)->prefix('unity_products')->group(function (){
             Route::get('/list', 'index');
@@ -183,6 +192,17 @@ Route::middleware(['activity'])->group(function () {
             Route::get('/get_by_id/{id}', 'show');
             Route::put('/edit/{id}', 'update');
             Route::delete('/delete/{id}', 'destroy');
+            Route::get('/get_data',  'listIdName');
+
+        });
+        Route::controller(TypeconsultationController::class)->prefix('type_consultants')->group(function (){
+            Route::get('/list', 'index');
+            Route::post('/create', 'store');
+            Route::get('/get_by_id/{id}', 'show');
+            Route::put('/edit/{id}', 'update');
+            Route::delete('/delete/{id}', 'destroy');
+            Route::get('/get_data',  'listIdName');
+
         });
         Route::controller(GroupProduitController::class)->prefix('group_products')->group(function (){
             Route::get('/list', 'index');
@@ -190,6 +210,43 @@ Route::middleware(['activity'])->group(function () {
             Route::get('/get_by_id/{id}', 'show');
             Route::put('/edit/{id}', 'update');
             Route::delete('/delete/{id}', 'destroy');
+            Route::get('/get_data',  'listIdName');
+        });
+        Route::controller(ProduitController::class)->prefix('products')->group(function (){
+            Route::get('/list', 'index');
+            Route::post('/create', 'store');
+            Route::get('/get_by_id/{id}', 'show');
+            Route::put('/edit/{id}', 'update');
+            Route::delete('/delete/{id}', 'destroy');
+            Route::put('update_status/{id}/status/{status}', 'updateStatus');
+        });
+        Route::controller(ConsultationController::class)->prefix('consultations')->group(function (){
+            route::get('/list','index');
+            Route::post('/create','store');
+            Route::get('/get_by_id/{id}', 'show');
+            Route::put('/edit/{id}', 'update');
+            Route::delete('/delete/{id}', 'destroy');
+            Route::put('update_status/{id}/status/{status}', 'updateStatus');
+
+        });
+        Route::controller(TypeSoinsController::class)->prefix('type_soins')->group(function (){
+            route::get('/list','index');
+            Route::post('/create','store');
+            Route::get('/get_by_id/{id}', 'show');
+            Route::put('/edit/{id}', 'update');
+            Route::delete('/delete/{id}', 'destroy');
+            Route::get('/get_data',  'listIdName');
+
+        });
+        Route::controller(SoinsController::class)->prefix('soins')->group(function (){
+            route::get('/list','index');
+            Route::post('/create','store');
+            Route::get('/get_by_id/{id}', 'show');
+            Route::put('/edit/{id}', 'update');
+            Route::delete('/delete/{id}', 'destroy');
+            Route::put('update_status/{id}/status/{status}', 'updateStatus');
+
         });
     });
+
 });

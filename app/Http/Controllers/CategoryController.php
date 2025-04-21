@@ -2,11 +2,23 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\GroupProduct;
+use App\Models\Product;
 use Illuminate\Http\Request;
 
 use App\Models\Category;
 class CategoryController extends Controller
 {
+    public function listIdName()
+    {
+        $categories = Category::select('id', 'name')
+            ->where('is_deleted', false)
+            ->get();
+
+        return response()->json([
+            'categories' => $categories
+        ]);
+    }
     /**
      * Display a listing of the resource.
      */
@@ -156,6 +168,24 @@ class CategoryController extends Controller
      */
     public function destroy(string $id)
     {
-        //
+        $category_product = Category::findOrFail($id);
+
+        // Vérifie s'il est utilisé dans un produit
+        $isUsed = Product::where('categories_id', $id)->exists();
+
+        if ($isUsed) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Impossible de supprimer : cette catégorie de produit est utilisée par au moins un produit.'
+            ], 400);
+        }
+
+        $category_product->is_deleted = true;
+        $category_product->save();
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Suppression éffectué avec succès'
+        ]);
     }
 }

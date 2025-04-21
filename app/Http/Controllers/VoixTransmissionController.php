@@ -2,13 +2,27 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Product;
 use Illuminate\Http\Request;
 use App\Models\VoixTransmissions;
+use App\Models\User;
 
 class VoixTransmissionController extends Controller
 {
+    public function listIdName()
+    {
+        $voies = VoixTransmissions::select('id', 'name')
+            ->where('is_deleted', false)
+            ->get();
+
+        return response()->json([
+            'voies_transmissions' => $voies
+        ]);
+    }
     /**
      * Display a listing of the resource.
+     * @permission VoixTransmissionController::index
+     * @permission_desc Afficher la liste des voix d'administrations des produits
      */
     public function index(Request $request)
     {
@@ -33,12 +47,13 @@ class VoixTransmissionController extends Controller
     }
 
     /**
-     * Store a newly created resource in storage.
+     * Display a listing of the resource.
+     * @permission VoixTransmissionController::store
+     * @permission_desc Enregistrer une voix d'administration de produits
      */
     public function store(Request $request)
     {
         $auth = auth()->user();
-
         try {
             // Validation des données d'entrée
             $data = $request->validate([
@@ -86,7 +101,9 @@ class VoixTransmissionController extends Controller
     }
 
     /**
-     * Update the specified resource in storage.
+     * Display a listing of the resource.
+     * @permission VoixTransmissionController::update
+     * @permission_desc Modifier une voix de d'administration produits
      */
     public function update(Request $request, $id)
     {
@@ -126,6 +143,11 @@ class VoixTransmissionController extends Controller
             ], 500);
         }
     }
+    /**
+     * Display a listing of the resource.
+     * @permission VoixTransmissionController::show
+     * @permission_desc Afficher les détails d'une voix d'adminsitration des produits
+     */
     public function show($id)
     {
         try {
@@ -157,10 +179,31 @@ class VoixTransmissionController extends Controller
 
 
     /**
-     * Remove the specified resource from storage.
+     * Display a listing of the resource.
+     * @permission VoixTransmissionController::delete
+     * @permission_desc Supprimer une voix d'administrations des produits
      */
     public function destroy(string $id)
     {
-        //
+        $voixTransmission = VoixTransmissions::findOrFail($id);
+
+        // Vérifie s'il est utilisé dans un produit
+        $isUsed = Product::where('voix_transmissions_id', $id)->exists();
+
+        if ($isUsed) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Impossible de supprimer : cette voie de transmission est utilisée par au moins un produit.'
+            ], 400);
+        }
+
+        $voixTransmission->is_deleted = true;
+        $voixTransmission->save();
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Voie de transmission supprimée avec succès.'
+        ]);
     }
+
 }

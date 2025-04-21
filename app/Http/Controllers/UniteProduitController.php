@@ -2,13 +2,26 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Product;
 use App\Models\UniteProduit;
 use Illuminate\Http\Request;
 
 class UniteProduitController extends Controller
 {
+    public function listIdName()
+    {
+        $unityProducts = UniteProduit::select('id', 'name')
+            ->where('is_deleted', false)
+            ->get();
+
+        return response()->json([
+            'unity_products' => $unityProducts
+        ]);
+    }
     /**
      * Display a listing of the resource.
+     * @permission UniteProduitController::index
+     * @permission_desc Afficher la liste des unités de produits
      */
     public function index(Request $request)
     {
@@ -37,7 +50,9 @@ class UniteProduitController extends Controller
     }
 
     /**
-     * Store a newly created resource in storage.
+     * Display a listing of the resource.
+     * @permission UniteProduitController::index
+     * @permission_desc Enregistrer les unités de produits
      */
     public function store(Request $request)
     {
@@ -56,6 +71,11 @@ class UniteProduitController extends Controller
 
     /**
      * Display the specified resource.
+     */
+    /**
+     * Display a listing of the resource.
+     * @permission UniteProduitController::index
+     * @permission_desc Afficher les détails des unités de produits
      */
     public function show(string $id)
     {
@@ -78,7 +98,9 @@ class UniteProduitController extends Controller
     }
 
     /**
-     * Update the specified resource in storage.
+     * Display a listing of the resource.
+     * @permission UniteProduitController::index
+     * @permission_desc Modifier les unités de produits
      */
     public function update(Request $request, string $id)
     {
@@ -101,10 +123,30 @@ class UniteProduitController extends Controller
     }
 
     /**
-     * Remove the specified resource from storage.
+     * Display a listing of the resource.
+     * @permission UniteProduitController::index
+     * @permission_desc Supprimer des unités de produits
      */
     public function destroy(string $id)
     {
-        //
+        $unite_product = UniteProduit::findOrFail($id);
+
+        // Vérifie s'il est utilisé dans un produit
+        $isUsed = Product::where('unite_produits_id', $id)->exists();
+
+        if ($isUsed) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Impossible de supprimer : cette unité de produit est utilisée par au moins un produit.'
+            ], 400);
+        }
+
+        $unite_product->is_deleted = true;
+        $unite_product->save();
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Suppression éffectué avec succès'
+        ]);
     }
 }
