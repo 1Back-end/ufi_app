@@ -97,47 +97,16 @@ class PrestationController extends Controller
     {
         DB::beginTransaction();
         try {
+            if ($errorConflit = $request->validateRdvDate()) {
+                return response()->json($errorConflit, Response::HTTP_CONFLICT);
+            }
+
             $centre = $request->header('centre');
             $data = array_merge($request->except(['actes']), ['centre_id' => $centre]);
             $prestation = Prestation::create($data);
-            switch ($request->type) {
-                case TypePrestation::ACTES->value:
-                    $unavailable = [];
-                    foreach ($request->post('actes') as $item) {
-                        // Check if un consultant is unavailable for this acte
-                        $acte = Acte::find($item['id']);
-                        $prestationSearch = $acte->prestation()
-                            ->where('consultant_id', $prestation->consultant_id)
-                            ->wherePivot('date_rdv_end', '>=', Carbon::createFromTimeString($item['date_rdv'])->addDays($acte->delay))
-                            ->first();
-
-                        if ($prestationSearch) {
-                            $unavailable = [
-                                'id' => $item['id'],
-                                'acte' => $acte
-                            ];
-                            break;
-                        }
-
-                        $prestation->actes()->attach($item['id'], [
-                            'remise' => $item['remise'],
-                            'quantity' => $item['quantity'],
-                            'date_rdv' => $item['date_rdv'],
-                            'date_rdv_end' => Carbon::createFromTimeString($item['date_rdv'])->addDays($acte->delay)
-                        ]);
-                    }
-
-                    if ($unavailable) {
-                        return response()->json([
-                            'message' => __("Le consultant est indisponible pour ce rendez-vous"),
-                            'unavailable' => $unavailable
-                        ], Response::HTTP_CONFLICT);
-                    }
-                    break;
-                default:
-                    throw new Exception("Ce type de prestation n'est pas encore implémenté", Response::HTTP_BAD_REQUEST);
-            }
-        } catch (\Exception $e) {
+            $this->attachElementWithPrestation($request, $prestation);
+        }
+        catch (\Exception $e) {
             DB::rollBack();
             return response()->json([
                 'message' => $e->getMessage()
@@ -157,7 +126,14 @@ class PrestationController extends Controller
     public function show(Prestation $prestation)
     {
         return response()->json([
-            'prestation' => $prestation
+            'prestation' => $prestation->load([
+                'payableBy:id,nomcomplet_client',
+                'client',
+                'consultant:id,nomcomplet_consult',
+                'priseCharge:id,assureurs_id,taux_pc',
+                'priseCharge.assureur:id,nom',
+                'actes',
+                ])
         ]);
     }
 
@@ -174,19 +150,12 @@ class PrestationController extends Controller
     {
         DB::beginTransaction();
         try {
-            $prestation->update($request->validated());
-            switch ($request->type) {
-                case TypePrestation::ACTES->value:
-                    $prestation->actes()->detach();
-                    $prestation->actes()->attach($request->acte_id, [
-                        'remise' => $request->input('remise'),
-                        'quantity' => $request->input('quantity'),
-                        'date_rdv' => $request->input('date_rdv')
-                    ]);
-                    break;
-                default:
-                    throw new Exception("Ce type de prestation n'est pas encore implémenté", Response::HTTP_BAD_REQUEST);
+            if ($errorConflit = $request->validateRdvDate($prestation->id)) {
+                return response()->json($errorConflit, Response::HTTP_CONFLICT);
             }
+
+            $prestation->update($request->validated());
+            $this->attachElementWithPrestation($request, $prestation, true);
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json([
@@ -277,5 +246,28 @@ class PrestationController extends Controller
             'message' => "Facture enregistrée avec succès !",
             'facture' => $facture
         ]);
+    }
+
+    protected function attachElementWithPrestation(PrestationRequest $request, Prestation $prestation, bool $update = false)
+    {
+        switch ($request->type) {
+            case TypePrestation::ACTES->value:
+                if ($update) {
+                    $prestation->actes()->detach();
+                }
+
+                foreach ($request->post('actes') as $item) {
+                    $acte = Acte::find($item['id']);
+                    $prestation->actes()->attach($item['id'], [
+                        'remise' => $item['remise'],
+                        'quantity' => $item['quantity'],
+                        'date_rdv' => $item['date_rdv'],
+                        'date_rdv_end' => Carbon::createFromTimeString($item['date_rdv'])->addDays($acte->delay)
+                    ]);
+                }
+                break;
+            default:
+                throw new Exception("Ce type de prestation n'est pas encore implémenté", Response::HTTP_BAD_REQUEST);
+        }
     }
 }

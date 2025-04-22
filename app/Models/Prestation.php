@@ -39,12 +39,17 @@ class Prestation extends Model
         ];
     }
 
-    protected function type(): Attribute
+    protected $appends = [
+        'type_label',
+    ];
+
+    protected function typeLabel(): Attribute
     {
         return Attribute::make(
-            get: fn ($value, array $attributes)  => TypePrestation::label($value)
+            get: fn ()  => TypePrestation::label($this->type),
         );
     }
+
 
     public function centre() {
         return $this->belongsTo(Centre::class, 'centre_id');

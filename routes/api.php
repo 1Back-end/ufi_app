@@ -80,7 +80,7 @@ Route::middleware(['activity'])->group(function () {
 
         // Prestations
         Route::get('prestations/types', [PrestationController::class, 'typePrestation']);
-        Route::apiResource('prestations', PrestationController::class)->except(['show', 'destroy']);
+        Route::apiResource('prestations', PrestationController::class)->except(['destroy']);
         Route::post('prestations/{prestation}/facture', [PrestationController::class, 'saveFacture']);
 
         Route::controller(ConsultantController::class)->prefix('consultants')->group(function () {
