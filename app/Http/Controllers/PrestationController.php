@@ -7,17 +7,20 @@ use App\Http\Requests\PrestationRequest;
 use App\Models\Acte;
 use App\Models\Facture;
 use App\Models\Prestation;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use PHPUnit\Framework\Exception;
 use Symfony\Component\HttpFoundation\Response;
 
 class PrestationController extends Controller
 {
-    public function typePrestation() {
+    public function typePrestation()
+    {
         return TypePrestation::toArray();
     }
 
@@ -30,24 +33,55 @@ class PrestationController extends Controller
      */
     public function index(Request $request)
     {
-        return response()->json([
-            'prestations' => Prestation::with([
-                'createdBy:id,nom_utilisateur',
-                'updatedBy:id,nom_utilisateur',
-                'payableBy:id,nomcomplet_client',
-                'client',
-                'consultant:id,nomcomplet_consult',
-                'priseCharge:id,assureurs_id,taux_pc',
-                'priseCharge.assureur:id,nom',
-                'actes',
-                'centre',
-                'facture'
-            ])
-            ->latest()
-            ->paginate(
+        $prestations = Prestation::with([
+            'createdBy:id,nom_utilisateur',
+            'updatedBy:id,nom_utilisateur',
+            'payableBy:id,nomcomplet_client',
+            'client',
+            'consultant:id,nomcomplet_consult',
+            'priseCharge:id,assureurs_id,taux_pc',
+            'priseCharge.assureur:id,nom',
+            'actes',
+            'centre',
+            'facture'
+        ])->when($request->input('client_id'), function ($query) use ($request) {
+            $query->whereIn('client_id', $request->input('client_id'));
+        })->when($request->input('consultant_id'), function ($query) use ($request) {
+            $query->whereIn('consultant_id', $request->input('consultant_id'));
+        })->when($request->input('centre_id'), function ($query) use ($request) {
+            $query->whereIn('centre_id', $request->input('centre_id'));
+        })->when($request->input('type'), function ($query) use ($request) {
+            $query->where('type', $request->input('type'));
+        })->when($request->input('mode_paiement'), function ($query) use ($request) {
+            if ($request->input('mode_paiement') == 'client-tiers') {
+                $query->whereNotNull('payable_by');
+            }
+
+            if ($request->input('mode_paiement') == 'assurance') {
+                $query->whereNotNull('prise_charge_id');
+            }
+
+            if ($request->input('mode_paiement') == 'lui-meme') {
+                $query->whereNull('payable_by')->whereNull('prise_charge_id');
+            }
+        })->when($request->input('created_at'), function (Builder $query) use ($request) {
+            $startDate = $request->input('created_at')['start'] ?? null;
+            $endDate = $request->input('created_at')['end'] ?? null;
+            if ($startDate && $endDate) {
+                $query->whereBetween('created_at', [$startDate, $endDate]);
+            }
+        })->when($request->input('order'), function (Builder $query) use ($request) {
+            $query->orderBy($request->input('order')['column'], $request->input('order')['direction']);
+        }, function (Builder $query) {
+            $query->latest();
+        })->paginate(
                 perPage: $request->input('per_page', 25),
                 page: $request->input('page', 1)
-            )
+            );
+
+
+        return response()->json([
+            'prestations' => $prestations
         ]);
     }
 
@@ -66,18 +100,18 @@ class PrestationController extends Controller
             $centre = $request->header('centre');
             $data = array_merge($request->except(['actes']), ['centre_id' => $centre]);
             $prestation = Prestation::create($data);
-            switch ($request->type){
+            switch ($request->type) {
                 case TypePrestation::ACTES->value:
                     $unavailable = [];
                     foreach ($request->post('actes') as $item) {
                         // Check if un consultant is unavailable for this acte
                         $acte = Acte::find($item['id']);
-                        $prestation = $acte->prestation()
+                        $prestationSearch = $acte->prestation()
                             ->where('consultant_id', $prestation->consultant_id)
                             ->wherePivot('date_rdv_end', '>=', Carbon::createFromTimeString($item['date_rdv'])->addDays($acte->delay))
                             ->first();
 
-                        if ($prestation) {
+                        if ($prestationSearch) {
                             $unavailable = [
                                 'id' => $item['id'],
                                 'acte' => $acte
@@ -103,8 +137,7 @@ class PrestationController extends Controller
                 default:
                     throw new Exception("Ce type de prestation n'est pas encore implémenté", Response::HTTP_BAD_REQUEST);
             }
-        }
-        catch (\Exception $e) {
+        } catch (\Exception $e) {
             DB::rollBack();
             return response()->json([
                 'message' => $e->getMessage()
@@ -142,7 +175,7 @@ class PrestationController extends Controller
         DB::beginTransaction();
         try {
             $prestation->update($request->validated());
-            switch ($request->type){
+            switch ($request->type) {
                 case TypePrestation::ACTES->value:
                     $prestation->actes()->detach();
                     $prestation->actes()->attach($request->acte_id, [
@@ -176,7 +209,8 @@ class PrestationController extends Controller
      * @permission PrestationController::saveFacture
      * @permission_desc Enregistrer une facture
      */
-    public function saveFacture(Prestation $prestation, Request $request) {
+    public function saveFacture(Prestation $prestation, Request $request)
+    {
         $request->validate([
             'proforma' => 'required|in:1,2',
         ]);
@@ -194,13 +228,12 @@ class PrestationController extends Controller
                 $facture->date_fact = $request->proforma == 1 ? null : now();
                 $facture->type = $request->proforma;
                 $facture->save();
-            }
-            else {
+            } else {
                 $amount = 0;
                 $amount_pc = 0;
                 $amount_remise = 0;
 
-                switch ($prestation->type){
+                switch ($prestation->type) {
                     case TypePrestation::label(TypePrestation::ACTES->value):
                         $acteId = 0;
                         foreach ($prestation->actes as $acte) {

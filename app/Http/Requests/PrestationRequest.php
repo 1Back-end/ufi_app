@@ -18,7 +18,7 @@ class PrestationRequest extends FormRequest
             'programmation_date' => ['required', 'date'],
             'type' => ['required', new Enum(TypePrestation::class)],
             'actes' => ['nullable', 'array', 'required_if:type,' . TypePrestation::ACTES->value],
-            'actes.*.id' => ['required_if:type,' . TypePrestation::ACTES->value, 'exists:actes,id'],
+            'actes.*.id' => ['integer', 'required_if:type,' . TypePrestation::ACTES->value],
             'actes.*.remise' => ['min:0', 'integer'],
             'actes.*.quantity' => ['integer', 'required_if:type,' . TypePrestation::ACTES->value, 'min:1'],
             'actes.*.date_rdv' => ['required_if:type,' . TypePrestation::ACTES->value,]
