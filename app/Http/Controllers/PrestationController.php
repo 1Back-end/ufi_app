@@ -43,7 +43,7 @@ class PrestationController extends Controller
             'priseCharge.assureur:id,nom',
             'actes',
             'centre',
-            'facture'
+            'factures'
         ])->when($request->input('client_id'), function ($query) use ($request) {
             $query->where('client_id', $request->input('client_id'));
         })->when($request->input('consultant_id'), function ($query) use ($request) {
@@ -187,51 +187,82 @@ class PrestationController extends Controller
 
         if ($prestation->regulated) {
             return response()->json([
-                'message' => __("Cette prestation a déjà une facture")
+                'message' => __("Cette prestation est déjà réglée !")
             ], Response::HTTP_BAD_REQUEST);
         }
 
         DB::beginTransaction();
         try {
-            if ($prestation->facture) {
-                $facture = $prestation->facture;
-                $facture->date_fact = $request->proforma == 1 ? null : now();
-                $facture->type = $request->proforma;
-                $facture->save();
-            } else {
-                $amount = 0;
-                $amount_pc = 0;
-                $amount_remise = 0;
+            $amount = 0;
+            $amount_pc = 0;
+            $amount_remise = 0;
+            $amount_client = 0;
+            $centre = $request->header('centre');
+            switch ($prestation->type) {
+                case TypePrestation::ACTES->value:
+                    foreach ($prestation->actes as $acte) {
+                        $pu = $acte->pu;
 
-                switch ($prestation->type) {
-                    case TypePrestation::label(TypePrestation::ACTES->value):
-                        $acteId = 0;
-                        foreach ($prestation->actes as $acte) {
-                            if ($prestation->priseCharge) {
-                                $amount_pc = ($acte->pivot->quantity * $acte->pu * $prestation->priseCharge->taux_pc) / 100;
-                            }
-                            $amount_remise = ($acte->pivot->quantity * $acte->pu * $acte->pivot->remise) / 100;
-
-                            $amount += ($acte->pivot->quantity * $acte->pu) - $amount_remise - $amount_pc;
-                            $acteId = $acte->id;
+                        $amount_acte_pc = 0;
+                        if ($prestation->priseCharge) {
+                            $pu = $acte->b * $acte->k_modulateur;
+                            $amount_acte_pc = ($acte->pivot->quantity * $pu * $prestation->priseCharge->taux_pc) / 100;
+                            $amount_pc += $amount_acte_pc;
                         }
 
+                        $amount_acte_remise = ($acte->pivot->quantity * $pu * $acte->pivot->remise) / 100;
+                        $amount_remise += $amount_acte_remise;
+
+                        $amount += $acte->pivot->quantity * $pu;
+                        $amount_client += $acte->pivot->quantity * $pu - $amount_acte_remise - $amount_acte_pc;
+                    }
+
+                    if ($request->proforma == 1) {
+                        $latestFacture = Facture::whereType(1)->latest()->first();
+                        $sequence =  $latestFacture ? $latestFacture->sequence + 1 : 1;
+
+                        $facture = $prestation->factures()->where('type', 1)->first();
+                        if (! $facture) {
+                            $facture = Facture::create([
+                                'prestation_id' => $prestation->id,
+                                'date_fact' => now(),
+                                'amount' => $amount,
+                                'amount_pc' => $amount_pc,
+                                'amount_remise' => $amount_remise,
+                                'amount_client' => $amount_client,
+                                'type' => 1,
+                                'sequence' => $sequence,
+                                'code' => 'F-' . Str::substr($prestation->centre->reference, 0, 4) . date('dmY') . str_pad($sequence, 5, '0', STR_PAD_LEFT)
+                            ]);
+                        }
+                        else {
+                            $facture->update([
+                                'amount' => $amount,
+                                'amount_pc' => $amount_pc,
+                                'amount_remise' => $amount_remise,
+                                'amount_client' => $amount_client,
+                            ]);
+                        }
+                    }
+                    else {
+                        $latestFacture = Facture::whereType(2)->latest()->first();
+                        $sequence =  $latestFacture ? $latestFacture->sequence + 1 : 1;
                         $facture = Facture::create([
                             'prestation_id' => $prestation->id,
-                            'date_fact' => $request->proforma == 1 ? null : now(),
+                            'date_fact' => now(),
                             'amount' => $amount,
                             'amount_pc' => $amount_pc,
                             'amount_remise' => $amount_remise,
-                            'type' => $request->proforma
+                            'amount_client' => $amount_client,
+                            'type' => 2,
+                            'sequence' => $sequence,
+                            'code' => 'F-' . Str::substr($prestation->centre->reference, 0, 4) . date('dmY') . str_pad($sequence, 5, '0', STR_PAD_LEFT)
                         ]);
+                    }
 
-                        $code = 'F-' . Str::substr($prestation->centre->reference, 0, 4) . $acteId . date('dmy') . str_pad($facture->id, 5, '0', STR_PAD_LEFT);
-                        $facture->update(['code' => $code]);
-
-                        break;
-                    default:
-                        throw new Exception("Ce type de prestation n'est pas encore implémenté", Response::HTTP_BAD_REQUEST);
-                }
+                    break;
+                default:
+                    throw new Exception("Ce type de prestation n'est pas encore implémenté", Response::HTTP_BAD_REQUEST);
             }
 
             $prestation->update(['regulated' => !($request->proforma == 1)]);
@@ -239,7 +270,7 @@ class PrestationController extends Controller
             DB::rollBack();
             return response()->json([
                 'message' => $th->getMessage()
-            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+            ], Response::HTTP_BAD_REQUEST);
         }
         DB::commit();
 

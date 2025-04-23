@@ -20,6 +20,8 @@ class Facture extends Model
         'amount_pc',
         'amount_remise',
         'type',
+        'sequence',
+        'amount_client',
     ];
 
     public function prestation(): BelongsTo
