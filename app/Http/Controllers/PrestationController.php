@@ -45,9 +45,9 @@ class PrestationController extends Controller
             'centre',
             'facture'
         ])->when($request->input('client_id'), function ($query) use ($request) {
-            $query->whereIn('client_id', $request->input('client_id'));
+            $query->where('client_id', $request->input('client_id'));
         })->when($request->input('consultant_id'), function ($query) use ($request) {
-            $query->whereIn('consultant_id', $request->input('consultant_id'));
+            $query->where('consultant_id', $request->input('consultant_id'));
         })->when($request->input('centre_id'), function ($query) use ($request) {
             $query->whereIn('centre_id', $request->input('centre_id'));
         })->when($request->input('type'), function ($query) use ($request) {
@@ -64,20 +64,21 @@ class PrestationController extends Controller
             if ($request->input('mode_paiement') == 'lui-meme') {
                 $query->whereNull('payable_by')->whereNull('prise_charge_id');
             }
-        })->when($request->input('created_at'), function (Builder $query) use ($request) {
-            $startDate = $request->input('created_at')['start'] ?? null;
-            $endDate = $request->input('created_at')['end'] ?? null;
+        })->when($request->input('programmation_date_start') && $request->input('programmation_date_end'), function (Builder $query) use ($request) {
+            $startDate = $request->input('programmation_date_start');
+            $endDate = $request->input('programmation_date_end');
             if ($startDate && $endDate) {
-                $query->whereBetween('created_at', [$startDate, $endDate]);
+                $query->whereBetween('programmation_date', [$startDate, $endDate]);
             }
         })->when($request->input('order'), function (Builder $query) use ($request) {
             $query->orderBy($request->input('order')['column'], $request->input('order')['direction']);
         }, function (Builder $query) {
             $query->latest();
-        })->paginate(
-                perPage: $request->input('per_page', 25),
-                page: $request->input('page', 1)
-            );
+        })
+        ->paginate(
+            perPage: $request->input('per_page', 25),
+            page: $request->input('page', 1)
+        );
 
 
         return response()->json([
