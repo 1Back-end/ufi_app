@@ -36,11 +36,12 @@ class PrestationController extends Controller
         $prestations = Prestation::with([
             'createdBy:id,nom_utilisateur',
             'updatedBy:id,nom_utilisateur',
-            'payableBy:id,nomcomplet_client',
+            'payableBy',
             'client',
-            'consultant:id,nomcomplet_consult',
-            'priseCharge:id,assureurs_id,taux_pc',
-            'priseCharge.assureur:id,nom',
+            'consultant:id,nomcomplet_consult,code_specialite',
+            'consultant.codeSpecialite:id,nom_specialite',
+            'priseCharge',
+            'priseCharge.assureur',
             'actes',
             'centre',
             'factures'
