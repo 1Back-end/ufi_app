@@ -35,6 +35,13 @@ class CentreRequest extends FormRequest
             'email' => ['nullable', 'email', 'max:254'],
             'website' => ['nullable'],
             'logo' => ['nullable', 'file', 'max:2048', 'mimes:jpg,jpeg,png,svg'],
+            'horaires' => ['array', 'required'],
+            'horaires.*.day' => ['required', 'integer', 'in:1,2,3,4,5,6,7'],
+            'horaires.*.label' => ['required', 'string'],
+            'horaires.*.open' => ['nullable', 'date_format:H:i'],
+            'horaires.*.close' => ['nullable', 'date_format:H:i'],
+            'horaires.*.closed' => ['in:0,1'],
+            'postal_code' => ['nullable', 'string'],
         ];
     }
 

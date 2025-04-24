@@ -21,10 +21,16 @@ class Centre extends Model
         'reference', 'name', 'short_name', 'address',
         'tel', 'tel2', 'contribuable', 'registre_commerce',
         'autorisation', 'town', 'fax', 'email', 'website',
-        'created_by', 'updated_by', 'deleted_at',
+        'created_by', 'updated_by', 'deleted_at', 'horaires', 'postal_code',
+        'active'
     ];
 
     protected $appends = ['logo'];
+
+    protected $casts = [
+        'horaires' => 'json',
+        'deleted_at' => 'datetime',
+    ];
 
     protected function logo(): Attribute
     {
