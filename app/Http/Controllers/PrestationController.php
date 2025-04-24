@@ -75,6 +75,7 @@ class PrestationController extends Controller
         }, function (Builder $query) {
             $query->latest();
         })
+        ->where('centre_id', $request->header('centre'))
         ->paginate(
             perPage: $request->input('per_page', 25),
             page: $request->input('page', 1)
@@ -218,7 +219,10 @@ class PrestationController extends Controller
                     }
 
                     if ($request->proforma == 1) {
-                        $latestFacture = Facture::whereType(1)->latest()->first();
+                        $latestFacture = Facture::whereType(1)
+                            ->where('centre_id', $centre)
+                            ->whereYear('created_at', now()->year)
+                            ->latest()->first();
                         $sequence =  $latestFacture ? $latestFacture->sequence + 1 : 1;
 
                         $facture = $prestation->factures()->where('type', 1)->first();
@@ -232,7 +236,8 @@ class PrestationController extends Controller
                                 'amount_client' => $amount_client,
                                 'type' => 1,
                                 'sequence' => $sequence,
-                                'code' => 'F-' . Str::substr($prestation->centre->reference, 0, 4) . date('dmY') . str_pad($sequence, 5, '0', STR_PAD_LEFT)
+                                'centre_id' => $centre,
+                                'code' => $prestation->centre->reference .'-'. date('ym') .'-'. str_pad($sequence, 6, '0', STR_PAD_LEFT)
                             ]);
                         }
                         else {
@@ -245,7 +250,10 @@ class PrestationController extends Controller
                         }
                     }
                     else {
-                        $latestFacture = Facture::whereType(2)->latest()->first();
+                        $latestFacture = Facture::whereType(2)
+                            ->where('centre_id', $centre)
+                            ->whereYear('created_at', now()->year)
+                            ->latest()->first();
                         $sequence =  $latestFacture ? $latestFacture->sequence + 1 : 1;
                         $facture = Facture::create([
                             'prestation_id' => $prestation->id,
@@ -256,7 +264,8 @@ class PrestationController extends Controller
                             'amount_client' => $amount_client,
                             'type' => 2,
                             'sequence' => $sequence,
-                            'code' => 'F-' . Str::substr($prestation->centre->reference, 0, 4) . date('dmY') . str_pad($sequence, 5, '0', STR_PAD_LEFT)
+                            'centre_id' => $centre,
+                            'code' => $prestation->centre->reference .'-'. date('ym') .'-'. str_pad($sequence, 6, '0', STR_PAD_LEFT)
                         ]);
                     }
 

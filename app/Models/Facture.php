@@ -22,11 +22,17 @@ class Facture extends Model
         'type',
         'sequence',
         'amount_client',
+        'centre_id',
     ];
 
     public function prestation(): BelongsTo
     {
         return $this->belongsTo(Prestation::class, 'prestation_id');
+    }
+
+    public function centre(): BelongsTo
+    {
+        return $this->belongsTo(Centre::class, 'centre_id');
     }
 
     public function createdBy(): BelongsTo

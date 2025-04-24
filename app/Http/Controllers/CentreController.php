@@ -43,7 +43,7 @@ class CentreController extends Controller
      */
     public function store(CentreRequest $request): JsonResponse
     {
-        $ref = Str::random(32);
+        $ref = $request->reference;
 
         DB::beginTransaction();
         try {

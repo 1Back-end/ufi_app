@@ -21,6 +21,7 @@ class CentreRequest extends FormRequest
         }
 
         return [
+            'reference' => ['required', 'string', 'max:5', Rule::unique('centres', 'reference')->ignore($this->route('centre')), 'alpha_dash'],
             'name' => ['required', $uniqueName],
             'short_name' => ['required', $uniqueShortName],
             'address' => ['required'],
@@ -43,6 +44,9 @@ class CentreRequest extends FormRequest
             'tel.required' => __("Le numéro de téléphone est requis !"),
             'logo.max' => __("La taille maximale d'un logo doit être de 2Mo"),
             'logo.mimes' => __("Le logo doit prendre en compte uniquement ce type de fichier: jpg, jpeg et png"),
+            'reference.required' => __("La référence est requise !"),
+            'reference.unique' => __("La référence existe déjà !"),
+            'reference.max' => __("La référence doit contenir au maximum 5 caractères !"),
         ];
     }
 }

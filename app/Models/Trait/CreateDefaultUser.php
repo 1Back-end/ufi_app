@@ -2,8 +2,10 @@
 
 namespace App\Models\Trait;
 
+use App\Models\Centre;
 use App\Models\User;
 use App\Notifications\DefaultUserCreated;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
@@ -28,7 +30,19 @@ trait CreateDefaultUser
 
             // Link user to centre
             if (request()->header('centre')) {
-                $user->centres()->attach(request()->header('centre'), ['default' => true]);
+                $centre = Centre::find(request()->header('centre'));
+                $lastEntryUserForThisYear = DB::table('user_centre')
+                    ->where('centre_id', $centre->id)
+                    ->whereYear('created_at', now()->year)
+                    ->orderBy('sequence', 'desc')
+                    ->first();
+
+                $user->centres()->attach(request()->header('centre'), [
+                    'default' => true,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                    'sequence' => $lastEntryUserForThisYear ? $lastEntryUserForThisYear->sequence + 1 : 1
+                ]);
             }
 
             // Envoi d'une notification à l'utilisateur avec les logins et mot de passe par défaut
