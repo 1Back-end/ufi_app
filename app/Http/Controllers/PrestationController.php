@@ -290,6 +290,27 @@ class PrestationController extends Controller
         ]);
     }
 
+    /**
+     * @param Prestation $prestation
+     * @param Request $request
+     *
+     * @return JsonResponse
+     * @permission PrestationController::changeState
+     * @permission_desc Changer l’état d’une prestation
+     */
+    public function changeState(Prestation $prestation, Request $request)
+    {
+        $request->validate([
+            'state' => 'required|in:1,2,3',
+        ]);
+
+        $prestation->update(['regulated' => $request->state]);
+
+        return response()->json([
+            'message' => __("L'état de la prestation a été modifié avec succès !")
+        ], 202);
+    }
+
     protected function attachElementWithPrestation(PrestationRequest $request, Prestation $prestation, bool $update = false)
     {
         switch ($request->type) {

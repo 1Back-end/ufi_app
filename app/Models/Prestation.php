@@ -36,7 +36,6 @@ class Prestation extends Model
         return [
             'payable' => 'boolean',
             'programmation_date' => 'datetime',
-            'regulated' => 'boolean',
         ];
     }
 
