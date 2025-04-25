@@ -76,6 +76,9 @@ class PrestationController extends Controller
         }, function (Builder $query) {
             $query->latest();
         })
+        ->when($request->has('regulated'), function (Builder $query) use ($request) {
+            $query->where('regulated', $request->input('regulated'));
+        })
         ->where('centre_id', $request->header('centre'))
         ->paginate(
             perPage: $request->input('per_page', 25),
