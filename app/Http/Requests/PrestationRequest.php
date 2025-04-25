@@ -35,11 +35,11 @@ class PrestationRequest extends FormRequest
     /**
      * @return array|void
      */
-    public function validateRdvDate(int $prestationId = null)
+    public function validateRdvDate(?int $prestationId = null)
     {
         switch ($this->type) {
             case TypePrestation::ACTES->value:
-                $prestations = Prestation::whereRegulated(false)
+                $prestations = Prestation::whereRegulated(0)
                     ->where(function (Builder $query) {
                         $query->where('consultant_id', $this->consultant_id)
                             ->orWhere('client_id', $this->client_id);
