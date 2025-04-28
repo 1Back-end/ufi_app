@@ -110,7 +110,11 @@ class ClientController extends Controller
 
             $centre = Centre::find($dataValidated['site_id']);
 
-            $refcli = Str::substr($centre->reference, 0, 4) . now()->year . Str::padLeft($client->id, 6, 0);
+            $id = $client->user->centres()->find($centre->id)->pivot->sequence;
+
+            $refCli = Str::substr($centre->reference, 0, 4) . now()->year . Str::padLeft($id, 6, 0);
+
+            $client->update(['ref_cli' => $refCli]);
         } catch (Exception $e) {
             DB::rollBack();
             return response()->json([
@@ -119,11 +123,9 @@ class ClientController extends Controller
         }
         DB::commit();
 
-        // Update the client with the new reference
-        $client->update(['ref_cli' => $refcli]);
-
         return response()->json([
             'message' => 'Client a été créé avec succès !',
+            'client' => $client
         ], Response::HTTP_CREATED);
     }
 

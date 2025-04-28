@@ -5,6 +5,8 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
+use Illuminate\Database\Eloquent\Relations\MorphToMany;
 
 class Assureur extends Model
 
@@ -63,8 +65,33 @@ class Assureur extends Model
     }
     //
 
-    public function actes(): BelongsToMany
+    /**
+     * @return MorphToMany
+     */
+    public function actes(): MorphToMany
     {
-        return $this->belongsToMany(Acte::class, 'assureur_acte');
+        return $this->morphedByMany(Acte::class, 'assurable')
+            ->withTimestamps()
+            ->withPivot(['k_modulateur', 'b']);
+    }
+
+    /**
+     * @return MorphToMany
+     */
+    public function soins(): MorphToMany
+    {
+        return $this->morphedByMany(Soins::class, 'assurable')
+            ->withTimestamps()
+            ->withPivot(['pu']);
+    }
+
+    /**
+     * @return MorphToMany
+     */
+    public function consultations(): MorphToMany
+    {
+        return $this->morphedByMany(Consultation::class, 'assurable')
+            ->withTimestamps()
+            ->withPivot(['pu']);
     }
 }

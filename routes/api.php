@@ -80,8 +80,9 @@ Route::middleware(['activity'])->group(function () {
 
         // Prestations
         Route::get('prestations/types', [PrestationController::class, 'typePrestation']);
-        Route::apiResource('prestations', PrestationController::class)->except(['show', 'destroy']);
+        Route::apiResource('prestations', PrestationController::class)->except(['destroy']);
         Route::post('prestations/{prestation}/facture', [PrestationController::class, 'saveFacture']);
+        Route::patch('prestations/{prestation}/change-state', [PrestationController::class, 'changeState']);
 
         Route::controller(ConsultantController::class)->prefix('consultants')->group(function () {
             Route::get('/list', 'index');  // Afficher la liste des consultants

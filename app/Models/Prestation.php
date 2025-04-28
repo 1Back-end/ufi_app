@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\Relations\MorphToMany;
@@ -35,24 +36,28 @@ class Prestation extends Model
         return [
             'payable' => 'boolean',
             'programmation_date' => 'datetime',
-            'regulated' => 'boolean',
         ];
     }
 
-    protected function type(): Attribute
+    protected $appends = [
+        'type_label',
+    ];
+
+    protected function typeLabel(): Attribute
     {
         return Attribute::make(
-            get: fn ($value, array $attributes)  => TypePrestation::label($value)
+            get: fn ()  => TypePrestation::label($this->type),
         );
     }
+
 
     public function centre() {
         return $this->belongsTo(Centre::class, 'centre_id');
     }
 
-    public function facture(): HasOne
+    public function factures(): HasMany
     {
-        return $this->hasOne(Facture::class, 'prestation_id');
+        return $this->hasMany(Facture::class, 'prestation_id');
     }
 
     public function client(): BelongsTo
@@ -88,7 +93,7 @@ class Prestation extends Model
     public function actes(): MorphToMany
     {
         return $this->morphedByMany(Acte::class, 'prestationable')
-            ->withPivot(['remise', 'quantity', 'date_rdv'])
+            ->withPivot(['remise', 'quantity', 'date_rdv', 'date_rdv_end'])
             ->withTimestamps();
     }
 }

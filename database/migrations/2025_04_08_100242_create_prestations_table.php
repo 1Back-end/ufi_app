@@ -25,7 +25,7 @@ return new class extends Migration {
 
             $table->foreign('client_id')->references('id')->on('clients')->restrictOnDelete();
             $table->foreign('consultant_id')->references('id')->on('consultants')->restrictOnDelete();
-            $table->foreign('centre_id')->references('id')->on('consultants')->restrictOnDelete();
+            $table->foreign('centre_id')->references('id')->on('centres')->restrictOnDelete();
             $table->foreign('payable_by')->references('id')->on('clients')->restrictOnDelete();
             $table->foreign('created_by')->references('id')->on('users')->restrictOnDelete();
             $table->foreign('updated_by')->references('id')->on('users')->restrictOnDelete();

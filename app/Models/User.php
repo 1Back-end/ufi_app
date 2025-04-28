@@ -48,7 +48,7 @@ class User extends Authenticatable
     public function centres(): BelongsToMany
     {
         return $this->belongsToMany(Centre::class, 'user_centre')
-            ->withPivot(['default']);
+            ->withPivot(['default', 'sequence', 'created_at', 'updated_at']);
     }
 
     public function createdBy(): BelongsTo

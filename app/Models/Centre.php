@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Storage;
@@ -20,10 +21,16 @@ class Centre extends Model
         'reference', 'name', 'short_name', 'address',
         'tel', 'tel2', 'contribuable', 'registre_commerce',
         'autorisation', 'town', 'fax', 'email', 'website',
-        'created_by', 'updated_by', 'deleted_at',
+        'created_by', 'updated_by', 'deleted_at', 'horaires', 'postal_code',
+        'active'
     ];
 
     protected $appends = ['logo'];
+
+    protected $casts = [
+        'horaires' => 'json',
+        'deleted_at' => 'datetime',
+    ];
 
     protected function logo(): Attribute
     {
@@ -56,5 +63,15 @@ class Centre extends Model
     public function updatedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'updated_by');
+    }
+
+    public function factures(): HasMany
+    {
+        return $this->hasMany(Facture::class, 'centre_id');
+    }
+
+    public function prestations(): HasMany
+    {
+        return $this->hasMany(Prestation::class, 'centre_id');
     }
 }

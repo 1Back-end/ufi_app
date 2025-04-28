@@ -7,6 +7,9 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
+use Illuminate\Database\Eloquent\Relations\MorphToMany;
 
 class Acte extends Model
 {
@@ -25,6 +28,13 @@ class Acte extends Model
         'b1',
     ];
 
+    protected function casts(): array
+    {
+        return [
+            'state' => 'boolean',
+        ];
+    }
+
     public function createdBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
@@ -40,15 +50,18 @@ class Acte extends Model
         return $this->belongsTo(TypeActe::class);
     }
 
-    public function assureurs(): BelongsToMany
+    /**
+     * @return MorphToMany
+     */
+    public function prestation(): MorphToMany
     {
-        return $this->belongsToMany(Assureur::class, 'assureur_acte')->withPivot(['k_modulateur', 'b', 'b1']);
+        return $this->morphToMany(Prestation::class, 'prestationable')
+            ->withPivot(['remise', 'quantity', 'date_rdv', 'date_rdv_end'])
+            ->withTimestamps();
     }
 
-    protected function casts(): array
+    public function assureurs(): MorphToMany
     {
-        return [
-            'state' => 'boolean',
-        ];
+        return $this->morphToMany(Assureur::class, 'assurable');
     }
 }
