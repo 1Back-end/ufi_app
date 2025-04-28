@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\Eloquent\Relations\MorphToMany;
 
@@ -49,11 +50,6 @@ class Acte extends Model
         return $this->belongsTo(TypeActe::class);
     }
 
-    public function assureurs(): BelongsToMany
-    {
-        return $this->belongsToMany(Assureur::class, 'assureur_acte')->withPivot(['k_modulateur', 'b', 'b1']);
-    }
-
     /**
      * @return MorphToMany
      */
@@ -62,5 +58,10 @@ class Acte extends Model
         return $this->morphToMany(Prestation::class, 'prestationable')
             ->withPivot(['remise', 'quantity', 'date_rdv', 'date_rdv_end'])
             ->withTimestamps();
+    }
+
+    public function assureurs(): MorphToMany
+    {
+        return $this->morphToMany(Assureur::class, 'assurable');
     }
 }
