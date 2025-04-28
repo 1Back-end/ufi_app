@@ -57,7 +57,6 @@ class PrestationRequest extends FormRequest
                     foreach ($this->actes as $item) {
                         $acte = Acte::find($item['id']);
                         $date_rdv = Carbon::createFromTimeString($item['date_rdv']);
-                        $date_rdv_end = (clone $date_rdv)->addDays($acte->delay);
                         $acteSearch = $prestation->actes()
                             ->wherePivot('date_rdv', '<=', $date_rdv)
                             ->wherePivot('date_rdv_end', '>=', $date_rdv)

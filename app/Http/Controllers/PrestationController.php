@@ -319,6 +319,9 @@ class PrestationController extends Controller
 
     protected function attachElementWithPrestation(PrestationRequest $request, Prestation $prestation, bool $update = false)
     {
+        // ToDo: récupérer la durée d'une prestation dans la table Settings (en Heure).
+        $prestationDuration = 1;
+
         switch ($request->type) {
             case TypePrestation::ACTES->value:
                 if ($update) {
@@ -331,7 +334,7 @@ class PrestationController extends Controller
                         'remise' => $item['remise'],
                         'quantity' => $item['quantity'],
                         'date_rdv' => $item['date_rdv'],
-                        'date_rdv_end' => Carbon::createFromTimeString($item['date_rdv'])->addDays($acte->delay)
+                        'date_rdv_end' => Carbon::createFromTimeString($item['date_rdv'])->addHours($prestationDuration)
                     ]);
                 }
                 break;
