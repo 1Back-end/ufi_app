@@ -48,8 +48,8 @@ class ConsultationController extends Controller
         try {
             $data = $request->validate([
                 'typeconsultation_id'=> 'exists:typeconsultations,id',
-                'pu_nonassure'=>'required',
-                'pu_assure'=>'required',
+                'pu'=>'required|integer',
+                'validation_date'=>'required|integer',
             ]);
             $data['created_by'] = $auth->id;
             $consultation = Consultation::create($data);
@@ -122,9 +122,8 @@ class ConsultationController extends Controller
         try {
             $data = $request->validate([
                 'typeconsultation_id' => 'exists:typeconsultations,id',
-                'pu_nonassure' => 'required|numeric',
-                'pu_assure' => 'required|numeric',
-                'status' => 'nullable|string|in:Actif,Inactif',
+                'pu' => 'required|integer',
+                'validation_date'=>'required'
             ]);
 
             $consultation = Consultation::where('is_deleted', false)->findOrFail($id);

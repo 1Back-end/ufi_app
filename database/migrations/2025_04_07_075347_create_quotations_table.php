@@ -14,7 +14,7 @@ return new class extends Migration
         Schema::create('quotations', function (Blueprint $table) {
             $table->id();
             $table->string('code');
-            $table->string('taux');
+            $table->integer('taux');
             $table->string('description')->nullable();
             $table->boolean('is_deleted')->default(false);
 

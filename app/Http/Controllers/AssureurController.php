@@ -124,7 +124,11 @@ class AssureurController extends Controller
      * @permission_desc Afficher les détails d'un assureur
      */
    public function show($id){
-        $assureur = Assureur::where('id', $id)->where('is_deleted', false)->first();
+        $assureur = Assureur::where('id', $id)->where('is_deleted', false)
+            ->with([
+                'quotation:id,code'
+            ])
+            ->first();
         if(!$assureur){
             return response()->json(['message' => 'Assureur Introuvable'], 404);
         }else{
@@ -168,7 +172,7 @@ class AssureurController extends Controller
                 'code_quotation' => 'required|exists:quotations,id',
                 'Reg_com' => 'required|string|unique:assureurs,Reg_com',
                 'num_com' => 'required|string|unique:assureurs,num_com',
-                'bp' => 'nullable|integer',
+                'bp' => 'nullable|string',
                 'fax' => 'required|string',
                 'code_type' => 'required|string|in:Principale,Auxiliaire',
                 'code_main' => 'nullable|string',
@@ -261,7 +265,7 @@ class AssureurController extends Controller
                 'code_quotation' => 'required|exists:quotations,id',
                 'Reg_com' => 'required|string|unique:assureurs,Reg_com,' . $assureur->id,
                 'num_com' => 'required|string|unique:assureurs,num_com,' . $assureur->id,
-                'bp' => 'nullable|integer',
+                'bp' => 'nullable|string',
                 'fax' => 'required|string',
                 'code_type' => 'required|string|in:Principale,Auxiliaire',
                 'code_main' => 'nullable|string',
@@ -442,7 +446,19 @@ class AssureurController extends Controller
             'assureur' => $assureur  // Corrected to $assureur
         ], 200);
     }
+    public function getQuotationCode($id)
+    {
+        $assureur = Assureur::with('quotation')->find($id);
 
+        if (!$assureur) {
+            return response()->json(['message' => 'Assureur non trouvé'], 404);
+        }
+
+        return response()->json([
+            'quotation_id' => $assureur->quotation?->id, // 👈 ajouter l'ID
+            'quotation_taux' => $assureur->quotation?->taux, // 👈 toujours garder le taux
+        ]);
+    }
 
 
 

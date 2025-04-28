@@ -48,8 +48,7 @@ class SoinsController extends Controller
         try {
             $data = $request->validate([
                 'type_soin_id'=> 'exists:type_soins,id',
-                'pu_nonassure'=>'required',
-                'pu_assure'=>'required',
+                'pu'=>'required|integer',
             ]);
             $data['created_by'] = $auth->id;
             $soins = Soins::create($data);
@@ -123,8 +122,7 @@ class SoinsController extends Controller
         try {
             $data = $request->validate([
                 'type_soin_id' => 'exists:type_soins,id',
-                'pu_nonassure' => 'required|numeric',
-                'pu_assure' => 'required|numeric',
+                'pu' => 'required|numeric',
                 'status' => 'nullable|string|in:Actif,Inactif',
             ]);
 

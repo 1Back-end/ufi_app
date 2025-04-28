@@ -1,10 +1,16 @@
 <?php
 
 namespace App\Http\Controllers;
+use App\Exports\AssureurExport;
+use App\Exports\FournisseurExport;
+use App\Exports\FournisseurSearchExport;
 use App\Models\Fournisseurs ;
 use App\Models\Product;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Storage;
+use Maatwebsite\Excel\Facades\Excel;
 
 class FournisseurController extends Controller
 {
@@ -38,6 +44,109 @@ class FournisseurController extends Controller
             'total' => $fournisseurs->total(),  // Nombre total d'éléments
         ]);
     }
+    public function export()
+    {
+        try {
+            // Nom du fichier avec la date actuelle
+            $fileName = 'fournisseurs-' . Carbon::now()->format('Y-m-d') . '.xlsx';
+
+            // Stockage du fichier Excel dans le disque 'exportfournisseurs'
+            Excel::store(new FournisseurExport(), $fileName, 'exportfournisseurs');
+
+            // Retourner une réponse JSON avec les informations de l'exportation
+            return response()->json([
+                "message" => "Exportation des données effectuée avec succès",
+                "filename" => $fileName,
+                "url" => Storage::disk('exportfournisseurs')->url($fileName) // Assurez-vous que le disque est correctement configuré dans config/filesystems.php
+            ], 200);
+        } catch (\Exception $e) {
+            // Si une erreur se produit, retourner une réponse d'erreur
+            return response()->json([
+                "message" => "Erreur lors de l'exportation des données",
+                "error" => $e->getMessage()
+            ], 500);
+        }
+    }
+    public function searchAndExport(Request $request)
+    {
+        // Validation du paramètre de recherche
+        $request->validate([
+            'query' => 'nullable|string|max:255',
+        ]);
+
+        $searchQuery = $request->input('query', '');
+
+        // Initialisation de la requête
+        $query = Fournisseurs::where('is_deleted', false);
+
+        // Appliquer les filtres si une requête de recherche est fournie
+        if ($searchQuery) {
+            $query->where(function ($q) use ($searchQuery) {
+                $q->where('nom', 'like', '%' . $searchQuery . '%')
+                    ->orWhere('adresse', 'like', '%' . $searchQuery . '%')
+                    ->orWhere('tel', 'like', '%' . $searchQuery . '%')
+                    ->orWhere('email', 'like', '%' . $searchQuery . '%');
+            });
+        }
+
+        $fournisseurs = $query->get();
+
+        // Vérifier si la collection est vide
+        if ($fournisseurs->isEmpty()) {
+            return response()->json([
+                'message' => 'Aucun fournisseur trouvé pour cette recherche.',
+                'data' => []
+            ], 404);
+        }
+
+        try {
+            // Définir le nom du fichier d'export
+            $fileName = 'fournisseurs-recherche-' . Carbon::now()->format('Y-m-d') . '.xlsx';
+
+            // Exporter les données vers un fichier Excel
+            Excel::store(new FournisseurSearchExport($fournisseurs), $fileName, 'exportfournisseurs');
+
+            return response()->json([
+                'message' => 'Exportation des données effectuée avec succès.',
+                'filename' => $fileName,
+                'url' => Storage::disk('exportfournisseurs')->url($fileName),
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Erreur lors de l\'exportation des données.',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+    public function search(Request $request)
+    {
+        // Validation du paramètre de recherche
+        $request->validate([
+            'query' => 'nullable|string|max:255',
+        ]);
+
+        // Récupérer la requête de recherche
+        $searchQuery = $request->input('query', '');
+
+        $query = Fournisseurs::where('is_deleted', false);
+
+        if ($searchQuery) {
+            $query->where(function($query) use ($searchQuery) {
+                $query->where('nom', 'like', '%' . $searchQuery . '%')
+                    ->orWhere('adresse', 'like', '%' . $searchQuery . '%')
+                    ->orWhere('tel', 'like', '%' . $searchQuery . '%')
+                    ->orWhere('email', 'like', '%' . $searchQuery . '%');
+            });
+        }
+
+        $fournisseurs = $query->get();  // Utilise get() pour obtenir tous les résultats correspondants
+
+        return response()->json([
+            'data' => $fournisseurs,
+        ]);
+    }
+
+
     /**
      * Display a listing of the resource.
      * @permission FournisseurController::show
@@ -96,31 +205,6 @@ class FournisseurController extends Controller
      * @permission FournisseurController::search
      * @permission_desc Rechercher des fournisseurs
      */
-    public function search(Request $request)
-    {
-        $query = $request->input('query');
-
-        if (!$query) {
-            return response()->json([
-                'message' => 'Veuillez fournir un terme de recherche.'
-            ], 400); // Bad Request
-        }
-
-        $fournisseurs = Fournisseurs::where('nom', 'LIKE', "%{$query}%")
-            ->orWhere('email', 'LIKE', "%{$query}%")
-            ->orWhere('tel', 'LIKE', "%{$query}%")
-            ->get();
-
-        if ($fournisseurs->isEmpty()) {
-            return response()->json([
-                'message' => 'Aucun fournisseur trouvé.'
-            ], 404);
-        }
-
-        return response()->json([
-            'fournisseurs' => $fournisseurs
-        ], 200);
-    }
 
     /**
      * Display a listing of the resource.
@@ -205,6 +289,34 @@ class FournisseurController extends Controller
                 'message' => $e->getMessage()
             ], 500);
         }
+    }
+    public function updateStatus(Request $request, $id, $status)
+    {
+        // Find the assureur by ID
+        $fournisseur = Fournisseurs::find($id);
+        if (!$fournisseur) {
+            return response()->json(['message' => 'Fournisseur non trouvé'], 404);
+        }
+
+        // Check if the assureur is deleted
+        if ($fournisseur->is_deleted) {
+            return response()->json(['message' => 'Impossible de mettre à jour un fournisseur supprimé'], 400);
+        }
+
+        // Validate the status
+        if (!in_array($status, ['Actif', 'Inactif'])) {
+            return response()->json(['message' => 'Statut invalide'], 400);
+        }
+
+        // Update the status
+        $fournisseur->status = $status;  // Ensure the correct field name
+        $fournisseur->save();
+
+        // Return the updated assureur
+        return response()->json([
+            'message' => 'Statut mis à jour avec succès',
+            'assureur' => $fournisseur  // Corrected to $assureur
+        ], 200);
     }
 
 

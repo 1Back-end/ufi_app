@@ -40,6 +40,16 @@ class QuotationController extends Controller
     public function getAllCodes()
     {
         $quotations = Quotation::where('is_deleted', false)
+            ->select('id', 'taux')
+            ->get();
+
+        return response()->json([
+            'quotations' => $quotations
+        ]);
+    }
+    public function getAllCodesAndTaux()
+    {
+        $quotations = Quotation::where('is_deleted', false)
             ->select('id', 'code')
             ->get();
 
@@ -80,6 +90,8 @@ class QuotationController extends Controller
 
         return response()->json(['message' => 'Quotation supprimé avec succès']);
     }
+
+
 
     //
 }
