@@ -138,6 +138,9 @@ Route::middleware(['activity'])->group(function () {
             Route::put('/edit/{id}', 'update');
             Route::delete('/delete/{id}', 'destroy');
             Route::get('/quotations-data', 'getAllCodes');
+            Route::get('/quotations-data-code', 'getAllCodesAndTaux');
+
+
         });
         Route::controller(AssureurController::class)->prefix('assureurs')->group(function (){
             route::get('/list','index');
@@ -152,6 +155,9 @@ Route::middleware(['activity'])->group(function () {
             Route::get('/search',  'search');
             Route::get('/search-and-export', 'searchAndExport');
             Route::get('/get_data',  'listIdName');
+            Route::get('/{id}/quotation-code',  'getQuotationCode');
+
+
         });
         Route::controller(FournisseurController::class)->prefix('fournisseurs')->group(function (){
             Route::get('/list', 'index');
@@ -161,6 +167,10 @@ Route::middleware(['activity'])->group(function () {
             Route::delete('/delete/{id}', 'delete');
             Route::get('/search','search');
             Route::get('/get_data',  'listIdName');
+            Route::get('/export-fournisseurs',  'export');
+            Route::get('/search-and-export', 'searchAndExport');
+            Route::get('/search',  'search');
+            Route::put('update_status/{id}/status/{status}', 'updateStatus');
         });
         Route::controller(PriseEnChargeController::class)->prefix('prise_en_charges')->group(function (){
             Route::get('/list','index');
@@ -169,6 +179,9 @@ Route::middleware(['activity'])->group(function () {
             Route::put('/edit/{id}', 'update');
             Route::delete('/delete/{id}', 'destroy');
             Route::get('/get_data',  'getAllClients');
+            Route::get('/export-prises-en-charges',  'export');
+            Route::get('/search','search');
+            Route::get('/search-and-export', 'searchAndExport');
         });
         Route::controller(VoixTransmissionController::class)->prefix('voie_administrations')->group(function (){
             Route::get('/list', 'index');
@@ -248,6 +261,5 @@ Route::middleware(['activity'])->group(function () {
             Route::put('update_status/{id}/status/{status}', 'updateStatus');
 
         });
-    });
-
+});
 });

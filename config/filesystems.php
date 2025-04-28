@@ -70,6 +70,18 @@ return [
             'url' => env('APP_URL') . '/export-assureurs',
             'visibility' => 'public',
         ],
+        'exportfournisseurs' => [
+            'driver' => 'local',
+            'root' => public_path('export-fournisseurs'),
+            'url' => env('APP_URL') . '/export-fournisseurs',
+            'visibility' => 'public',
+        ],
+        'exportprisesencharges' => [
+            'driver' => 'local',
+            'root' => public_path('export-export-prises-en-charges'),
+            'url' => env('APP_URL') . '/export-export-prises-en-charges',
+            'visibility' => 'public',
+        ],
 
         's3' => [
             'driver' => 's3',

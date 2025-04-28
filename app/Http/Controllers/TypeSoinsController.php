@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\TypeSoins;
 use Illuminate\Http\Request;
+use Sabberworm\CSS\Rule\Rule;
 
 class TypeSoinsController extends Controller
 {
@@ -47,7 +48,7 @@ class TypeSoinsController extends Controller
     {
         $auth = auth()->user();
         $data = $request->validate([
-            'name' => 'required|string|unique:type_soins,name',
+            'name' => 'required|string|unique:type_soins,name'
         ]);
         $data['created_by'] = $auth->id;
         $type_soins = TypeSoins::create($data);

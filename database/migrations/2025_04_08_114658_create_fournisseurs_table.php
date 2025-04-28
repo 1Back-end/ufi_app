@@ -22,6 +22,7 @@ return new class extends Migration
             $table->string('pays');
             $table->string('state');
             $table->boolean('is_deleted')->default(false);
+            $table->string('status')->default('Actif')->comment('"Actif" ou "Inactif"');
             $table->foreignId('created_by')->nullable()->references('id')->on('users')->nullOnDelete();
             $table->foreignId('updated_by')->nullable()->references('id')->on('users')->nullOnDelete();
             $table->timestamps();

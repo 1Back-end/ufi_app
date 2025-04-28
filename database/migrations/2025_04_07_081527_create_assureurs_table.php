@@ -23,7 +23,7 @@ return new class extends Migration
             $table->foreignId('code_centre')->constrained('centres')->onDelete('cascade');
             $table->string('Reg_com')->unique(); // Registre de commerce unique
             $table->string('num_com')->unique(); // Numéro contribuable unique
-            $table->integer('bp');
+            $table->string('bp');
             $table->string('fax');
             $table->string('code_type')->default('Principale')->comment('Valeurs: "Principale" ou "Auxiliaire"');
             $table->string('code_main')->nullable()->comment('0 si code_type_assur="Auxilliaire" alors une assurance existante dans la liste')->nullable();

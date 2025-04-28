@@ -10,8 +10,8 @@ class Consultation extends Model
 
     protected $fillable = [
         'typeconsultation_id',
-        'pu_nonassure',
-        'pu_assure',
+        'pu',
+        'validation_date',
         'status',
         'created_by',
         'updated_by',

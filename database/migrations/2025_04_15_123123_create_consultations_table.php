@@ -14,8 +14,8 @@ return new class extends Migration
         Schema::create('consultations', function (Blueprint $table) {
             $table->id();
             $table->foreignId('typeconsultation_id')->nullable()->constrained('typeconsultations')->nullOnDelete();
-            $table->float('pu_nonassure');
-            $table->float('pu_assure');
+            $table->integer('pu');
+            $table->integer('validation_date');
             $table->string('status')->default('Actif');
             $table->foreignId('created_by')->nullable()->constrained('users')->nullOnDelete();
             $table->foreignId('updated_by')->nullable()->constrained('users')->nullOnDelete();
