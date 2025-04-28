@@ -240,7 +240,7 @@ class PrestationController extends Controller
                                 'amount' => $amount,
                                 'amount_pc' => $amount_pc,
                                 'amount_remise' => $amount_remise,
-                                'amount_client' => $amount_client,
+                                'amount_client' => $amount_client > 0 ? $amount_client : 0,
                                 'type' => 1,
                                 'sequence' => $sequence,
                                 'centre_id' => $centre,
@@ -252,7 +252,7 @@ class PrestationController extends Controller
                                 'amount' => $amount,
                                 'amount_pc' => $amount_pc,
                                 'amount_remise' => $amount_remise,
-                                'amount_client' => $amount_client,
+                                'amount_client' => $amount_client > 0 ? $amount_client : 0,
                             ]);
                         }
                     }
