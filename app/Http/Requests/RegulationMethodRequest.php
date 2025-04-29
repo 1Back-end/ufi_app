@@ -11,6 +11,7 @@ class RegulationMethodRequest extends FormRequest
         return [
             'name' => ['required'],
             'description' => ['nullable'],
+            'comment_required' => ['required', 'boolean'],
         ];
     }
 }

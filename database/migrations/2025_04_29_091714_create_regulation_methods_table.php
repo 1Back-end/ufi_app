@@ -12,6 +12,7 @@ return new class extends Migration {
             $table->string('name');
             $table->string('description')->nullable();
             $table->boolean('active')->default(true);
+            $table->boolean('comment_required')->default(false);
             $table->unsignedBigInteger('created_by');
             $table->unsignedBigInteger('updated_by');
             $table->timestamps();

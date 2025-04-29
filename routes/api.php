@@ -8,6 +8,7 @@ use App\Http\Controllers\ConsultantController;
 use App\Http\Controllers\CountryController;
 use App\Http\Controllers\HopitalController;
 use App\Http\Controllers\PrefixController;
+use App\Http\Controllers\RegulationController;
 use App\Http\Controllers\RegulationMethodController;
 use App\Http\Controllers\ServiceHopitalController;
 use App\Http\Controllers\SexeController;
@@ -86,6 +87,8 @@ Route::middleware(['activity'])->group(function () {
         Route::patch('prestations/{prestation}/change-state', [PrestationController::class, 'changeState']);
         Route::apiResource('regulation-methods', RegulationMethodController::class)->except(['show', 'destroy']);
         Route::patch('regulation-methods/{regulationMethod}/activate', [RegulationMethodController::class, 'activate']);
+        Route::apiResource('regulations', RegulationController::class)->except(['show', 'index', 'destroy']);
+        Route::patch('/regulations/{regulation}', [RegulationController::class, 'cancel']);
 
         Route::controller(ConsultantController::class)->prefix('consultants')->group(function () {
             Route::get('/list', 'index');  // Afficher la liste des consultants

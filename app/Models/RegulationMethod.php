@@ -14,6 +14,7 @@ class RegulationMethod extends Model
         'name',
         'description',
         'active',
+        'comment_required',
         'created_by',
         'updated_by',
     ];
@@ -32,6 +33,7 @@ class RegulationMethod extends Model
     {
         return [
             'active' => 'boolean',
+            'comment_required' => 'boolean',
         ];
     }
 }

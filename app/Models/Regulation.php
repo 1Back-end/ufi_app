@@ -2,47 +2,46 @@
 
 namespace App\Models;
 
-use App\Enums\StateFacture;
+use App\Enums\StatusRegulation;
+use App\Enums\TypeRegulation;
 use App\Models\Trait\UpdatingUser;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class Facture extends Model
+class Regulation extends Model
 {
     use UpdatingUser;
 
     protected $fillable = [
-        'code',
-        'prestation_id',
+        'regulation_method_id',
+        'facture_id',
         'created_by',
         'updated_by',
-        'date_fact',
         'amount',
-        'amount_pc',
-        'amount_remise',
+        'date',
         'type',
-        'sequence',
-        'amount_client',
-        'centre_id',
+        'comment',
+        'reason',
         'state',
     ];
 
     protected function casts(): array
     {
         return [
-            'date_fact' => 'datetime',
-            'state' => StateFacture::class,
+            'date' => 'datetime',
+            'state' => StatusRegulation::class,
+            'type' => TypeRegulation::class,
         ];
     }
 
-    public function prestation(): BelongsTo
+    public function regulationMethod(): BelongsTo
     {
-        return $this->belongsTo(Prestation::class, 'prestation_id');
+        return $this->belongsTo(RegulationMethod::class);
     }
 
-    public function centre(): BelongsTo
+    public function facture(): BelongsTo
     {
-        return $this->belongsTo(Centre::class, 'centre_id');
+        return $this->belongsTo(Facture::class);
     }
 
     public function createdBy(): BelongsTo
@@ -53,10 +52,5 @@ class Facture extends Model
     public function updatedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'updated_by');
-    }
-
-    public function regulations()
-    {
-        return $this->hasMany(Regulation::class, 'facture_id');
     }
 }

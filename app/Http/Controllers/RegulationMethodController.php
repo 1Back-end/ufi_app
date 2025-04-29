@@ -16,7 +16,13 @@ class RegulationMethodController extends Controller
      */
     public function index()
     {
-        return response()->json(RegulationMethod::with(['createdBy:id,nom_utilisateur', 'updatedBy:id,nom_utilisateur'])->get());
+        return response()->json(
+            RegulationMethod::with(['createdBy:id,nom_utilisateur', 'updatedBy:id,nom_utilisateur'])
+                ->when(request()->input('active'), function ($query) {
+                    $query->where('active', request()->input('active'));
+                })
+                ->get()
+        );
     }
 
     /**
