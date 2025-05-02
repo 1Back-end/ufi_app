@@ -7,6 +7,7 @@ use App\Http\Requests\PrestationRequest;
 use App\Models\Acte;
 use App\Models\Facture;
 use App\Models\Prestation;
+use App\Models\RegulationMethod;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -44,7 +45,8 @@ class PrestationController extends Controller
             'priseCharge.assureur',
             'actes',
             'centre',
-            'factures'
+            'factures',
+            'factures.regulations',
         ])->when($request->input('client_id'), function ($query) use ($request) {
             $query->where('client_id', $request->input('client_id'));
         })->when($request->input('consultant_id'), function ($query) use ($request) {
@@ -90,7 +92,8 @@ class PrestationController extends Controller
 
 
         return response()->json([
-            'prestations' => $prestations
+            'prestations' => $prestations,
+            'regulation_methods' => RegulationMethod::get()->toArray(),
         ]);
     }
 

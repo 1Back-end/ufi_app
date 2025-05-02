@@ -13,9 +13,9 @@ class ValidateAmountForRegulateFactureRule implements ValidationRule
     private Facture $facture;
     public function __construct(
         public int $factureId,
-        public int $type
-    )
-    {
+        public int $type,
+        public ?int $update = null,
+    ) {
         $this->facture = Facture::find($this->factureId);
     }
 
@@ -26,8 +26,14 @@ class ValidateAmountForRegulateFactureRule implements ValidationRule
         switch ($this->type) {
             case TypeRegulation::CLIENT->value:
                 $amount = $this->facture->amount_client;
-                $amountRegulated = $this->facture->regulations()->count() 
-                    ? $this->facture->regulations()->where('regulations.state', StatusRegulation::ACTIVE->value)->sum('amount') 
+                $amountRegulated = $this->facture->regulations()->count()
+                    ? $this->facture
+                    ->regulations()
+                    ->where('regulations.state', StatusRegulation::ACTIVE->value)
+                    ->when($this->update, function ($query) {
+                        $query->whereNot('regulations.id', $this->update);
+                    })
+                    ->sum('amount')
                     : 0;
                 $value = $amountRegulated + $value;
                 break;

@@ -18,12 +18,13 @@ class RegulationRequest extends FormRequest
         }
 
         return [
-            'regulation_method_id' => ['required', 'exists:regulation_methods'],
-            'facture_id' => ['required', 'exists:factures'],
+            'facture_id' => ['required', 'exists:factures,id'],
             'type' => ['required', new Enum(TypeRegulation::class)],
-            'amount' => ['required', 'integer', new ValidateAmountForRegulateFactureRule($this->facture_id, $this->type)],
-            'comment' => ['nullable', $requiredReason],
-            'reason' => ['nullable', $requiredReason],
+            'regulations' => ['required', 'array'],
+            'regulations.*.method' => ['required', 'exists:regulation_methods,id'],
+            'regulations.*.amount' => ['required', 'integer', new ValidateAmountForRegulateFactureRule($this->facture_id, $this->type)],
+            'regulations.*.comment' => ['nullable', $requiredReason],
+            'regulations.*.reason' => ['nullable', $requiredReason],
         ];
     }
 }

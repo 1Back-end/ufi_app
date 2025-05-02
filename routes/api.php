@@ -88,7 +88,7 @@ Route::middleware(['activity'])->group(function () {
         Route::apiResource('regulation-methods', RegulationMethodController::class)->except(['show', 'destroy']);
         Route::patch('regulation-methods/{regulationMethod}/activate', [RegulationMethodController::class, 'activate']);
         Route::apiResource('regulations', RegulationController::class)->except(['show', 'index', 'destroy']);
-        Route::patch('/regulations/{regulation}', [RegulationController::class, 'cancel']);
+        Route::post('/regulations/{regulation}', [RegulationController::class, 'cancel']);
 
         Route::controller(ConsultantController::class)->prefix('consultants')->group(function () {
             Route::get('/list', 'index');  // Afficher la liste des consultants
