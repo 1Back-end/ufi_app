@@ -28,6 +28,13 @@ class VoixTransmissionController extends Controller
     {
         $perPage = $request->input('limit', 5);  // Par défaut, 10 éléments par page
         $page = $request->input('page', 1);  // Page courante
+        $search = $request->input('search');
+        $query = VoixTransmissions::where('is_deleted', false);
+        if ($search) {
+            $query->where(function ($query) use ($search) {
+                $query->where('name', 'like', "%$search%");
+            });
+        }
 
 // Récupérer les assureurs avec pagination
         $voix_tranmissions = VoixTransmissions::where('is_deleted', false)
@@ -54,38 +61,35 @@ class VoixTransmissionController extends Controller
     public function store(Request $request)
     {
         $auth = auth()->user();
+
         try {
-            // Validation des données d'entrée
             $data = $request->validate([
-                'name' => 'required|string|unique:voix_transmissions,name',  // Nom unique
-                'description' => 'nullable|string',  // Description obligatoire
+                'name' => 'required|string|unique:voix_transmissions,name',
+                'code'=> 'required|string'
             ]);
 
-            // Ajout de l'ID de l'utilisateur créateur
             $data['created_by'] = $auth->id;
 
-            // Création de l'élément dans la base de données
-            $voix_transmissions = VoixTransmissions::create($data);
+            $voix = VoixTransmissions::create($data);
 
-            // Retourner une réponse JSON avec les données et un message de succès
             return response()->json([
-                'data' => $voix_transmissions,
+                'data' => $voix,
                 'message' => 'Enregistrement effectué avec succès'
             ]);
+
         } catch (\Illuminate\Validation\ValidationException $e) {
-            // Erreur de validation
             return response()->json([
                 'error' => 'Erreur de validation',
                 'details' => $e->errors()
             ], 422);
         } catch (\Exception $e) {
-            // Erreur générale
             return response()->json([
                 'error' => 'Une erreur est survenue',
                 'message' => $e->getMessage()
             ], 500);
         }
     }
+
 
 
     /**
@@ -116,6 +120,7 @@ class VoixTransmissionController extends Controller
             // Validation des données d'entrée
             $data = $request->validate([
                 'name' => 'required|string|unique:voix_transmissions,name,' . $voix_transmission->id,  // Vérifie que le nom est unique sauf pour l'élément actue// Description obligatoire
+                'code'=>'required|string|unique:voix_transmissions,code,' . $voix_transmission->id,
             ]);
 
             // Mise à jour des données

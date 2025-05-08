@@ -14,6 +14,7 @@ return new class extends Migration
         Schema::create('soins', function (Blueprint $table) {
             $table->id();
             $table->foreignId('type_soin_id')->nullable()->constrained('type_soins')->nullOnDelete();
+            $table->string('name')->nullable();
             $table->integer('pu');
             $table->string('status')->default('Actif');
             $table->foreignId('created_by')->nullable()->constrained('users')->nullOnDelete();

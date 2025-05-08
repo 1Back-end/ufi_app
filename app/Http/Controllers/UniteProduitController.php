@@ -27,10 +27,17 @@ class UniteProduitController extends Controller
     {
         $perPage = $request->input('limit', 10);  // Par défaut, 10 éléments par page
         $page = $request->input('page', 1);  // Page courante
-
+        $search = $request->input('search');
+        $query = UniteProduit::where('is_deleted', false);
+        if ($search) {
+            $query->where(function ($query) use ($search) {
+                $query->where('name', 'like', "%$search%");
+            });
+        }
         // Récupérer les assureurs avec pagination
         $unite_produits = UniteProduit::where('is_deleted', false)
             ->paginate($perPage);
+
 
         return response()->json([
             'data' => $unite_produits->items(),
@@ -59,6 +66,7 @@ class UniteProduitController extends Controller
         $auth = auth()->user();
         $data = $request->validate([
             'name' => 'required|string|unique:unite_produits,name',
+            'code'=>'required|string|unique:unite_produits,code',
         ]);
         $data['created_by'] = $auth->id;
         $unite_produits = UniteProduit::create($data);
@@ -108,7 +116,8 @@ class UniteProduitController extends Controller
 
         // Valider les données reçues
         $data = $request->validate([
-            'name' => 'required|string|unique:unite_produits,name,' . $id,  // Autoriser la modification du nom, mais éviter la duplication
+            'name' => 'required|string|unique:unite_produits,name,' . $id,
+            'code'=>'required'
         ]);
 
         // Mettre à jour les données

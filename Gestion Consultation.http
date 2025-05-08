@@ -1,4 +1,5 @@
 #GET  http://localhost:8000/api/consultants/list
+#GET  http://localhost:8000/api/consultants/get_by_id/1
 #GET http://127.0.0.1:8000/api/consultants/search?status_consult=Actif
 #GET http://127.0.0.1:8000/api/consultants/search?nom_consult=Quis&status_consult=Actif
 #PUT http://127.0.0.1:8000/api/consultants/inactivate/3
@@ -17,5 +18,5 @@
 #GET http://127.0.0.1:8000/api/assureurs/export-assureurs
 
 #GET http://127.0.0.1:8000/api/assureurs/list
-GET http://localhost:8000/api/prise_en_charges/export-prises-en-charges
+GET http://localhost:8000/api/rendez_vous/export
 

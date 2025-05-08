@@ -8,6 +8,6 @@ class ClientSeeder extends Seeder
 {
     public function run(): void
     {
-        \App\Models\Client::factory(2)->create();
+        \App\Models\Client::factory(10)->create();
     }
 }

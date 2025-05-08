@@ -26,9 +26,17 @@ class CategoryController extends Controller
     {
         $perPage = $request->input('limit', 10);  // Par défaut, 10 éléments par page
         $page = $request->input('page', 1);  // Page courante
+        $search = $request->input('search');
+        $query = Category::where('is_deleted', false);
+        if ($search) {
+            $query->where(function ($query) use ($search) {
+                $query->where('name', 'like', "%$search%");
+            });
+        }
 
         // Récupérer les assureurs avec pagination
         $categories_produits = Category::where('is_deleted', false)
+            ->with('groupProduct:id,name')
             ->paginate($perPage);
 
         return response()->json([
@@ -58,7 +66,8 @@ class CategoryController extends Controller
         try {
             // Validation des données d'entrée
             $data = $request->validate([
-                'name' => 'required|string|unique:categories,name',  // Nom uniqu
+                'name' => 'required|string|unique:categories,name',
+                'group_product_id' => 'required|exists:group_products,id',
             ]);
             // Ajout de l'ID de l'utilisateur créateur
             $data['created_by'] = $auth->id;
@@ -130,38 +139,49 @@ class CategoryController extends Controller
      */
     public function update(Request $request, $id)
     {
-        $auth = auth()->user();
-        try {
-            // Récupérer l'élément à mettre à jour par son ID
-            $category_produit = Category::where('is_deleted',false)->first();  // Récupère l'élément ou renvoie une erreur 404
+        $auth = auth()->user(); // Récupère l'utilisateur authentifié
 
+        try {
             // Validation des données d'entrée
             $data = $request->validate([
-                'name' => 'required|string|unique:categories,name,' . $category_produit->id,  // Vérifie que le nom est unique sauf pour l'élément actue
+                'name' => 'required|string|unique:categories,name,' . $id, // Exclut l'ID actuel de la validation unique
+                'group_product_id' => 'required|exists:group_products,id', // Vérifie que l'ID du groupe produit existe dans la table group_products
+                'description' => 'nullable|string',
             ]);
-            // Mise à jour des données
-            $data['updated_by'] = $auth->id;  // Ajouter l'ID de l'utilisateur qui met à jour
-            // Appliquer la mise à jour
-            $category_produit->update($data);
-            // Retourner une réponse JSON avec les données mises à jour et un message de succès
+
+            // Recherche de la catégorie par ID
+            $category = Category::findOrFail($id); // Si la catégorie n'existe pas, cela lèvera une exception 404
+
+            // Mise à jour des données de la catégorie
+            $data['updated_by'] = $auth->id; // Ajoute l'ID de l'utilisateur ayant effectué la mise à jour
+
+            $category->update($data);
+
+            // Retourner une réponse JSON avec les données et un message de succès
             return response()->json([
-                'data' => $category_produit,
-                'message' => 'Mise à jour effectuée avec succès'
+                'data' => $category,
+                'message' => 'Catégorie mise à jour avec succès',
             ]);
         } catch (\Illuminate\Validation\ValidationException $e) {
             // Erreur de validation
             return response()->json([
                 'error' => 'Erreur de validation',
                 'details' => $e->errors()
-            ], 422);
+            ], 422); // Code de réponse 422 pour les erreurs de validation
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            // Catégorie non trouvée
+            return response()->json([
+                'error' => 'Catégorie non trouvée',
+            ], 404); // Code de réponse 404 pour non trouvé
         } catch (\Exception $e) {
             // Erreur générale
             return response()->json([
                 'error' => 'Une erreur est survenue',
                 'message' => $e->getMessage()
-            ], 500);
+            ], 500); // Code de réponse 500 pour les erreurs internes du serveur
         }
     }
+
 
     /**
      * Remove the specified resource from storage.

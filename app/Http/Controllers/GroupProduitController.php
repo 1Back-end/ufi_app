@@ -18,6 +18,24 @@ class GroupProduitController extends Controller
             'group_produits' => $groupProduits
         ]);
     }
+    public function getCategories($group_product_id)
+    {
+        // Trouver le groupe de produit par son ID
+        $groupProduct = GroupProduct::find($group_product_id);
+
+        // Si le groupe de produit existe
+        if ($groupProduct) {
+            // Récupérer les catégories associées
+            return response()->json([
+                'data' => $groupProduct->categories
+            ], 200);
+        }
+
+        // Si le groupe de produit n'existe pas
+        return response()->json([
+            'message' => 'Group product not found'
+        ], 404);
+    }
     /**
      * Display a listing of the resource.
      * @permission GroupProduitController::index
@@ -27,7 +45,13 @@ class GroupProduitController extends Controller
     {
         $perPage = $request->input('limit', 10);  // Par défaut, 10 éléments par page
         $page = $request->input('page', 1);  // Page courante
-
+        $search = $request->input('search');
+        $query = GroupProduct::where('is_deleted', false);
+        if ($search) {
+            $query->where(function ($query) use ($search) {
+                $query->where('name', 'like', "%$search%");
+            });
+        }
         // Récupérer les assureurs avec pagination
         $groupe_produits = GroupProduct::where('is_deleted', false)
             ->paginate($perPage);

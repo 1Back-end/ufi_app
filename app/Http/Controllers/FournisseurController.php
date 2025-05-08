@@ -32,6 +32,18 @@ class FournisseurController extends Controller
     public function index(Request $request){
         $perPage = $request->input('limit', 10);  // Par défaut, 10 éléments par page
         $page = $request->input('page', 1);  // Page courante
+        $search = $request->input('search');
+
+        $query = Fournisseurs::where('is_deleted', false);
+
+        if ($search) {
+            $query->where(function ($query) use ($search) {
+                $query->where('email', 'like', "%$search%")
+                ->orWhere('adresse', 'like', '%' . $search . '%')
+                    ->orWhere('tel', 'like', '%' . $search . '%')
+                    ->orWhere('email', 'like', '%' . $search . '%');
+            });
+        }
 
 // Récupérer les assureurs avec pagination
         $fournisseurs = Fournisseurs::where('is_deleted', false)

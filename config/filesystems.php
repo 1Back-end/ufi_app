@@ -82,6 +82,24 @@ return [
             'url' => env('APP_URL') . '/export-export-prises-en-charges',
             'visibility' => 'public',
         ],
+        'exportconsultants' => [
+            'driver' => 'local',
+            'root' => public_path('export-consultants'),
+            'url' => env('APP_URL') . '/export-consultants',
+            'visibility' => 'public',
+        ],
+        'exportproducts' => [
+            'driver' => 'local',
+            'root' => public_path('export-products'),
+            'url' => env('APP_URL') . '/export-products',
+            'visibility' => 'public',
+        ],
+        'exportrendezvous' => [
+            'driver' => 'local',
+            'root' => public_path('export-rendezvous'),
+            'url' => env('APP_URL') . '/export-rendezvous',
+            'visibility' => 'public',
+        ],
 
         's3' => [
             'driver' => 's3',
@@ -114,6 +132,7 @@ return [
         public_path('export-consultant') => storage_path('app/export-consultant'),
         public_path('storage') => storage_path('app/public'),
         public_path('export-client') => storage_path('app/export-client'),
+        public_path('export-rendezvous') => storage_path('app/export-rendezvous'),
     ],
 
 ];

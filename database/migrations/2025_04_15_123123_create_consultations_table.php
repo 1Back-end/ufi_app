@@ -14,6 +14,7 @@ return new class extends Migration
         Schema::create('consultations', function (Blueprint $table) {
             $table->id();
             $table->foreignId('typeconsultation_id')->nullable()->constrained('typeconsultations')->nullOnDelete();
+            $table->string('name')->nullable();
             $table->integer('pu');
             $table->integer('validation_date');
             $table->string('status')->default('Actif');

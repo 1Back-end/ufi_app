@@ -8,9 +8,30 @@ use App\Models\Quotation;
 
 class QuotationController extends Controller
 {
-    public function index(){
-        $quotations = Quotation::where('is_deleted', false)->paginate(10);
-        return response()->json($quotations, 200);
+    public function index(Request $request){
+        $perPage = $request->input('limit', 10);
+        $search = $request->input('search');
+
+        // Construction de la requête
+        $query = Quotation::where('is_deleted', false);
+
+        if ($search) {
+            $query->where(function ($query) use ($search) {
+                $query->where('code', 'like', "%$search%")
+                    ->orWhere('taux', 'like', '%' . $search . '%');
+            });
+        }
+
+        // Appliquer la pagination après les filtres
+        $quotations = $query->paginate($perPage);
+
+        return response()->json([
+            'data' => $quotations->items(),
+            'current_page' => $quotations->currentPage(),
+            'last_page' => $quotations->lastPage(),
+            'total' => $quotations->total(),
+        ]);
+        //
     }
 
     public function show($id){

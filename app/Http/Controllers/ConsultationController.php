@@ -2,9 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Assurable;
+use App\Models\Assureur;
 use App\Models\Consultation;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
-
+use Illuminate\Validation\Rule;
 class ConsultationController extends Controller
 {
     /**
@@ -47,15 +50,43 @@ class ConsultationController extends Controller
         $auth = auth()->user();
         try {
             $data = $request->validate([
-                'typeconsultation_id'=> 'exists:typeconsultations,id',
-                'pu'=>'required|integer',
-                'validation_date'=>'required|integer',
+                'typeconsultation_id'=> ['required', 'exists:typeconsultations,id'],
+                'pu_default' => 'required|integer', // Prix par défaut pour les assurances
+                'pu' => [
+                    'required',
+                    'integer',
+                    Rule::unique('consultations')->where(function ($query) use ($request) {
+                        return $query->where('typeconsultation_id', $request->input('typeconsultation_id'));
+                    })
+                ],
+                'name' => 'required|string|unique:consultations,name',
+                'validation_date' => 'required|integer',
             ]);
             $data['created_by'] = $auth->id;
+            DB::beginTransaction();
             $consultation = Consultation::create($data);
+            // Récupération de tous les assureurs non supprimés
+            $assureurs = Assureur::where('is_deleted', false)->get();
+
+            // Ventilation dans la table polymorphique
+            foreach ($assureurs as $assureur) {
+                Assurable::updateOrInsert(
+                    [
+                        'assureur_id' => $assureur->id,
+                        'assurable_type' => Consultation::class,
+                        'assurable_id' => $consultation->id,
+                    ],
+                    [
+                        'pu' => $data['pu_default'], // prix par défaut
+                    ]
+                );
+            }
+
+            DB::commit(); // Confirmer la transaction
+
             return response()->json([
                 'data' => $consultation,
-                'message' => 'Enregistrement effectué avec succès'
+                'message' => 'Consultation enregistrée avec ventilation des tarifs pour les assurances.'
             ]);
         } catch (\Illuminate\Validation\ValidationException $e) {
             // Erreur de validation
@@ -121,9 +152,10 @@ class ConsultationController extends Controller
 
         try {
             $data = $request->validate([
-                'typeconsultation_id' => 'exists:typeconsultations,id',
-                'pu' => 'required|integer',
-                'validation_date'=>'required'
+                'typeconsultation_id' => 'required|exists:typeconsultations,id',
+                'pu' =>'required|integer',
+                'name' => 'required|string|unique:consultations,name',
+                'validation_date' => 'required|integer'
             ]);
 
             $consultation = Consultation::where('is_deleted', false)->findOrFail($id);

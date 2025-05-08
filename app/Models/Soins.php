@@ -12,6 +12,8 @@ class Soins extends Model
     protected $fillable = [
         'type_soin_id',
         'pu',
+        'pu_default',
+        'name',
         'status',
         'created_by',
         'updated_by',

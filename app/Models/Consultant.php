@@ -10,56 +10,49 @@ class Consultant extends Model
     use HasFactory;
 
     protected $fillable = [
-        'user_id',
         'code_hopi',
         'code_service_hopi',
         'code_specialite',
         'code_titre',
-        'ref_consult',
-        'nom_consult',
-        'prenom_consult',
-        'nomcomplet_consult', // Ajouté ici
-        'tel_consult',
-        'tel1_consult',
-        'email_consul',
-        'type_consult',
-        'status_consult',
+        'ref',
+        'nom',
+        'prenom',
+        'nomcomplet', // Ajouté ici
+        'tel',
+        'tel1',
+        'email',
+        'type',
+        'status',
         'created_by',
         'updated_by',
         'TelWhatsApp',
     ];
 
-    public function user()
-    {
-        return $this->belongsTo(User::class);
-    }
 
-    public function codeHopi()
+
+    public function code_hopi()
     {
         return $this->belongsTo(Hopital::class, 'code_hopi');
     }
+    public function code_specialite()
+    {
+        return $this->belongsTo(Specialite::class, 'code_specialite');
+    }
+    public function code_titre(){
+        return $this->belongsTo(Titre::class, 'code_titre');
+    }
 
-    public function codeServiceHopi()
+    public function code_service_hopi()
     {
         return $this->belongsTo(Service_Hopital::class, 'code_service_hopi');
     }
 
-    public function codeSpecialite()
-    {
-        return $this->belongsTo(Specialite::class, 'code_specialite');
-    }
-
-    public function codeTitre()
-    {
-        return $this->belongsTo(Titre::class, 'code_titre');
-    }
-
-    public function createByConsult()
+    public function creator()
     {
         return $this->belongsTo(User::class, 'created_by');
     }
 
-    public function updateByConsult()
+    public function updater()
     {
         return $this->belongsTo(User::class, 'updated_by');
     }

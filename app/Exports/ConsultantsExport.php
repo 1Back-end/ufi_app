@@ -15,45 +15,38 @@ class ConsultantsExport implements FromCollection, WithHeadings
      */
     public function collection()
     {
-        $consultants = Consultant::select(
-            'id',
-            'ref_consult',
-            'nomcomplet_consult',
-            'email_consul',
-            'tel_consult',
-            'tel1_consult',
-            'type_consult',
-            'status_consult',
-            'TelWhatsApp',
-            'created_at',
-            'updated_at'
-        )
-            ->where('is_deleted', false) // S'assurer que seuls les consultants non supprimés sont retournés
+        $consultants = Consultant::with(['code_specialite', 'code_titre', 'code_service_hopi', 'creator', 'updater'])
+            ->where('is_deleted', false)
             ->get();
 
-        // Vérification si aucun consultant n'est trouvé
         if ($consultants->isEmpty()) {
-            // Si aucun consultant n'est trouvé, on lève une exception
-            throw new \Exception('Aucun consultant à exporter');
+            throw new \Exception('Aucune donnée à exporter');
         }
 
-        // Convertir les dates pour un affichage lisible dans l'export
         return $consultants->map(function ($consultant) {
             return [
-                'id' => $consultant->id,
-                'ref_consult' => $consultant->ref_consult,
-                'nomcomplet_consult' => $consultant->nomcomplet_consult,
-                'email_consul' => $consultant->email_consul,
-                'tel_consult' => $consultant->tel_consult,
-                'tel1_consult' => $consultant->tel1_consult,
-                'type_consult' => $consultant->type_consult,
-                'status_consult' => $consultant->status_consult,
-                'TelWhatsApp' => $consultant->TelWhatsApp,
-                'created_at' => Carbon::parse($consultant->created_at)->format('d/m/Y H:i'),
-                'updated_at' => Carbon::parse($consultant->updated_at)->format('d/m/Y H:i'),
+                '#' => $consultant->id ?? 'N/A',
+                'Référence' => $consultant->ref ?? 'N/A',
+                'Nom' => $consultant->nom ?? 'N/A',
+                'Prénom' => $consultant->prenom ?? 'N/A',
+                'Email' => $consultant->email ?? 'N/A',
+                'Téléphone Principal' => $consultant->tel ?? 'N/A',
+                'Téléphone Secondaire' => $consultant->tel1 ?? 'N/A',
+                'Nom Complet' => $consultant->nomcomplet ?? 'N/A',
+                'Type Consultant' => $consultant->type ?? 'N/A',
+                'Statut Consultant' => $consultant->status ?? 'N/A',
+                'Disponible sur WhatsApp' => $consultant->TelWhatsApp ?? 'N/A',
+                'Créé le' => optional($consultant->created_at)->format('d/m/Y H:i:s') ?? 'N/A',
+                'Par' => optional($consultant->creator)->email ?? 'N/A',
+                'Modifié le' => optional($consultant->updated_at)->format('d/m/Y H:i:s') ?? 'N/A',
+                'Par (modif)' => optional($consultant->updater)->email ?? 'N/A',
             ];
         });
-    }
+
+
+
+
+}
 
     /**
      * Définit les en-têtes de l'export
@@ -64,15 +57,19 @@ class ConsultantsExport implements FromCollection, WithHeadings
         return [
             '#',
             'Référence',
-            'Nom & Prénom',
+            'Nom',
+            'Prénom',
             'Email',
-            'N° Téléphone',
-            'N° Téléphone Secondaire',
+            'Téléphone Principal',
+            'Téléphone Secondaire',
+            'Nom Complet',
             'Type Consultant',
             'Statut Consultant',
             'Disponible sur WhatsApp',
-            'Date de Création',
-            'Date de Modification'
+            'Créé le',
+            'Par',
+            'Modifié le',
+            'Par (modif)',
         ];
     }
 }

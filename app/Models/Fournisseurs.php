@@ -24,12 +24,22 @@ class Fournisseurs extends Model
         'created_by',
         'updated_by',
     ];
+    public function fournisseurs()
+    {
+        return $this->belongsToMany(Fournisseur::class, 'product_fournisseur');
+    }
+    public function products()
+    {
+        return $this->belongsToMany(Product::class, 'product_fournisseur');
+    }
 
     // Relations (par exemple, pour 'created_by' et 'updated_by' avec l'utilisateur)
     public function createdBy()
     {
         return $this->belongsTo(User::class, 'created_by');
     }
+    // Dans le modèle Fournisseurs
+
 
     public function updatedBy()
     {

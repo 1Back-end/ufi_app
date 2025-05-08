@@ -17,6 +17,10 @@ class GroupProduct extends Model
     {
         return $this->belongsTo(User::class, 'created_by');
     }
+    public function categories()
+    {
+        return $this->hasMany(Category::class, 'group_product_id');
+    }
 
     public function updater()
     {
