@@ -14,6 +14,7 @@ return new class extends Migration
         Schema::create('categories', function (Blueprint $table) {
             $table->id();
             $table->string('name')->unique();  // Le nom de la catégorie
+            $table->foreignId('group_product_id')->constrained('group_products')->onDelete('cascade')->comment('Creer Table OpsTbl_GroupeProduit: Anesthesiques, Antifongiques, Anti-infectieux, Anti-biotiques, etc.');
             $table->string('description')->nullable();  // Description optionnelle de la catégorie
             $table->foreignId('created_by')->nullable()->constrained('users')->nullOnDelete();
             $table->foreignId('updated_by')->nullable()->constrained('users')->nullOnDelete();

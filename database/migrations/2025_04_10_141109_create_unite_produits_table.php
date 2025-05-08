@@ -13,7 +13,8 @@ return new class extends Migration
     {
         Schema::create('unite_produits', function (Blueprint $table) {
             $table->id();
-            $table->string('name')->unique();  // Le nom de la catégorie
+            $table->string('name')->unique();
+            $table->string('code')->nullable();// Le nom de la catégorie
             $table->foreignId('created_by')->nullable()->constrained('users')->nullOnDelete();
             $table->foreignId('updated_by')->nullable()->constrained('users')->nullOnDelete();
             $table->boolean('is_deleted')->default(false);

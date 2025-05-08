@@ -2,8 +2,15 @@
 
 namespace App\Http\Controllers;
 
+use App\Exports\AssureurExport;
+use App\Exports\ProductsExport;
+use App\Exports\ProductsExportSearch;
 use Illuminate\Http\Request;
 use App\Models\Product;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Storage;
+use Maatwebsite\Excel\Facades\Excel;
+
 class ProduitController extends Controller
 {
     /**
@@ -18,8 +25,8 @@ class ProduitController extends Controller
                 'voieTransmission:id,name',
                 'uniteProduit:id,name',
                 'groupProduct:id,name',
-                'categorie:id,name',
-                'fournisseur:id,nom',
+                'categories:id,name',
+                'fournisseurs:id,nom',
             ])
             ->paginate($perPage);
 
@@ -87,21 +94,31 @@ class ProduitController extends Controller
                 'price' => 'required|numeric',
                 'unite_produits_id' => 'required|exists:unite_produits,id',
                 'group_products_id' => 'required|exists:group_products,id',
-                'categories_id' => 'required|exists:categories,id',
+                'categories_id' => 'required|array',
+                'categories_id.*' => 'exists:categories,id',
+                'fournisseurs_id' => 'required|array',
+                'fournisseurs_id.*' => 'exists:fournisseurs,id',
                 'unite_par_emballage' => 'required|integer',
                 'condition_par_unite_emballage' => 'required|integer',
-                'fournisseurs_id' => 'required|exists:fournisseurs,id',
                 'Dosage_defaut' => 'required|string',
                 'schema_administration' => 'required|string',
+                'facturable' => 'required|boolean', // <- ici
             ]);
+
+            $categories = $data['categories_id'];
+            $fournisseurs = $data['fournisseurs_id'];
+            unset($data['categories_id'], $data['fournisseurs_id']);
 
             $data['ref'] = 'PROD' . now()->format('ymdHis') . mt_rand(10, 99);
             $data['created_by'] = $auth->id;
 
             $product = Product::create($data);
 
+            $product->categories()->sync($categories);
+            $product->fournisseurs()->sync($fournisseurs);
+
             return response()->json([
-                'data' => $product,
+                'data' => $product->load(['categories', 'fournisseurs']),
                 'message' => 'Produit créé avec succès.'
             ], 201);
 
@@ -117,6 +134,41 @@ class ProduitController extends Controller
             ], 500);
         }
     }
+    public function search(Request $request)
+    {
+        $request->validate([
+            'query' => 'nullable|string|max:255',
+        ]);
+
+        $searchQuery = $request->input('query', '');
+
+        $query = Product::where('is_deleted', false);
+
+        if ($searchQuery) {
+            $query->where(function($query) use ($searchQuery) {
+                $query->where('name', 'like', '%' . $searchQuery . '%')
+                    ->orWhere('dosage', 'like', '%' . $searchQuery . '%')
+                    ->orWhere('price', 'like', '%' . $searchQuery . '%')
+                    ->orWhere('unite_par_emballage', 'like', '%' . $searchQuery . '%')
+                    ->orWhere('condition_par_unite_emballage', 'like', '%' . $searchQuery . '%');
+            });
+        }
+
+        $products= $query
+            ->with([
+                'voieTransmission:id,name',
+                'uniteProduit:id,name',
+                'groupProduct:id,name',
+                'categories:id,name',
+                'fournisseurs:id,nom',
+            ]) // chargement des relations
+            ->get();
+
+        return response()->json([
+            'data' => $products,
+        ]);
+    }
+
 
     /**
      * Display the specified resource.
@@ -129,8 +181,8 @@ class ProduitController extends Controller
                     'voieTransmission:id,name',
                     'uniteProduit:id,name',
                     'groupProduct:id,name',
-                    'categorie:id,name',
-                    'fournisseur:id,nom',
+                    'categories:id,name',
+                    'fournisseurs:id,nom',
                 ])
                 ->findOrFail($id);
 
@@ -163,36 +215,59 @@ class ProduitController extends Controller
     /**
      * Update the specified resource in storage.
      */
+    public function export()
+    {
+        $fileName = 'produits-' . Carbon::now()->format('Y-m-d_H-i-s') . '.xlsx';
+
+        Excel::store(new ProductsExport(), $fileName, 'exportproducts');
+
+        return response()->json([
+            "message" => "Exportation des données effectuée avec succès",
+            "filename" => $fileName,
+            "url" => Storage::disk('exportproducts')->url($fileName)
+        ]);
+    }
+
     public function update(Request $request, $id)
     {
         $auth = auth()->user();
 
         try {
-            $product = Product::where('is_deleted', false)->findOrFail($id);
+            $product = Product::findOrFail($id);
 
             $data = $request->validate([
-                'name' => 'required|string|unique:products,name,' . $id,
+                'name' => 'required|string|unique:products,name,' . $product->id,
                 'dosage' => 'required|string',
                 'voix_transmissions_id' => 'required|exists:voix_transmissions,id',
                 'price' => 'required|numeric',
                 'unite_produits_id' => 'required|exists:unite_produits,id',
                 'group_products_id' => 'required|exists:group_products,id',
-                'categories_id' => 'required|exists:categories,id',
+                'categories_id' => 'required|array',
+                'categories_id.*' => 'exists:categories,id',
+                'fournisseurs_id' => 'required|array',
+                'fournisseurs_id.*' => 'exists:fournisseurs,id',
                 'unite_par_emballage' => 'required|integer',
                 'condition_par_unite_emballage' => 'required|integer',
-                'fournisseurs_id' => 'required|exists:fournisseurs,id',
                 'Dosage_defaut' => 'required|string',
                 'schema_administration' => 'required|string',
+                'facturable' => 'required|boolean', // <- ici
             ]);
+
+            $categories = $data['categories_id'];
+            $fournisseurs = $data['fournisseurs_id'];
+            unset($data['categories_id'], $data['fournisseurs_id']);
 
             $data['updated_by'] = $auth->id;
 
             $product->update($data);
 
+            $product->categories()->sync($categories);
+            $product->fournisseurs()->sync($fournisseurs);
+
             return response()->json([
-                'data' => $product,
+                'data' => $product->load(['categories', 'fournisseurs']),
                 'message' => 'Produit mis à jour avec succès.'
-            ], 200);
+            ]);
 
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
@@ -205,6 +280,53 @@ class ProduitController extends Controller
                 'message' => $e->getMessage()
             ], 500);
         }
+    }
+    public function searchAndExport(Request $request)
+    {
+        $request->validate([
+            'query' => 'nullable|string|max:255',
+        ]);
+
+        $searchQuery = $request->input('query', '');
+
+        $query = Product::where('is_deleted', false);
+
+        if ($searchQuery) {
+            $query->where(function($query) use ($searchQuery) {
+                $query->where('name', 'like', '%' . $searchQuery . '%')
+                    ->orWhere('dosage', 'like', '%' . $searchQuery . '%')
+                    ->orWhere('price', 'like', '%' . $searchQuery . '%')
+                    ->orWhere('unite_par_emballage', 'like', '%' . $searchQuery . '%')
+                    ->orWhere('condition_par_unite_emballage', 'like', '%' . $searchQuery . '%');
+            });
+        }
+
+        $products= $query
+            ->with([
+                'voieTransmission:id,name',
+                'uniteProduit:id,name',
+                'groupProduct:id,name',
+                'categories:id,name',
+                'fournisseurs:id,nom',
+            ]) // chargement des relations
+            ->get();
+
+        if ($products->isEmpty()) {
+            return response()->json([
+                'message' => 'Aucune donnée trouvé pour cette recherche.',
+                'data' => []
+            ]);
+        }
+        $fileName = 'produits-recherches-' . Carbon::now()->format('Y-m-d H:i:s') . '.xlsx';
+
+        Excel::store(new ProductsExportSearch($products), $fileName, 'exportproducts');
+
+        return response()->json([
+            "message" => "Exportation des données effectuée avec succès",
+            "filename" => $fileName,
+            "url" => Storage::disk('exportproducts')->url($fileName)
+        ]);
+
     }
 
 

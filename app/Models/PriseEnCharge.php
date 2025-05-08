@@ -8,13 +8,13 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class PriseEnCharge extends Model
 {
     protected $fillable = [
-        'assureurs_id',
-        'quotations_id',
+        'assureur_id',
+        'quotation_id',
         'date',
         'code',
         'date_debut',
         'date_fin',
-        'clients_id',
+        'client_id',
         'taux_pc',
         'usage_unique',
         'created_by',
@@ -33,17 +33,17 @@ class PriseEnCharge extends Model
     // Relations
     public function assureur()
     {
-        return $this->belongsTo(Assureur::class, 'assureurs_id');
+        return $this->belongsTo(Assureur::class, 'assureur_id');
     }
 
     public function quotation()
     {
-        return $this->belongsTo(Quotation::class, 'quotations_id');
+        return $this->belongsTo(Quotation::class, 'quotation_id');
     }
 
     public function client()
     {
-        return $this->belongsTo(Client::class, 'clients_id');
+        return $this->belongsTo(Client::class, 'client_id');
     }
 
     public function creator()

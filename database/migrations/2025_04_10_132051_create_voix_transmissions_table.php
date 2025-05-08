@@ -14,6 +14,7 @@ return new class extends Migration
         Schema::create('voix_transmissions', function (Blueprint $table) {
             $table->id();
             $table->string('name');
+            $table->string('code');
             $table->foreignId('created_by')->nullable()->constrained('users')->nullOnDelete();
             $table->foreignId('updated_by')->nullable()->constrained('users')->nullOnDelete();
             $table->boolean('is_deleted')->default(false);

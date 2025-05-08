@@ -12,6 +12,7 @@ class Product extends Model
         'ref',
         'name',
         'dosage',
+        'facturable',
         'voix_transmissions_id',
         'price',
         'unite_produits_id',
@@ -27,13 +28,15 @@ class Product extends Model
         'is_deleted',
         'status',
     ];
-
+    public function categories()
+    {
+        return $this->belongsToMany(Category::class, 'product_category');
+    }
     // Relations
     public function voieTransmission()
     {
         return $this->belongsTo(VoixTransmissions::class, 'voix_transmissions_id');
     }
-
     public function uniteProduit()
     {
         return $this->belongsTo(UniteProduit::class, 'unite_produits_id');
@@ -43,15 +46,9 @@ class Product extends Model
     {
         return $this->belongsTo(GroupProduct::class, 'group_products_id');
     }
-
-    public function categorie()
+    public function fournisseurs()
     {
-        return $this->belongsTo(Category::class, 'categories_id');
-    }
-
-    public function fournisseur()
-    {
-        return $this->belongsTo(Fournisseurs::class, 'fournisseurs_id');
+        return $this->belongsToMany(Fournisseurs::class, 'product_fournisseur', 'product_id', 'fournisseur_id');
     }
 
     public function creator()

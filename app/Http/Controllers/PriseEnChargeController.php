@@ -97,14 +97,14 @@ class PriseEnChargeController extends Controller
 
         try {
             $data = $request->validate([
-                'assureurs_id' => 'required|exists:assureurs,id',
-                'quotations_id'=>'required|exists:quotations,id',
+                'assureur_id' => 'required|exists:assureurs,id',
+                'quotation_id'=>'required|exists:quotations,id',
                 'date' => 'required|date',
                 'code'=>'required|string',
                 'date_debut' => 'required|date',
-                'date_fin' => 'required|date',
-                'clients_id' => 'required|exists:clients,id',
-                'taux_pc' => 'required|string',
+                'date_fin' => 'required|date|after:date_debut', // ✅ Ici
+                'client_id' => 'required|exists:clients,id',
+                'taux_pc' => 'required|integer',
                 'usage_unique' => 'nullable|in:Oui,Non',
             ]);
             $data['created_by'] = $auth->id;
@@ -170,14 +170,14 @@ class PriseEnChargeController extends Controller
             $auth = auth()->user();
 
             $data = $request->validate([
-                'assureurs_id' => 'required|exists:assureurs,id',
-                'quotations_id'=>'required|exists:quotations,id',
+                'assureur_id' => 'required|exists:assureurs,id',
+                'quotation_id'=>'required|exists:quotations,id',
                 'date' => 'required|date',
                 'code'=>'required|string',
                 'date_debut' => 'required|date',
-                'date_fin' => 'required|date',
-                'clients_id' => 'required|exists:clients,id',
-                'taux_pc' => 'required|string',
+                'date_fin' => 'required|date|after:date_debut', // ✅ Ici
+                'client_id' => 'required|exists:clients,id',
+                'taux_pc' => 'required|integer',
                 'usage_unique' => 'nullable|in:Oui,Non',
             ]);
 

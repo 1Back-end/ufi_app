@@ -2,7 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Exports\AssureurExport;
 use App\Exports\ClientsExport;
+use App\Exports\ConsultantExportSearch;
+use App\Models\Consultation;
 use App\Models\User;
 use Illuminate\Http\Request;
 use App\Models\Consultant;
@@ -11,9 +14,11 @@ use App\Exports\ConsultantsExport;
 use App\Enums\StatusConsultEnum;
 use App\Enums\TelWhatsAppEnum;
 use App\Enums\TypeConsultEnum;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rules\Enum;
 use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\Response;
 
 class ConsultantController extends Controller
 {
@@ -22,17 +27,39 @@ class ConsultantController extends Controller
      * @permission ConsultantController::index
      * @permission_desc Afficher la liste des consultants
      */
-    public function index()
-    {
-        $consultants = Consultant::where('is_deleted', false)
-            ->when(request('search'), function ($query, $search) {
-                $query->where('nom_consult','like', '%'. $search .'%');
-            })
-            ->with('codeSpecialite:id,nom_specialite', 'codeTitre:id,nom_titre')
-            ->paginate(10);
+    public function index(Request $request){
+        $perPage = $request->input('limit', 10);  // Par défaut, 10 éléments par page
+        $page = $request->input('page', 1);  // Page courante
 
-        return response()->json($consultants);
+        $search = $request->input('search');
+        $query = Consultant::where('is_deleted', false);
+        if ($search) {
+            $query->where(function ($query) use ($search) {
+                $query->where('nom', 'like', "%$search%")
+                 ->orWhere('prenom', 'like', '%' . $search . '%')
+                    ->orWhere('email', 'like', '%' . $search . '%')
+                    ->orWhere('tel', 'like', '%' . $search . '%')
+                    ->orWhere('tel', 'like', '%' . $search . '%')
+                    ->orWhere('nomcomplet', 'like', '%' . $search . '%');
+            });
+        }
+// Récupérer les assureurs avec pagination
+        $consultanst = Consultant::where('is_deleted', false)
+            ->with([
+                'code_hopi:id,nom_hopi',
+                'code_specialite:id,nom_specialite',
+                'code_titre:id,nom_titre',
+            ])
+            ->paginate($perPage);
+
+        return response()->json([
+            'data' => $consultanst->items(),
+            'current_page' => $consultanst->currentPage(),  // Page courante
+            'last_page' => $consultanst->lastPage(),  // Dernière page
+            'total' => $consultanst->total(),  // Nombre total d'éléments
+        ]);
     }
+
     /**
      * @permission ConsultantController::updateStatus
      * @permission_desc Mettre à jour le statut d'un consultant
@@ -53,7 +80,7 @@ class ConsultantController extends Controller
                 return response()->json(['message' => 'Statut invalide'], 400);
             }
 
-            $consultant->status_consult = $status;
+            $consultant->status = $status;
             $consultant->save();
 
             // Retourner le consultant mis à jour
@@ -69,15 +96,15 @@ class ConsultantController extends Controller
      */
     public function show(string $id)
     {
-        $consultant = Consultant::find($id);
-
-        if (!$consultant) {
-            return response()->json([
-                'message' => 'Consultant Introuvable'
-            ], 404);
-        }
-
-        return response()->json(['data' => $consultant], 200);
+        $consultant = Consultant::where('is_deleted', false)
+            ->with([
+                'code_hopi:id,nom_hopi',
+                'code_specialite:id,nom_specialite',
+                'code_titre:id,nom_titre',
+                'code_service_hopi:id,nom_service_hopi',
+            ])
+            ->findOrFail($id);
+        return response()->json($consultant);
     }
 
 
@@ -87,41 +114,32 @@ class ConsultantController extends Controller
      */
     public function search(Request $request)
     {
-        // Récupérer les paramètres de la requête
-        $query = Consultant::query();
+        $request->validate([
+            'query' => 'nullable|string|max:255',
+        ]);
 
-        // Vérifier et appliquer les filtres avec LIKE
-        if ($request->has('nom_consult')) {
-            $query->where('nom_consult', 'like', '%' . $request->input('nom_consult') . '%');
+        $searchQuery = $request->input('query', '');
+
+        $query = Consultant::where('is_deleted', false);
+
+        if ($searchQuery) {
+            $query->where(function($query) use ($searchQuery) {
+                $query->where('nom', 'like', '%' . $searchQuery . '%')
+                    ->orWhere('prenom', 'like', '%' . $searchQuery . '%')
+                    ->orWhere('email', 'like', '%' . $searchQuery . '%')
+                    ->orWhere('tel', 'like', '%' . $searchQuery . '%')
+                    ->orWhere('tel', 'like', '%' . $searchQuery . '%')
+                    ->orWhere('nomcomplet', 'like', '%' . $searchQuery . '%');
+            });
         }
 
-        if ($request->has('email_consul')) {
-            $query->where('email_consul', 'like', '%' . $request->input('email_consul') . '%');
-        }
+        $consultants = $query
+            ->with(['code_specialite', 'code_titre', 'code_service_hopi', 'creator', 'updater']) // chargement des relations
+            ->get();
 
-        if ($request->has('status_consult')) {
-            $query->where('status_consult', 'like', '%' . $request->input('status_consult') . '%');
-        }
-
-        if ($request->has('type_consult')) {
-            $query->where('type_consult', 'like', '%' . $request->input('type_consult') . '%');
-        }
-        if($request->has('ref_consult')){
-            $query->where('ref_consult', 'like', '%' . $request->input('ref_consult') . '%');
-        }
-        if ($request->has('tel1_consult')) {
-            $query->where('tel1', 'like', '%' . $request->input('tel1_consult') . '%');
-        }
-        if($request->has('nomcomplet_consult')){
-            $query->where('nomcomplet_consult', 'like', '%' . $request->input('nomcomplet_consult') . '%');
-        }
-
-        $query->where('is_deleted', false);
-
-        // Exécuter la requête et retourner les résultats
-        $consultants = $query->get();
-
-        return response()->json($consultants);
+        return response()->json([
+            'data' => $consultants,
+        ]);
     }
 
     /**
@@ -130,12 +148,14 @@ class ConsultantController extends Controller
      */
     public function export()
     {
-        $filename = 'consultant-file-' . now()->format('Y-d-m') . '.xlsx';
+        $fileName = 'consultants-' . Carbon::now()->format('Y-m-d') . '.xlsx';
 
-        Excel::store(new ConsultantsExport(), $filename, 'exportconsultant');
+        Excel::store(new ConsultantsExport(), $fileName, 'exportconsultants');
 
         return response()->json([
-            'url' => Storage::disk('exportconsultant')->url($filename)
+            "message" => "Exportation des données effectuée avec succès",
+            "filename" => $fileName,
+            "url" => Storage::disk('exportconsultants')->url($fileName)
         ]);
     }
 
@@ -150,62 +170,45 @@ class ConsultantController extends Controller
      */
     public function searchAndExport(Request $request)
     {
-        // Créer une requête de base
-        $query = Consultant::query();
+        $request->validate([
+            'query' => 'nullable|string|max:255',
+        ]);
 
-        // Appliquer les filtres de recherche
-        if ($request->has('nom_consult') && $request->input('nom_consult') != '') {
-            $query->where('nom_consult', 'like', '%' . $request->input('nom_consult') . '%');
+        $searchQuery = $request->input('query', '');
+
+        $query = Consultant::where('is_deleted', false);
+
+        if ($searchQuery) {
+            $query->where(function($query) use ($searchQuery) {
+                $query->where('nom', 'like', '%' . $searchQuery . '%')
+                    ->orWhere('prenom', 'like', '%' . $searchQuery . '%')
+                    ->orWhere('email', 'like', '%' . $searchQuery . '%')
+                    ->orWhere('tel', 'like', '%' . $searchQuery . '%')
+                    ->orWhere('tel', 'like', '%' . $searchQuery . '%')
+                    ->orWhere('nomcomplet', 'like', '%' . $searchQuery . '%');
+            });
         }
 
-        if ($request->has('email_consul') && $request->input('email_consul') != '') {
-            $query->where('email_consul', 'like', '%' . $request->input('email_consul') . '%');
-        }
+        $consultants = $query
+            ->with(['code_specialite', 'code_titre', 'code_service_hopi', 'creator', 'updater']) // chargement des relations
+            ->get();
 
-        if ($request->has('status_consult') && $request->input('status_consult') != '') {
-            $query->where('status_consult', 'like', '%' . $request->input('status_consult') . '%');
-        }
-
-        if ($request->has('type_consult') && $request->input('type_consult') != '') {
-            $query->where('type_consult', 'like', '%' . $request->input('type_consult') . '%');
-        }
-
-        if ($request->has('ref_consult') && $request->input('ref_consult') != '') {
-            $query->where('ref_consult', 'like', '%' . $request->input('ref_consult') . '%');
-        }
-
-        if ($request->has('tel1_consult') && $request->input('tel1_consult') != '') {
-            $query->where('tel1', 'like', '%' . $request->input('tel1_consult') . '%');
-        }
-
-        if ($request->has('nomcomplet_consult') && $request->input('nomcomplet_consult') != '') {
-            $query->where('nomcomplet_consult', 'like', '%' . $request->input('nomcomplet_consult') . '%');
-        }
-
-        // Exécuter la requête et récupérer les consultants filtrés
-        $consultants = $query->get();
-
-        // Si aucune donnée n'est trouvée
         if ($consultants->isEmpty()) {
-            return response()->json(['message' => 'Aucun consultant trouvé avec ces critères'], 404);
-        }
-
-        // Si l'option d'exportation est activée
-        if ($request->has('export') && $request->input('export') == 'true') {
-            $filename = 'consultants-' . now()->format('Y-d-m') . '.xlsx';
-
-            // Exporter les consultants filtrés
-            Excel::store(new ConsultantsExport($consultants), $filename, 'exportconsultant');
-
-            // Retourner l'URL du fichier exporté
             return response()->json([
-                'message' => 'Recherche et exportation réussis !',
-                'url' => Storage::disk('exportconsultant')->url($filename)
+                'message' => 'Aucun assureur trouvé pour cette recherche.',
+                'data' => []
             ]);
         }
+        $fileName = 'consultants-recherches-' . Carbon::now()->format('Y-m-d') . '.xlsx';
 
-        // Si l'export n'est pas demandé, retourner les consultants filtrés
-        return response()->json($consultants);
+        Excel::store(new ConsultantExportSearch($consultants), $fileName, 'exportconsultants');
+
+        return response()->json([
+            "message" => "Exportation des données effectuée avec succès",
+            "filename" => $fileName,
+            "url" => Storage::disk('exportconsultants')->url($fileName)
+        ]);
+
     }
 
     /**
@@ -214,62 +217,31 @@ class ConsultantController extends Controller
      */
     public function store(Request $request)
     {
-        $authUser = User::first(); // Récupère un utilisateur au hasard
-        if (!$authUser) {
-            return response()->json(['message' => 'Aucun utilisateur par défaut trouvé.'], 400);
-        }
-
+        $auth = auth()->user();
         // Validation des données sans 'user_id'
-        $validated = $request->validate([
+        $data = $request->validate([
             'code_hopi' => 'required|exists:hopitals,id',
             'code_service_hopi' => 'required|exists:service__hopitals,id',
             'code_specialite' => 'required|exists:specialites,id',
             'code_titre' => 'required|exists:titres,id',
-            'nom_consult' => 'required|string',
-            'prenom_consult' => 'required|string',
-            'tel_consult' => 'required|string|unique:consultants,tel_consult',
-            'tel1_consult' => 'nullable|string|unique:consultants,tel1_consult',
-            'email_consul' => 'required|email|unique:consultants,email_consul',
-            'type_consult' => ['required', new Enum(TypeConsultEnum::class)],
+            'nom' => 'required|string',
+            'prenom' => 'required|string',
+            'tel' => 'required|string|unique:consultants,tel',
+            'tel1' => 'nullable|string|unique:consultants,tel1',
+            'email' => 'required|email|unique:consultants,email',
+            'type' => ['required', new Enum(TypeConsultEnum::class)],
             'TelWhatsApp' => 'nullable|in:Oui,Non',
         ]);
-
-        // Vérifier si des champs requis sont vides et retourner un message d'erreur générique
-        $missingFields = [];
-
-        $fields = [
-            'code_hopi', 'code_service_hopi', 'code_specialite', 'code_titre', 'nom_consult',
-            'prenom_consult', 'tel_consult', 'tel1_consult', 'email_consul', 'type_consult'
-        ];
-
-        foreach ($fields as $field) {
-            if (empty($request->input($field))) {
-                $missingFields[] = $field;
-            }
-        }
-
-        if (count($missingFields) > 0) {
-            return response()->json(['message' => 'Tous les champs sont requis.'], 400);
-        }
-
-        // Récupérer le titre
-        $titre = Titre::find($validated['code_titre']);
-        if (!$titre) {
-            return response()->json(['message' => 'Titre non trouvé'], 404);
-        }
-
+        $titre = Titre::find($data['code_titre']);
         // Générer le nom complet du consultant
-        $validated['nomcomplet_consult'] = $titre->nom_titre . ' ' . $validated['nom_consult'] . ' ' . $validated['prenom_consult'];
+        $data['nomcomplet'] = $titre->nom_titre . ' ' . $data['nom'] . ' ' . $data['prenom'];
 
         // Générer une référence unique
-        $validated['ref_consult'] = 'C' . now()->format('ymdHis') . mt_rand(10, 99);
-
-        // Assigner user_id et create_by_consult avec l'ID de l'utilisateur authentifié si non fournis
-        $validated['user_id'] = $authUser->id; // Assignation automatique de l'utilisateur authentifié
-        $validated['create_by_consult'] =  $authUser->id;
+        $data['ref'] = 'C' . now()->format('ymdHis') . mt_rand(10, 99);
+        $data['created_by'] = $auth->id;
 
         // Créer le consultant
-        $consultant = Consultant::create($validated);
+        $consultant = Consultant::create($data);
 
         // Retourner la réponse JSON avec l'objet consultant créé
         return response()->json([
@@ -291,6 +263,7 @@ class ConsultantController extends Controller
         if (!$consultant) {
             return response()->json(['message' => 'Consultant non trouvé'], 404);
         }
+        $auth = auth()->user();
 
         // Validation des données
         $validated = $request->validate([
@@ -298,38 +271,35 @@ class ConsultantController extends Controller
             'code_service_hopi' => 'sometimes|exists:service__hopitals,id',
             'code_specialite' => 'sometimes|exists:specialites,id',
             'code_titre' => 'sometimes|exists:titres,id',
-            'nom_consult' => 'sometimes|string',
-            'prenom_consult' => 'sometimes|string',
-            'tel_consult' => 'sometimes|string',
-            'tel1_consult' => 'sometimes|string',
-            'email_consul' => 'sometimes|email|unique:consultants,email_consul,' . $id,
-            'type_consult' => ['sometimes', new Enum(TypeConsultEnum::class)],
+            'nom' => 'sometimes|string',
+            'prenom' => 'sometimes|string',
+            'tel' => 'sometimes|string',
+            'tel1' => 'sometimes|string',
+            'email' => 'sometimes|email|unique:consultants,email,' . $id,
+            'type' => ['sometimes', new Enum(TypeConsultEnum::class)],
             'TelWhatsApp' => ['sometimes', new Enum(TelWhatsAppEnum::class)],
         ]);
-
-        // Assigner automatiquement l'ID de l'utilisateur authentifié à 'user_id' si ce n'est pas dans la requête
-        $authUser = User::first(); // Par exemple, on récupère un utilisateur authentifié
-        $validated['user_id'] = $authUser->id; // Assignation automatique de l'utilisateur authentifié
-        $validated['update_by_consult'] =  $authUser->id;
-
+        $validated['update_by'] =  $auth->id;
         // Vérification si un titre est présent dans la requête
-        if ($request->has('code_titre') || $request->has('nom_consult') || $request->has('prenom_consult')) {
+        if ($request->has('code_titre') || $request->has('nom') || $request->has('prenom')) {
             // Récupérer le titre à partir de l'ID dans la requête ou utiliser celui du consultant existant
             $titre = Titre::find($request->code_titre ?? $consultant->code_titre);
             $titreNom = $titre ? $titre->nom_titre : '';
 
             // Construire le nom complet avec titre, nom et prénom
-            $validated['nomcomplet_consult'] = trim("$titreNom " .
-                ($request->nom_consult ?? $consultant->nom_consult) . ' ' .
-                ($request->prenom_consult ?? $consultant->prenom_consult)
+            $validated['nomcomplet'] = trim("$titreNom " .
+                ($request->nom ?? $consultant->nom) . ' ' .
+                ($request->prenom ?? $consultant->prenom)
             );
         }
-
         // Mise à jour des données du consultant
         $consultant->update($validated);
 
         // Retourner la réponse avec le consultant mis à jour
-        return response()->json($consultant, 200);
+        return response()->json([
+            'message' => 'Consultant mise à jour avec succès',
+            'consultant' => $consultant
+        ], 201);
     }
 
     /**

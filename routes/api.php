@@ -30,16 +30,19 @@ use App\Http\Controllers\TypeconsultationController;
 use App\Http\Controllers\ConsultationController;
 use App\Http\Controllers\TypeSoinsController;
 use App\Http\Controllers\SoinsController;
+use App\Http\Controllers\OpsTblHospitalisationController;
+use App\Http\Controllers\AssurableController;
+use App\Http\Controllers\RendezVousController;
 use Illuminate\Support\Facades\Route;
 
-Route::middleware(['activity'])->group(function () {
-
-    require __DIR__.'/auth.php';
-    require __DIR__.'/authorization.php';
-    require __DIR__.'/admin.php';
-
-    Route::middleware(['auth:sanctum', 'user.change_password', 'check.permission'])->group(function () {
-
+//Route::middleware(['activity'])->group(function () {
+//
+//    require __DIR__.'/auth.php';
+//    require __DIR__.'/authorization.php';
+//    require __DIR__.'/admin.php';
+//
+//    Route::middleware(['auth:sanctum', 'user.change_password', 'check.permission'])->group(function () {
+//
 
         // Gestion des centres
         Route::controller(CentreController::class)->prefix('centres')->group(function () {
@@ -225,6 +228,7 @@ Route::middleware(['activity'])->group(function () {
             Route::put('/edit/{id}', 'update');
             Route::delete('/delete/{id}', 'destroy');
             Route::get('/get_data',  'listIdName');
+            Route::get('/{group_product_id}/categories', 'getCategories');
         });
         Route::controller(ProduitController::class)->prefix('products')->group(function (){
             Route::get('/list', 'index');
@@ -233,6 +237,9 @@ Route::middleware(['activity'])->group(function () {
             Route::put('/edit/{id}', 'update');
             Route::delete('/delete/{id}', 'destroy');
             Route::put('update_status/{id}/status/{status}', 'updateStatus');
+            Route::get('/search','search');
+            Route::get('/export',  'export');
+            Route::get('/search-and-export', 'searchAndExport');
         });
         Route::controller(ConsultationController::class)->prefix('consultations')->group(function (){
             route::get('/list','index');
@@ -261,5 +268,31 @@ Route::middleware(['activity'])->group(function () {
             Route::put('update_status/{id}/status/{status}', 'updateStatus');
 
         });
-});
-});
+        Route::controller(OpsTblHospitalisationController::class)->prefix('hospitalisations')->group(function (){
+            Route::get('/list', 'index');
+            Route::post('/create','store');
+            Route::put('/edit/{id}', 'update');
+            Route::put('update_status/{id}/status/{status}', 'updateStatus');
+        });
+        Route::controller(AssurableController::class)->prefix('assurables')->group(function (){
+            Route::get('/get_assurables', 'index');
+            Route::post('/store_assurables_consultations', 'storeConsultationPrices');
+            Route::post('/store_assurables_soins', 'storeAssurablesSoins');
+            Route::post('/store_assurables_actes', 'storeAssurablesActes');
+            Route::post('/store_assurables_hospitalisations', 'storeHospitalisationsPrices');
+
+        });
+        Route::controller(RendezVousController::class)->prefix('rendez_vous')->group(function (){
+            Route::get('/list', 'index');
+            Route::post('/create', 'store');
+            Route::put('/edit/{id}', 'update');
+            Route::put('update_etat/{id}/etat/{etat}', 'updateStatus');
+            Route::put('/update_type/{id}/type/{type}', 'toggleType');
+            Route::get('/search','search');
+            Route::get('/export',  'export');
+            Route::get('/get_by_id/{id}', 'show');
+
+
+        });
+//});
+//});

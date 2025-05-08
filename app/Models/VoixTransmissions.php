@@ -8,11 +8,12 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 class VoixTransmissions extends Model
 {
     use HasFactory;
+
     protected $fillable = [
         'name',
-        'is_deleted',
+        'code',
         'created_by',
-        'updated_by',
+        'updated_by'
     ];
     public function creator()
     {

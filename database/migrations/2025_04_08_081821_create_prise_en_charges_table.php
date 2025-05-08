@@ -13,13 +13,13 @@ return new class extends Migration
     {
         Schema::create('prise_en_charges', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('assureurs_id')->references('id')->on('assureurs')->Ondelete('cascade');
-            $table->foreignId('quotations_id')->constrained('quotations')->onDelete('cascade');
+            $table->foreignId('assureur_id')->references('id')->on('assureurs')->Ondelete('cascade');
+            $table->foreignId('quotation_id')->constrained('quotations')->onDelete('cascade');
             $table->string('code');
             $table->date('date');
             $table->date('date_debut');
             $table->date('date_fin');
-            $table->foreignId('clients_id')->references('id')->on('clients')->Ondelete('cascade');
+            $table->foreignId('client_id')->references('id')->on('clients')->Ondelete('cascade');
             $table->string('taux_pc');
             $table->string('usage_unique')->default('Non');
             $table->foreignId('created_by')->nullable()->references('id')->on('users')->nullOnDelete();

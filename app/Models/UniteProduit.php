@@ -12,6 +12,7 @@ class UniteProduit extends Model
 
     protected $fillable = [
         'name',
+        'code',
         'is_deleted'
     ];
     public function creator()

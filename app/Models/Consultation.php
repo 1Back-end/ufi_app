@@ -11,6 +11,8 @@ class Consultation extends Model
     protected $fillable = [
         'typeconsultation_id',
         'pu',
+        'pu_default',
+        'name',
         'validation_date',
         'status',
         'created_by',
@@ -21,9 +23,17 @@ class Consultation extends Model
     /**
      * Relation avec le type de consultation.
      */
+    public function assurables()
+    {
+        return $this->morphMany(Assurable::class, 'assurable');
+    }
     public function typeconsultation()
     {
         return $this->belongsTo(Typeconsultation::class);
+    }
+    public function Code_hopi()
+    {
+        return $this->belongsTo(Hopital::class);
     }
 
     /**

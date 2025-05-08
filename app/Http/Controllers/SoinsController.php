@@ -2,8 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Assurable;
+use App\Models\Assureur;
 use App\Models\Soins;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class SoinsController extends Controller
 {
@@ -14,7 +17,13 @@ class SoinsController extends Controller
     {
         $perPage = $request->input('limit', 10);  // Par défaut, 10 éléments par page
         $page = $request->input('page', 1);  // Page courante
-
+        $search = $request->input('search');
+        $query = Soins::where('is_deleted', false);
+        if ($search) {
+            $query->where(function ($query) use ($search) {
+                $query->where('name', 'like', "%$search%");
+            });
+        }
         // Récupérer les assureurs avec pagination
         $soins = Soins::where('is_deleted', false)
             ->with(
@@ -45,32 +54,58 @@ class SoinsController extends Controller
     public function store(Request $request)
     {
         $auth = auth()->user();
+
         try {
             $data = $request->validate([
-                'type_soin_id'=> 'exists:type_soins,id',
-                'pu'=>'required|integer',
+                'type_soin_id' => 'exists:type_soins,id',
+                'pu' => 'required|integer', // prix réel
+                'pu_default' => 'required|integer', // Prix par défaut pour les assureurs
+                'name' => 'required|string|unique:soins,name',
             ]);
+
             $data['created_by'] = $auth->id;
-            $soins = Soins::create($data);
+
+
+            DB::beginTransaction();
+
+            $soin = Soins::create($data);
+
+            // Récupération de tous les assureurs
+            $assureurs = Assureur::where('is_deleted', false)->get();
+
+            foreach ($assureurs as $assureur) {
+                Assurable::updateOrInsert(
+                    [
+                        'assureur_id' => $assureur->id,
+                        'assurable_type' => Soins::class,
+                        'assurable_id' => $soin->id,
+                    ],
+                    [
+                        'pu' => $data['pu_default'], // prix par défaut
+                    ]
+                );
+            }
+
+            DB::commit();
+
             return response()->json([
-                'data' => $soins,
-                'message' => 'Enregistrement effectué avec succès'
+                'data' => $soin,
+                'message' => 'Soin enregistré avec ventilation des tarifs pour les assurances'
             ]);
         } catch (\Illuminate\Validation\ValidationException $e) {
-            // Erreur de validation
             return response()->json([
                 'error' => 'Erreur de validation',
                 'details' => $e->errors()
             ], 422);
         } catch (\Exception $e) {
-            // Erreur générale
+            DB::rollBack();
             return response()->json([
                 'error' => 'Une erreur est survenue',
                 'message' => $e->getMessage()
             ], 500);
         }
-        //
     }
+
 
     /**
      * Display the specified resource.
@@ -123,6 +158,7 @@ class SoinsController extends Controller
             $data = $request->validate([
                 'type_soin_id' => 'exists:type_soins,id',
                 'pu' => 'required|numeric',
+                'name'=>'required|string',
                 'status' => 'nullable|string|in:Actif,Inactif',
             ]);
 
