@@ -23,6 +23,7 @@ class Regulation extends Model
         'comment',
         'reason',
         'state',
+        'particular',
     ];
 
     protected function casts(): array
@@ -31,6 +32,7 @@ class Regulation extends Model
             'date' => 'datetime',
             'state' => StatusRegulation::class,
             'type' => TypeRegulation::class,
+            'particular' => 'boolean',
         ];
     }
 

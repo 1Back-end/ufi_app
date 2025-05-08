@@ -25,6 +25,7 @@ class Facture extends Model
         'amount_client',
         'centre_id',
         'state',
+        'contentieux'
     ];
 
     protected function casts(): array

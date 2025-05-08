@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\StateFacture;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
@@ -20,6 +21,7 @@ class PriseEnCharge extends Model
         'created_by',
         'updated_by',
         'is_deleted',
+        'used',
     ];
 
     protected $casts = [
@@ -28,6 +30,7 @@ class PriseEnCharge extends Model
         'date_fin' => 'date',
         'is_deleted' => 'boolean',
         'taux_pc' => 'float',
+        'used' => 'boolean'
     ];
 
     // Relations
@@ -58,6 +61,19 @@ class PriseEnCharge extends Model
 
     public function prestations(): HasMany
     {
-        return $this->hasMany(Prestation::class);
+        return $this->hasMany(Prestation::class, 'prise_charge_id');
+    }
+
+    public function facturesInProgressDeType2()
+    {
+        return $this->hasManyThrough(
+            Facture::class,
+            Prestation::class,
+            'prise_charge_id', // Foreign key on Prestation
+            'prestation_id',      // Foreign key on Facture
+            'id',                 // Local key on PriseEnCharge
+            'id'                  // Local key on Prestation
+        )->where('factures.type', 2)
+        ->where('factures.state', StateFacture::IN_PROGRESS->value);
     }
 }

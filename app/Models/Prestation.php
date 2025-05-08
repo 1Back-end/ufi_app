@@ -50,15 +50,15 @@ class Prestation extends Model
     protected function typeLabel(): Attribute
     {
         return Attribute::make(
-            get: fn ()  => TypePrestation::label($this->type),
+            get: fn()  => TypePrestation::label($this->type),
         );
     }
 
-    protected function paid(): Attribute 
+    protected function paid(): Attribute
     {
         return Attribute::make(
-            get: function() {
-                if($this->payable_by) return true;
+            get: function () {
+                if ($this->payable_by) return true;
 
                 $facture = $this->factures()
                     ->where('type', 2)
@@ -78,8 +78,8 @@ class Prestation extends Model
         return Attribute::make(
             get: function () {
                 $facture = $this->factures()->where('factures.type', 2)->first();
-                if($facture) {
-                    return $facture->regulations()->where('regulations.state', StatusRegulation::ACTIVE->value)->count() == 0;
+                if ($facture) {
+                    return $facture->amount_client && ! $this->payable_by && $facture->regulations()->where('regulations.state', StatusRegulation::ACTIVE->value)->count() == 0;
                 }
 
                 return true;
@@ -88,7 +88,8 @@ class Prestation extends Model
     }
 
 
-    public function centre() {
+    public function centre()
+    {
         return $this->belongsTo(Centre::class, 'centre_id');
     }
 
@@ -130,7 +131,7 @@ class Prestation extends Model
     public function actes(): MorphToMany
     {
         return $this->morphedByMany(Acte::class, 'prestationable')
-            ->withPivot(['remise', 'quantity', 'date_rdv', 'date_rdv_end'])
+            ->withPivot(['remise', 'quantity', 'date_rdv', 'date_rdv_end', 'amount_regulate'])
             ->withTimestamps();
     }
 }

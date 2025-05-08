@@ -64,6 +64,10 @@ class PriseEnChargeController extends Controller
             ])
             ->when($request->input('client'), function ($query) use ($request) {
                 $query->where('clients_id', $request->input('client'))
+                    ->whereDate('date_debut', '<=', now())
+                    ->whereDate('date_fin', '>=', now())
+                    ->whereIsDeleted(false)
+                    ->whereUsed(false)
                     ->when($request->input('assureur'), function ($query) use ($request) {
                         $query->whereHas('assureur', function ($query) use ($request) {
                             $query->where('nom', 'like', '%' . $request->input('assureur') . '%');

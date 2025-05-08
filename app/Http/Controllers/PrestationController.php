@@ -2,11 +2,15 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\StateFacture;
 use App\Enums\TypePrestation;
 use App\Http\Requests\PrestationRequest;
 use App\Models\Acte;
+use App\Models\Assureur;
+use App\Models\Client;
 use App\Models\Facture;
 use App\Models\Prestation;
+use App\Models\PriseEnCharge;
 use App\Models\RegulationMethod;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -15,6 +19,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use PHPUnit\Framework\Exception;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -78,17 +83,17 @@ class PrestationController extends Controller
         }, function (Builder $query) {
             $query->latest();
         })
-        ->when($request->has('regulated'), function (Builder $query) use ($request) {
-            $query->where('regulated', $request->input('regulated'));
-        })
-        ->when($request->input('created_at'), function (Builder $query) use ($request) {
-            $query->whereDate('created_at', $request->input('created_at'));
-        })
-        ->where('centre_id', $request->header('centre'))
-        ->paginate(
-            perPage: $request->input('per_page', 25),
-            page: $request->input('page', 1)
-        );
+            ->when($request->has('regulated'), function (Builder $query) use ($request) {
+                $query->where('regulated', $request->input('regulated'));
+            })
+            ->when($request->input('created_at'), function (Builder $query) use ($request) {
+                $query->whereDate('created_at', $request->input('created_at'));
+            })
+            ->where('centre_id', $request->header('centre'))
+            ->paginate(
+                perPage: $request->input('per_page', 25),
+                page: $request->input('page', 1)
+            );
 
 
         return response()->json([
@@ -115,10 +120,13 @@ class PrestationController extends Controller
 
             $centre = $request->header('centre');
             $data = array_merge($request->except(['actes']), ['centre_id' => $centre]);
+
+            // Si le montant de la remise + la prise en charge est supérieur au montant de la prestation alors cette prestation passe en état encours
+            $data = $this->getDataForPriseEnCharge($request, $data);
+
             $prestation = Prestation::create($data);
             $this->attachElementWithPrestation($request, $prestation);
-        }
-        catch (\Exception $e) {
+        } catch (\Exception $e) {
             DB::rollBack();
             return response()->json([
                 'message' => $e->getMessage()
@@ -145,7 +153,7 @@ class PrestationController extends Controller
                 'priseCharge:id,assureurs_id,taux_pc',
                 'priseCharge.assureur:id,nom',
                 'actes',
-                ])
+            ])
         ]);
     }
 
@@ -166,7 +174,12 @@ class PrestationController extends Controller
                 return response()->json($errorConflit, Response::HTTP_CONFLICT);
             }
 
-            $prestation->update($request->validated());
+            $data = $request->validated();
+
+            // Si le montant de la remise + la prise en charge est supérieur au montant de la prestation alors cette prestation passe en état encours
+            $data = $this->getDataForPriseEnCharge($request, $data);
+
+            $prestation->update($data);
             $this->attachElementWithPrestation($request, $prestation, true);
         } catch (\Exception $e) {
             DB::rollBack();
@@ -196,7 +209,7 @@ class PrestationController extends Controller
             'proforma' => 'required|in:1,2',
         ]);
 
-        if ($prestation->regulated) {
+        if ($prestation->regulated == 2) {
             return response()->json([
                 'message' => __("Cette prestation est déjà réglée !")
             ], Response::HTTP_BAD_REQUEST);
@@ -247,7 +260,7 @@ class PrestationController extends Controller
                                 'type' => 1,
                                 'sequence' => $sequence,
                                 'centre_id' => $centre,
-                                'code' => $prestation->centre->reference .'-'. date('ym') .'-'. str_pad($sequence, 6, '0', STR_PAD_LEFT)
+                                'code' => $prestation->centre->reference . '-' . date('ym') . '-' . str_pad($sequence, 6, '0', STR_PAD_LEFT)
                             ]);
                         }
                         else {
@@ -271,11 +284,12 @@ class PrestationController extends Controller
                             'amount' => $amount,
                             'amount_pc' => $amount_pc,
                             'amount_remise' => $amount_remise,
-                            'amount_client' => $amount_client,
+                            'amount_client' => $amount_client > 0 ? $amount_client : 0,
                             'type' => 2,
                             'sequence' => $sequence,
                             'centre_id' => $centre,
-                            'code' => $prestation->centre->reference .'-'. date('ym') .'-'. str_pad($sequence, 6, '0', STR_PAD_LEFT)
+                            'state' => $prestation->payable_by || $amount_client < 0 ? StateFacture::IN_PROGRESS->value : StateFacture::CREATE->value,
+                            'code' => $prestation->centre->reference . '-' . date('ym') . '-' . str_pad($sequence, 6, '0', STR_PAD_LEFT)
                         ]);
                     }
 
@@ -284,7 +298,7 @@ class PrestationController extends Controller
                     throw new Exception("Ce type de prestation n'est pas encore implémenté", Response::HTTP_BAD_REQUEST);
             }
 
-            $prestation->update(['regulated' => !($request->proforma == 1)]);
+//            $prestation->update(['regulated' => !($request->proforma == 1)]);
         } catch (\Throwable $th) {
             DB::rollBack();
             return response()->json([
@@ -320,6 +334,91 @@ class PrestationController extends Controller
         ], 202);
     }
 
+    public function getFacturesInProgress(Request $request)
+    {
+        $request->validate([
+            'assurance' => ['', 'exists:assureurs,id'],
+            'payable_by' => ['', 'exists:clients,id'],
+            'start_date' => ['required', 'date'],
+            'end_date' => ['required', 'date'],
+        ]);
+
+        $assureurs = [];
+        $clients = [];
+
+        if ($request->input('assurance')) {
+            $assureurs = PriseEnCharge::with([
+                'assureur:id,nom',
+                'prestations' => function ($query) use ($request) {
+                    $query->whereHas('factures', function ($query) use ($request) {
+                        $query->where('factures.type', 2)
+                            ->where('factures.state', StateFacture::IN_PROGRESS->value)
+                            ->when($request->input('start_date') && $request->input('end_date'), function ($query) use ($request) {
+                                $query->whereBetween('factures.date_fact', [$request->input('start_date'), $request->input('end_date')]);
+                            });
+                    });
+                },
+                'prestations.factures' => function ($query) use ($request) {
+                    $query->where('factures.type', 2);
+                },
+                'prestations.actes',
+                'client:id,nom_cli,prenom_cli,nomcomplet_client,ref_cli,date_naiss_cli',
+                'prestations.priseCharge:id,assureurs_id,taux_pc',
+            ])
+            ->when($request->input('assurance'), function ($query) use ($request) {
+                $query->whereHas('assureur', function ($query) use ($request) {
+                    $query->where('assureurs.id', $request->input('assurance'));
+                });
+            })
+            ->whereHas('prestations', function ($query) use ($request) {
+                $query->whereHas('factures', function ($query) use ($request) {
+                    $query->where('factures.type', 2)
+                        ->where('factures.state', StateFacture::IN_PROGRESS->value)
+                        ->whereBetween('factures.date_fact', [$request->input('start_date'), $request->input('end_date')]);
+                });
+            })
+            ->withSum(['facturesInProgressDeType2 as total_amount' => function ($query) use ($request) {
+                $query->whereBetween('factures.date_fact', [$request->input('start_date'), $request->input('end_date')]); // ou autre champ: programmation_date ?
+            }], 'amount_pc')
+            ->get();
+        }
+
+        if ($request->input('payable_by')) {
+            $clients = Client::with([
+                'toPay' => function ($query) use ($request) {
+                    $query->whereHas('factures', function ($query) use ($request) {
+                        $query->where('factures.type', 2)
+                            ->where('factures.state', StateFacture::IN_PROGRESS->value)
+                            ->whereBetween('factures.date_fact', [$request->input('start_date'), $request->input('end_date')]);
+                    });
+                },
+                'toPay.factures' => function ($query) use ($request) {
+                    $query->where('factures.type', 2);
+                },
+                'toPay.actes',
+                'toPay.client:id,nom_cli,prenom_cli,nomcomplet_client,ref_cli,date_naiss_cli'
+            ])
+            ->whereHas('toPay', function ($query) use ($request) {
+                $query->whereHas('factures', function ($query) use ($request) {
+                        $query->where('factures.type', 2)
+                            ->where('factures.state', StateFacture::IN_PROGRESS->value)
+                            ->whereBetween('factures.date_fact', [$request->input('start_date'), $request->input('end_date')]);
+                    });
+            })
+            ->withSum(['facturesInProgressDeType2 as total_amount' => function ($query) use ($request) {
+                $query->whereBetween('factures.date_fact', [$request->input('start_date'), $request->input('end_date')]); // ou autre champ: programmation_date ?
+            }], 'amount_client')
+            ->whereTypeCli('associate')
+            ->get();
+        }
+
+        return response()->json([
+            'assureurs' => $assureurs,
+            'clients' => $clients,
+            'regulation_methods' => RegulationMethod::get()->toArray(),
+        ]);
+    }
+
     protected function attachElementWithPrestation(PrestationRequest $request, Prestation $prestation, bool $update = false)
     {
         // ToDo: récupérer la durée d'une prestation dans la table Settings (en Heure).
@@ -344,5 +443,40 @@ class PrestationController extends Controller
             default:
                 throw new Exception("Ce type de prestation n'est pas encore implémenté", Response::HTTP_BAD_REQUEST);
         }
+    }
+
+    /**
+     * @param PrestationRequest $request
+     * @param mixed $data
+     * @return mixed
+     */
+    public function getDataForPriseEnCharge(PrestationRequest $request, mixed &$data): mixed
+    {
+        if ($request->input('prise_charge_id')) {
+            $amount = 0;
+            $amount_pc = 0;
+            $amount_remise = 0;
+            $priseCharge = PriseEnCharge::find($request->input('prise_charge_id'));
+
+            if ($priseCharge->usage_unique == "Oui") {
+                $priseCharge->update(['used' => true]);
+            }
+
+            foreach ($request->input('actes') as $acteData) {
+                $acte = Acte::find($acteData['id']);
+                $pu = $acte->b * $acte->k_modulateur;
+                $amount_acte_pc = ($acteData['quantity'] * $pu * $priseCharge->taux_pc) / 100;
+                $amount_pc += $amount_acte_pc;
+
+                $amount_acte_remise = ($acteData['quantity'] * $pu * $acteData['remise']) / 100;
+                $amount_remise += $amount_acte_remise;
+
+                $amount += $acteData['quantity'] * $pu;
+            }
+            $data['regulated'] = $amount <= ($amount_remise + $amount_pc) ? 1 : 0;
+        } else {
+            $data['regulated'] = $data['payable_by'] ? 1 : 0;
+        }
+        return $data;
     }
 }

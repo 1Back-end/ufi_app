@@ -19,6 +19,7 @@ return new class extends Migration {
             $table->string('comment')->nullable();
             $table->string('reason')->nullable();
             $table->integer('state')->default(1);
+            $table->boolean('particular')->default(false)->comment('Indique si la regulation est pour un particulier');
             $table->timestamps();
 
             $table->foreign('regulation_method_id')->references('id')->on('regulation_methods');

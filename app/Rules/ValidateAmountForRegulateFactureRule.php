@@ -29,6 +29,7 @@ class ValidateAmountForRegulateFactureRule implements ValidationRule
                 $amountRegulated = $this->facture->regulations()->count()
                     ? $this->facture
                     ->regulations()
+                    ->where('regulations.particular', false)
                     ->where('regulations.state', StatusRegulation::ACTIVE->value)
                     ->when($this->update, function ($query) {
                         $query->whereNot('regulations.id', $this->update);
