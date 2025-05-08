@@ -45,7 +45,7 @@ class PrestationController extends Controller
             'payableBy',
             'client',
             'consultant:id,nomcomplet,code_specialite',
-            'consultant.codeSpecialite:id,nom_specialite',
+            'consultant.code_specialite:id,nom_specialite',
             'priseCharge',
             'priseCharge.assureur',
             'actes',
@@ -150,7 +150,7 @@ class PrestationController extends Controller
                 'payableBy:id,nomcomplet_client',
                 'client',
                 'consultant:id,nomcomplet_consult',
-                'priseCharge:id,assureurs_id,taux_pc',
+                'priseCharge:id,assureur_id,taux_pc',
                 'priseCharge.assureur:id,nom',
                 'actes',
             ])
@@ -361,7 +361,7 @@ class PrestationController extends Controller
                 },
                 'prestations.actes',
                 'client:id,nom_cli,prenom_cli,nomcomplet_client,ref_cli,date_naiss_cli',
-                'prestations.priseCharge:id,assureurs_id,taux_pc',
+                'prestations.priseCharge:id,assureur_id,taux_pc',
             ])
                 ->when($request->input('assurance'), function ($query) use ($request) {
                     $query->whereHas('assureur', function ($query) use ($request) {

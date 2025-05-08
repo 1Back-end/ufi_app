@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+
 class Consultant extends Model
 {
     use HasFactory;
@@ -38,7 +39,8 @@ class Consultant extends Model
     {
         return $this->belongsTo(Specialite::class, 'code_specialite');
     }
-    public function code_titre(){
+    public function code_titre()
+    {
         return $this->belongsTo(Titre::class, 'code_titre');
     }
 
