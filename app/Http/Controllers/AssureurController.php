@@ -16,8 +16,9 @@ use Symfony\Component\HttpFoundation\Response;
 
 class AssureurController extends Controller
 {
-    public function listIdName(){
-        $data = Assureur::select('id','nom')->where('is_deleted',false)->get();
+    public function listIdName()
+    {
+        $data = Assureur::select('id', 'nom')->where('is_deleted', false)->get();
         return response()->json([
             'assureur' => $data
         ]);
@@ -45,7 +46,7 @@ class AssureurController extends Controller
 
         // Si une recherche est effectuée, filtrer les assureurs en fonction des champs spécifiés
         if ($searchQuery) {
-            $query->where(function($query) use ($searchQuery) {
+            $query->where(function ($query) use ($searchQuery) {
                 $query->where('nom', 'like', '%' . $searchQuery . '%')
                     ->orWhere('nom_abrege', 'like', '%' . $searchQuery . '%')
                     ->orWhere('adresse', 'like', '%' . $searchQuery . '%')
@@ -103,13 +104,23 @@ class AssureurController extends Controller
      * @permission AssureurController::index
      * @permission_desc Afficher  les données des assureurs avec la pagination
      */
-    public function index(Request $request){
+    public function index(Request $request)
+    {
         $perPage = $request->input('limit', 10);  // Par défaut, 10 éléments par page
         $page = $request->input('page', 1);  // Page courante
 
-// Récupérer les assureurs avec pagination
+        // Récupérer les assureurs avec pagination
         $assureurs = Assureur::where('is_deleted', false)
-            ->paginate($perPage);
+            ->when($request->input('search'), function ($query) use ($request) {
+                $search = $request->input('search');
+                $query->where('nom', 'like', '%' . $search . '%')
+                    ->orWhere('nom_abrege', 'like', '%' . $search . '%')
+                    ->orWhere('adresse', 'like', '%' . $search . '%')
+                    ->orWhere('tel', 'like', '%' . $search . '%')
+                    ->orWhere('id', 'like', '%' . $search . '%')
+                    ->orWhere('email', 'like', '%' . $search . '%');
+            })
+            ->paginate(perPage: $perPage, page: $page);
 
         return response()->json([
             'data' => $assureurs->items(),
@@ -123,18 +134,19 @@ class AssureurController extends Controller
      * @permission AssureurController::searchAndExport
      * @permission_desc Afficher les détails d'un assureur
      */
-   public function show($id){
+    public function show($id)
+    {
         $assureur = Assureur::where('id', $id)->where('is_deleted', false)
             ->with([
                 'quotation:id,code'
             ])
             ->first();
-        if(!$assureur){
+        if (!$assureur) {
             return response()->json(['message' => 'Assureur Introuvable'], 404);
-        }else{
+        } else {
             return response()->json($assureur, 200);
         }
-   }
+    }
     /**
      * Display a listing of the resource.
      * @permission AssureurController::store
@@ -212,7 +224,6 @@ class AssureurController extends Controller
                 'message' => 'Assureur créé avec succès',
                 'assureur' => $assureur
             ], 201);
-
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
                 'error' => 'Erreur de validation',
@@ -300,7 +311,6 @@ class AssureurController extends Controller
                 'message' => 'Assureur mis à jour avec succès',
                 'assureur' => $assureur
             ], 200);
-
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
                 'error' => 'Erreur de validation',
@@ -331,7 +341,7 @@ class AssureurController extends Controller
         $query = Assureur::where('is_deleted', false);
 
         if ($searchQuery) {
-            $query->where(function($query) use ($searchQuery) {
+            $query->where(function ($query) use ($searchQuery) {
                 $query->where('nom', 'like', '%' . $searchQuery . '%')
                     ->orWhere('nom_abrege', 'like', '%' . $searchQuery . '%')
                     ->orWhere('adresse', 'like', '%' . $searchQuery . '%')
@@ -361,9 +371,9 @@ class AssureurController extends Controller
         try {
             // Récupérer uniquement les assureurs principaux non supprimés
             $assureursPrincipaux = Assureur::where('code_type', 'Principale') // 'Principal' au lieu de 'Principale' pour correspondre à la terminologie
-            ->where('is_deleted', false) // Filtrer les assureurs non supprimés
-            ->orderBy('created_at', 'desc') // Optionnel: Trier par date de création décroissante
-            ->get(['nom', 'ref']); // Récupérer uniquement le nom et le code
+                ->where('is_deleted', false) // Filtrer les assureurs non supprimés
+                ->orderBy('created_at', 'desc') // Optionnel: Trier par date de création décroissante
+                ->get(['nom', 'ref']); // Récupérer uniquement le nom et le code
 
             // Vérifier si des assureurs ont été trouvés
             if ($assureursPrincipaux->isEmpty()) {
@@ -377,7 +387,6 @@ class AssureurController extends Controller
                 'message' => 'Assureurs principaux récupérés avec succès.',
                 'assureurs' => $assureursPrincipaux
             ], 200);
-
         } catch (\Exception $e) {
             // Gestion des erreurs
             return response()->json([
@@ -459,8 +468,4 @@ class AssureurController extends Controller
             'quotation_taux' => $assureur->quotation?->taux, // 👈 toujours garder le taux
         ]);
     }
-
-
-
-
 }

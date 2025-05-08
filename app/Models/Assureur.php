@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\Relations\MorphToMany;
 
@@ -93,5 +94,10 @@ class Assureur extends Model
         return $this->morphedByMany(Consultation::class, 'assurable')
             ->withTimestamps()
             ->withPivot(['pu']);
+    }
+
+    public function specialRegulations(): MorphMany
+    {
+        return $this->morphMany(SpecialRegulation::class, 'regulation');
     }
 }

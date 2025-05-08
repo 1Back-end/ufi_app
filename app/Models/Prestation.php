@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Enums\StateFacture;
+use App\Enums\StatusRegulation;
 use App\Enums\TypePrestation;
 use App\Models\Trait\UpdatingUser;
 use Illuminate\Database\Eloquent\Casts\Attribute;
@@ -41,17 +43,53 @@ class Prestation extends Model
 
     protected $appends = [
         'type_label',
+        'paid',
+        'can_update'
     ];
 
     protected function typeLabel(): Attribute
     {
         return Attribute::make(
-            get: fn ()  => TypePrestation::label($this->type),
+            get: fn()  => TypePrestation::label($this->type),
+        );
+    }
+
+    protected function paid(): Attribute
+    {
+        return Attribute::make(
+            get: function () {
+                if ($this->payable_by) return true;
+
+                $facture = $this->factures()
+                    ->where('type', 2)
+                    ->first();
+
+                if ($facture) {
+                    return $facture->amount_client == $facture->regulations->sum('amount');
+                }
+
+                return false;
+            }
+        );
+    }
+
+    protected function canUpdate(): Attribute
+    {
+        return Attribute::make(
+            get: function () {
+                $facture = $this->factures()->where('factures.type', 2)->first();
+                if ($facture) {
+                    return $facture->amount_client && ! $this->payable_by && $facture->regulations()->where('regulations.state', StatusRegulation::ACTIVE->value)->count() == 0;
+                }
+
+                return true;
+            }
         );
     }
 
 
-    public function centre() {
+    public function centre()
+    {
         return $this->belongsTo(Centre::class, 'centre_id');
     }
 
@@ -93,7 +131,7 @@ class Prestation extends Model
     public function actes(): MorphToMany
     {
         return $this->morphedByMany(Acte::class, 'prestationable')
-            ->withPivot(['remise', 'quantity', 'date_rdv', 'date_rdv_end'])
+            ->withPivot(['remise', 'quantity', 'date_rdv', 'date_rdv_end', 'amount_regulate'])
             ->withTimestamps();
     }
 }

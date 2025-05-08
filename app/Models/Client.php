@@ -2,12 +2,14 @@
 
 namespace App\Models;
 
+use App\Enums\StateFacture;
 use App\Models\Trait\CreateDefaultUser;
 use App\Models\Trait\UpdatingUser;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
@@ -128,6 +130,29 @@ class Client extends Model
     public function fidelityCard(): MorphMany
     {
         return $this->morphMany(Media::class, 'mediable');
+    }
+
+    public function toPay(): HasMany
+    {
+        return $this->hasMany(Prestation::class, 'payable_by');
+    }
+
+    public function facturesInProgressDeType2()
+    {
+        return $this->hasManyThrough(
+            Facture::class,
+            Prestation::class,
+            'payable_by', // Foreign key on Prestation
+            'prestation_id',      // Foreign key on Facture
+            'id',                 // Local key on PriseEnCharge
+            'id'                  // Local key on Prestation
+        )->where('factures.type', 2)
+            ->where('factures.state', StateFacture::IN_PROGRESS->value);
+    }
+
+    public function specialRegulations(): MorphMany
+    {
+        return $this->morphMany(SpecialRegulation::class, 'regulation');
     }
 
     protected function casts()

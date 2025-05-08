@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\StateFacture;
 use App\Models\Trait\UpdatingUser;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -23,7 +24,17 @@ class Facture extends Model
         'sequence',
         'amount_client',
         'centre_id',
+        'state',
+        'contentieux'
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'date_fact' => 'datetime',
+            'state' => StateFacture::class,
+        ];
+    }
 
     public function prestation(): BelongsTo
     {
@@ -45,10 +56,8 @@ class Facture extends Model
         return $this->belongsTo(User::class, 'updated_by');
     }
 
-    protected function casts(): array
+    public function regulations()
     {
-        return [
-            'date_fact' => 'datetime',
-        ];
+        return $this->hasMany(Regulation::class, 'facture_id');
     }
 }
