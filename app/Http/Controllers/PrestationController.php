@@ -44,7 +44,7 @@ class PrestationController extends Controller
             'updatedBy:id,nom_utilisateur',
             'payableBy',
             'client',
-            'consultant:id,nomcomplet_consult,code_specialite',
+            'consultant:id,nomcomplet,code_specialite',
             'consultant.codeSpecialite:id,nom_specialite',
             'priseCharge',
             'priseCharge.assureur',
@@ -262,8 +262,7 @@ class PrestationController extends Controller
                                 'centre_id' => $centre,
                                 'code' => $prestation->centre->reference . '-' . date('ym') . '-' . str_pad($sequence, 6, '0', STR_PAD_LEFT)
                             ]);
-                        }
-                        else {
+                        } else {
                             $facture->update([
                                 'amount' => $amount,
                                 'amount_pc' => $amount_pc,
@@ -271,8 +270,7 @@ class PrestationController extends Controller
                                 'amount_client' => $amount_client > 0 ? $amount_client : 0,
                             ]);
                         }
-                    }
-                    else {
+                    } else {
                         $latestFacture = Facture::whereType(2)
                             ->where('centre_id', $centre)
                             ->whereYear('created_at', now()->year)
@@ -298,7 +296,7 @@ class PrestationController extends Controller
                     throw new Exception("Ce type de prestation n'est pas encore implémenté", Response::HTTP_BAD_REQUEST);
             }
 
-//            $prestation->update(['regulated' => !($request->proforma == 1)]);
+            //            $prestation->update(['regulated' => !($request->proforma == 1)]);
         } catch (\Throwable $th) {
             DB::rollBack();
             return response()->json([
@@ -365,22 +363,22 @@ class PrestationController extends Controller
                 'client:id,nom_cli,prenom_cli,nomcomplet_client,ref_cli,date_naiss_cli',
                 'prestations.priseCharge:id,assureurs_id,taux_pc',
             ])
-            ->when($request->input('assurance'), function ($query) use ($request) {
-                $query->whereHas('assureur', function ($query) use ($request) {
-                    $query->where('assureurs.id', $request->input('assurance'));
-                });
-            })
-            ->whereHas('prestations', function ($query) use ($request) {
-                $query->whereHas('factures', function ($query) use ($request) {
-                    $query->where('factures.type', 2)
-                        ->where('factures.state', StateFacture::IN_PROGRESS->value)
-                        ->whereBetween('factures.date_fact', [$request->input('start_date'), $request->input('end_date')]);
-                });
-            })
-            ->withSum(['facturesInProgressDeType2 as total_amount' => function ($query) use ($request) {
-                $query->whereBetween('factures.date_fact', [$request->input('start_date'), $request->input('end_date')]); // ou autre champ: programmation_date ?
-            }], 'amount_pc')
-            ->get();
+                ->when($request->input('assurance'), function ($query) use ($request) {
+                    $query->whereHas('assureur', function ($query) use ($request) {
+                        $query->where('assureurs.id', $request->input('assurance'));
+                    });
+                })
+                ->whereHas('prestations', function ($query) use ($request) {
+                    $query->whereHas('factures', function ($query) use ($request) {
+                        $query->where('factures.type', 2)
+                            ->where('factures.state', StateFacture::IN_PROGRESS->value)
+                            ->whereBetween('factures.date_fact', [$request->input('start_date'), $request->input('end_date')]);
+                    });
+                })
+                ->withSum(['facturesInProgressDeType2 as total_amount' => function ($query) use ($request) {
+                    $query->whereBetween('factures.date_fact', [$request->input('start_date'), $request->input('end_date')]); // ou autre champ: programmation_date ?
+                }], 'amount_pc')
+                ->get();
         }
 
         if ($request->input('payable_by')) {
@@ -398,18 +396,18 @@ class PrestationController extends Controller
                 'toPay.actes',
                 'toPay.client:id,nom_cli,prenom_cli,nomcomplet_client,ref_cli,date_naiss_cli'
             ])
-            ->whereHas('toPay', function ($query) use ($request) {
-                $query->whereHas('factures', function ($query) use ($request) {
+                ->whereHas('toPay', function ($query) use ($request) {
+                    $query->whereHas('factures', function ($query) use ($request) {
                         $query->where('factures.type', 2)
                             ->where('factures.state', StateFacture::IN_PROGRESS->value)
                             ->whereBetween('factures.date_fact', [$request->input('start_date'), $request->input('end_date')]);
                     });
-            })
-            ->withSum(['facturesInProgressDeType2 as total_amount' => function ($query) use ($request) {
-                $query->whereBetween('factures.date_fact', [$request->input('start_date'), $request->input('end_date')]); // ou autre champ: programmation_date ?
-            }], 'amount_client')
-            ->whereTypeCli('associate')
-            ->get();
+                })
+                ->withSum(['facturesInProgressDeType2 as total_amount' => function ($query) use ($request) {
+                    $query->whereBetween('factures.date_fact', [$request->input('start_date'), $request->input('end_date')]); // ou autre champ: programmation_date ?
+                }], 'amount_client')
+                ->whereTypeCli('associate')
+                ->get();
         }
 
         return response()->json([
