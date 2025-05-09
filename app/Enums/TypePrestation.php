@@ -26,11 +26,11 @@ enum TypePrestation: int
     public static function label($value): string
     {
         return match ($value) {
-            self::ACTES->value => 'Actes',
-            self::CONSULTATIONS->value => 'Consultations',
-            self::SOINS->value => 'Soins',
-            self::PRODUITS->value => 'Produits',
-            self::LABORATOIR->value => 'Laboratoire',
+            self::ACTES => 'Actes',
+            self::CONSULTATIONS => 'Consultations',
+            self::SOINS => 'Soins',
+            self::PRODUITS => 'Produits',
+            self::LABORATOIR => 'Laboratoire',
         };
     }
 }

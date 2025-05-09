@@ -18,18 +18,13 @@ class SoinsController extends Controller
         $perPage = $request->input('limit', 10);  // Par défaut, 10 éléments par page
         $page = $request->input('page', 1);  // Page courante
         $search = $request->input('search');
-        $query = Soins::where('is_deleted', false);
-        if ($search) {
-            $query->where(function ($query) use ($search) {
+
+        $soins = Soins::with(['type_soins:id,name'])
+            ->where('is_deleted', false)
+            ->when($search, function ($query) use ($search) {
                 $query->where('name', 'like', "%$search%");
-            });
-        }
-        // Récupérer les assureurs avec pagination
-        $soins = Soins::where('is_deleted', false)
-            ->with(
-                'type_soins:id,name',
-            )
-            ->paginate($perPage);
+            })
+            ->paginate(perPage: $perPage, page: $page);
 
         return response()->json([
             'data' => $soins->items(),
@@ -125,7 +120,6 @@ class SoinsController extends Controller
                 'data' => $soins,
                 'message' => 'Détails du soin récupérés avec succès.'
             ], 200);
-
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             return response()->json([
                 'error' => 'Soin non trouvée.'
@@ -158,7 +152,7 @@ class SoinsController extends Controller
             $data = $request->validate([
                 'type_soin_id' => 'exists:type_soins,id',
                 'pu' => 'required|numeric',
-                'name'=>'required|string',
+                'name' => 'required|string',
                 'status' => 'nullable|string|in:Actif,Inactif',
             ]);
 
@@ -171,7 +165,6 @@ class SoinsController extends Controller
                 'data' => $soins,
                 'message' => 'Mise à jour éffectué avec succès.'
             ]);
-
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
                 'error' => 'Erreur de validation',
