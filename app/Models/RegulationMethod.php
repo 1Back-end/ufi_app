@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\TypeRegulation;
 use App\Models\Trait\UpdatingUser;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -15,6 +16,7 @@ class RegulationMethod extends Model
         'description',
         'active',
         'comment_required',
+        'type_regulation',
         'created_by',
         'updated_by',
     ];
@@ -34,6 +36,7 @@ class RegulationMethod extends Model
         return [
             'active' => 'boolean',
             'comment_required' => 'boolean',
+            'type_regulation' => TypeRegulation::class
         ];
     }
 }

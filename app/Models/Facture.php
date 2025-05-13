@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\StateFacture;
 use App\Models\Trait\UpdatingUser;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -34,6 +35,38 @@ class Facture extends Model
             'date_fact' => 'datetime',
             'state' => StateFacture::class,
         ];
+    }
+
+    protected function amount(): Attribute
+    {
+        return Attribute::make(
+            get: fn($value, array $attributes) => $value / 100,
+            set: fn($value) => $value * 100,
+        );
+    }
+
+    protected function amountPc(): Attribute
+    {
+        return Attribute::make(
+            get: fn($value, array $attributes) => $value / 100,
+            set: fn($value) => $value * 100,
+        );
+    }
+
+    protected function amountRemise(): Attribute
+    {
+        return Attribute::make(
+            get: fn($value, array $attributes) => $value / 100,
+            set: fn($value) => $value * 100,
+        );
+    }
+
+    protected function amountClient(): Attribute
+    {
+        return Attribute::make(
+            get: fn($value, array $attributes) => $value / 100,
+            set: fn($value) => $value * 100,
+        );
     }
 
     public function prestation(): BelongsTo

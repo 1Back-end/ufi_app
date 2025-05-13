@@ -127,7 +127,7 @@ class RegulationController extends Controller
             'factures' => ['required', 'array'],
             'factures.*.id' => ['required', 'exists:factures,id'],
             'factures.*.items' => ['array'],
-            'factures.*.amount' => ['required', 'integer'],
+            'factures.*.amount' => ['required',],
             'type' => ['required', 'in:client,assureur'],
         ]);
 
@@ -219,7 +219,7 @@ class RegulationController extends Controller
             ->where('regulations.state', '!=', StatusRegulation::CANCELLED->value)
             ->sum('regulations.amount');
 
-        $amountValidate = $amount == $facture->amount_client + $facture->amount_pc;
+        $amountValidate = ($amount / 100) == $facture->amount_client + $facture->amount_pc;
         $facture->update([
             'state' => $amountValidate ? StateFacture::PAID : StateFacture::IN_PROGRESS
         ]);

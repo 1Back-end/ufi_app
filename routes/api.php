@@ -5,6 +5,7 @@ use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\CentreController;
 use App\Http\Controllers\ClientController;
 use App\Http\Controllers\ConsultantController;
+use App\Http\Controllers\ConventionAssocieController;
 use App\Http\Controllers\CountryController;
 use App\Http\Controllers\HopitalController;
 use App\Http\Controllers\PrefixController;
@@ -70,6 +71,8 @@ Route::middleware(['activity'])->group(function () {
             Route::post('/search-duplicates', 'searchDuplicates');
             Route::get('/print-fidelity-card/{client}', 'printFidelityCard');
         });
+        Route::apiResource('convention-associe', ConventionAssocieController::class)->except(['destroy', 'show']);
+        Route::patch('/convention-associe/{convention_associe}/activate', [ConventionAssocieController::class, 'activate']);
 
         // Settings routes for clients module
         Route::apiResource('sexes', SexeController::class)->except(['show']);

@@ -58,8 +58,6 @@ class PrestationController extends Controller
             $query->where('client_id', $request->input('client_id'));
         })->when($request->input('consultant_id'), function ($query) use ($request) {
             $query->where('consultant_id', $request->input('consultant_id'));
-        })->when($request->input('centre_id'), function ($query) use ($request) {
-            $query->whereIn('centre_id', $request->input('centre_id'));
         })->when($request->input('type'), function ($query) use ($request) {
             $query->where('type', $request->input('type'));
         })->when($request->input('mode_paiement'), function ($query) use ($request) {
@@ -84,14 +82,19 @@ class PrestationController extends Controller
             $query->orderBy($request->input('order')['column'], $request->input('order')['direction']);
         }, function (Builder $query) {
             $query->latest();
-        })
-            ->when($request->has('regulated'), function (Builder $query) use ($request) {
+        })->when($request->input('regulated'), function (Builder $query) use ($request) {
+            if (is_array($request->input('regulated'))) {
+                $query->whereIn('regulated', $request->input('regulated'));
+            } else {
                 $query->where('regulated', $request->input('regulated'));
-            })
-            ->when($request->input('created_at'), function (Builder $query) use ($request) {
-                $query->whereDate('created_at', $request->input('created_at'));
-            })
-            ->where('centre_id', $request->header('centre'))
+            }
+        })->when($request->input('factures_created_at'), function ($query) use ($request) {
+            $query->whereHas('factures', function ($query) use ($request) {
+                $query->whereDate('factures.created_at', $request->input('factures_created_at'));
+            });
+        })->when($request->input('created_at'), function (Builder $query) use ($request) {
+            $query->whereDate('created_at', $request->input('created_at'));
+        })->where('centre_id', $request->header('centre'))
             ->paginate(
                 perPage: $request->input('per_page', 25),
                 page: $request->input('page', 1)

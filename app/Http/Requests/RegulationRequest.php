@@ -22,7 +22,7 @@ class RegulationRequest extends FormRequest
             'type' => ['required', new Enum(TypeRegulation::class)],
             'regulations' => ['required', 'array'],
             'regulations.*.method' => ['required', 'exists:regulation_methods,id'],
-            'regulations.*.amount' => ['required', 'integer', new ValidateAmountForRegulateFactureRule($this->facture_id, $this->type)],
+            'regulations.*.amount' => ['required', new ValidateAmountForRegulateFactureRule($this->facture_id, $this->type)],
             'regulations.*.comment' => ['nullable', $requiredReason],
             'regulations.*.reason' => ['nullable', $requiredReason],
         ];
