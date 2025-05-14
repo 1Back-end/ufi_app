@@ -5,6 +5,7 @@ use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\CentreController;
 use App\Http\Controllers\ClientController;
 use App\Http\Controllers\ConsultantController;
+use App\Http\Controllers\ConventionAssocieController;
 use App\Http\Controllers\CountryController;
 use App\Http\Controllers\HopitalController;
 use App\Http\Controllers\PrefixController;
@@ -37,14 +38,14 @@ use App\Http\Controllers\AssurableController;
 use App\Http\Controllers\RendezVousController;
 use Illuminate\Support\Facades\Route;
 
-//Route::middleware(['activity'])->group(function () {
-//
-//    require __DIR__.'/auth.php';
-//    require __DIR__.'/authorization.php';
-//    require __DIR__.'/admin.php';
-//
-//    Route::middleware(['auth:sanctum', 'user.change_password', 'check.permission'])->group(function () {
-//
+Route::middleware(['activity'])->group(function () {
+
+    require __DIR__ . '/auth.php';
+    require __DIR__ . '/authorization.php';
+    require __DIR__ . '/admin.php';
+
+    Route::middleware(['auth:sanctum', 'user.change_password', 'check.permission'])->group(function () {
+
 
         // Gestion des centres
         Route::controller(CentreController::class)->prefix('centres')->group(function () {
@@ -70,8 +71,10 @@ use Illuminate\Support\Facades\Route;
             Route::post('/search-duplicates', 'searchDuplicates');
             Route::get('/print-fidelity-card/{client}', 'printFidelityCard');
         });
+        Route::apiResource('convention-associe', ConventionAssocieController::class)->except(['destroy', 'show']);
+        Route::patch('/convention-associe/{convention_associe}/activate', [ConventionAssocieController::class, 'activate']);
 
-// Settings routes for clients module
+        // Settings routes for clients module
         Route::apiResource('sexes', SexeController::class)->except(['show']);
         Route::apiResource('status-familiales', StatusFamilialeController::class)->except(['show']);
         Route::apiResource('type-documents', TypeDocumentController::class)->except(['show']);
@@ -104,7 +107,7 @@ use Illuminate\Support\Facades\Route;
             Route::get('/search', 'search');
             Route::get('/export', 'export');
             Route::get('/searchandexport', 'searchAndExport');
-            Route::get('/get_by_id/{id}','show');
+            Route::get('/get_by_id/{id}', 'show');
 
             // routes/api.php
         });
@@ -116,7 +119,6 @@ use Illuminate\Support\Facades\Route;
             Route::get('/get_by_id/{id}', 'show');
             Route::put('/edit/{id}', 'update');
             Route::delete('/delete/{id}', 'destroy');
-
         });
         Route::controller(ServiceHopitalController::class)->prefix('services_hopitals')->group(function () {
             Route::get('/list', 'index');
@@ -150,12 +152,10 @@ use Illuminate\Support\Facades\Route;
             Route::delete('/delete/{id}', 'destroy');
             Route::get('/quotations-data', 'getAllCodes');
             Route::get('/quotations-data-code', 'getAllCodesAndTaux');
-
-
         });
-        Route::controller(AssureurController::class)->prefix('assureurs')->group(function (){
-            route::get('/list','index');
-            Route::post('/create','store');
+        Route::controller(AssureurController::class)->prefix('assureurs')->group(function () {
+            route::get('/list', 'index');
+            Route::post('/create', 'store');
             Route::get('/get_by_id/{id}', 'show');
             Route::put('/edit/{id}', 'update');
             Route::delete('/delete/{id}', 'destroy');
@@ -167,43 +167,32 @@ use Illuminate\Support\Facades\Route;
             Route::get('/search-and-export', 'searchAndExport');
             Route::get('/get_data',  'listIdName');
             Route::get('/{id}/quotation-code',  'getQuotationCode');
-
-
         });
-        Route::controller(FournisseurController::class)->prefix('fournisseurs')->group(function (){
+        Route::controller(FournisseurController::class)->prefix('fournisseurs')->group(function () {
             Route::get('/list', 'index');
             Route::post('/create', 'store');
             Route::get('/get_by_id/{id}', 'show');
             Route::put('/edit/{id}', 'update');
             Route::delete('/delete/{id}', 'delete');
-            Route::get('/search','search');
+            Route::get('/search', 'search');
             Route::get('/get_data',  'listIdName');
             Route::get('/export-fournisseurs',  'export');
             Route::get('/search-and-export', 'searchAndExport');
             Route::get('/search',  'search');
             Route::put('update_status/{id}/status/{status}', 'updateStatus');
         });
-        Route::controller(PriseEnChargeController::class)->prefix('prise_en_charges')->group(function (){
-            Route::get('/list','index');
-            Route::post('/create','store');
+        Route::controller(PriseEnChargeController::class)->prefix('prise_en_charges')->group(function () {
+            Route::get('/list', 'index');
+            Route::post('/create', 'store');
             Route::get('/get_by_id/{id}', 'show');
             Route::put('/edit/{id}', 'update');
             Route::delete('/delete/{id}', 'destroy');
             Route::get('/get_data',  'getAllClients');
             Route::get('/export-prises-en-charges',  'export');
-            Route::get('/search','search');
+            Route::get('/search', 'search');
             Route::get('/search-and-export', 'searchAndExport');
         });
-        Route::controller(VoixTransmissionController::class)->prefix('voie_administrations')->group(function (){
-            Route::get('/list', 'index');
-            Route::post('/create', 'store');
-            Route::get('/get_by_id/{id}', 'show');
-            Route::put('/edit/{id}', 'update');
-            Route::delete('/delete/{id}', 'destroy');
-            Route::get('/get_data',  'listIdName');
-
-        });
-        Route::controller(CategoryController::class)->prefix('category_products')->group(function (){
+        Route::controller(VoixTransmissionController::class)->prefix('voie_administrations')->group(function () {
             Route::get('/list', 'index');
             Route::post('/create', 'store');
             Route::get('/get_by_id/{id}', 'show');
@@ -211,25 +200,31 @@ use Illuminate\Support\Facades\Route;
             Route::delete('/delete/{id}', 'destroy');
             Route::get('/get_data',  'listIdName');
         });
-        Route::controller(UniteProduitController::class)->prefix('unity_products')->group(function (){
+        Route::controller(CategoryController::class)->prefix('category_products')->group(function () {
             Route::get('/list', 'index');
             Route::post('/create', 'store');
             Route::get('/get_by_id/{id}', 'show');
             Route::put('/edit/{id}', 'update');
             Route::delete('/delete/{id}', 'destroy');
             Route::get('/get_data',  'listIdName');
-
         });
-        Route::controller(TypeconsultationController::class)->prefix('type_consultants')->group(function (){
+        Route::controller(UniteProduitController::class)->prefix('unity_products')->group(function () {
             Route::get('/list', 'index');
             Route::post('/create', 'store');
             Route::get('/get_by_id/{id}', 'show');
             Route::put('/edit/{id}', 'update');
             Route::delete('/delete/{id}', 'destroy');
             Route::get('/get_data',  'listIdName');
-
         });
-        Route::controller(GroupProduitController::class)->prefix('group_products')->group(function (){
+        Route::controller(TypeconsultationController::class)->prefix('type_consultants')->group(function () {
+            Route::get('/list', 'index');
+            Route::post('/create', 'store');
+            Route::get('/get_by_id/{id}', 'show');
+            Route::put('/edit/{id}', 'update');
+            Route::delete('/delete/{id}', 'destroy');
+            Route::get('/get_data',  'listIdName');
+        });
+        Route::controller(GroupProduitController::class)->prefix('group_products')->group(function () {
             Route::get('/list', 'index');
             Route::post('/create', 'store');
             Route::get('/get_by_id/{id}', 'show');
@@ -238,69 +233,63 @@ use Illuminate\Support\Facades\Route;
             Route::get('/get_data',  'listIdName');
             Route::get('/{group_product_id}/categories', 'getCategories');
         });
-        Route::controller(ProduitController::class)->prefix('products')->group(function (){
+        Route::controller(ProduitController::class)->prefix('products')->group(function () {
             Route::get('/list', 'index');
             Route::post('/create', 'store');
             Route::get('/get_by_id/{id}', 'show');
             Route::put('/edit/{id}', 'update');
             Route::delete('/delete/{id}', 'destroy');
             Route::put('update_status/{id}/status/{status}', 'updateStatus');
-            Route::get('/search','search');
+            Route::get('/search', 'search');
             Route::get('/export',  'export');
             Route::get('/search-and-export', 'searchAndExport');
         });
-        Route::controller(ConsultationController::class)->prefix('consultations')->group(function (){
-            route::get('/list','index');
-            Route::post('/create','store');
+        Route::controller(ConsultationController::class)->prefix('consultations')->group(function () {
+            route::get('/list', 'index');
+            Route::post('/create', 'store');
             Route::get('/get_by_id/{id}', 'show');
             Route::put('/edit/{id}', 'update');
             Route::delete('/delete/{id}', 'destroy');
             Route::put('update_status/{id}/status/{status}', 'updateStatus');
-
         });
-        Route::controller(TypeSoinsController::class)->prefix('type_soins')->group(function (){
-            route::get('/list','index');
-            Route::post('/create','store');
+        Route::controller(TypeSoinsController::class)->prefix('type_soins')->group(function () {
+            route::get('/list', 'index');
+            Route::post('/create', 'store');
             Route::get('/get_by_id/{id}', 'show');
             Route::put('/edit/{id}', 'update');
             Route::delete('/delete/{id}', 'destroy');
             Route::get('/get_data',  'listIdName');
-
         });
-        Route::controller(SoinsController::class)->prefix('soins')->group(function (){
-            route::get('/list','index');
-            Route::post('/create','store');
+        Route::controller(SoinsController::class)->prefix('soins')->group(function () {
+            route::get('/list', 'index');
+            Route::post('/create', 'store');
             Route::get('/get_by_id/{id}', 'show');
             Route::put('/edit/{id}', 'update');
             Route::delete('/delete/{id}', 'destroy');
             Route::put('update_status/{id}/status/{status}', 'updateStatus');
-
         });
-        Route::controller(OpsTblHospitalisationController::class)->prefix('hospitalisations')->group(function (){
+        Route::controller(OpsTblHospitalisationController::class)->prefix('hospitalisations')->group(function () {
             Route::get('/list', 'index');
-            Route::post('/create','store');
+            Route::post('/create', 'store');
             Route::put('/edit/{id}', 'update');
             Route::put('update_status/{id}/status/{status}', 'updateStatus');
         });
-        Route::controller(AssurableController::class)->prefix('assurables')->group(function (){
+        Route::controller(AssurableController::class)->prefix('assurables')->group(function () {
             Route::get('/get_assurables', 'index');
             Route::post('/store_assurables_consultations', 'storeConsultationPrices');
             Route::post('/store_assurables_soins', 'storeAssurablesSoins');
             Route::post('/store_assurables_actes', 'storeAssurablesActes');
             Route::post('/store_assurables_hospitalisations', 'storeHospitalisationsPrices');
-
         });
-        Route::controller(RendezVousController::class)->prefix('rendez_vous')->group(function (){
+        Route::controller(RendezVousController::class)->prefix('rendez_vous')->group(function () {
             Route::get('/list', 'index');
             Route::post('/create', 'store');
             Route::put('/edit/{id}', 'update');
             Route::put('update_etat/{id}/etat/{etat}', 'updateStatus');
             Route::put('/update_type/{id}/type/{type}', 'toggleType');
-            Route::get('/search','search');
+            Route::get('/search', 'search');
             Route::get('/export',  'export');
             Route::get('/get_by_id/{id}', 'show');
-
-
         });
-//});
-//});
+    });
+});

@@ -1,6 +1,7 @@
 <?php
 
 namespace App\Http\Controllers;
+
 use App\Exports\FournisseurExport;
 use App\Exports\PrisesEnChargeExport;
 use App\Exports\PrisesEnChargeExportSearch;
@@ -63,7 +64,7 @@ class PriseEnChargeController extends Controller
                 'updater:id,login'
             ])
             ->when($request->input('client'), function ($query) use ($request) {
-                $query->where('clients_id', $request->input('client'))
+                $query->where('client_id', $request->input('client'))
                     ->whereDate('date_debut', '<=', now())
                     ->whereDate('date_fin', '>=', now())
                     ->whereIsDeleted(false)
@@ -71,8 +72,8 @@ class PriseEnChargeController extends Controller
                     ->when($request->input('assureur'), function ($query) use ($request) {
                         $query->whereHas('assureur', function ($query) use ($request) {
                             $query->where('nom', 'like', '%' . $request->input('assureur') . '%');
+                        });
                     });
-                });
             })
             ->paginate($perPage, ['*'], 'page', $page);
 
@@ -81,7 +82,7 @@ class PriseEnChargeController extends Controller
             'current_page' => $prise_en_charges->currentPage(),
             'last_page' => $prise_en_charges->lastPage(),
             'total' => $prise_en_charges->total(),
-        ]);//
+        ]); //
     }
 
     /**
@@ -102,9 +103,9 @@ class PriseEnChargeController extends Controller
         try {
             $data = $request->validate([
                 'assureur_id' => 'required|exists:assureurs,id',
-                'quotation_id'=>'required|exists:quotations,id',
+                'quotation_id' => 'required|exists:quotations,id',
                 'date' => 'required|date',
-                'code'=>'required|string',
+                'code' => 'required|string',
                 'date_debut' => 'required|date',
                 'date_fin' => 'required|date|after:date_debut', // ✅ Ici
                 'client_id' => 'required|exists:clients,id',
@@ -119,7 +120,6 @@ class PriseEnChargeController extends Controller
                 'data' => $prise_en_charge,
                 'message' => 'Prise en charge enregistrée avec succès'
             ], 201);
-
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
                 'error' => 'Erreur de validation',
@@ -175,9 +175,9 @@ class PriseEnChargeController extends Controller
 
             $data = $request->validate([
                 'assureur_id' => 'required|exists:assureurs,id',
-                'quotation_id'=>'required|exists:quotations,id',
+                'quotation_id' => 'required|exists:quotations,id',
                 'date' => 'required|date',
-                'code'=>'required|string',
+                'code' => 'required|string',
                 'date_debut' => 'required|date',
                 'date_fin' => 'required|date|after:date_debut', // ✅ Ici
                 'client_id' => 'required|exists:clients,id',
@@ -305,7 +305,7 @@ class PriseEnChargeController extends Controller
         $query = PriseEnCharge::where('is_deleted', false);
 
         if ($searchQuery) {
-            $query->where(function($query) use ($searchQuery) {
+            $query->where(function ($query) use ($searchQuery) {
                 $query->where('taux_pc', 'like', '%' . $searchQuery . '%')
                     ->orWhere('date', 'like', '%' . $searchQuery . '%')
                     ->orWhere('date_debut', 'like', '%' . $searchQuery . '%')
@@ -322,8 +322,4 @@ class PriseEnChargeController extends Controller
             'data' => $prises_en_charges,
         ]);
     }
-
-
-
-
 }

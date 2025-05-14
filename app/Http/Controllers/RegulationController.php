@@ -93,6 +93,7 @@ class RegulationController extends Controller
 
     /**
      * @param Regulation $regulation
+     * @param Request $request
      * @return JsonResponse
      *
      * @permission RegulationController::cancel
@@ -126,7 +127,7 @@ class RegulationController extends Controller
             'factures' => ['required', 'array'],
             'factures.*.id' => ['required', 'exists:factures,id'],
             'factures.*.items' => ['array'],
-            'factures.*.amount' => ['required', 'integer'],
+            'factures.*.amount' => ['required',],
             'type' => ['required', 'in:client,assureur'],
         ]);
 
@@ -173,12 +174,8 @@ class RegulationController extends Controller
                 }
 
                 foreach ($factureData['items'] as $item) {
-                    switch ($facture->prestation->type) {
-                        case TypePrestation::ACTES->value:
-                            $facture->prestation->actes()
-                                ->updateExistingPivot($item['id'], ['amount_regulate' => $item['amount']]);
-                            break;
-                    }
+                    $facture->prestation->actes()
+                        ->updateExistingPivot($item['id'], ['amount_regulate' => $item['amount']]);
                 }
             }
         } catch (\Exception $e) {
@@ -195,9 +192,10 @@ class RegulationController extends Controller
     }
 
     /**
-     * Valide l'état d'une facture en fonction des réglements
+     * Valide l’état d’une facture en fonction des règlements
      *
      * @param Facture $facture
+     * @param bool $forcePaid
      * @return void
      */
     protected function validatedFacture(Facture $facture, bool $forcePaid = false)
@@ -221,7 +219,7 @@ class RegulationController extends Controller
             ->where('regulations.state', '!=', StatusRegulation::CANCELLED->value)
             ->sum('regulations.amount');
 
-        $amountValidate = $amount == $facture->amount_client + $facture->amount_pc;
+        $amountValidate = ($amount / 100) == $facture->amount_client + $facture->amount_pc;
         $facture->update([
             'state' => $amountValidate ? StateFacture::PAID : StateFacture::IN_PROGRESS
         ]);

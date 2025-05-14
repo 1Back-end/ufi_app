@@ -38,6 +38,7 @@ class Prestation extends Model
         return [
             'payable' => 'boolean',
             'programmation_date' => 'datetime',
+            'type' => TypePrestation::class,
         ];
     }
 
@@ -132,6 +133,13 @@ class Prestation extends Model
     {
         return $this->morphedByMany(Acte::class, 'prestationable')
             ->withPivot(['remise', 'quantity', 'date_rdv', 'date_rdv_end', 'amount_regulate'])
+            ->withTimestamps();
+    }
+
+    public function soins(): MorphToMany
+    {
+        return $this->morphedByMany(Soins::class, 'prestationable')
+            ->withPivot(['remise', 'nbr_days', 'type_salle', 'honoraire', 'amount_regulate'])
             ->withTimestamps();
     }
 }

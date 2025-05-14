@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Enums\TypePrestation;
+use App\Enums\TypeSalle;
 use App\Models\Acte;
 use App\Models\Prestation;
 use Illuminate\Database\Eloquent\Builder;
@@ -10,6 +11,7 @@ use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rules\Enum;
+use Mockery\Matcher\Type;
 use PHPUnit\Framework\Exception;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -24,11 +26,19 @@ class PrestationRequest extends FormRequest
             'payable_by' => ['nullable', 'exists:clients,id'],
             'programmation_date' => ['required', 'date'],
             'type' => ['required', new Enum(TypePrestation::class)],
+            // Actes
             'actes' => ['nullable', 'array', 'required_if:type,' . TypePrestation::ACTES->value],
             'actes.*.id' => ['integer', 'required_if:type,' . TypePrestation::ACTES->value],
             'actes.*.remise' => ['min:0', 'integer'],
             'actes.*.quantity' => ['integer', 'required_if:type,' . TypePrestation::ACTES->value, 'min:1'],
-            'actes.*.date_rdv' => ['required_if:type,' . TypePrestation::ACTES->value,]
+            'actes.*.date_rdv' => ['required_if:type,' . TypePrestation::ACTES->value,],
+            // Soins
+            'soins' => ['nullable', 'array', 'required_if:type,' . TypePrestation::SOINS->value],
+            'soins.*.id' => ['integer', 'required_if:type,' . TypePrestation::SOINS->value],
+            'soins.*.remise' => ['min:0', 'integer', 'max:100'],
+            'soins.*.nbr_days' => ['integer', 'required_if:type,' . TypePrestation::SOINS->value, 'min:1'],
+            'soins.*.type_salle' => ['required_if:type,' . TypePrestation::SOINS->value, new Enum(TypeSalle::class)],
+            'soins.*.honoraire' => ['integer', 'required_if:type,' . TypePrestation::SOINS->value,],
         ];
     }
 
@@ -49,7 +59,7 @@ class PrestationRequest extends FormRequest
                     })
                     ->get();
 
-                Log::info($prestations);
+                // Log::info($prestations);
 
                 $errorConflit = [];
 
@@ -63,7 +73,7 @@ class PrestationRequest extends FormRequest
                             ->first();
 
 
-                        if($acteSearch) {
+                        if ($acteSearch) {
                             $errorConflit = [
                                 'message' => __("Ce consultant ou Ce client a déjà un rendez-vous à cette période du {$acteSearch->pivot->date_rdv} au {$acteSearch->pivot->date_rdv_end}"),
                                 'actes' => $acteSearch
@@ -78,6 +88,9 @@ class PrestationRequest extends FormRequest
                 if ($errorConflit) {
                     return $errorConflit;
                 }
+
+                break;
+            case TypePrestation::SOINS->value:
 
                 break;
             default:

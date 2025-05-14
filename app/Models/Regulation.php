@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\StatusRegulation;
 use App\Enums\TypeRegulation;
 use App\Models\Trait\UpdatingUser;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -34,6 +35,14 @@ class Regulation extends Model
             'type' => TypeRegulation::class,
             'particular' => 'boolean',
         ];
+    }
+
+    protected function amount(): Attribute
+    {
+        return Attribute::make(
+            get: fn($value, array $attributes) => $value / 100,
+            set: fn($value) => $value * 100,
+        );
     }
 
     public function regulationMethod(): BelongsTo
