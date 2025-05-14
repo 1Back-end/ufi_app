@@ -468,4 +468,21 @@ class AssureurController extends Controller
             'quotation_taux' => $assureur->quotation?->taux, // 👈 toujours garder le taux
         ]);
     }
+    public function getHospitalisations($id)
+    {
+        $assureur = Assureur::find($id);
+        if (!$assureur) {
+            return response()->json(['message' => 'Assureur non trouvé'], 404);
+        }
+        // Retourner uniquement les données nécessaires
+        $hospitalisations = $assureur->hospitalisations->map(function ($hospitalisation) {
+            return [
+                'name' => $hospitalisation->name,
+                'pu_default' => $hospitalisation->pu_default,
+                'pu' => $hospitalisation->pivot->pu,
+            ];
+        });
+
+        return response()->json($hospitalisations);
+    }
 }

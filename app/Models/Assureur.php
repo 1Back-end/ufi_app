@@ -95,6 +95,17 @@ class Assureur extends Model
             ->withTimestamps()
             ->withPivot(['pu']);
     }
+    /**
+     * @return MorphToMany
+     */
+    public function hospitalisations(): MorphToMany
+    {
+        return  $this->morphedByMany(OpsTblHospitalisation::class, 'assurable')
+            ->withTimestamps()
+            ->withPivot(['pu']);
+    }
+
+
 
     public function specialRegulations(): MorphMany
     {

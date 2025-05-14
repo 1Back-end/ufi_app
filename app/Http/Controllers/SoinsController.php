@@ -231,7 +231,6 @@ class SoinsController extends Controller
     {
         try {
             $soins = Soins::where('is_deleted', false)->findOrFail($id);
-
             // Marquer comme supprimé (soft delete)
             $soins->is_deleted = true;
             $soins->save();
