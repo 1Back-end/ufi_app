@@ -33,5 +33,11 @@ class OpsTblHospitalisation extends Model
     {
         return $this->belongsTo(User::class, 'updated_by');
     }
+    public function assureurs()
+    {
+        return $this->morphToMany(Assureur::class, 'assurable')
+            ->withPivot(['pu', 'k_modulateur', 'b'])
+            ->withTimestamps();
+    }
     //
 }

@@ -9,6 +9,11 @@ use Illuminate\Http\Request;
 use App\Models\Category;
 class CategoryController extends Controller
 {
+    /**
+     * Display a listing of the resource.
+     * @permission CategoryController::listIdName
+     * @permission_desc Afficher l'id et nom de la catégorie des produits
+     */
     public function listIdName()
     {
         $categories = Category::select('id', 'name')
@@ -21,6 +26,8 @@ class CategoryController extends Controller
     }
     /**
      * Display a listing of the resource.
+     * @permission CategoryController::index
+     * @permission_desc Afficher la liste des catégories de produits avec la pagination
      */
     public function index(Request $request)
     {
@@ -57,7 +64,9 @@ class CategoryController extends Controller
     }
 
     /**
-     * Store a newly created resource in storage.
+     * Display a listing of the resource.
+     * @permission CategoryController::store
+     * @permission_desc Enregistrer les catégories de produits
      */
     public function store(Request $request)
     {
@@ -95,7 +104,9 @@ class CategoryController extends Controller
     }
 
     /**
-     * Display the specified resource.
+     * Display a listing of the resource.
+     * @permission CategoryController::show
+     * @permission_desc Afficher les détails d'une catégorie de produits
      */
     public function show(string $id)
     {
@@ -135,7 +146,9 @@ class CategoryController extends Controller
     }
 
     /**
-     * Update the specified resource in storage.
+     * Display a listing of the resource.
+     * @permission CategoryController::listIdName
+     * @permission_desc Mettre à jour une catégorie de produits
      */
     public function update(Request $request, $id)
     {
@@ -184,7 +197,9 @@ class CategoryController extends Controller
 
 
     /**
-     * Remove the specified resource from storage.
+     * Display a listing of the resource.
+     * @permission CategoryController::listIdName
+     * @permission_desc Supprimer une catégorie de produits
      */
     public function destroy(string $id)
     {

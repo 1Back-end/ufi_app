@@ -15,6 +15,8 @@ class ProduitController extends Controller
 {
     /**
      * Display a listing of the resource.
+     * @permission ProduitController::index
+     * @permission_desc Afficher la liste des produits
      */
     public function index(Request $request)
     {
@@ -38,6 +40,11 @@ class ProduitController extends Controller
             'total' => $products->total(),
         ]);
     }
+    /**
+     * Display a listing of the resource.
+     * @permission ProduitController::updateStatus
+     * @permission_desc Changer le statut des produits
+     */
 
     public function updateStatus(Request $request, $id, $status)
     {
@@ -80,7 +87,9 @@ class ProduitController extends Controller
     }
 
     /**
-     * Store a newly created resource in storage.
+     * Display a listing of the resource.
+     * @permission ProduitController::sotre
+     * @permission_desc Créer  des produits
      */
     public function store(Request $request)
     {
@@ -134,6 +143,11 @@ class ProduitController extends Controller
             ], 500);
         }
     }
+    /**
+     * Display a listing of the resource.
+     * @permission ProduitController::search
+     * @permission_desc Rechercher des produits
+     */
     public function search(Request $request)
     {
         $request->validate([
@@ -171,7 +185,9 @@ class ProduitController extends Controller
 
 
     /**
-     * Display the specified resource.
+     * Display a listing of the resource.
+     * @permission ProduitController::show
+     * @permission_desc Afficher les détails produits
      */
     public function show(string $id)
     {
@@ -213,7 +229,9 @@ class ProduitController extends Controller
     }
 
     /**
-     * Update the specified resource in storage.
+     * Display a listing of the resource.
+     * @permission ProduitController::export
+     * @permission_desc Exporter les produits
      */
     public function export()
     {
@@ -228,6 +246,11 @@ class ProduitController extends Controller
         ]);
     }
 
+    /**
+     * Display a listing of the resource.
+     * @permission ProduitController::update
+     * @permission_desc Mettre à jour produits
+     */
     public function update(Request $request, $id)
     {
         $auth = auth()->user();
@@ -281,6 +304,11 @@ class ProduitController extends Controller
             ], 500);
         }
     }
+    /**
+     * Display a listing of the resource.
+     * @permission ProduitController::searchAndExport
+     * @permission_desc Rechercher et exporter les produits
+     */
     public function searchAndExport(Request $request)
     {
         $request->validate([
@@ -331,7 +359,9 @@ class ProduitController extends Controller
 
 
     /**
-     * Remove the specified resource from storage.
+     * Display a listing of the resource.
+     * @permission ProduitController::destroy
+     * @permission_desc Supprimer les produits
      */
     public function destroy(string $id)
     {

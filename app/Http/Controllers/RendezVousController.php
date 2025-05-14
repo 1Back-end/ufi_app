@@ -14,6 +14,8 @@ class RendezVousController extends Controller
 {
     /**
      * Display a listing of the resource.
+     * @permission RendezVousController::index
+     * @permission_desc Afficher la liste des rendez-vous
      */
     public function index(Request $request){
         $perPage = $request->input('limit', 10);  // Par défaut, 10 éléments par page
@@ -46,7 +48,9 @@ class RendezVousController extends Controller
     }
 
     /**
-     * Store a newly created resource in storage.
+     * Display a listing of the resource.
+     * @permission RendezVousController::store
+     * @permission_desc Créer des rendez-vous
      */
     public function store(Request $request)
     {
@@ -60,7 +64,7 @@ class RendezVousController extends Controller
                 'dateheure_rdv' => 'required|date',
                 'heure_debut' => 'required|date_format:H:i',
                 'heure_fin' => 'required|date_format:H:i|after:heure_debut',
-                'details' => 'required|string',
+                'details' => 'required',
                 'nombre_jour_validite' => 'required|integer',
             ]);
 
@@ -119,7 +123,11 @@ class RendezVousController extends Controller
         }
     }
 
-
+    /**
+     * Display a listing of the resource.
+     * @permission RendezVousController::update
+     * @permission_desc Mettre à jour des rendez-vous
+     */
     public function update(Request $request, $id)
     {
         $auth = auth()->user();
@@ -192,7 +200,11 @@ class RendezVousController extends Controller
     }
 
 
-
+    /**
+     * Display a listing of the resource.
+     * @permission RendezVousController::updateStatus
+     * @permission_desc Mettre à jour  le statut des rendez-vous
+     */
     public function updateStatus(Request $request, $id,$etat)
     {
         $rendez_vous = RendezVous::find($id);
@@ -217,6 +229,11 @@ class RendezVousController extends Controller
             'rendez vous' => $rendez_vous // Corrected to $assureur
         ], 200);
     }
+    /**
+     * Display a listing of the resource.
+     * @permission RendezVousController::toggleType
+     * @permission_desc Mettre à jour  le type des rendez-vous
+     */
     public function toggleType(Request $request, $id, $type)
     {
         // Find the assureur by ID
@@ -245,6 +262,11 @@ class RendezVousController extends Controller
             'rendez vous' => $rendez_vous // Corrected to $assureur
         ], 200);
     }
+    /**
+     * Display a listing of the resource.
+     * @permission RendezVousController::export
+     * @permission_desc Exporter des rendez-vous
+     */
     public function export()
     {
         try {
@@ -265,7 +287,11 @@ class RendezVousController extends Controller
             ], 500); // Code de statut 500 pour une erreur serveur
         }
     }
-
+    /**
+     * Display a listing of the resource.
+     * @permission RendezVousController::search
+     * @permission_desc Rechercher des rendez-vous
+     */
     public function search(Request $request)
     {
         $request->validate([
@@ -303,10 +329,20 @@ class RendezVousController extends Controller
             'data' => $rendez_vous,
         ]);
     }
+    /**
+     * Display a listing of the resource.
+     * @permission RendezVousController::show
+     * @permission_desc Rechercher et afficher  des rendez-vous
+     */
+    public function searchAndExport(Request $request){
+
+    }
 
 
     /**
-     * Display the specified resource.
+     * Display a listing of the resource.
+     * @permission RendezVousController::show
+     * @permission_desc Afficher les details des rendez-vous
      */
     public function show(string $id)
     {

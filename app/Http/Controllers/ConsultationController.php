@@ -12,6 +12,8 @@ class ConsultationController extends Controller
 {
     /**
      * Display a listing of the resource.
+     * @permission ConsultationController::index
+     * @permission_desc Afficher les consultations avec pagination
      */
     public function index(Request $request)
     {
@@ -34,6 +36,8 @@ class ConsultationController extends Controller
         //
     }
 
+
+
     /**
      * Show the form for creating a new resource.
      */
@@ -43,12 +47,13 @@ class ConsultationController extends Controller
     }
 
     /**
-     * Store a newly created resource in storage.
+     * Display a listing of the resource.
+     * @permission ConsultationController::store
+     * @permission_desc Créer une pagination
      */
     public function store(Request $request)
     {
         $auth = auth()->user();
-        try {
             $data = $request->validate([
                 'typeconsultation_id'=> ['required', 'exists:typeconsultations,id'],
                 'pu_default' => 'required|integer', // Prix par défaut pour les assurances
@@ -56,56 +61,27 @@ class ConsultationController extends Controller
                     'required',
                     'integer',
                     Rule::unique('consultations')->where(function ($query) use ($request) {
-                        return $query->where('typeconsultation_id', $request->input('typeconsultation_id'));
-                    })
+                        return $query->where('name', $request->name);
+                    }),
                 ],
                 'name' => 'required|string|unique:consultations,name',
                 'validation_date' => 'required|integer',
             ]);
             $data['created_by'] = $auth->id;
-            DB::beginTransaction();
             $consultation = Consultation::create($data);
-            // Récupération de tous les assureurs non supprimés
-            $assureurs = Assureur::where('is_deleted', false)->get();
-
-            // Ventilation dans la table polymorphique
-            foreach ($assureurs as $assureur) {
-                Assurable::updateOrInsert(
-                    [
-                        'assureur_id' => $assureur->id,
-                        'assurable_type' => Consultation::class,
-                        'assurable_id' => $consultation->id,
-                    ],
-                    [
-                        'pu' => $data['pu_default'], // prix par défaut
-                    ]
-                );
-            }
-
-            DB::commit(); // Confirmer la transaction
 
             return response()->json([
                 'data' => $consultation,
-                'message' => 'Consultation enregistrée avec ventilation des tarifs pour les assurances.'
+                'message' => 'Consultation enregistrée succès'
             ]);
-        } catch (\Illuminate\Validation\ValidationException $e) {
-            // Erreur de validation
-            return response()->json([
-                'error' => 'Erreur de validation',
-                'details' => $e->errors()
-            ], 422);
-        } catch (\Exception $e) {
-            // Erreur générale
-            return response()->json([
-                'error' => 'Une erreur est survenue',
-                'message' => $e->getMessage()
-            ], 500);
-        }
+
         //
     }
 
     /**
-     * Display the specified resource.
+     * Display a listing of the resource.
+     * @permission ConsultationController::show
+     * @permission_desc Afficher les informations d'une consultation
      */
     public function show(string $id)
     {
@@ -144,47 +120,52 @@ class ConsultationController extends Controller
     }
 
     /**
-     * Update the specified resource in storage.
+     * Display a listing of the resource.
+     * @permission ConsultationController::update
+     * @permission_desc Mettre à jour une consultation
      */
     public function update(Request $request, string $id)
     {
         $auth = auth()->user();
 
-        try {
-            $data = $request->validate([
-                'typeconsultation_id' => 'required|exists:typeconsultations,id',
-                'pu' =>'required|integer',
-                'name' => 'required|string|unique:consultations,name',
-                'validation_date' => 'required|integer'
-            ]);
+        // Validation des données de la requête
+        $data = $request->validate([
+            'typeconsultation_id' => 'required|exists:typeconsultations,id',
+            'pu' => [
+                'required',
+                'integer',
+                Rule::unique('consultations')->where(function ($query) use ($request) {
+                    return $query->where('name', $request->name);
+                })->ignore($id), // Ignore l'enregistrement actuel
+            ],
+            'name' => [
+                'required',
+                'string',
+                Rule::unique('consultations', 'name')->ignore($id), // Ignore l'enregistrement actuel
+            ],
+            'validation_date' => 'required|integer',
+        ]);
 
-            $consultation = Consultation::where('is_deleted', false)->findOrFail($id);
-            $data['updated_by'] = $auth->id;
+        // Récupération de la consultation à mettre à jour
+        $consultation = Consultation::where('is_deleted', false)->findOrFail($id);
 
-            $consultation->update($data);
+        // Ajout de l'ID de l'utilisateur qui a effectué la mise à jour
+        $data['updated_by'] = $auth->id;
 
-            return response()->json([
-                'data' => $consultation,
-                'message' => 'Consultation mise à jour avec succès.'
-            ]);
+        // Mise à jour des données
+        $consultation->update($data);
 
-        } catch (\Illuminate\Validation\ValidationException $e) {
-            return response()->json([
-                'error' => 'Erreur de validation',
-                'details' => $e->errors()
-            ], 422);
-        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
-            return response()->json([
-                'error' => 'Consultation non trouvée'
-            ], 404);
-        } catch (\Exception $e) {
-            return response()->json([
-                'error' => 'Une erreur est survenue',
-                'message' => $e->getMessage()
-            ], 500);
-        }
+        return response()->json([
+            'data' => $consultation,
+            'message' => 'Consultation mise à jour avec succès.'
+        ]);
     }
 
+    /**
+     * Display a listing of the resource.
+     * @permission ConsultationController::updateStatus
+     * @permission_desc Changer le statut d'une consultation
+     */
     public function updateStatus(Request $request, $id, $status)
     {
         // Find the assureur by ID
@@ -216,7 +197,9 @@ class ConsultationController extends Controller
 
 
     /**
-     * Remove the specified resource from storage.
+     * Display a listing of the resource.
+     * @permission ConsultationController::destroy
+     * @permission_desc Supprimer une consultation
      */
     public function destroy(string $id)
     {

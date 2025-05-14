@@ -14,6 +14,11 @@ use Maatwebsite\Excel\Facades\Excel;
 
 class FournisseurController extends Controller
 {
+    /**
+     * Display a listing of the resource.
+     * @permission FournisseurController::listIdName
+     * @permission_desc Afficher l'id et nom des fournisseurs
+     */
     public function ListIdName()
     {
         $fournisseurs = Fournisseurs::select('id', 'nom')
@@ -56,6 +61,11 @@ class FournisseurController extends Controller
             'total' => $fournisseurs->total(),  // Nombre total d'éléments
         ]);
     }
+    /**
+     * Display a listing of the resource.
+     * @permission FournisseurController::export
+     * @permission_desc Exporter les données des fournisseurs
+     */
     public function export()
     {
         try {
@@ -79,6 +89,11 @@ class FournisseurController extends Controller
             ], 500);
         }
     }
+    /**
+     * Display a listing of the resource.
+     * @permission FournisseurController::searchAndExport
+     * @permission_desc Rechercher et exporter les données des fournisseurs
+     */
     public function searchAndExport(Request $request)
     {
         // Validation du paramètre de recherche
@@ -130,6 +145,11 @@ class FournisseurController extends Controller
             ], 500);
         }
     }
+    /**
+     * Display a listing of the resource.
+     * @permission FournisseurController::search
+     * @permission_desc Rechercher un fournisseur
+     */
     public function search(Request $request)
     {
         // Validation du paramètre de recherche
@@ -302,6 +322,11 @@ class FournisseurController extends Controller
             ], 500);
         }
     }
+    /**
+     * Display a listing of the resource.
+     * @permission FournisseurController::updateStatus
+     * @permission_desc Changer le statut  d'un fournisseur
+     */
     public function updateStatus(Request $request, $id, $status)
     {
         // Find the assureur by ID

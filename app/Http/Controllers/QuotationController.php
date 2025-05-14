@@ -8,6 +8,12 @@ use App\Models\Quotation;
 
 class QuotationController extends Controller
 {
+
+    /**
+     * Display a listing of the resource.
+     * @permission QuotationController::index
+     * @permission_desc Afficher les quotations
+     */
     public function index(Request $request){
         $perPage = $request->input('limit', 10);
         $search = $request->input('search');
@@ -34,6 +40,11 @@ class QuotationController extends Controller
         //
     }
 
+    /**
+     * Display a listing of the resource.
+     * @permission QuotationController::show
+     * @permission_desc Afficher les quotations
+     */
     public function show($id){
         $quotations = Quotation::where('id',$id)->where('is_deleted', false)->first();
         if($quotations){
@@ -43,6 +54,11 @@ class QuotationController extends Controller
         }
     }
 
+    /**
+     * Display a listing of the resource.
+     * @permission QuotationController::store
+     * @permission_desc Créer les quotations
+     */
     public function store(Request $request)
     {
         // Validate the incoming request
@@ -58,6 +74,11 @@ class QuotationController extends Controller
             'data' => $quotation
         ]);
     }
+    /**
+     * Display a listing of the resource.
+     * @permission QuotationController::getAllCodes
+     * @permission_desc Afficher l'id et le code des quotations
+     */
     public function getAllCodes()
     {
         $quotations = Quotation::where('is_deleted', false)
@@ -68,6 +89,11 @@ class QuotationController extends Controller
             'quotations' => $quotations
         ]);
     }
+    /**
+     * Display a listing of the resource.
+     * @permission QuotationController::getAllCodesAndTaux
+     * @permission_desc Afficher l'id et le code et le prix des quotations
+     */
     public function getAllCodesAndTaux()
     {
         $quotations = Quotation::where('is_deleted', false)
@@ -80,7 +106,11 @@ class QuotationController extends Controller
     }
 
 
-
+    /**
+     * Display a listing of the resource.
+     * @permission QuotationController::update
+     * @permission_desc Mettre à jour des quotations
+     */
     public function update(Request $request, $id){
         $validated  = $request->validate([
             'code'=>'required|unique:quotations,code,'.$id,
@@ -95,12 +125,16 @@ class QuotationController extends Controller
         return response()->json(['message' => 'Quotation mis à jour avec succès', 'data' => $quotation]);
 
     }
-
+    /**
+     * Display a listing of the resource.
+     * @permission QuotationController::destroy
+     * @permission_desc Supprimer des quotations
+     */
     public function destroy($id)
     {
         $quotation = Quotation::where('id',$id)->where('is_deleted', false)->first();
         if(!$quotation){
-            return response()->json(['message' => 'Devis introuvable'], 404);
+            return response()->json(['message' => 'Quotation introuvable'], 404);
         }
         $assureur = Assureur::where('code_quotation', $quotation->id)->count();
         if($assureur > 0){

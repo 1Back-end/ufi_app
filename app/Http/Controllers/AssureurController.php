@@ -131,7 +131,7 @@ class AssureurController extends Controller
     }
     /**
      * Display a listing of the resource.
-     * @permission AssureurController::searchAndExport
+     * @permission AssureurController::show
      * @permission_desc Afficher les détails d'un assureur
      */
     public function show($id)
