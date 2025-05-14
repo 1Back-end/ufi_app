@@ -40,15 +40,9 @@ use Illuminate\Support\Facades\Route;
 
 Route::middleware(['activity'])->group(function () {
 
-<<<<<<< HEAD
     require __DIR__ . '/auth.php';
     require __DIR__ . '/authorization.php';
     require __DIR__ . '/admin.php';
-=======
-    require __DIR__.'/auth.php';
-    require __DIR__.'/authorization.php';
-    require __DIR__.'/admin.php';
->>>>>>> origin/mises-a-jour-et-gestion-des-rendez-vous
 
     Route::middleware(['auth:sanctum', 'user.change_password', 'check.permission'])->group(function () {
 
@@ -250,16 +244,9 @@ Route::middleware(['activity'])->group(function () {
             Route::get('/export',  'export');
             Route::get('/search-and-export', 'searchAndExport');
         });
-<<<<<<< HEAD
-        Route::controller(ConsultationController::class)->prefix('consultations')->group(function () {
-            route::get('/list', 'index');
-            Route::post('/create', 'store');
-=======
         Route::controller(ConsultationController::class)->prefix('consultations')->group(function (){
             route::get('/list','index');
-            Route::get('/{consultation}/pu', 'getPu');
             Route::post('/create','store');
->>>>>>> origin/mises-a-jour-et-gestion-des-rendez-vous
             Route::get('/get_by_id/{id}', 'show');
             Route::put('/edit/{id}', 'update');
             Route::delete('/delete/{id}', 'destroy');
@@ -283,13 +270,9 @@ Route::middleware(['activity'])->group(function () {
         });
         Route::controller(OpsTblHospitalisationController::class)->prefix('hospitalisations')->group(function () {
             Route::get('/list', 'index');
-<<<<<<< HEAD
             Route::post('/create', 'store');
-=======
             route::get('/data', 'get_data');
-
             Route::post('/create','store');
->>>>>>> origin/mises-a-jour-et-gestion-des-rendez-vous
             Route::put('/edit/{id}', 'update');
             Route::put('update_status/{id}/status/{status}', 'updateStatus');
         });
@@ -310,9 +293,5 @@ Route::middleware(['activity'])->group(function () {
             Route::get('/export',  'export');
             Route::get('/get_by_id/{id}', 'show');
         });
-<<<<<<< HEAD
     });
-=======
-});
->>>>>>> origin/mises-a-jour-et-gestion-des-rendez-vous
 });
