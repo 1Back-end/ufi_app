@@ -12,6 +12,8 @@ class SoinsController extends Controller
 {
     /**
      * Display a listing of the resource.
+     * @permission SoinsController::index
+     * @permission_desc Afficher la liste des soins
      */
     public function index(Request $request)
     {
@@ -49,7 +51,9 @@ class SoinsController extends Controller
     }
 
     /**
-     * Store a newly created resource in storage.
+     * Display a listing of the resource.
+     * @permission SoinsController::store
+     * @permission_desc Créer des soins
      */
     public function store(Request $request)
     {
@@ -108,7 +112,9 @@ class SoinsController extends Controller
 
 
     /**
-     * Display the specified resource.
+     * Display a listing of the resource.
+     * @permission SoinsController::show
+     * @permission_desc Afficher les détails des soins
      */
     public function show(string $id)
     {
@@ -148,7 +154,9 @@ class SoinsController extends Controller
     }
 
     /**
-     * Update the specified resource in storage.
+     * Display a listing of the resource.
+     * @permission SoinsController::show
+     * @permission_desc Mettre à jour des soins
      */
     public function update(Request $request, string $id)
     {
@@ -188,6 +196,11 @@ class SoinsController extends Controller
             ], 500);
         }
     }
+    /**
+     * Display a listing of the resource.
+     * @permission SoinsController::updateStatus
+     * @permission_desc Changer le statut des soins
+     */
     public function updateStatus(Request $request, $id, $status)
     {
         // Find the assureur by ID
@@ -217,7 +230,9 @@ class SoinsController extends Controller
         ], 200);
     }
     /**
-     * Remove the specified resource from storage.
+     * Display a listing of the resource.
+     * @permission SoinsController::destroy
+     * @permission_desc Supprimer des soins
      */
     public function destroy(string $id)
     {

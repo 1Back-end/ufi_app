@@ -14,31 +14,31 @@ class CentresTableSeeder extends Seeder
     {
         Centre::insert([
             [
-                'nom_centre' => 'Centre de Santé A',
-                'tel_centre' => '123456789',
-                'numero_contribuable_centre' => '1234',
-                'registre_com_centre' => 'ABC123',
-                'fax_centre' => '987654321',
-                'email_centre' => 'contact@centresantéA.com',
-                'numero_autorisation_centre' => 'A123',
-                'logo_centre' => 'logoA.png',
+                'nom' => 'Centre de Santé A',
+                'tel' => '123456789',
+                'numero_contribuable' => '1234',
+                'registre_com' => 'ABC123',
+                'fax' => '987654321',
+                'email' => 'contact@centresantéA.com',
+                'numero_autorisation' => 'A123',
+                'logo' => 'logoA.png',
                 'created_at' => now(),
                 'updated_at' => now(),
             ],
             [
-                'nom_centre' => 'Centre de Santé B',
-                'tel_centre' => '987654321',
-                'numero_contribuable_centre' => '5678',
-                'registre_com_centre' => 'XYZ567',
-                'fax_centre' => '123456789',
-                'email_centre' => 'contact@centresantéB.com',
-                'numero_autorisation_centre' => 'B123',
-                'logo_centre' => 'logoB.png',
+                'nom' => 'Centre de Santé B',
+                'tel' => '987654321',
+                'numero_contribuable' => '5678',
+                'registre_com' => 'XYZ567',
+                'fax' => '123456789',
+                'email' => 'contact@centresantéB.com',
+                'numero_autorisation' => 'B123',
+                'logo' => 'logoB.png',
                 'created_at' => now(),
                 'updated_at' => now(),
             ],
         ]);
-    
+
         //
     }
 }

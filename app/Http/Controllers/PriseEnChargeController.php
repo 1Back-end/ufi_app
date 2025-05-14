@@ -5,6 +5,7 @@ use App\Exports\FournisseurExport;
 use App\Exports\PrisesEnChargeExport;
 use App\Exports\PrisesEnChargeExportSearch;
 use App\Models\Client;
+use App\Models\Prestation;
 use App\Models\PriseEnCharge;
 use Illuminate\Contracts\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
@@ -14,6 +15,11 @@ use Maatwebsite\Excel\Facades\Excel;
 
 class PriseEnChargeController extends Controller
 {
+    /**
+     * Display a listing of the resource.
+     * @permission PriseEnChargeController::export
+     * @permission_desc Exporter les données des prises en charges
+     */
     public function export()
     {
         try {
@@ -48,6 +54,8 @@ class PriseEnChargeController extends Controller
     }
     /**
      * Display a listing of the resource.
+     * @permission PriseEnChargeController::index
+     * @permission_desc Afficher les prises en charges avec pagination
      */
     public function index(Request $request)
     {
@@ -89,24 +97,43 @@ class PriseEnChargeController extends Controller
     }
 
     /**
-     * Store a newly created resource in storage.
+     * Display a listing of the resource.
+     * @permission PriseEnChargeController::store
+     * @permission_desc Créer  des prises en charges
      */
     public function store(Request $request)
     {
         $auth = auth()->user();
-
-        try {
             $data = $request->validate([
                 'assureur_id' => 'required|exists:assureurs,id',
                 'quotation_id'=>'required|exists:quotations,id',
-                'date' => 'required|date',
                 'code'=>'required|string',
                 'date_debut' => 'required|date',
-                'date_fin' => 'required|date|after:date_debut', // ✅ Ici
+                'date_fin' => 'required|date', // ✅ Ici
                 'client_id' => 'required|exists:clients,id',
                 'taux_pc' => 'required|integer',
-                'usage_unique' => 'nullable|in:Oui,Non',
+                'usage_unique' => 'boolean',
             ]);
+            // Vérification si la date de début est après la date de fin
+            if (strtotime($data['date_fin']) <= strtotime($data['date_debut'])) {
+                return response()->json([
+                    'message' => 'La date de fin doit être supérieure à la date de début.'
+                ], 400);
+            }
+
+        // ✅ Empêcher doublons sur même assureur/client/date
+            $overlapping = PriseEnCharge::where('assureur_id', $data['assureur_id'])
+                ->where('client_id', $data['client_id'])
+                ->where(function ($query) use ($data) {
+                    $query->whereBetween('date_debut', [$data['date_debut'], $data['date_fin']])
+                        ->orWhereBetween('date_fin', [$data['date_debut'], $data['date_fin']])
+                        ->orWhere(function ($q) use ($data) {
+                            $q->where('date_debut', '<=', $data['date_debut'])
+                                ->where('date_fin', '>=', $data['date_fin']);
+                        });
+                })
+                ->where('is_deleted', false)
+                ->exists();
             $data['created_by'] = $auth->id;
 
             $prise_en_charge = PriseEnCharge::create($data);
@@ -116,17 +143,7 @@ class PriseEnChargeController extends Controller
                 'message' => 'Prise en charge enregistrée avec succès'
             ], 201);
 
-        } catch (\Illuminate\Validation\ValidationException $e) {
-            return response()->json([
-                'error' => 'Erreur de validation',
-                'details' => $e->errors()
-            ], 422);
-        } catch (\Exception $e) {
-            return response()->json([
-                'error' => 'Une erreur est survenue',
-                'message' => $e->getMessage()
-            ], 500);
-        }
+
     }
 
 
@@ -134,7 +151,9 @@ class PriseEnChargeController extends Controller
 
 
     /**
-     * Display the specified resource.
+     * Display a listing of the resource.
+     * @permission PriseEnChargeController::show
+     * @permission_desc Afficher  les details d'une prise en charges
      */
     public function show(string $id)
     {
@@ -162,7 +181,9 @@ class PriseEnChargeController extends Controller
     }
 
     /**
-     * Update the specified resource in storage.
+     * Display a listing of the resource.
+     * @permission PriseEnChargeController::update
+     * @permission_desc Mettre à jour des prises en charges
      */
     public function update(Request $request, string $id)
     {
@@ -172,14 +193,42 @@ class PriseEnChargeController extends Controller
             $data = $request->validate([
                 'assureur_id' => 'required|exists:assureurs,id',
                 'quotation_id'=>'required|exists:quotations,id',
-                'date' => 'required|date',
                 'code'=>'required|string',
                 'date_debut' => 'required|date',
                 'date_fin' => 'required|date|after:date_debut', // ✅ Ici
                 'client_id' => 'required|exists:clients,id',
                 'taux_pc' => 'required|integer',
-                'usage_unique' => 'nullable|in:Oui,Non',
+                'usage_unique' => 'boolean',
             ]);
+            // Vérification si la date de début est après la date de fin
+            // Vérification si la date de début est après la date de fin
+            if (strtotime($data['date_debut']) > strtotime($data['date_fin'])) {
+                return response()->json([
+                    'message' => 'La date de début ne peut pas être supérieure à la date de fin.'
+                ], 400);
+            }
+            // ✅ Empêcher doublons sur même assureur/client/date
+            $overlapping = PriseEnCharge::where('assureur_id', $data['assureur_id'])
+                ->where('client_id', $data['client_id'])
+                ->where(function ($query) use ($data) {
+                    $query->whereBetween('date_debut', [$data['date_debut'], $data['date_fin']])
+                        ->orWhereBetween('date_fin', [$data['date_debut'], $data['date_fin']])
+                        ->orWhere(function ($q) use ($data) {
+                            $q->where('date_debut', '<=', $data['date_debut'])
+                                ->where('date_fin', '>=', $data['date_fin']);
+                        });
+                })
+                ->where('is_deleted', false)
+                ->exists();
+            // Vérifier si l'ID de la prise en charge existe déjà dans la table prestation
+            $existingPrestation = Prestation::where('prise_en_charge_id', $id)->first();
+
+            if ($existingPrestation) {
+                return response()->json([
+                    'error' => 'Cette prise en charge est déjà associée à une prestation.'
+                ], 400);
+            }
+
 
             $prise_en_charge = PriseEnCharge::where('is_deleted', false)->findOrFail($id);
 
@@ -210,7 +259,9 @@ class PriseEnChargeController extends Controller
 
 
     /**
-     * Remove the specified resource from storage.
+     * Display a listing of the resource.
+     * @permission PriseEnChargeController::destroy
+     * @permission_desc Supprimer les données des prises en charges
      */
     public function destroy(string $id)
     {
@@ -235,6 +286,11 @@ class PriseEnChargeController extends Controller
             ], 500);
         }
     }
+    /**
+     * Display a listing of the resource.
+     * @permission PriseEnChargeController::searchAndExport
+     * @permission_desc Rechercher et Exporter les données des prises en charges
+     */
     public function searchAndExport(Request $request)
     {
         // Validation du paramètre de recherche
@@ -290,6 +346,11 @@ class PriseEnChargeController extends Controller
             ], 500);
         }
     }
+    /**
+     * Display a listing of the resource.
+     * @permission PriseEnChargeController::searchAndExport
+     * @permission_desc Rechercher  des prises en charges
+     */
     public function search(Request $request)
     {
         $request->validate([

@@ -35,14 +35,14 @@ use App\Http\Controllers\AssurableController;
 use App\Http\Controllers\RendezVousController;
 use Illuminate\Support\Facades\Route;
 
-//Route::middleware(['activity'])->group(function () {
-//
-//    require __DIR__.'/auth.php';
-//    require __DIR__.'/authorization.php';
-//    require __DIR__.'/admin.php';
-//
-//    Route::middleware(['auth:sanctum', 'user.change_password', 'check.permission'])->group(function () {
-//
+Route::middleware(['activity'])->group(function () {
+
+    require __DIR__.'/auth.php';
+    require __DIR__.'/authorization.php';
+    require __DIR__.'/admin.php';
+
+    Route::middleware(['auth:sanctum', 'user.change_password', 'check.permission'])->group(function () {
+
 
         // Gestion des centres
         Route::controller(CentreController::class)->prefix('centres')->group(function () {
@@ -243,6 +243,7 @@ use Illuminate\Support\Facades\Route;
         });
         Route::controller(ConsultationController::class)->prefix('consultations')->group(function (){
             route::get('/list','index');
+            Route::get('/{consultation}/pu', 'getPu');
             Route::post('/create','store');
             Route::get('/get_by_id/{id}', 'show');
             Route::put('/edit/{id}', 'update');
@@ -270,6 +271,8 @@ use Illuminate\Support\Facades\Route;
         });
         Route::controller(OpsTblHospitalisationController::class)->prefix('hospitalisations')->group(function (){
             Route::get('/list', 'index');
+            route::get('/data', 'get_data');
+
             Route::post('/create','store');
             Route::put('/edit/{id}', 'update');
             Route::put('update_status/{id}/status/{status}', 'updateStatus');
@@ -294,5 +297,5 @@ use Illuminate\Support\Facades\Route;
 
 
         });
-//});
-//});
+});
+});

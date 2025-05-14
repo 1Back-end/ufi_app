@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 
 class GroupProduitController extends Controller
 {
+
     public function listIdName()
     {
         $groupProduits = GroupProduct::select('id', 'name')

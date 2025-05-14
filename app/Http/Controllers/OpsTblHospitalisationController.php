@@ -10,6 +10,11 @@ use Illuminate\Support\Facades\DB;
 
 class OpsTblHospitalisationController extends Controller
 {
+    /**
+     * Display a listing of the resource.
+     * @permission OpsTblHospitalisationController::index
+     * @permission_desc Afficher les hospitalisations avec pagination
+     */
     public  function  index(Request $request){
         $perPage = $request->input('limit', 5);  // Par défaut, 10 éléments par page
         $page = $request->input('page', 1);  // Page courante
@@ -23,6 +28,11 @@ class OpsTblHospitalisationController extends Controller
         ]);
 
     }
+    /**
+     * Display a listing of the resource.
+     * @permission OpsTblHospitalisationController::store
+     * @permission_desc Créer une Hospitalisation
+     */
     public function store(Request $request){
         $auth = auth()->user();
 
@@ -34,28 +44,10 @@ class OpsTblHospitalisationController extends Controller
                 'description'=>'nullable|string',
             ]);
             $data['created_by'] = $auth->id;
-            DB::beginTransaction();
             $hospitalisation = OpsTblHospitalisation::create($data);
-            $assureurs = Assureur::where('is_deleted', false)->get();
-
-            foreach ($assureurs as $assureur) {
-                Assurable::updateOrInsert(
-                    [
-                        'assureur_id' => $assureur->id,
-                        'assurable_type' => OpsTblHospitalisation::class,
-                        'assurable_id' => $hospitalisation->id,
-                    ],
-                    [
-                        'pu' => $data['pu_default'],
-                    ]
-                );
-            }
-
-            DB::commit();
-
             return response()->json([
                 'data' => $hospitalisation,
-                'message' => 'Hospitalisation enregistrée avec ventilation des tarifs pour les assurances.'
+                'message' => 'Hospitalisation enregistrée avec succès.'
             ]);
         } catch (\Illuminate\Validation\ValidationException $e) {
             // Erreur de validation
@@ -71,6 +63,11 @@ class OpsTblHospitalisationController extends Controller
             ], 500);
         }
     }
+    /**
+     * Display a listing of the resource.
+     * @permission OpsTblHospitalisationController::update
+     * @permission_desc Mettre à jour une hospitalisation
+     */
     public function update(Request $request, $id)
     {
         $auth = auth()->user();
@@ -102,6 +99,11 @@ class OpsTblHospitalisationController extends Controller
             ], 500);
         }
     }
+    /**
+     * Display a listing of the resource.
+     * @permission OpsTblHospitalisationController::updateStatus
+     * @permission_desc Changer le statut d'une hospitalisation
+     */
     public function updateStatus(Request $request, $id, $status)
     {
         // Find the assureur by ID
@@ -130,6 +132,25 @@ class OpsTblHospitalisationController extends Controller
             'soins' => $hospitalisation // Corrected to $assureur
         ], 200);
     }
+    public function get_data(Request $request)
+    {
+        $assureurId = $request->query('assureur_id');
+
+        $hospitalisations = Hospitalisation::with(['assureurs' => function ($query) use ($assureurId) {
+            $query->where('assureur_id', $assureurId);
+        }])->get()->map(function ($item) use ($assureurId) {
+            $pu = $item->assureurs->first()?->pivot->pu ?? $item->pu_default;
+            return [
+                'id' => $item->id,
+                'name' => $item->name,
+                'pu' => $pu,
+                'pu_default' => $item->pu_default,
+            ];
+        });
+
+        return response()->json(['data' => $hospitalisations]);
+    }
+
 
     //
 }

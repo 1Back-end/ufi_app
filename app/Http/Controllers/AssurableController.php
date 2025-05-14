@@ -58,6 +58,10 @@ class AssurableController extends Controller
                 ]
 
             );
+            Consultation::where('id',$item['id'])->update([
+                'pu_default' => $item['pu'],
+                'pu' => $item['pu'],
+            ]);
 
             $saved[] = [
                 'assureur_id'=> $assurable->assureur_id,
@@ -80,7 +84,6 @@ class AssurableController extends Controller
     public function storeAssurablesSoins(Request $request)
     {
         try {
-            // Validation des données envoyées par l'utilisateur
             $request->validate([
                 'assureur_id' => 'required|exists:assureurs,id',
                 'soins' => 'required|array',
@@ -91,6 +94,7 @@ class AssurableController extends Controller
             $saved = [];
 
             foreach ($request->soins as $item) {
+                // Met à jour ou crée un prix pour l'assureur
                 $assurable = Assurable::updateOrCreate(
                     [
                         'assureur_id' => $request->assureur_id,
@@ -98,12 +102,13 @@ class AssurableController extends Controller
                         'assurable_id' => $item['id'],
                     ],
                     [
-                        'pu' => $item['pu'],  // Le prix saisi manuellement par l'utilisateur
+                        'pu' => $item['pu'],
                     ]
                 );
 
+
                 $saved[] = [
-                    'assureur_id'=> $assurable->assureur_id,
+                    'assureur_id' => $assurable->assureur_id,
                     'id' => $assurable->id,
                     'pu' => $assurable->pu,
                 ];
@@ -114,13 +119,13 @@ class AssurableController extends Controller
                 'data' => $saved,
             ], 201);
         } catch (\Exception $e) {
-            // Capture l'exception et renvoie un message d'erreur détaillé
             return response()->json([
                 'error' => 'Une erreur est survenue lors de l\'enregistrement.',
                 'details' => $e->getMessage(),
             ], 500);
         }
     }
+
 
 
     public function storeHospitalisationsPrices(Request $request)
@@ -195,6 +200,10 @@ class AssurableController extends Controller
                     'b' => $item['b'],
                 ]
             );
+            Acte::where('id', $item['id'])->update([
+                'k_modulateur' => $item['k_modulateur'],
+                'b' => $item['b'],
+            ]);
 
             $saved[] = [
                 'assureur_id' => $assurable->assureur_id,
@@ -209,6 +218,32 @@ class AssurableController extends Controller
             'data' => $saved,
         ], 201);
     }
+    public function getConsultationsWithPrices(Request $request)
+    {
+        $request->validate([
+            'assureur_id' => 'required|exists:assureurs,id',
+        ]);
+
+        $consultations = Consultation::all();
+        $assurables = Assurable::where('assureur_id', $request->assureur_id)
+            ->where('assurable_type', Consultation::class)
+            ->get()
+            ->keyBy('assurable_id');
+
+        $data = $consultations->map(function ($consultation) use ($assurables) {
+            $assurable = $assurables->get($consultation->id);
+
+            return [
+                'id' => $consultation->id,
+                'name' => $consultation->name,
+                'pu_default' => $consultation->pu_default,
+                'pu' => $assurable ? $assurable->pu : $consultation->pu_default,
+            ];
+        });
+
+        return response()->json(['data' => $data]);
+    }
+
 
 
 

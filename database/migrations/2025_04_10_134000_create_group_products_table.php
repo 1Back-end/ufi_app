@@ -14,8 +14,8 @@ return new class extends Migration
         Schema::create('group_products', function (Blueprint $table) {
             $table->id();
             $table->string('name')->unique();  // Le nom de la catégorie
-            $table->foreignId('created_by')->nullable()->constrained('users')->nullOnDelete();
-            $table->foreignId('updated_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->foreignId('created_by')->nullable()->references('id')->on('users')->onDelete('cascade');
+            $table->foreignId('updated_by')->nullable()->references('id')->on('users')->onDelete('cascade');
             $table->boolean('is_deleted')->default(false);
             $table->timestamps();
         });

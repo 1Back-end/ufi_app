@@ -23,9 +23,10 @@ class Consultation extends Model
     /**
      * Relation avec le type de consultation.
      */
-    public function assurables()
+    public function assurable()
     {
-        return $this->morphMany(Assurable::class, 'assurable');
+        return $this->morphOne(Assurable::class, 'assurable')
+            ->where('assureur_id', request()->get('assureur_id'));
     }
     public function typeconsultation()
     {
