@@ -284,7 +284,7 @@ class PrestationController extends Controller
                             });
                     });
                 },
-                'prestations.factures' => function ($query) use ($request) {
+                'prestations.factures' => function ($query) {
                     $query->where('factures.type', 2);
                 },
                 'prestations.actes',
@@ -304,10 +304,18 @@ class PrestationController extends Controller
                             ->whereBetween('factures.date_fact', [$request->input('start_date'), $request->input('end_date')]);
                     });
                 })
-                ->withSum(['facturesInProgressDeType2 as total_amount' => function ($query) use ($request) {
-                    $query->whereBetween('factures.date_fact', [$request->input('start_date'), $request->input('end_date')]); // ou autre champ: programmation_date ?
-                }], 'amount_pc')
+                ->select('prise_en_charges.*') // important
+                ->selectSub(function ($query) use ($request) {
+                    $query->from('factures')
+                        ->join('prestations', 'prestations.id', '=', 'factures.prestation_id')
+                        ->whereColumn('prestations.prise_charge_id', 'prise_en_charges.id')
+                        ->where('factures.type', 2)
+                        ->where('factures.state', StateFacture::IN_PROGRESS->value)
+                        ->whereBetween('factures.date_fact', [$request->input('start_date'), $request->input('end_date')])
+                        ->selectRaw('SUM(factures.amount_pc) / 100');
+                }, 'total_amount')
                 ->get();
+
         }
 
         if ($request->input('payable_by')) {
@@ -333,9 +341,16 @@ class PrestationController extends Controller
                             ->whereBetween('factures.date_fact', [$request->input('start_date'), $request->input('end_date')]);
                     });
                 })
-                ->withSum(['facturesInProgressDeType2 as total_amount' => function ($query) use ($request) {
-                    $query->whereBetween('factures.date_fact', [$request->input('start_date'), $request->input('end_date')]); // ou autre champ: programmation_date ?
-                }], 'amount_client')
+                ->select('clients.*')
+                ->selectSub(function ($query) use ($request) {
+                    $query->from('factures')
+                        ->join('prestations', 'prestations.id', '=', 'factures.prestation_id')
+                        ->whereColumn('prestations.payable_by', 'clients.id')
+                        ->where('factures.type', 2)
+                        ->where('factures.state', StateFacture::IN_PROGRESS->value)
+                        ->whereBetween('factures.date_fact', [$request->input('start_date'), $request->input('end_date')])
+                        ->selectRaw('SUM(factures.amount_client) / 100');
+                }, 'total_amount')
                 ->whereTypeCli('associate')
                 ->get();
         }
