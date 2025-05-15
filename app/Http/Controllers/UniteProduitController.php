@@ -63,7 +63,7 @@ class UniteProduitController extends Controller
 
     /**
      * Display a listing of the resource.
-     * @permission UniteProduitController::index
+     * @permission UniteProduitController::store
      * @permission_desc Enregistrer les unités de produits
      */
     public function store(Request $request)
@@ -87,7 +87,7 @@ class UniteProduitController extends Controller
      */
     /**
      * Display a listing of the resource.
-     * @permission UniteProduitController::index
+     * @permission UniteProduitController::show
      * @permission_desc Afficher les détails des unités de produits
      */
     public function show(string $id)
@@ -112,7 +112,7 @@ class UniteProduitController extends Controller
 
     /**
      * Display a listing of the resource.
-     * @permission UniteProduitController::index
+     * @permission UniteProduitController::update
      * @permission_desc Modifier les unités de produits
      */
     public function update(Request $request, string $id)
@@ -138,7 +138,7 @@ class UniteProduitController extends Controller
 
     /**
      * Display a listing of the resource.
-     * @permission UniteProduitController::index
+     * @permission UniteProduitController::destroy
      * @permission_desc Supprimer des unités de produits
      */
     public function destroy(string $id)
