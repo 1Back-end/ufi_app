@@ -224,7 +224,7 @@ class PriseEnChargeController extends Controller
                 ->where('is_deleted', false)
                 ->exists();
             // Vérifier si l'ID de la prise en charge existe déjà dans la table prestation
-            $existingPrestation = Prestation::where('prise_en_charge_id', $id)->first();
+            $existingPrestation = Prestation::where('prise_charge_id', $id)->first();
 
             if ($existingPrestation) {
                 return response()->json([
