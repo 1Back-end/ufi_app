@@ -8,6 +8,11 @@ use Sabberworm\CSS\Rule\Rule;
 
 class TypeSoinsController extends Controller
 {
+    /**
+     * Display a listing of the resource.
+     * @permission TypeSoinsController::listIdName
+     * @permission_desc Afficher l'id et le nom des types de soins
+     */
 
     public function listIdName(){
         $data = TypeSoins::select('id','name')->where('is_deleted',false)->get();
@@ -17,6 +22,8 @@ class TypeSoinsController extends Controller
     }
     /**
      * Display a listing of the resource.
+     * @permission TypeSoinsController::index
+     * @permission_desc Afficher la liste des soins
      */
     public function index(Request $request)
     {
@@ -42,7 +49,9 @@ class TypeSoinsController extends Controller
     }
 
     /**
-     * Store a newly created resource in storage.
+     * Display a listing of the resource.
+     * @permission TypeSoinsController::store
+     * @permission_desc Créer des soins
      */
     public function store(Request $request)
     {
@@ -60,7 +69,9 @@ class TypeSoinsController extends Controller
     }
 
     /**
-     * Display the specified resource.
+     * Display a listing of the resource.
+     * @permission TypeSoinsController::show
+     * @permission_desc Afficher les détails des soins
      */
     public function show(string $id)
     {
@@ -82,7 +93,9 @@ class TypeSoinsController extends Controller
     }
 
     /**
-     * Update the specified resource in storage.
+     * Display a listing of the resource.
+     * @permission TypeSoinsController::show
+     * @permission_desc Mise à jour des soins
      */
     public function update(Request $request, string $id)
     {

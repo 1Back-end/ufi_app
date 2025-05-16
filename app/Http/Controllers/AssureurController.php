@@ -180,7 +180,7 @@ class AssureurController extends Controller
                 'nom_abrege' => 'nullable|string',
                 'adresse' => 'required|string',
                 'tel' => 'required|string|unique:assureurs,tel',
-                'tel1' => 'required|string|unique:assureurs,tel1',
+                'tel1' => 'nullable',
                 'code_quotation' => 'required|exists:quotations,id',
                 'Reg_com' => 'required|string|unique:assureurs,Reg_com',
                 'num_com' => 'required|string|unique:assureurs,num_com',
@@ -272,7 +272,7 @@ class AssureurController extends Controller
                 'nom_abrege' => 'nullable|string',
                 'adresse' => 'required|string',
                 'tel' => 'required|string|unique:assureurs,tel,' . $assureur->id,
-                'tel1' => 'required|string|unique:assureurs,tel1,' . $assureur->id,
+                'tel1' => 'nullable',
                 'code_quotation' => 'required|exists:quotations,id',
                 'Reg_com' => 'required|string|unique:assureurs,Reg_com,' . $assureur->id,
                 'num_com' => 'required|string|unique:assureurs,num_com,' . $assureur->id,
@@ -467,5 +467,22 @@ class AssureurController extends Controller
             'quotation_id' => $assureur->quotation?->id, // 👈 ajouter l'ID
             'quotation_taux' => $assureur->quotation?->taux, // 👈 toujours garder le taux
         ]);
+    }
+    public function getHospitalisations($id)
+    {
+        $assureur = Assureur::find($id);
+        if (!$assureur) {
+            return response()->json(['message' => 'Assureur non trouvé'], 404);
+        }
+        // Retourner uniquement les données nécessaires
+        $hospitalisations = $assureur->hospitalisations->map(function ($hospitalisation) {
+            return [
+                'name' => $hospitalisation->name,
+                'pu_default' => $hospitalisation->pu_default,
+                'pu' => $hospitalisation->pivot->pu,
+            ];
+        });
+
+        return response()->json($hospitalisations);
     }
 }

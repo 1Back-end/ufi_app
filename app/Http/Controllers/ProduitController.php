@@ -88,7 +88,7 @@ class ProduitController extends Controller
 
     /**
      * Display a listing of the resource.
-     * @permission ProduitController::sotre
+     * @permission ProduitController::store
      * @permission_desc Créer  des produits
      */
     public function store(Request $request)

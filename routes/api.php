@@ -167,6 +167,7 @@ Route::middleware(['activity'])->group(function () {
             Route::get('/search-and-export', 'searchAndExport');
             Route::get('/get_data',  'listIdName');
             Route::get('/{id}/quotation-code',  'getQuotationCode');
+            Route::get('/{id}/hospitalisations', 'getHospitalisations');
         });
         Route::controller(FournisseurController::class)->prefix('fournisseurs')->group(function () {
             Route::get('/list', 'index');
@@ -275,6 +276,7 @@ Route::middleware(['activity'])->group(function () {
             Route::post('/create','store');
             Route::put('/edit/{id}', 'update');
             Route::put('update_status/{id}/status/{status}', 'updateStatus');
+            Route::get('/{id}/pu',  'getPuByHospitalisationId');
         });
         Route::controller(AssurableController::class)->prefix('assurables')->group(function () {
             Route::get('/get_assurables', 'index');

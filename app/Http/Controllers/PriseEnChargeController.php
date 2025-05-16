@@ -224,7 +224,7 @@ class PriseEnChargeController extends Controller
                 ->where('is_deleted', false)
                 ->exists();
             // Vérifier si l'ID de la prise en charge existe déjà dans la table prestation
-            $existingPrestation = Prestation::where('prise_en_charge_id', $id)->first();
+            $existingPrestation = Prestation::where('prise_charge_id', $id)->first();
 
             if ($existingPrestation) {
                 return response()->json([
@@ -270,9 +270,18 @@ class PriseEnChargeController extends Controller
     {
         try {
             $prise_en_charge = PriseEnCharge::where('is_deleted', false)->findOrFail($id);
+
+            // Vérifier s'il existe des prestations liées à cette prise en charge
+            $hasPrestations = $prise_en_charge->prestations()->exists();
+
+            if ($hasPrestations) {
+                return response()->json([
+                    'message' => 'Impossible de supprimer : des prestations sont liées à cette prise en charge.'
+                ], 400);
+            }
+            // Marquer comme supprimée
             $prise_en_charge->update([
-                'is_deleted' => true,
-                'updated_by' => auth()->id()
+                'is_deleted' => true
             ]);
 
             return response()->json([
@@ -289,6 +298,7 @@ class PriseEnChargeController extends Controller
             ], 500);
         }
     }
+
     /**
      * Display a listing of the resource.
      * @permission PriseEnChargeController::searchAndExport

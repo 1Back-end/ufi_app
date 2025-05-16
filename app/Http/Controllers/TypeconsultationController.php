@@ -10,6 +10,8 @@ class TypeconsultationController extends Controller
 {
     /**
      * Display a listing of the resource.
+     * @permission TypeconsultationController::listIdName
+     * @permission_desc Afficher l'id et le name du type de la consultation
      */
     public function listIdName()
     {
@@ -23,6 +25,8 @@ class TypeconsultationController extends Controller
     }
     /**
      * Display a listing of the resource.
+     * @permission TypeconsultationController::index
+     * @permission_desc Afficher la liste des types consultations
      */
     public function index(Request $request)
     {
@@ -51,7 +55,9 @@ class TypeconsultationController extends Controller
     }
 
     /**
-     * Store a newly created resource in storage.
+     * Display a listing of the resource.
+     * @permission TypeconsultationController::store
+     * @permission_desc Créer des types consultations
      */
     public function store(Request $request)
     {
@@ -69,7 +75,9 @@ class TypeconsultationController extends Controller
     }
 
     /**
-     * Display the specified resource.
+     * Display a listing of the resource.
+     * @permission TypeconsultationController::show
+     * @permission_desc Afficher les détails des types consultations
      */
     public function show(string $id)
     {
@@ -92,7 +100,9 @@ class TypeconsultationController extends Controller
     }
 
     /**
-     * Update the specified resource in storage.
+     * Display a listing of the resource.
+     * @permission TypeconsultationController::update
+     * @permission_desc Modifier des types consultations
      */
     public function update(Request $request, string $id)
     {
@@ -118,7 +128,9 @@ class TypeconsultationController extends Controller
     }
 
     /**
-     * Remove the specified resource from storage.
+     * Display a listing of the resource.
+     * @permission TypeconsultationController::destroy
+     * @permission_desc Supprimer des types consultations
      */
     public function destroy(string $id)
     {

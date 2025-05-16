@@ -145,7 +145,7 @@ class AssurableController extends Controller
                 $assurable = Assurable::updateOrCreate(
                     [
                         'assureur_id' => $request->assureur_id,
-                        'assurable_type' => Soins::class,
+                        'assurable_type' => OpsTblHospitalisation::class,
                         'assurable_id' => $item['id'],
                     ],
                     [
@@ -161,7 +161,7 @@ class AssurableController extends Controller
             }
 
             return response()->json([
-                'message' => 'Prix des consultations enregistrés avec succès.',
+                'message' => 'Prix des hospitalisations enregistrés avec succès.',
                 'data' => $saved,
             ], 201);
         } catch (\Exception $e) {
@@ -243,6 +243,9 @@ class AssurableController extends Controller
 
         return response()->json(['data' => $data]);
     }
+
+
+
 
 
 

@@ -132,24 +132,34 @@ class OpsTblHospitalisationController extends Controller
             'soins' => $hospitalisation // Corrected to $assureur
         ], 200);
     }
-    public function get_data(Request $request)
+    public function getPuByHospitalisationId($id, Request $request)
     {
         $assureurId = $request->query('assureur_id');
 
-        $hospitalisations = Hospitalisation::with(['assureurs' => function ($query) use ($assureurId) {
-            $query->where('assureur_id', $assureurId);
-        }])->get()->map(function ($item) use ($assureurId) {
-            $pu = $item->assureurs->first()?->pivot->pu ?? $item->pu_default;
-            return [
-                'id' => $item->id,
-                'name' => $item->name,
-                'pu' => $pu,
-                'pu_default' => $item->pu_default,
-            ];
-        });
+        // Vérifier que l’hospitalisation existe
+        $hospitalisation = OpsTblHospitalisation::find($id);
 
-        return response()->json(['data' => $hospitalisations]);
+        if (!$hospitalisation) {
+            return response()->json(['error' => 'Hospitalisation non trouvée'], 404);
+        }
+
+        // Chercher un PU spécifique à l’assureur (si assureur_id est fourni)
+        $assurable = Assurable::where('assurable_type', OpsTblHospitalisation::class)
+            ->where('assurable_id', $id)
+            ->when($assureurId, function ($query, $assureurId) {
+                return $query->where('assureur_id', $assureurId);
+            })
+            ->first();
+
+        $pu = $assurable?->pu ?? $hospitalisation->pu_default;
+
+        return response()->json([
+            'id' => $hospitalisation->id,
+            'name' => $hospitalisation->name,
+            'pu' => $pu,
+        ]);
     }
+
 
 
     //

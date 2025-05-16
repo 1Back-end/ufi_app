@@ -63,33 +63,10 @@ class SoinsController extends Controller
             ]);
 
             $data['created_by'] = $auth->id;
-
-
-            DB::beginTransaction();
-
             $soin = Soins::create($data);
-
-            // Récupération de tous les assureurs
-            $assureurs = Assureur::where('is_deleted', false)->get();
-
-            foreach ($assureurs as $assureur) {
-                Assurable::updateOrInsert(
-                    [
-                        'assureur_id' => $assureur->id,
-                        'assurable_type' => Soins::class,
-                        'assurable_id' => $soin->id,
-                    ],
-                    [
-                        'pu' => $data['pu_default'], // prix par défaut
-                    ]
-                );
-            }
-
-            DB::commit();
-
             return response()->json([
                 'data' => $soin,
-                'message' => 'Soin enregistré avec ventilation des tarifs pour les assurances'
+                'message' => 'Soin enregistré avec succès'
             ]);
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
@@ -231,7 +208,6 @@ class SoinsController extends Controller
     {
         try {
             $soins = Soins::where('is_deleted', false)->findOrFail($id);
-
             // Marquer comme supprimé (soft delete)
             $soins->is_deleted = true;
             $soins->save();
