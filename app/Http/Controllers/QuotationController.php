@@ -65,7 +65,7 @@ class QuotationController extends Controller
         $validated = $request->validate([
             'code'=>'required|unique:quotations',
             'taux' => 'required',
-            'description' => 'required',
+            'description' => 'nullable',
         ]);
         $quotation = Quotation::create($validated);
         // Return the success response with the created quotation data
@@ -115,7 +115,7 @@ class QuotationController extends Controller
         $validated  = $request->validate([
             'code'=>'required|unique:quotations,code,'.$id,
             'taux' => 'required',
-            'description' => 'required',
+            'description' => 'nullable',
         ]);
         $quotation = Quotation::where('id',$id)->where('is_deleted', false)->first();
         if(!$quotation){

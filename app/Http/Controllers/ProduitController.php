@@ -20,7 +20,9 @@ class ProduitController extends Controller
      */
     public function index(Request $request)
     {
-        $perPage = $request->input('limit', 10); // Nombre d'éléments par page
+        $perPage = $request->input('limit', 10);   // Nombre d'éléments par page (par défaut 10)
+        $page = $request->input('page', 1);        // Page courante
+        $search = $request->input('search');       // Terme de recherche
 
         $products = Product::where('is_deleted', false)
             ->with([
@@ -28,9 +30,21 @@ class ProduitController extends Controller
                 'uniteProduit:id,name',
                 'groupProduct:id,name',
                 'categories:id,name',
-                'fournisseurs:id,nom',
+                'fournisseurs:id,nom'
             ])
-            ->paginate($perPage);
+            ->when($search, function ($query, $search) {
+                $query->where(function ($query) use ($search) {
+                    $query->where('name', 'like', '%' . $search . '%')
+                    ->orWhere('dosage', 'like', '%' . $search . '%')
+                        ->orWhere('price', 'like', '%' . $search . '%')
+                        ->orWhere('unite_par_emballage', 'like', '%' . $search . '%')
+                        ->orWhere('condition_par_unite_emballage', 'like', '%' . $search . '%');
+
+                    // Ajoute d'autres champs ici si besoin
+                });
+            })
+            ->latest()
+            ->paginate(perPage: $perPage, page: $page);
 
         return response()->json([
             'data' => $products->items(),
@@ -40,6 +54,7 @@ class ProduitController extends Controller
             'total' => $products->total(),
         ]);
     }
+
     /**
      * Display a listing of the resource.
      * @permission ProduitController::updateStatus

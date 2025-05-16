@@ -83,6 +83,7 @@ class PriseEnChargeController extends Controller
                         });
                     });
             })
+            ->latest()
             ->paginate($perPage, ['*'], 'page', $page);
 
         return response()->json([

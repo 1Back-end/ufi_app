@@ -29,7 +29,8 @@ class RendezVousController extends Controller
                 'createdBy:id,email',
                 'updatedBy:id,email'
             )
-            ->paginate($perPage);
+            ->latest()
+            ->paginate(perPage: $perPage, page: $page);
 
         return response()->json([
             'data' => $rendez_vous->items(),

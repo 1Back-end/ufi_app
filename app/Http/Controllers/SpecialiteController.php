@@ -36,9 +36,23 @@ class SpecialiteController extends Controller
      * @permission SpecialiteController::get_all
      * @permission_desc Afficher toutes les spécialitées
      */
-    public function get_all(){
-        $specialite = Specialite::paginate(5);
-        return response()->json($specialite);
+    public function get_all(Request $request){
+        $perPage = $request->input('limit', 10);  // Par défaut, 10 éléments par page
+        $page = $request->input('page', 1);  // Page courante
+        $search = $request->input('search');
+
+        $specialites = Specialite::where('is_deleted', false)
+            ->when($search, function ($query) use ($search) {
+                $query->where('nom_specialite', 'like', "%$search%");
+            })
+            ->paginate(perPage: $perPage, page: $page);
+
+        return response()->json([
+            'data' => $specialites->items(),
+            'current_page' => $specialites->currentPage(),  // Page courante
+            'last_page' => $specialites->lastPage(),  // Dernière page
+            'total' => $specialites->total(),  // Nombre total d'éléments
+        ]);
     }
 
     /**

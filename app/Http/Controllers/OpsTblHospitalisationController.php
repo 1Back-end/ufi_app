@@ -19,7 +19,8 @@ class OpsTblHospitalisationController extends Controller
         $perPage = $request->input('limit', 5);  // Par défaut, 10 éléments par page
         $page = $request->input('page', 1);  // Page courante
 
-        $hospitalisations = OpsTblHospitalisation::where('is_deleted', false)->paginate($perPage);
+        $hospitalisations = OpsTblHospitalisation::where('is_deleted', false)
+            ->latest()->paginate(perPage: $perPage, page: $page);
         return response()->json([
             'data' => $hospitalisations->items(),
             'current_page' => $hospitalisations->currentPage(),  // Page courante
