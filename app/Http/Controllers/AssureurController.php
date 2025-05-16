@@ -120,6 +120,7 @@ class AssureurController extends Controller
                     ->orWhere('id', 'like', '%' . $search . '%')
                     ->orWhere('email', 'like', '%' . $search . '%');
             })
+            ->latest()
             ->paginate(perPage: $perPage, page: $page);
 
         return response()->json([

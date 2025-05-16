@@ -94,7 +94,7 @@ class TypeSoinsController extends Controller
 
     /**
      * Display a listing of the resource.
-     * @permission TypeSoinsController::show
+     * @permission TypeSoinsController::update
      * @permission_desc Mise à jour des soins
      */
     public function update(Request $request, string $id)

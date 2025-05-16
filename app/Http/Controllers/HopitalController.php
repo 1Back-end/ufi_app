@@ -25,12 +25,25 @@ class HopitalController extends Controller
      * @permission HopitalController::get_all
      * @permission_desc Afficher tous les hôpitaux
      */
-    public function get_all()
+    public function get_all(Request $request)
     {
-        // Récupérer les hôpitaux avec pagination de 10 éléments par page
-        $hopis = Hopital::where('is_deleted', false)->paginate(5);
-        // Retourner les résultats paginés sous forme de réponse JSON
-        return response()->json($hopis);
+        $perPage = $request->input('limit', 10);  // Par défaut, 10 éléments par page
+        $page = $request->input('page', 1);  // Page courante
+        $search = $request->input('search');
+
+        $hopitals = Hopital::where('is_deleted', false)
+            ->when($search, function ($query) use ($search) {
+                $query->where('nom_hopi', 'like', "%$search%");
+            })
+            ->paginate(perPage: $perPage, page: $page);
+
+        return response()->json([
+            'data' => $hopitals->items(),
+            'current_page' => $hopitals->currentPage(),  // Page courante
+            'last_page' => $hopitals->lastPage(),  // Dernière page
+            'total' => $hopitals->total(),  // Nombre total d'éléments
+        ]);
+        //
     }
 
 

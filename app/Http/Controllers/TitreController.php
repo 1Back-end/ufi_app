@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Consultant;
+use App\Models\Soins;
 use App\Models\User;
 use Illuminate\Http\Request;
 use App\Models\Titre;
@@ -14,6 +15,7 @@ class TitreController extends Controller
      * @permission TitreController::index
      * @permission_desc Afficher l'id et le nom du titre
      */
+
 
     public function index()
     {
@@ -118,9 +120,25 @@ class TitreController extends Controller
      * @permission TitreController::get_all
      * @permission_desc Afficher tous les titres
      */
-    public function get_all(){
-        $titres = Titre::where('is_deleted',false)->paginate(5);
-        return response()->json($titres);
+
+
+    public function get_all(Request $request){
+        $perPage = $request->input('limit', 10);  // Par défaut, 10 éléments par page
+        $page = $request->input('page', 1);  // Page courante
+        $search = $request->input('search');
+
+        $titres = Titre::where('is_deleted', false)
+            ->when($search, function ($query) use ($search) {
+                $query->where('nom_titre', 'like', "%$search%");
+            })
+            ->paginate(perPage: $perPage, page: $page);
+
+        return response()->json([
+            'data' => $titres->items(),
+            'current_page' => $titres->currentPage(),  // Page courante
+            'last_page' => $titres->lastPage(),  // Dernière page
+            'total' => $titres->total(),  // Nombre total d'éléments
+        ]);
     }
 
     /**

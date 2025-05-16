@@ -28,16 +28,32 @@ class ServiceHopitalController extends Controller
      * @permission ServiceHopitalController::get_all
      * @permission_desc Afficher la liste des services hospitaliers
      */
-    public function get_all()
+
+    public function get_all(Request $request)
     {
-        $services_hopitals = Service_Hopital::where('is_deleted',false)->paginate(5);
-        return response()->json($services_hopitals);
+        $perPage = $request->input('limit', 10);  // Par défaut, 10 éléments par page
+        $page = $request->input('page', 1);  // Page courante
+        $search = $request->input('search');
+
+        $services_hopitals = Service_Hopital::where('is_deleted', false)
+            ->when($search, function ($query) use ($search) {
+                $query->where('nom_service_hopi', 'like', "%$search%");
+            })
+            ->paginate(perPage: $perPage, page: $page);
+
+        return response()->json([
+            'data' => $services_hopitals->items(),
+            'current_page' => $services_hopitals->currentPage(),  // Page courante
+            'last_page' => $services_hopitals->lastPage(),  // Dernière page
+            'total' => $services_hopitals->total(),  // Nombre total d'éléments
+        ]);
+        //
     }
 
     // Crée un nouveau service hospitalier
     /**
      * Display a listing of the resource.
-     * @permission ServiceHopitalController::sotre
+     * @permission ServiceHopitalController::store
      * @permission_desc Enregistrer un service hospitalier
      */
     public function store(Request $request)
