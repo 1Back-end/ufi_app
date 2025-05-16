@@ -30,12 +30,12 @@ if (! function_exists('upload_media')) {
     {
         $mimetype = $file->getClientMimeType();
         $extension = $file->getClientOriginalExtension();
-        $fileName = $filename ? $filename .'.'. $extension : $file->getClientOriginalName();
+        $fileName = $filename ? $filename . '.' . $extension : $file->getClientOriginalName();
 
         if ($update) {
             delete_media(
                 $disk,
-                $update->path .'/'. $update->filename,
+                $update->path . '/' . $update->filename,
                 $update
             );
         }
@@ -118,8 +118,7 @@ if (! function_exists('load_permissions')) {
             }
 
             $permissions = collect([...$permissionsByCentre, ...$permissionsByRole])->unique()->flatten()->toArray();
-        }
-        else {
+        } else {
             $permission = $user->permissions()
                 ->where('permissions.active', true)
                 ->wherePivot('active', true)
@@ -233,6 +232,8 @@ if (! function_exists('save_facture')) {
 
         $facture = $prestation->factures()->where('type', $type)->first();
         if (! $facture) {
+            $state = $prestation->payable_by || $amount_client <= 0 ? StateFacture::IN_PROGRESS->value : StateFacture::CREATE->value;
+
             $facture = Facture::create([
                 'prestation_id' => $prestation->id,
                 'date_fact' => now(),
@@ -243,11 +244,10 @@ if (! function_exists('save_facture')) {
                 'type' => $type,
                 'sequence' => $sequence,
                 'centre_id' => $centre_id,
-                'state' => $prestation->payable_by || $amount_client < 0 ? StateFacture::IN_PROGRESS->value : StateFacture::CREATE->value,
+                'state' => $state,
                 'code' => $prestation->centre->reference . '-' . date('ym') . '-' . str_pad($sequence, 6, '0', STR_PAD_LEFT)
             ]);
-        }
-        else {
+        } else {
             $facture->update([
                 'amount' => $amount,
                 'amount_pc' => $amount_pc,

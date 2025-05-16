@@ -82,7 +82,7 @@ class PrestationController extends Controller
             $query->orderBy($request->input('order')['column'], $request->input('order')['direction']);
         }, function (Builder $query) {
             $query->latest();
-        })->when($request->input('regulated'), function (Builder $query) use ($request) {
+        })->when($request->has('regulated'), function (Builder $query) use ($request) {
             if (is_array($request->input('regulated'))) {
                 $query->whereIn('regulated', $request->input('regulated'));
             } else {
@@ -131,6 +131,11 @@ class PrestationController extends Controller
 
             $prestation = Prestation::create($data);
             $this->attachElementWithPrestation($request, $prestation);
+
+            // Si le montant de la remise + la prise en charge est égal au montant de la prestation alors on crée la facture
+            if ($data['regulated'] == 2 || $data['payable_by']) {
+                save_facture($prestation, $centre, 2);
+            }
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json([
@@ -187,6 +192,10 @@ class PrestationController extends Controller
 
             $prestation->update($data);
             $this->attachElementWithPrestation($request, $prestation, true);
+
+            if ($data['regulated'] == 2) {
+                save_facture($prestation, $prestation->centre->id, 2);
+            }
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json([
@@ -260,6 +269,13 @@ class PrestationController extends Controller
         ], 202);
     }
 
+    /**
+     * @param Request $request
+     * @return JsonResponse
+     *
+     * @permission PrestationController::getFacturesInProgress
+     * @permission_desc Récupérer les factures non réglées par assurance ou par client associé
+     */
     public function getFacturesInProgress(Request $request)
     {
         $request->validate([
@@ -308,14 +324,12 @@ class PrestationController extends Controller
                 ->selectSub(function ($query) use ($request) {
                     $query->from('factures')
                         ->join('prestations', 'prestations.id', '=', 'factures.prestation_id')
-                        ->whereColumn('prestations.prise_charge_id', 'prise_en_charges.id')
                         ->where('factures.type', 2)
                         ->where('factures.state', StateFacture::IN_PROGRESS->value)
                         ->whereBetween('factures.date_fact', [$request->input('start_date'), $request->input('end_date')])
                         ->selectRaw('SUM(factures.amount_pc) / 100');
                 }, 'total_amount')
                 ->get();
-
         }
 
         if ($request->input('payable_by')) {
@@ -406,6 +420,9 @@ class PrestationController extends Controller
      * @param PrestationRequest $request
      * @param mixed $data
      * @return mixed
+     *
+     * @permission PrestationController::getDataForPriseEnCharge
+     * @permission_desc Récupérer les données pour la prise en charge
      */
     public function getDataForPriseEnCharge(PrestationRequest $request, mixed &$data): mixed
     {
@@ -415,13 +432,14 @@ class PrestationController extends Controller
             $amount_remise = 0;
             $priseCharge = PriseEnCharge::find($request->input('prise_charge_id'));
 
-            if ($priseCharge->usage_unique == "Oui") {
+            if ($priseCharge->usage_unique) {
                 $priseCharge->update(['used' => true]);
             }
 
             foreach ($request->input('actes') as $acteData) {
                 $acte = Acte::find($acteData['id']);
                 $pu = $acte->b * $acte->k_modulateur;
+
                 $amount_acte_pc = ($acteData['quantity'] * $pu * $priseCharge->taux_pc) / 100;
                 $amount_pc += $amount_acte_pc;
 
@@ -434,6 +452,7 @@ class PrestationController extends Controller
             foreach ($request->input('soins') as $soinData) {
                 $soin = Soins::find($soinData['id']);
                 $pu = $soin->pu;
+
                 $amount_acte_pc = ($soinData['nbr_days'] * $pu * $priseCharge->taux_pc) / 100;
                 $amount_pc += $amount_acte_pc;
 
@@ -442,7 +461,11 @@ class PrestationController extends Controller
 
                 $amount += $soinData['nbr_days'] * $pu;
             }
-            $data['regulated'] = $amount <= ($amount_remise + $amount_pc) ? 1 : 0;
+
+            $data['regulated'] = $amount == ($amount_remise + $amount_pc) ? 2 : 0;
+            $data['amount_pc'] = $amount_pc;
+            $data['amount_remise'] = $amount_remise;
+            $data['amount'] = $amount;
         } else {
             $data['regulated'] = $data['payable_by'] ? 1 : 0;
         }
