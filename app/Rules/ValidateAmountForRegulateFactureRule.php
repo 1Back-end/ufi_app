@@ -7,6 +7,7 @@ use App\Enums\TypeRegulation;
 use App\Models\Facture;
 use Closure;
 use Illuminate\Contracts\Validation\ValidationRule;
+use Illuminate\Support\Facades\Log;
 
 class ValidateAmountForRegulateFactureRule implements ValidationRule
 {
@@ -36,7 +37,7 @@ class ValidateAmountForRegulateFactureRule implements ValidationRule
                     })
                     ->sum('amount')
                     : 0;
-                $value = $amountRegulated + $value;
+                $value = ($amountRegulated / 100) + $value;
                 break;
             case TypeRegulation::ASSURANCE->value:
                 $amount = $this->facture->amount_pc;

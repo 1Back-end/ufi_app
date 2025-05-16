@@ -84,7 +84,7 @@ class RegulationController extends Controller
             'type' => $request->post('type'),
         ]);
 
-        $this->validatedFacture($regulation->facture);
+        $this->validatedFacture($regulation->facture, false, true);
 
         return response()->json([
             'message' => 'Mise à jour effectuée avec succès'
@@ -107,11 +107,18 @@ class RegulationController extends Controller
 
         $regulation->update(['state' => StatusRegulation::CANCELLED, 'reason' => $request->input('reason')]);
 
-        $this->validatedFacture($regulation->facture);
+        $this->validatedFacture($regulation->facture, false, true);
 
         return response()->json([], 202);
     }
 
+    /**
+     * @param Regulation $regulation
+     * @return JsonResponse
+     *
+     * @permission RegulationController::specialRegulation
+     * @permission_desc Enregistrer une regulation spéciale
+     */
     public function specialRegulation(Request $request)
     {
         $request->validate([
@@ -198,9 +205,9 @@ class RegulationController extends Controller
      * @param bool $forcePaid
      * @return void
      */
-    protected function validatedFacture(Facture $facture, bool $forcePaid = false)
+    protected function validatedFacture(Facture $facture, bool $forcePaid = false, bool $update = false)
     {
-        if ($facture->state == StateFacture::PAID) {
+        if ($facture->state == StateFacture::PAID && !$update) {
             return;
         }
 
