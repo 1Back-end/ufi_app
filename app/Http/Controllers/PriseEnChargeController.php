@@ -72,7 +72,8 @@ class PriseEnChargeController extends Controller
                 'updater:id,login'
             ])
             ->when($request->input('client'), function ($query) use ($request) {
-                $query->where('client_id', $request->input('client'))
+                $query->with(['assureur.actes', 'assureur.soins', 'assureur.consultations', 'assureur.hospitalisations'])
+                    ->where('client_id', $request->input('client'))
                     ->whereDate('date_debut', '<=', now())
                     ->whereDate('date_fin', '>=', now())
                     ->whereIsDeleted(false)

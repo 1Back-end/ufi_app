@@ -455,8 +455,13 @@ class PrestationController extends Controller
             }
 
             foreach ($request->input('actes') as $acteData) {
-                $acte = Acte::find($acteData['id']);
-                $pu = $acte->b * $acte->k_modulateur;
+                if ($acte = $priseCharge->assureur->actes()->find($acteData['id'])) {
+                    $pu = $acte->pivot->b * $acte->pivot->k_modulateur;
+                }
+                else {
+                    $acte = Acte::find($acteData['id']);
+                    $pu = $acte->b * $acte->k_modulateur;
+                }
 
                 $amount_acte_pc = ($acteData['quantity'] * $pu * $priseCharge->taux_pc) / 100;
                 $amount_pc += $amount_acte_pc;
@@ -468,8 +473,13 @@ class PrestationController extends Controller
             }
 
             foreach ($request->input('soins') as $soinData) {
-                $soin = Soins::find($soinData['id']);
-                $pu = $soin->pu;
+                if ($soins = $priseCharge->assureur->soins()->find($soinData['id'])) {
+                    $pu = $soins->pivot->pu;
+                }
+                else {
+                    $soin = Soins::find($soinData['id']);
+                    $pu = $soin->pu;
+                }
 
                 $amount_acte_pc = ($soinData['nbr_days'] * $pu * $priseCharge->taux_pc) / 100;
                 $amount_pc += $amount_acte_pc;
@@ -481,8 +491,13 @@ class PrestationController extends Controller
             }
 
             foreach ($request->input('consultations') as $consultationData) {
-                $consultation = Consultation::find($consultationData['id']);
-                $pu = $consultation->pu;
+                if ($consultation = $priseCharge->assureur->consultations()->find($consultationData['id'])) {
+                    $pu = $consultation->pivot->pu;
+                }
+                else {
+                    $consultation = Consultation::find($consultationData['id']);
+                    $pu = $consultation->pu;
+                }
 
                 $amount_acte_pc = ($consultationData['quantity'] * $pu * $priseCharge->taux_pc) / 100;
                 $amount_pc += $amount_acte_pc;

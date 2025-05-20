@@ -168,7 +168,13 @@ if (! function_exists('calculate_amount_facture')) {
 
                     $amount_acte_pc = 0;
                     if ($prestation->priseCharge) {
-                        $pu = $acte->b * $acte->k_modulateur;
+                        if ($acte = $prestation->priseCharge->assureur->actes()->find($acte->id)) {
+                            $pu = $acte->pivot->b * $acte->pivot->k_modulateur;
+                        }
+                        else {
+                            $pu = $acte->b * $acte->k_modulateur;
+                        }
+
                         $amount_acte_pc = ($acte->pivot->quantity * $pu * $prestation->priseCharge->taux_pc) / 100;
                         $amount_pc += $amount_acte_pc;
                     }
@@ -185,7 +191,13 @@ if (! function_exists('calculate_amount_facture')) {
                     $pu = $soin->pu;
                     $amount_soin_pc = 0;
                     if ($prestation->priseCharge) {
-                        $pu = $soin->pu_default;
+                        if ($soin = $prestation->priseCharge->assureur->soins()->find($soin->id)) {
+                            $pu = $soin->pivot->pu;
+                        }
+                        else {
+                            $pu = $soin->pu_default;
+                        }
+
                         $amount_soin_pc = ($soin->pivot->nbr_days * $pu * $prestation->priseCharge->taux_pc) / 100;
                         $amount_pc += $amount_soin_pc;
                     }
@@ -202,7 +214,13 @@ if (! function_exists('calculate_amount_facture')) {
                     $pu = $consultation->pu;
                     $amount_consultation_pc = 0;
                     if ($prestation->priseCharge) {
-                        $pu = $consultation->pu_default;
+                        if ($consultation = $prestation->priseCharge->assureur->consultations()->find($consultation->id)) {
+                            $pu = $consultation->pivot->pu;
+                        }
+                        else {
+                            $pu = $consultation->pu_default;
+                        }
+
                         $amount_consultation_pc = ($consultation->pivot->quantity * $pu * $prestation->priseCharge->taux_pc) / 100;
                         $amount_pc += $amount_consultation_pc;
                     }
