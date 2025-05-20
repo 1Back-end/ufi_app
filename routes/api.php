@@ -279,11 +279,7 @@ Route::middleware(['activity'])->group(function () {
             Route::get('/{id}/pu',  'getPuByHospitalisationId');
         });
         Route::controller(AssurableController::class)->prefix('assurables')->group(function () {
-            Route::get('/get_assurables', 'index');
-            Route::post('/store_assurables_consultations', 'storeConsultationPrices');
-            Route::post('/store_assurables_soins', 'storeAssurablesSoins');
-            Route::post('/store_assurables_actes', 'storeAssurablesActes');
-            Route::post('/store_assurables_hospitalisations', 'storeHospitalisationsPrices');
+            Route::post('/', 'store');
         });
         Route::controller(RendezVousController::class)->prefix('rendez_vous')->group(function () {
             Route::get('/list', 'index');

@@ -111,6 +111,7 @@ class AssureurController extends Controller
 
         // Récupérer les assureurs avec pagination
         $assureurs = Assureur::where('is_deleted', false)
+            ->with(['actes', 'hospitalisations', 'consultations', 'soins'])
             ->when($request->input('search'), function ($query) use ($request) {
                 $search = $request->input('search');
                 $query->where('nom', 'like', '%' . $search . '%')
