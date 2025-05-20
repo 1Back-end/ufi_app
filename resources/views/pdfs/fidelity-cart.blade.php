@@ -45,7 +45,7 @@
         }
 
         .logo-container img {
-            height:90px;
+            height: auto;
             width: 90px;
         }
 
@@ -92,7 +92,7 @@
     <!-- Logo à droite -->
     @if($logo)
         <div class="logo-container">
-            <img src="data:image/png;base64,{{ base64_encode(file_get_contents($logo)) }}" alt="Logo">
+            <img src="data:{{ $mimetype }};base64,{{ $logo }}" alt="Logo">
         </div>
     @endif
 

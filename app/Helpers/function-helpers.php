@@ -152,6 +152,7 @@ if (! function_exists('calculate_amount_facture')) {
     /**
      * @param Prestation $prestation
      * @return array
+     * @throws Exception
      */
     function calculate_amount_facture(Prestation $prestation): array
     {
@@ -197,7 +198,21 @@ if (! function_exists('calculate_amount_facture')) {
                 }
                 break;
             case TypePrestation::CONSULTATIONS:
-                throw new \Exception('To be implemented');
+                foreach ($prestation->consultations as $consultation) {
+                    $pu = $consultation->pu;
+                    $amount_consultation_pc = 0;
+                    if ($prestation->priseCharge) {
+                        $pu = $consultation->pu_default;
+                        $amount_consultation_pc = ($consultation->pivot->quantity * $pu * $prestation->priseCharge->taux_pc) / 100;
+                        $amount_pc += $amount_consultation_pc;
+                    }
+
+                    $amount_consultation_remise = ($consultation->pivot->quantity * $pu * $consultation->pivot->remise) / 100;
+                    $amount_remise += $amount_consultation_remise;
+
+                    $amount += $consultation->pivot->quantity * $pu;
+                    $amount_client += ($consultation->pivot->quantity * $pu) - $amount_consultation_remise - $amount_consultation_pc;
+                }
                 break;
             case TypePrestation::PRODUITS:
                 throw new \Exception('To be implemented');

@@ -142,4 +142,11 @@ class Prestation extends Model
             ->withPivot(['remise', 'nbr_days', 'type_salle', 'honoraire', 'amount_regulate'])
             ->withTimestamps();
     }
+
+    public function consultations(): MorphToMany
+    {
+        return $this->morphedByMany(Consultation::class, 'prestationable')
+            ->withPivot(['amount_regulate', 'date_rdv', 'remise', 'quantity'])
+            ->withTimestamps();
+    }
 }

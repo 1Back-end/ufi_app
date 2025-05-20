@@ -28,7 +28,7 @@ class RoleController extends Controller
             'roles' => Role::with([
                 'createdBy:id,nom_utilisateur',
                 'updatedBy:id,nom_utilisateur',
-                'permissions:id,name',
+                'permissions:id,name,description',
             ])->get(),
         ]);
     }

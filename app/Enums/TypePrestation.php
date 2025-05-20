@@ -16,7 +16,7 @@ enum TypePrestation: int
     {
         return [
             self::ACTES->value => 'Actes',
-            // self::CONSULTATIONS->value => 'Consultations',
+             self::CONSULTATIONS->value => 'Consultations',
             self::SOINS->value => 'Soins',
             // self::PRODUITS->value => 'Produits',
             // self::LABORATOIR->value => 'Laboratoire',

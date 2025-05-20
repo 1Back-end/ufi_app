@@ -113,9 +113,10 @@ class RegulationController extends Controller
     }
 
     /**
-     * @param Regulation $regulation
+     * @param Request $request
      * @return JsonResponse
      *
+     * @throws \Throwable
      * @permission RegulationController::specialRegulation
      * @permission_desc Enregistrer une regulation spéciale
      */
@@ -123,7 +124,7 @@ class RegulationController extends Controller
     {
         $request->validate([
             'regulation_method_id' => ['required', 'exists:regulation_methods,id'],
-            'amount' => ['required', 'integer'],
+            'amount' => ['required'],
             'assureur_id' => ['required_if:client_id,null', 'exists:assureurs,id'],
             'client_id' => ['required_if:assureur_id,null', 'exists:clients,id'],
             'start_date' => ['required', 'date'],
@@ -134,7 +135,7 @@ class RegulationController extends Controller
             'factures' => ['required', 'array'],
             'factures.*.id' => ['required', 'exists:factures,id'],
             'factures.*.items' => ['array'],
-            'factures.*.amount' => ['required',],
+            'factures.*.amount' => ['required'],
             'type' => ['required', 'in:client,assureur'],
         ]);
 
@@ -181,8 +182,27 @@ class RegulationController extends Controller
                 }
 
                 foreach ($factureData['items'] as $item) {
-                    $facture->prestation->actes()
-                        ->updateExistingPivot($item['id'], ['amount_regulate' => $item['amount']]);
+                    switch ($facture->prestation->type) {
+                        case TypePrestation::ACTES:
+                            $facture->prestation->actes()
+                                ->updateExistingPivot($item['id'], ['amount_regulate' => $item['amount'] * 100]);
+                            break;
+                        case TypePrestation::CONSULTATIONS:
+                            $facture->prestation->consultations()
+                                ->updateExistingPivot($item['id'], ['amount_regulate' => $item['amount'] * 100]);
+                            break;
+                        case TypePrestation::SOINS:
+                            $facture->prestation->soins()
+                                ->updateExistingPivot($item['id'], ['amount_regulate' => $item['amount'] * 100]);
+                            break;
+                        case TypePrestation::LABORATOIR:
+                        case TypePrestation::PRODUITS:
+                            throw new \Exception('To be implemented');
+                            break;
+                        default:
+                            throw new \Exception('To be implemented');
+                    }
+
                 }
             }
         } catch (\Exception $e) {

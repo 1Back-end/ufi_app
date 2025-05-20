@@ -112,7 +112,7 @@ class ClientController extends Controller
 
             $id = $client->user->centres()->find($centre->id)->pivot->sequence;
 
-            $refCli = Str::substr($centre->reference, 0, 4) . now()->year . Str::padLeft($id, 6, 0);
+            $refCli = $centre->reference . now()->year . Str::padLeft($id, 6, 0);
 
             $client->update(['ref_cli' => $refCli]);
         } catch (Exception $e) {
@@ -288,8 +288,11 @@ class ClientController extends Controller
                 'validity' => intval($request->input('validity')),
                 'client' => $client,
                 'centre' => $centre,
-                'logo' => $media ?  'storage/' . $media->path . '/'. $media->filename : ''
+                'logo' => $media ?  base64_encode(file_get_contents('storage/' . $media->path . '/'. $media->filename)) : '',
+                'mimetype' => $media ? $media->mimetype : '',
             ];
+
+            Log::info('data:', $data);
 
             $path = 'fidelity-card/' . $client->ref_cli . '.pdf';
             $fileName = $client->ref_cli . '.pdf';

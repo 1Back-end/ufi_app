@@ -21,7 +21,7 @@ class CentreRequest extends FormRequest
         }
 
         return [
-            'reference' => ['required', 'string', 'max:5', Rule::unique('centres', 'reference')->ignore($this->route('centre')), 'alpha_dash'],
+            'reference' => ['required', 'string', 'max:6', Rule::unique('centres', 'reference')->ignore($this->route('centre')), 'alpha_dash'],
             'name' => ['required', $uniqueName],
             'short_name' => ['required', $uniqueShortName],
             'address' => ['required'],

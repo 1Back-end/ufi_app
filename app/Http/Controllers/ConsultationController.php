@@ -22,6 +22,10 @@ class ConsultationController extends Controller
 
         // Récupérer les assureurs avec pagination
         $consultations = Consultation::where('is_deleted', false)
+            ->when($request->input('search'), function ($query) use ($request) {
+                $search = $request->input('search');
+                $query->where('name', 'like', "%{$search}%");
+            })
             ->with('typeconsultation:id,name')
             ->latest()
             ->paginate(perPage: $perPage, page: $page);

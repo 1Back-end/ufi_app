@@ -8,6 +8,7 @@ use App\Http\Requests\PrestationRequest;
 use App\Models\Acte;
 use App\Models\Assureur;
 use App\Models\Client;
+use App\Models\Consultation;
 use App\Models\Facture;
 use App\Models\Prestation;
 use App\Models\PriseEnCharge;
@@ -51,6 +52,7 @@ class PrestationController extends Controller
             'priseCharge.assureur',
             'actes',
             'soins',
+            'consultations',
             'centre',
             'factures',
             'factures.regulations',
@@ -164,6 +166,7 @@ class PrestationController extends Controller
                 'priseCharge.assureur:id,nom',
                 'actes',
                 'soins',
+                'consultations',
             ])
         ]);
     }
@@ -305,6 +308,7 @@ class PrestationController extends Controller
                 },
                 'prestations.actes',
                 'prestations.soins',
+                'prestations.consultations',
                 'client:id,nom_cli,prenom_cli,nomcomplet_client,ref_cli,date_naiss_cli',
                 'prestations.priseCharge:id,assureur_id,taux_pc',
             ])
@@ -411,6 +415,20 @@ class PrestationController extends Controller
                     ]);
                 }
                 break;
+            case TypePrestation::CONSULTATIONS->value:
+                if ($update) {
+                    $prestation->consultations()->detach();
+                }
+
+                foreach ($request->post('consultations') as $item) {
+                    $prestation->consultations()->attach($item['id'], [
+                        'date_rdv' => $item['date_rdv'],
+                        'remise' => $item['remise'],
+                        'quantity' => $item['quantity'],
+                        'date_rdv_end' => Carbon::createFromTimeString($item['date_rdv'])->addHours($prestationDuration)
+                    ]);
+                }
+                break;
             default:
                 throw new Exception("Ce type de prestation n'est pas encore implémenté", Response::HTTP_BAD_REQUEST);
         }
@@ -460,6 +478,19 @@ class PrestationController extends Controller
                 $amount_remise += $amount_acte_remise;
 
                 $amount += $soinData['nbr_days'] * $pu;
+            }
+
+            foreach ($request->input('consultations') as $consultationData) {
+                $consultation = Consultation::find($consultationData['id']);
+                $pu = $consultation->pu;
+
+                $amount_acte_pc = ($consultationData['quantity'] * $pu * $priseCharge->taux_pc) / 100;
+                $amount_pc += $amount_acte_pc;
+
+                $amount_acte_remise = ($consultationData['quantity'] * $pu * $consultationData['remise']) / 100;
+                $amount_remise += $amount_acte_remise;
+
+                $amount += $consultationData['quantity'] * $pu;
             }
 
             $data['regulated'] = $amount == ($amount_remise + $amount_pc) ? 2 : 0;
