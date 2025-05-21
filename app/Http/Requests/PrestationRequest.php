@@ -30,20 +30,20 @@ class PrestationRequest extends FormRequest
             // Actes
             'actes' => ['nullable', 'array', 'required_if:type,' . TypePrestation::ACTES->value],
             'actes.*.id' => ['integer', 'required_if:type,' . TypePrestation::ACTES->value, 'exists:actes,id'],
-            'actes.*.remise' => ['min:0', 'integer'],
+            'actes.*.remise' => ['min:0', 'numeric', 'min:0', 'max:100'],
             'actes.*.quantity' => ['integer', 'required_if:type,' . TypePrestation::ACTES->value, 'min:1'],
             'actes.*.date_rdv' => ['required_if:type,' . TypePrestation::ACTES->value,],
             // Soins
             'soins' => ['nullable', 'array', 'required_if:type,' . TypePrestation::SOINS->value,],
             'soins.*.id' => ['integer', 'required_if:type,' . TypePrestation::SOINS->value, 'exists:soins,id'],
-            'soins.*.remise' => ['min:0', 'integer', 'max:100'],
+            'soins.*.remise' => ['min:0', 'numeric', 'max:100'],
             'soins.*.nbr_days' => ['integer', 'required_if:type,' . TypePrestation::SOINS->value, 'min:1'],
             'soins.*.type_salle' => ['required_if:type,' . TypePrestation::SOINS->value, new Enum(TypeSalle::class)],
             'soins.*.honoraire' => ['integer', 'required_if:type,' . TypePrestation::SOINS->value,],
             // Consultations
             'consultations' => ['nullable', 'array', 'required_if:type,' . TypePrestation::CONSULTATIONS->value],
             'consultations.*.id' => ['integer', 'required_if:type,' . TypePrestation::CONSULTATIONS->value, 'exists:consultations,id'],
-            'consultations.*.remise' => ['min:0', 'integer', 'max:100'],
+            'consultations.*.remise' => ['min:0', 'numeric', 'max:100'],
             'consultations.*.quantity' => ['integer', 'required_if:type,' . TypePrestation::CONSULTATIONS->value, 'min:1'],
             'consultations.*.date_rdv' => ['required_if:type,' . TypePrestation::CONSULTATIONS->value, 'date'],
         ];
