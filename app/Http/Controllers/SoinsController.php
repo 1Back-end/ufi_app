@@ -127,7 +127,7 @@ class SoinsController extends Controller
 
     /**
      * Display a listing of the resource.
-     * @permission SoinsController::show
+     * @permission SoinsController::update
      * @permission_desc Mettre à jour des soins
      */
     public function update(Request $request, string $id)
