@@ -37,7 +37,7 @@ class DatabaseSeeder extends Seeder
 //        ]);
 
         $this->call([
-//            InitBDForAllDataSeeder::class,
+            InitBDForAllDataSeeder::class,
             TypeconsultationSeeder::class,
             GroupProductSeeder::class,
             CategorySeeder::class,
@@ -45,7 +45,7 @@ class DatabaseSeeder extends Seeder
             QuotationSeeder::class,
             OpsTblHospitalisationSeeder::class,
 
-//            CentresTableSeeder::class,
+            CentresTableSeeder::class,
             HopitalsTableSeeder::class,
             SpecialitesTableSeeder::class,
             TitresTableSeeder::class,
