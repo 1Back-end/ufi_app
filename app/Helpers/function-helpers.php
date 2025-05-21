@@ -168,10 +168,10 @@ if (! function_exists('calculate_amount_facture')) {
 
                     $amount_acte_pc = 0;
                     if ($prestation->priseCharge) {
-                        if ($acte = $prestation->priseCharge->assureur->actes()->find($acte->id)) {
+                        if ($prestation->priseCharge->assureur->actes()->find($acte->id)) {
+                            $acte = $prestation->priseCharge->assureur->actes()->find($acte->id);
                             $pu = $acte->pivot->b * $acte->pivot->k_modulateur;
-                        }
-                        else {
+                        } else {
                             $pu = $acte->b * $acte->k_modulateur;
                         }
 
@@ -191,10 +191,10 @@ if (! function_exists('calculate_amount_facture')) {
                     $pu = $soin->pu;
                     $amount_soin_pc = 0;
                     if ($prestation->priseCharge) {
-                        if ($soin = $prestation->priseCharge->assureur->soins()->find($soin->id)) {
+                        if ($prestation->priseCharge->assureur->soins()->find($soin->id)) {
+                            $soin = $prestation->priseCharge->assureur->soins()->find($soin->id);
                             $pu = $soin->pivot->pu;
-                        }
-                        else {
+                        } else {
                             $pu = $soin->pu_default;
                         }
 
@@ -214,10 +214,10 @@ if (! function_exists('calculate_amount_facture')) {
                     $pu = $consultation->pu;
                     $amount_consultation_pc = 0;
                     if ($prestation->priseCharge) {
-                        if ($consultation = $prestation->priseCharge->assureur->consultations()->find($consultation->id)) {
+                        if ($prestation->priseCharge->assureur->consultations()->find($consultation->id)) {
+                            $consultation = $prestation->priseCharge->assureur->consultations()->find($consultation->id);
                             $pu = $consultation->pivot->pu;
-                        }
-                        else {
+                        } else {
                             $pu = $consultation->pu_default;
                         }
 
