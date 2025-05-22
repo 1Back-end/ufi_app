@@ -12,6 +12,7 @@ use App\Http\Controllers\PrefixController;
 use App\Http\Controllers\RegulationController;
 use App\Http\Controllers\RegulationMethodController;
 use App\Http\Controllers\ServiceHopitalController;
+use App\Http\Controllers\SettingController;
 use App\Http\Controllers\SexeController;
 use App\Http\Controllers\SocieteController;
 use App\Http\Controllers\SpecialiteController;
@@ -291,5 +292,8 @@ Route::middleware(['activity'])->group(function () {
             Route::get('/export',  'export');
             Route::get('/get_by_id/{id}', 'show');
         });
+
+        // Setting management
+        Route::apiResource('settings', SettingController::class);
     });
 });
