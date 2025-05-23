@@ -30,4 +30,12 @@ class SocieteRequest extends FormRequest
     {
         return true;
     }
+
+    public function messages(): array
+    {
+        return [
+            'nom_soc_cli.required' => 'Le nom de la societe est requis',
+            'nom_soc_cli.unique' => 'Cette societé est déja existante',
+        ];
+    }
 }

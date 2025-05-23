@@ -21,6 +21,10 @@ class SocieteController extends Controller
     {
         return response()->json([
             'societes' => Societe::with(['createBy:id,nom_utilisateur', 'updatedBy:id,nom_utilisateur'])
+                ->when(\request()->input('search'), function ($query) {
+                    $query->where('nom_soc_cli', 'like', '%' . request()->input('search') . '%');
+                })
+                ->orderBy('created_at', 'desc')
                 ->paginate(
                     perPage: request()->input('per_page', 5),
                     page: request()->input('page', 1)
@@ -39,7 +43,7 @@ class SocieteController extends Controller
     {
 //        $auth = auth()->user();
         $auth = User::first();
-        Societe::create([
+        $societe = Societe::create([
             'nom_soc_cli' => $request->nom_soc_cli,
             'tel_soc_cli' => $request->tel_soc_cli,
             'Adress_soc_cli' => $request->Adress_soc_cli,
@@ -50,7 +54,8 @@ class SocieteController extends Controller
         ]);
 
         return response()->json([
-            'message' => 'Societe created successfully'
+            'message' => 'Societe created successfully',
+            'societe' => $societe
         ], Response::HTTP_CREATED);
     }
 
