@@ -393,11 +393,22 @@ class PrestationController extends Controller
 
                 foreach ($request->post('actes') as $item) {
                     $acte = Acte::find($item['id']);
+
+                    $b = $acte->b;
+                    $kModulateur = $acte->k_modulateur;
+                    if ($prestation->priseCharge && $actePc = $prestation->priseCharge->assureur->actes()->find($acte->id)) {
+                        $b = $actePc->pivot->b;
+                        $kModulateur = $actePc->pivot->k_modulateur;
+                    }
+
                     $prestation->actes()->attach($item['id'], [
                         'remise' => $item['remise'],
                         'quantity' => $item['quantity'],
                         'date_rdv' => $item['date_rdv'],
-                        'date_rdv_end' => Carbon::createFromTimeString($item['date_rdv'])->addHours($prestationDuration)
+                        'date_rdv_end' => Carbon::createFromTimeString($item['date_rdv'])->addHours($prestationDuration),
+                        'b' => $b,
+                        'k_modulateur' => $kModulateur,
+                        'pu' => $prestation->priseCharge ? $b * $kModulateur : $acte->pu
                     ]);
                 }
                 break;
@@ -407,11 +418,23 @@ class PrestationController extends Controller
                 }
 
                 foreach ($request->post('soins') as $item) {
+                    $soin = Soins::find($item['id']);
+                    $pu = $soin->pu;
+                    if ($prestation->priseCharge) {
+                        if ($soinPc = $prestation->priseCharge->assureur->soins()->find($soin->id)) {
+                            $pu = $soinPc->pivot->pu;
+                        }
+                        else {
+                            $pu = $soin->pu_default;
+                        }
+                    }
+
                     $prestation->soins()->attach($item['id'], [
                         'remise' => $item['remise'],
                         'nbr_days' => $item['nbr_days'],
                         'type_salle' => $item['type_salle'],
                         'honoraire' => $item['honoraire'],
+                        'pu' => $pu
                     ]);
                 }
                 break;
@@ -421,11 +444,23 @@ class PrestationController extends Controller
                 }
 
                 foreach ($request->post('consultations') as $item) {
+                    $consultation = Consultation::find($item['id']);
+                    $pu = $consultation->pu;
+                    if ($prestation->priseCharge) {
+                        if ($consultationPC = $prestation->priseCharge->assureur->consultations()->find($consultation->id)) {
+                            $pu = $consultationPC->pivot->pu;
+                        }
+                        else {
+                            $pu = $consultation->pu_default;
+                        }
+                    }
+
                     $prestation->consultations()->attach($item['id'], [
                         'date_rdv' => $item['date_rdv'],
                         'remise' => $item['remise'],
                         'quantity' => $item['quantity'],
-                        'date_rdv_end' => Carbon::createFromTimeString($item['date_rdv'])->addHours($prestationDuration)
+                        'date_rdv_end' => Carbon::createFromTimeString($item['date_rdv'])->addHours($prestationDuration),
+                        'pu' =>  $pu
                     ]);
                 }
                 break;
