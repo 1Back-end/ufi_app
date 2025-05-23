@@ -77,6 +77,7 @@ class OpsTblHospitalisationController extends Controller
             $data = $request->validate([
                 'name' => 'required|string',
                 'pu' => 'required|numeric',
+                'pu_default' => 'required|integer',
                 'description' => 'nullable|string',
             ]);
 
