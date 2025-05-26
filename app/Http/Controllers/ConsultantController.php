@@ -50,7 +50,8 @@ class ConsultantController extends Controller
                 'code_specialite:id,nom_specialite',
                 'code_titre:id,nom_titre',
             ])
-            ->paginate($perPage);
+            ->latest()
+            ->paginate($perPage, ['*'], 'page', $page);
 
         return response()->json([
             'data' => $consultanst->items(),
