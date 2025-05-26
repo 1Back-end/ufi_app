@@ -19,8 +19,8 @@ class PrefixeRequest extends FormRequest
         return [
             'prefixe' => ['required', $uniqueRule],
             'position' => ['required', 'integer', 'in:0,1,2'],
-            'age_min' => ['nullable', 'integer'],
-            'age_max' => ['nullable', 'integer'],
+            'age_min' => ['nullable', 'integer', 'min:0', 'max:150'],
+            'age_max' => ['nullable', 'integer', 'min:0', 'max:150'],
         ];
     }
 

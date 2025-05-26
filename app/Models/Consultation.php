@@ -2,8 +2,12 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\MorphToMany;
+use Illuminate\Support\Facades\Log;
+
 class Consultation extends Model
 {
     use HasFactory;
@@ -20,14 +24,32 @@ class Consultation extends Model
         'is_deleted',
     ];
 
+    protected function puDefault(): Attribute
+    {
+        return Attribute::make(
+            get: function($value, array $attributes) {
+                if (request()->header('prise_en_charge') && $priseEnCharge = PriseEnCharge::find(request()->header('prise_en_charge'))) {
+                    $assureur = $this->assureurs()->where('assureurs.id', $priseEnCharge->assureur_id)->first();
+
+                    if ($assureur) {
+                        $value = $assureur->pivot->pu;
+                    }
+                }
+                return $value;
+            },
+            set: fn($value) => $value,
+        );
+    }
+
     /**
      * Relation avec le type de consultation.
      */
-    public function assurable()
+    public function assureurs(): MorphToMany
     {
-        return $this->morphOne(Assurable::class, 'assurable')
-            ->where('assureur_id', request()->get('assureur_id'));
+        return $this->morphToMany(Assureur::class, 'assurable')
+            ->withPivot(['pu']);
     }
+
     public function typeconsultation()
     {
         return $this->belongsTo(Typeconsultation::class);

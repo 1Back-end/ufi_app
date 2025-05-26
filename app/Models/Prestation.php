@@ -132,21 +132,21 @@ class Prestation extends Model
     public function actes(): MorphToMany
     {
         return $this->morphedByMany(Acte::class, 'prestationable')
-            ->withPivot(['remise', 'quantity', 'date_rdv', 'date_rdv_end', 'amount_regulate'])
+            ->withPivot(['remise', 'quantity', 'date_rdv', 'date_rdv_end', 'amount_regulate', 'b', 'k_modulateur', 'pu'])
             ->withTimestamps();
     }
 
     public function soins(): MorphToMany
     {
         return $this->morphedByMany(Soins::class, 'prestationable')
-            ->withPivot(['remise', 'nbr_days', 'type_salle', 'honoraire', 'amount_regulate'])
+            ->withPivot(['remise', 'nbr_days', 'type_salle', 'honoraire', 'amount_regulate', 'pu'])
             ->withTimestamps();
     }
 
     public function consultations(): MorphToMany
     {
         return $this->morphedByMany(Consultation::class, 'prestationable')
-            ->withPivot(['amount_regulate', 'date_rdv', 'remise', 'quantity'])
+            ->withPivot(['amount_regulate', 'date_rdv', 'remise', 'quantity', 'pu'])
             ->withTimestamps();
     }
 }

@@ -249,13 +249,21 @@ class ClientController extends Controller
     {
         $request->validate([
             'nomcomplet' => 'required',
+            "nom_cli" => 'required',
+            "prenom_cli" => 'nullable',
             'date_naiss_cli' => 'required',
             'sexe_id' => 'required',
             'client_id' => ['nullable', 'exists:clients,id'],
         ]);
 
         $clients = Client::with(['sexe:id,description_sex'])
-            ->whereNomcompletClient($request->get('nomcomplet'))
+            ->where(function (Builder $query) use ($request) {
+                $query->whereNomcompletClient($request->get('nomcomplet'))
+                    ->orWhere(function (Builder $query) use ($request) {
+                        $query->whereNomCli($request->get('nom_cli'))
+                            ->wherePrenomCli($request->get('prenom_cli'));
+                    });
+            })
             ->whereDateNaissCli($request->get('date_naiss_cli'))
             ->whereSexeId($request->get('sexe_id'))
             ->when($request->client_id, function ($query) use ($request) {

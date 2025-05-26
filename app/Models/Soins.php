@@ -2,8 +2,10 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\MorphToMany;
 
 class Soins extends Model
 {
@@ -19,6 +21,23 @@ class Soins extends Model
         'updated_by',
         'is_deleted',
     ];
+
+    protected function puDefault(): Attribute
+    {
+        return Attribute::make(
+            get: function($value, array $attributes) {
+                if (request()->header('prise_en_charge') && $priseEnCharge = PriseEnCharge::find(request()->header('prise_en_charge'))) {
+                    $assureur = $this->assureurs()->where('assureurs.id', $priseEnCharge->assureur_id)->first();
+
+                    if ($assureur) {
+                        $value = $assureur->pivot->pu;
+                    }
+                }
+                return $value;
+            },
+            set: fn($value) => $value,
+        );
+    }
 
     // Relations
 
@@ -36,5 +55,10 @@ class Soins extends Model
     {
         return $this->belongsTo(User::class, 'updated_by');
     }
-    //
+
+    public function assureurs(): MorphToMany
+    {
+        return $this->morphToMany(Assureur::class, 'assurable')
+            ->withPivot(['pu']);
+    }
 }
