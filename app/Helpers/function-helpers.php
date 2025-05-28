@@ -12,6 +12,10 @@ use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Storage;
+use Spatie\Browsershot\Browsershot;
+use Spatie\Browsershot\Exceptions\CouldNotTakeBrowsershot;
 
 if (! function_exists('upload_media')) {
     /**
@@ -290,5 +294,41 @@ if (! function_exists('save_facture')) {
         }
 
         return $facture;
+    }
+}
+
+if (! function_exists('save_browser_shot_pdf')) {
+    /**
+     * @param string $view
+     * @param array $data
+     * @param string $folderPath
+     * @param string $path
+     * @param string $format
+     * @param string $direction
+     * @return void
+     * @throws CouldNotTakeBrowsershot
+     * @throws Throwable
+     */
+    function save_browser_shot_pdf(string $view, array $data, string $folderPath, string $path, string $format = 'a4', string $direction = ''): void
+    {
+        $bootstrapPath = public_path('assets/bootstrap/css/bootstrap.min.css');
+        $bootstrapContent = file_get_contents($bootstrapPath);
+        $data = array_merge($data, ['bootstrap' => $bootstrapContent]);
+
+        $folderPath = public_path($folderPath);
+        if (!File::exists($folderPath)) {
+            File::makeDirectory($folderPath, 0755, true);
+        }
+
+        $browserShot = Browsershot::html(view($view, $data)->render())
+            ->setChromePath('C:\Users\User\.cache\puppeteer\chrome\win64-136.0.7103.94\chrome-win64\chrome.exe')
+            ->format($format)
+            ->showBackground();
+
+        if ($direction) {
+            $browserShot->landscape();
+        }
+
+        $browserShot->save($path);
     }
 }

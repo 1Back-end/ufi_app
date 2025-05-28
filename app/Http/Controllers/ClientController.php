@@ -14,7 +14,11 @@ use App\Models\Societe;
 use App\Models\StatusFamiliale;
 use App\Models\TypeDocument;
 use App\Models\User;
-use Barryvdh\DomPDF\Facade\Pdf;
+//use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Support\Facades\File;
+use Spatie\Browsershot\Browsershot;
+use Spatie\Browsershot\Exceptions\CouldNotTakeBrowsershot;
+use Spatie\LaravelPdf\Facades\Pdf;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -27,6 +31,7 @@ use Illuminate\Validation\Rules\Enum;
 use Maatwebsite\Excel\Facades\Excel;
 use PhpOffice\PhpSpreadsheet\Exception;
 use Symfony\Component\HttpFoundation\Response;
+use Throwable;
 
 class ClientController extends Controller
 {
@@ -300,14 +305,27 @@ class ClientController extends Controller
                 'mimetype' => $media ? $media->mimetype : '',
             ];
 
-            Log::info('data:', $data);
+            try {
+                save_browser_shot_pdf(
+                    view: 'pdfs.fidelity-cart',
+                    data: $data,
+                    folderPath: 'storage/fidelity-card',
+                    path: 'storage/fidelity-card/' . $client->ref_cli . '.pdf',
+                    format: 'a6',
+                    direction: 'landscape'
+                );
+            }
+            catch (CouldNotTakeBrowsershot|Throwable $e) {
+                Log::error($e->getMessage());
+
+                return \response()->json([
+                    'message' => __("Un erreur inattendue est survenu.")
+                ], 400);
+            }
 
             $path = 'fidelity-card/' . $client->ref_cli . '.pdf';
             $fileName = $client->ref_cli . '.pdf';
 
-            PDF::loadView('pdfs.fidelity-cart', $data)
-                ->setPaper('a6', 'landscape')
-                ->save($path, 'public');
 
             $client->fidelityCard()->create([
                 'name' => "fidelityCard",

@@ -99,6 +99,7 @@ Route::middleware(['activity'])->group(function () {
         Route::get("/factures/in-progress", [PrestationController::class, 'getFacturesInProgress']);
         Route::post('/special-regulations', [RegulationController::class, 'specialRegulation']);
         Route::post('/ignore-factures', [RegulationController::class, 'ignoreFacture']);
+        Route::post('/print-facture-assurance', [PrestationController::class, 'printFactureAssurance']);
 
         Route::controller(ConsultantController::class)->prefix('consultants')->group(function () {
             Route::get('/list', 'index');  // Afficher la liste des consultants

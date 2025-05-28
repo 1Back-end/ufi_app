@@ -47,6 +47,15 @@ return [
             'report' => false,
         ],
 
+        'browser_shot' => [
+            'driver' => 'local',
+            'root' => storage_path('app/public'),
+            'url' => env('APP_URL'),
+            'visibility' => 'public',
+            'throw' => false,
+            'report' => false,
+        ],
+
         'exportclient' => [
             'driver' => 'local',
             'root' => storage_path('app/export-client'),

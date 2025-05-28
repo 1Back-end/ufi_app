@@ -3,6 +3,11 @@
 <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
     <title>Carte de fidélité</title>
+
+    <style>
+        {{ $bootstrap }}
+    </style>
+
     <style>
         * {
             margin: 0;
@@ -103,9 +108,12 @@
         </tr>
         <tr>
             <td>
-                <img class="barcode-img"
-                     src="data:image/png;base64,{{ DNS1D::getBarcodePNG(code: $client->ref_cli, type: 'C128', w: 1, h: 60, showCode: true) }}"
-                     alt="Code-barres">
+                <span class="d-flex flex-column justify-content-center gap-1">
+                    <span class="text-center ">
+                        {{ QrCode::size(100)->generate($client->ref_cli) }}
+                    </span>
+                    <span class="fst-italic fw-bold">{{ $client->ref_cli }}</span>
+                </span>
             </td>
         </tr>
     </table>
