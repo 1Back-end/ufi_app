@@ -291,16 +291,18 @@ class PrestationController extends Controller
 
         $assureurs = [];
         $clients = [];
+        $lastFactures = false;
+        $dateLatestFacture = '';
 
         if ($request->input('assurance')) {
-            $assureurs = PriseEnCharge::with([
+            $latestPriseCharge = PriseEnCharge::with([
                 'assureur:id,nom',
                 'prestations' => function ($query) use ($request) {
                     $query->whereHas('factures', function ($query) use ($request) {
                         $query->where('factures.type', 2)
                             ->where('factures.state', StateFacture::IN_PROGRESS->value)
-                            ->when($request->input('start_date') && $request->input('end_date'), function ($query) use ($request) {
-                                $query->whereBetween('factures.date_fact', [$request->input('start_date'), $request->input('end_date')]);
+                            ->when($request->input('start_date'), function ($query) use ($request) {
+                                $query->whereDate('factures.date_fact', '<', $request->input('start_date'));
                             });
                     });
                 },
@@ -312,8 +314,7 @@ class PrestationController extends Controller
                 'prestations.consultations',
                 'client:id,nom_cli,prenom_cli,nomcomplet_client,ref_cli,date_naiss_cli',
                 'prestations.priseCharge:id,assureur_id,taux_pc',
-            ])
-                ->when($request->input('assurance'), function ($query) use ($request) {
+            ])->when($request->input('assurance'), function ($query) use ($request) {
                     $query->whereHas('assureur', function ($query) use ($request) {
                         $query->where('assureurs.id', $request->input('assurance'));
                     });
@@ -322,19 +323,69 @@ class PrestationController extends Controller
                     $query->whereHas('factures', function ($query) use ($request) {
                         $query->where('factures.type', 2)
                             ->where('factures.state', StateFacture::IN_PROGRESS->value)
-                            ->whereBetween('factures.date_fact', [$request->input('start_date'), $request->input('end_date')]);
+                            ->whereDate('factures.date_fact', '<', $request->input('start_date'));
                     });
                 })
-                ->select('prise_en_charges.*') // important
+                ->select('prise_en_charges.*')
                 ->selectSub(function ($query) use ($request) {
                     $query->from('factures')
                         ->join('prestations', 'prestations.id', '=', 'factures.prestation_id')
                         ->where('factures.type', 2)
                         ->where('factures.state', StateFacture::IN_PROGRESS->value)
-                        ->whereBetween('factures.date_fact', [$request->input('start_date'), $request->input('end_date')])
+                        ->whereDate('factures.date_fact', '<', $request->input('start_date'))
                         ->selectRaw('SUM(factures.amount_pc) / 100');
                 }, 'total_amount')
                 ->get();
+
+            if ($latestPriseCharge->isEmpty()) {
+                $assureurs = PriseEnCharge::with([
+                    'assureur:id,nom',
+                    'prestations' => function ($query) use ($request) {
+                        $query->whereHas('factures', function ($query) use ($request) {
+                            $query->where('factures.type', 2)
+                                ->where('factures.state', StateFacture::IN_PROGRESS->value)
+                                ->when($request->input('start_date') && $request->input('end_date'), function ($query) use ($request) {
+                                    $query->whereBetween('factures.date_fact', [$request->input('start_date'), $request->input('end_date')]);
+                                });
+                        });
+                    },
+                    'prestations.factures' => function ($query) {
+                        $query->where('factures.type', 2);
+                    },
+                    'prestations.actes',
+                    'prestations.soins',
+                    'prestations.consultations',
+                    'client:id,nom_cli,prenom_cli,nomcomplet_client,ref_cli,date_naiss_cli',
+                    'prestations.priseCharge:id,assureur_id,taux_pc',
+                ])
+                    ->when($request->input('assurance'), function ($query) use ($request) {
+                        $query->whereHas('assureur', function ($query) use ($request) {
+                            $query->where('assureurs.id', $request->input('assurance'));
+                        });
+                    })
+                    ->whereHas('prestations', function ($query) use ($request) {
+                        $query->whereHas('factures', function ($query) use ($request) {
+                            $query->where('factures.type', 2)
+                                ->where('factures.state', StateFacture::IN_PROGRESS->value)
+                                ->whereBetween('factures.date_fact', [$request->input('start_date'), $request->input('end_date')]);
+                        });
+                    })
+                    ->select('prise_en_charges.*')
+                    ->selectSub(function ($query) use ($request) {
+                        $query->from('factures')
+                            ->join('prestations', 'prestations.id', '=', 'factures.prestation_id')
+                            ->where('factures.type', 2)
+                            ->where('factures.state', StateFacture::IN_PROGRESS->value)
+                            ->whereBetween('factures.date_fact', [$request->input('start_date'), $request->input('end_date')])
+                            ->selectRaw('SUM(factures.amount_pc) / 100');
+                    }, 'total_amount')
+                    ->get();
+            }
+            else {
+                $lastFactures = true;
+                $dateLatestFacture = $latestPriseCharge->first()->prestations->first()->factures->first()->date_fact;
+                $assureurs = $latestPriseCharge;
+            }
         }
 
         if ($request->input('payable_by')) {
@@ -378,6 +429,8 @@ class PrestationController extends Controller
             'assureurs' => $assureurs,
             'clients' => $clients,
             'regulation_methods' => RegulationMethod::get()->toArray(),
+            'last_factures' => $lastFactures,
+            'date_latest_facture' => $dateLatestFacture
         ]);
     }
 

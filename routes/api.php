@@ -96,8 +96,9 @@ Route::middleware(['activity'])->group(function () {
         Route::patch('regulation-methods/{regulationMethod}/activate', [RegulationMethodController::class, 'activate']);
         Route::apiResource('regulations', RegulationController::class)->except(['show', 'index', 'destroy']);
         Route::post('/regulations/{regulation}', [RegulationController::class, 'cancel']);
-        Route::post('/special-regulations', [RegulationController::class, 'specialRegulation']);
         Route::get("/factures/in-progress", [PrestationController::class, 'getFacturesInProgress']);
+        Route::post('/special-regulations', [RegulationController::class, 'specialRegulation']);
+        Route::post('/ignore-factures', [RegulationController::class, 'ignoreFacture']);
 
         Route::controller(ConsultantController::class)->prefix('consultants')->group(function () {
             Route::get('/list', 'index');  // Afficher la liste des consultants
