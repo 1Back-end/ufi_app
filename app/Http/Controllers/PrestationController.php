@@ -56,6 +56,7 @@ class PrestationController extends Controller
             'centre',
             'factures',
             'factures.regulations',
+            'factures.regulations.regulationMethod',
         ])->when($request->input('client_id'), function ($query) use ($request) {
             $query->where('client_id', $request->input('client_id'));
         })->when($request->input('consultant_id'), function ($query) use ($request) {
@@ -423,8 +424,7 @@ class PrestationController extends Controller
                     if ($prestation->priseCharge) {
                         if ($soinPc = $prestation->priseCharge->assureur->soins()->find($soin->id)) {
                             $pu = $soinPc->pivot->pu;
-                        }
-                        else {
+                        } else {
                             $pu = $soin->pu_default;
                         }
                     }
@@ -449,8 +449,7 @@ class PrestationController extends Controller
                     if ($prestation->priseCharge) {
                         if ($consultationPC = $prestation->priseCharge->assureur->consultations()->find($consultation->id)) {
                             $pu = $consultationPC->pivot->pu;
-                        }
-                        else {
+                        } else {
                             $pu = $consultation->pu_default;
                         }
                     }
@@ -492,8 +491,7 @@ class PrestationController extends Controller
             foreach ($request->input('actes') as $acteData) {
                 if ($acte = $priseCharge->assureur->actes()->find($acteData['id'])) {
                     $pu = $acte->pivot->b * $acte->pivot->k_modulateur;
-                }
-                else {
+                } else {
                     $acte = Acte::find($acteData['id']);
                     $pu = $acte->b * $acte->k_modulateur;
                 }
@@ -510,8 +508,7 @@ class PrestationController extends Controller
             foreach ($request->input('soins') as $soinData) {
                 if ($soins = $priseCharge->assureur->soins()->find($soinData['id'])) {
                     $pu = $soins->pivot->pu;
-                }
-                else {
+                } else {
                     $soin = Soins::find($soinData['id']);
                     $pu = $soin->pu;
                 }
@@ -528,8 +525,7 @@ class PrestationController extends Controller
             foreach ($request->input('consultations') as $consultationData) {
                 if ($consultation = $priseCharge->assureur->consultations()->find($consultationData['id'])) {
                     $pu = $consultation->pivot->pu;
-                }
-                else {
+                } else {
                     $consultation = Consultation::find($consultationData['id']);
                     $pu = $consultation->pu;
                 }
