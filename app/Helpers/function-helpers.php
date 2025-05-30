@@ -305,11 +305,13 @@ if (! function_exists('save_browser_shot_pdf')) {
      * @param string $path
      * @param string $format
      * @param string $direction
+     * @param string $header
+     * @param string $footer
      * @return void
      * @throws CouldNotTakeBrowsershot
      * @throws Throwable
      */
-    function save_browser_shot_pdf(string $view, array $data, string $folderPath, string $path, string $format = 'a4', string $direction = ''): void
+    function save_browser_shot_pdf(string $view, array $data, string $folderPath, string $path, string $format = 'a4', string $direction = '', string $header = '', string $footer = '', array $margins = [0, 0, 0, 0]): void
     {
         $bootstrapPath = public_path('assets/bootstrap/css/bootstrap.min.css');
         $bootstrapContent = file_get_contents($bootstrapPath);
@@ -323,7 +325,22 @@ if (! function_exists('save_browser_shot_pdf')) {
         $browserShot = Browsershot::html(view($view, $data)->render())
             ->setChromePath('C:\Users\User\.cache\puppeteer\chrome\win64-136.0.7103.94\chrome-win64\chrome.exe')
             ->format($format)
+            ->margins($margins[0], $margins[1], $margins[2], $margins[3])
             ->showBackground();
+
+
+
+        if ($header) {
+            $browserShot->showBrowserHeaderAndFooter()
+                ->hideFooter()
+                ->headerHtml(view($header, $data)->render());
+        }
+
+        if ($footer) {
+            $browserShot->showBrowserHeaderAndFooter()
+                ->hideHeader()
+                ->footerHtml(view($footer, $data)->render());
+        }
 
         if ($direction) {
             $browserShot->landscape();
