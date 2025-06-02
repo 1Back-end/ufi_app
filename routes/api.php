@@ -37,6 +37,12 @@ use App\Http\Controllers\SoinsController;
 use App\Http\Controllers\OpsTblHospitalisationController;
 use App\Http\Controllers\AssurableController;
 use App\Http\Controllers\RendezVousController;
+use App\Http\Controllers\ConfigTblSousCategorieAntecedentController;
+use App\Http\Controllers\CategorieAntecedentController;
+use App\Http\Controllers\OpsTblAntecedentController;
+use App\Http\Controllers\ConfigTblCategoriesExamenPhysiqueController;
+use App\Http\Controllers\ConfigTblTypeDiagnosticController;
+use App\Http\Controllers\ConfigTblCategoriesEnquetesController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['activity'])->group(function () {
@@ -291,6 +297,49 @@ Route::middleware(['activity'])->group(function () {
             Route::get('/search', 'search');
             Route::get('/export',  'export');
             Route::get('/get_by_id/{id}', 'show');
+        });
+
+        Route::controller(ConfigTblSousCategorieAntecedentController::class)->prefix('config_sous_categories_antecedents')->group(function () {
+            Route::get('/list', 'index');
+            Route::post('/create', 'store');
+            Route::get('/get_by_id/{id}', 'show');
+            Route::put('/edit/{id}', 'update');
+            Route::delete('/delete/{id}', 'destroy');
+        });
+        Route::controller(CategorieAntecedentController::class)->prefix('categorie_antecedents')->group(function () {
+            Route::get('/list', 'index');
+            Route::post('/create', 'store');
+            Route::get('/get_by_id/{id}', 'show');
+            Route::put('/edit/{id}', 'update');
+            Route::delete('/delete/{id}', 'destroy');
+        });
+        Route::controller(OpsTblAntecedentController::class)->prefix('ops_tbl_antecedents')->group(function () {
+            Route::get('/list', 'index');
+            Route::post('/create', 'store');
+            Route::get('/get_by_id/{id}', 'show');
+            Route::put('/edit/{id}', 'update');
+            Route::delete('/delete/{id}', 'destroy');
+        });
+        Route::controller(ConfigTblCategoriesExamenPhysiqueController::class)->prefix('config_examen_physiques')->group(function () {
+            Route::get('/list', 'index');
+            Route::post('/create', 'store');
+            Route::get('/get_by_id/{id}', 'show');
+            Route::put('/edit/{id}', 'update');
+            Route::delete('/delete/{id}', 'destroy');
+        });
+        Route::controller(ConfigTblTypeDiagnosticController::class)->prefix('config_diagnostics')->group(function () {
+            Route::get('/list', 'index');
+            Route::post('/create', 'store');
+            Route::get('/get_by_id/{id}', 'show');
+            Route::put('/edit/{id}', 'update');
+            Route::delete('/delete/{id}', 'destroy');
+        });
+        Route::controller(ConfigTblCategoriesEnquetesController::class)->prefix('config_enquetes')->group(function () {
+            Route::get('/list', 'index');
+            Route::post('/create', 'store');
+            Route::get('/get_by_id/{id}', 'show');
+            Route::put('/edit/{id}', 'update');
+            Route::delete('/delete/{id}', 'destroy');
         });
 
         // Setting management

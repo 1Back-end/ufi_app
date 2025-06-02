@@ -33,13 +33,13 @@ class ServiceHopitalController extends Controller
     {
         $perPage = $request->input('limit', 10);  // Par défaut, 10 éléments par page
         $page = $request->input('page', 1);  // Page courante
-        $search = $request->input('search');
-
         $services_hopitals = Service_Hopital::where('is_deleted', false)
-            ->when($search, function ($query) use ($search) {
-                $query->where('nom_service_hopi', 'like', "%$search%");
+            ->when($request->input('search'), function ($query) use ($request) {
+                $search = $request->input('search');
+                $query->where('nom_service_hopi', 'like', '%' . $search . '%')
+                    ->orWhere('id', 'like', '%' . $search . '%');
             })
-            ->paginate(perPage: $perPage, page: $page);
+            ->latest()->paginate(perPage: $perPage, page: $page);
 
         return response()->json([
             'data' => $services_hopitals->items(),

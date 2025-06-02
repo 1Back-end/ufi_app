@@ -12,7 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('consultants', function (Blueprint $table) {
-            $table->string('tel1')->nullable()->change();
+            $table->foreignId('centre_id')->nullable()->constrained('centres')->onDelete('set null');
         });
     }
 
@@ -21,12 +21,10 @@ return new class extends Migration
      */
     public function down(): void
     {
-        // Étape 1 : Remplacer les NULL par une valeur par défaut avant de changer le schéma
-        DB::table('consultants')->whereNull('tel1')->update(['tel1' => '']);
-
-        // Étape 2 : Changer la colonne pour la rendre NOT NULL
         Schema::table('consultants', function (Blueprint $table) {
-            $table->string('tel1')->nullable(false)->change();
+            // Suppression de la clé étrangère et colonne en rollback
+            $table->dropForeign(['centre_id']);
+            $table->dropColumn('centre_id');
         });
     }
 };

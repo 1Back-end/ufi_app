@@ -2,13 +2,16 @@
 
 namespace App\Models;
 
+use App\Models\Trait\CreateDefaultUser;
+use App\Models\Trait\UpdatingUser;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Consultant extends Model
 {
-    use HasFactory;
+    use HasFactory,UpdatingUser, CreateDefaultUser;
 
     protected $fillable = [
         'code_hopi',
@@ -27,9 +30,14 @@ class Consultant extends Model
         'created_by',
         'updated_by',
         'TelWhatsApp',
+        'centre_id',
+        'user_id'
     ];
 
-
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'user_id');
+    }
 
     public function code_hopi()
     {
@@ -58,4 +66,9 @@ class Consultant extends Model
     {
         return $this->belongsTo(User::class, 'updated_by');
     }
+    public function centre()
+    {
+        return $this->belongsTo(Centre::class, 'centre_id');
+    }
+
 }

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Exports\AssureurExport;
 use App\Exports\ClientsExport;
 use App\Exports\ConsultantExportSearch;
+use App\Models\Centre;
 use App\Models\Consultation;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -30,28 +31,24 @@ class ConsultantController extends Controller
     public function index(Request $request){
         $perPage = $request->input('limit', 10);  // Par défaut, 10 éléments par page
         $page = $request->input('page', 1);  // Page courante
-
-        $search = $request->input('search');
-        $query = Consultant::where('is_deleted', false);
-        if ($search) {
-            $query->where(function ($query) use ($search) {
-                $query->where('nom', 'like', "%$search%")
-                 ->orWhere('prenom', 'like', '%' . $search . '%')
-                    ->orWhere('email', 'like', '%' . $search . '%')
-                    ->orWhere('tel', 'like', '%' . $search . '%')
-                    ->orWhere('tel', 'like', '%' . $search . '%')
-                    ->orWhere('nomcomplet', 'like', '%' . $search . '%');
-            });
-        }
-// Récupérer les assureurs avec pagination
         $consultanst = Consultant::where('is_deleted', false)
-            ->with([
-                'code_hopi:id,nom_hopi',
-                'code_specialite:id,nom_specialite',
-                'code_titre:id,nom_titre',
-            ])
+            ->with(['code_hopi:id,nom_hopi', 'code_specialite:id,nom_specialite', 'code_titre:id,nom_titre','centre:id,name'])
+            ->when($request->input('search'), function ($query) use ($request) {
+                $search = $request->input('search');
+                $query->where('ref', 'like', '%' . $search . '%')
+                    ->orWhere('nom', 'like', '%' . $search . '%')
+                    ->orWhere('prenom', 'like', '%' . $search . '%')
+                    ->orWhere('nomcomplet', 'like', '%' . $search . '%')
+                    ->orWhere('tel', 'like', '%' . $search . '%')
+                    ->orWhere('tel1', 'like', '%' . $search . '%')
+                    ->orWhere('email', 'like', '%' . $search . '%')
+                    ->orWhere('type', 'like', '%' . $search . '%')
+                    ->orWhere('status', 'like', '%' . $search . '%')
+                    ->orWhere('id', 'like', '%' . $search . '%')
+                    ->orWhere('centre_id', 'like', '%' . $search . '%');
+            })
             ->latest()
-            ->paginate($perPage, ['*'], 'page', $page);
+            ->paginate(perPage: $perPage, page: $page);
 
         return response()->json([
             'data' => $consultanst->items(),
@@ -219,7 +216,6 @@ class ConsultantController extends Controller
     public function store(Request $request)
     {
         $auth = auth()->user();
-        // Validation des données sans 'user_id'
         $data = $request->validate([
             'code_hopi' => 'required|exists:hopitals,id',
             'code_service_hopi' => 'required|exists:service__hopitals,id',
@@ -232,6 +228,33 @@ class ConsultantController extends Controller
             'email' => 'required|email|unique:consultants,email',
             'type' => ['required', new Enum(TypeConsultEnum::class)],
             'TelWhatsApp' => 'nullable|in:Oui,Non',
+        ], [
+            'code_hopi.required' => 'Le champ hôpital est obligatoire.',
+            'code_hopi.exists' => 'L\'hôpital sélectionné est invalide.',
+
+            'code_service_hopi.required' => 'Le champ service est obligatoire.',
+            'code_service_hopi.exists' => 'Le service sélectionné est invalide.',
+
+            'code_specialite.required' => 'Le champ spécialité est obligatoire.',
+            'code_specialite.exists' => 'La spécialité sélectionnée est invalide.',
+
+            'code_titre.required' => 'Le champ titre est obligatoire.',
+            'code_titre.exists' => 'Le titre sélectionné est invalide.',
+
+            'nom.required' => 'Le nom est obligatoire.',
+            'prenom.required' => 'Le prénom est obligatoire.',
+
+            'tel.required' => 'Le numéro de téléphone principal est obligatoire.',
+            'tel.unique' => 'Ce numéro de téléphone est déjà utilisé.',
+
+            'tel1.unique' => 'Le numéro secondaire est déjà utilisé.',
+
+            'email.required' => 'L\'adresse email est obligatoire.',
+            'email.email' => 'L\'adresse email n\'est pas valide.',
+            'email.unique' => 'Cette adresse email est déjà utilisée.',
+
+            'type.required' => 'Le type de consultant est obligatoire.',
+            'TelWhatsApp.in' => 'Le champ WhatsApp doit être Oui ou Non.'
         ]);
         $titre = Titre::find($data['code_titre']);
         // Générer le nom complet du consultant
@@ -240,8 +263,6 @@ class ConsultantController extends Controller
         // Générer une référence unique
         $data['ref'] = 'C' . now()->format('ymdHis') . mt_rand(10, 99);
         $data['created_by'] = $auth->id;
-
-        // Créer le consultant
         $consultant = Consultant::create($data);
 
         // Retourner la réponse JSON avec l'objet consultant créé

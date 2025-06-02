@@ -125,13 +125,15 @@ class TitreController extends Controller
     public function get_all(Request $request){
         $perPage = $request->input('limit', 10);  // Par défaut, 10 éléments par page
         $page = $request->input('page', 1);  // Page courante
-        $search = $request->input('search');
-
         $titres = Titre::where('is_deleted', false)
-            ->when($search, function ($query) use ($search) {
-                $query->where('nom_titre', 'like', "%$search%");
+            ->when($request->input('search'), function ($query) use ($request) {
+                $search = $request->input('search');
+                $query->where('nom_titre', 'like', '%' . $search . '%')
+                    ->orWhere('id', 'like', '%' . $search . '%')
+                    ->orWhere('abbreviation_titre', 'like', '%' . $search . '%');
+
             })
-            ->paginate(perPage: $perPage, page: $page);
+            ->latest()->paginate(perPage: $perPage, page: $page);
 
         return response()->json([
             'data' => $titres->items(),
