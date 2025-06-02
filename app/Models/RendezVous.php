@@ -16,12 +16,10 @@ class RendezVous extends Model
         'updated_by',
         'client_id',
         'consultant_id',
-        'date_emission',
         'dateheure_rdv',
-        'heure_debut',
-        'heure_fin',
         'details',
         'nombre_jour_validite',
+        'duration',
         'type',
         'etat',
         'code',
@@ -66,12 +64,7 @@ class RendezVous extends Model
         return $query->where('is_deleted', false);
     }
 
-    // Accesseurs pour formater les dates
-    public function getDateEmissionAttribute($value)
-    {
-        return \Carbon\Carbon::parse($value)->format('d-m-Y H:i');
-    }
-
+    
     public function getDateheureRdvAttribute($value)
     {
         return \Carbon\Carbon::parse($value)->format('d-m-Y H:i');

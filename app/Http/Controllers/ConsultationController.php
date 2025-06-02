@@ -179,7 +179,7 @@ class ConsultationController extends Controller
 
         // Check if the assureur is deleted
         if ($consultations->is_deleted) {
-            return response()->json(['message' => 'Impossible de mettre à jour une consultation supprimé'], 400);
+            return response()->json([ ], 400);
         }
 
         // Validate the status

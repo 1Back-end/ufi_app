@@ -15,6 +15,7 @@ class CategorieAntecedent extends Model
         'created_by',
         'updated_by',
         'is_deleted',
+        'status'
     ];
 
     protected $casts = [
