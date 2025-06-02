@@ -162,5 +162,23 @@ class CategorieAntecedentController extends Controller
             'message' => 'Catégorie supprimée avec succès.'
         ]);
     }
+    public function UpdateStatus(Request $request, $id, $status){
+        $categorie = CategorieAntecedent::find($id);
+        if(!$categorie){
+            return response()->json(['message'=> 'Catégorie Introuvable'], 404);
+        }
+        if($categorie->is_deleted){
+            return response()->json(['message' => 'Impossible de mettre à jour une catégorie supprimé']);
+        }
+        if(!in_array($status, ['actif', 'inactif'])){
+            return response()->json(['message'=> 'Le status est obligatoire'], 400);
+        }
+        $categorie->status = $status;
+        $categorie->save();
+        return response()->json([
+            'data' => $categorie,
+            'message' => 'Statut mis à jour avec succès'
+        ],200);
+    }
 
 }

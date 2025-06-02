@@ -312,6 +312,7 @@ Route::middleware(['activity'])->group(function () {
             Route::get('/get_by_id/{id}', 'show');
             Route::put('/edit/{id}', 'update');
             Route::delete('/delete/{id}', 'destroy');
+            Route::put('update_status/{id}/status/{status}', 'UpdateStatus');
         });
         Route::controller(OpsTblAntecedentController::class)->prefix('ops_tbl_antecedents')->group(function () {
             Route::get('/list', 'index');

@@ -64,12 +64,7 @@ class RendezVous extends Model
         return $query->where('is_deleted', false);
     }
 
-    // Accesseurs pour formater les dates
-    public function getDateEmissionAttribute($value)
-    {
-        return \Carbon\Carbon::parse($value)->format('d-m-Y H:i');
-    }
-
+    
     public function getDateheureRdvAttribute($value)
     {
         return \Carbon\Carbon::parse($value)->format('d-m-Y H:i');
