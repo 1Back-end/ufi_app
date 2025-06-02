@@ -7,9 +7,12 @@ use App\Enums\TypePrestation;
 use App\Http\Requests\PrestationRequest;
 use App\Models\Acte;
 use App\Models\Assureur;
+use App\Models\Centre;
 use App\Models\Client;
 use App\Models\Consultation;
 use App\Models\Facture;
+use App\Models\FactureAssociate;
+use App\Models\Media;
 use App\Models\Prestation;
 use App\Models\PriseEnCharge;
 use App\Models\RegulationMethod;
@@ -20,10 +23,13 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use PHPUnit\Framework\Exception;
+use Spatie\Browsershot\Exceptions\CouldNotTakeBrowsershot;
 use Symfony\Component\HttpFoundation\Response;
+use Throwable;
 
 class PrestationController extends Controller
 {
@@ -291,50 +297,31 @@ class PrestationController extends Controller
 
         $assureurs = [];
         $clients = [];
+        $lastFactures = false;
+        $dateLatestFacture = '';
 
         if ($request->input('assurance')) {
-            $assureurs = PriseEnCharge::with([
-                'assureur:id,nom',
-                'prestations' => function ($query) use ($request) {
-                    $query->whereHas('factures', function ($query) use ($request) {
-                        $query->where('factures.type', 2)
-                            ->where('factures.state', StateFacture::IN_PROGRESS->value)
-                            ->when($request->input('start_date') && $request->input('end_date'), function ($query) use ($request) {
-                                $query->whereBetween('factures.date_fact', [$request->input('start_date'), $request->input('end_date')]);
-                            });
-                    });
-                },
-                'prestations.factures' => function ($query) {
-                    $query->where('factures.type', 2);
-                },
-                'prestations.actes',
-                'prestations.soins',
-                'prestations.consultations',
-                'client:id,nom_cli,prenom_cli,nomcomplet_client,ref_cli,date_naiss_cli',
-                'prestations.priseCharge:id,assureur_id,taux_pc',
-            ])
-                ->when($request->input('assurance'), function ($query) use ($request) {
-                    $query->whereHas('assureur', function ($query) use ($request) {
-                        $query->where('assureurs.id', $request->input('assurance'));
-                    });
-                })
-                ->whereHas('prestations', function ($query) use ($request) {
-                    $query->whereHas('factures', function ($query) use ($request) {
-                        $query->where('factures.type', 2)
-                            ->where('factures.state', StateFacture::IN_PROGRESS->value)
-                            ->whereBetween('factures.date_fact', [$request->input('start_date'), $request->input('end_date')]);
-                    });
-                })
-                ->select('prise_en_charges.*') // important
-                ->selectSub(function ($query) use ($request) {
-                    $query->from('factures')
-                        ->join('prestations', 'prestations.id', '=', 'factures.prestation_id')
-                        ->where('factures.type', 2)
-                        ->where('factures.state', StateFacture::IN_PROGRESS->value)
-                        ->whereBetween('factures.date_fact', [$request->input('start_date'), $request->input('end_date')])
-                        ->selectRaw('SUM(factures.amount_pc) / 100');
-                }, 'total_amount')
+            $latestPriseCharge = PriseEnCharge::filterFactureInProgress(
+                startDate: $request->input('start_date'),
+                endDate: $request->input('end_date'),
+                assurance: $request->input('assurance'),
+                latestFacture: true
+            )->get();
+
+            if ($latestPriseCharge->isEmpty()) {
+                $assureurs = PriseEnCharge::filterFactureInProgress(
+                    startDate: $request->input('start_date'),
+                    endDate: $request->input('end_date'),
+                    assurance: $request->input('assurance')
+                )
                 ->get();
+
+            }
+            else {
+                $lastFactures = true;
+                $dateLatestFacture = $latestPriseCharge->first()->prestations->first()->factures->first()->date_fact;
+                $assureurs = $latestPriseCharge;
+            }
         }
 
         if ($request->input('payable_by')) {
@@ -378,6 +365,8 @@ class PrestationController extends Controller
             'assureurs' => $assureurs,
             'clients' => $clients,
             'regulation_methods' => RegulationMethod::get()->toArray(),
+            'last_factures' => $lastFactures,
+            'date_latest_facture' => $dateLatestFacture
         ]);
     }
 
@@ -547,5 +536,106 @@ class PrestationController extends Controller
             $data['regulated'] = $data['payable_by'] ? 1 : 0;
         }
         return $data;
+    }
+
+    /**
+     * Generates and returns the URL of a PDF invoice for an insurance company.
+     *
+     * This function validates the request parameters, generates a PDF invoice for the specified
+     * insurance company and date range, and returns the URL of the generated PDF. If the PDF
+     * already exists, it retrieves the existing file URL instead of generating a new one.
+     *
+     * @param Request $request The HTTP request object containing the input data.
+     * 
+     * @return \Illuminate\Http\JsonResponse A JSON response containing the URL of the generated or existing PDF invoice.
+     *
+     * @throws \Throwable If an error occurs during the PDF generation process.
+     * 
+     * @permission PrestationController::printFactureAssurance
+     * @permission_desc Imprimer la facture d'assurance
+     */
+    public function printFactureAssurance(Request $request)
+    {
+        $request->validate([
+            'assurance' => ['required', 'exists:assureurs,id'],
+            'start_date' => ['required', 'date'],
+            'end_date' => ['required', 'date'],
+            'actualize' => ["boolean"]
+        ]);
+        $assurance = Assureur::find($request->assurance);
+        $startDate = Carbon::createFromTimeString($request->input("start_date"));
+        $endDate = Carbon::createFromTimeString($request->input("end_date"));
+        $fileName = $assurance->ref .'-'. $startDate->format('d-m-Y')  .'-'. $endDate->format('d-m-Y') . '.pdf';
+
+        $mediaFacture = Media::where('filename', $fileName)->first();
+
+        if ($mediaFacture) {
+            $path = $mediaFacture->path;
+        }
+        else {
+            $priseEnCharges = PriseEnCharge::filterFactureInProgress(
+                startDate: $request->input('start_date'),
+                endDate: $request->input('end_date'),
+                assurance: $request->input('assurance')
+            )->get();
+            $centre = Centre::find($request->header('centre'));
+            $code = Str::padLeft((FactureAssociate::max('id') ? FactureAssociate::max('id') + 1 : 1), 4, 0) .'/'. Str::upper($centre->reference) .'/'. now()->format('y');
+            $media = $centre->medias()->where('name', 'logo')->first();
+
+            $data = [
+                'assurance' => $assurance,
+                'priseEnCharges' => $priseEnCharges,
+                'code' => $code,
+                'centre' => $centre,
+                'logo' => $media ? 'storage/'. $media->path .'/'. $media->filename : '',
+                "start_date" => $startDate,
+                "end_date" => $endDate,
+            ];
+
+            try {
+                save_browser_shot_pdf(
+                    view: 'pdfs.factures.assurances.facture-assurance',
+                    data: $data,
+                    folderPath: 'storage/facture-assurance',
+                    path: 'storage/facture-assurance/' . $fileName,
+                    footer: 'pdfs.factures.assurances.footer',
+                    margins: [15, 10, 15, 10]
+                );
+            }
+            catch (CouldNotTakeBrowsershot|Throwable $e) {
+                Log::error($e->getMessage());
+
+                return \response()->json([
+                    'message' => __("Un erreur inattendue est survenu.")
+                ], 400);
+            }
+
+            $path = 'facture-assurance/' . $fileName;
+
+            $facture = $assurance->factures()->create([
+                'start_date' =>  $request->input('start_date'),
+                'end_date' => $request->input('end_date'),
+                'code' => $code,
+                'amount' => $priseEnCharges->first()->total_amount,
+                'date' => now(),
+            ]);
+
+            $facture->medias()->create([
+                'name' => "FACTURE-ASSOCIATE",
+                'disk' => 'public',
+                'path' => $path,
+                'filename' => $fileName,
+                'mimetype' => 'pdf',
+                'extension' => 'pdf',
+            ]);
+        }
+
+        $pdfContent = file_get_contents('storage/facture-assurance/' . $fileName);
+        $base64 = base64_encode($pdfContent);
+
+        return response()->json([
+            'base64' => $base64,
+            'filename' => $fileName
+        ]);
     }
 }

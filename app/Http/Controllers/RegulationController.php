@@ -223,6 +223,7 @@ class RegulationController extends Controller
      *
      * @param Facture $facture
      * @param bool $forcePaid
+     * @param bool $update
      * @return void
      */
     protected function validatedFacture(Facture $facture, bool $forcePaid = false, bool $update = false)
@@ -260,5 +261,33 @@ class RegulationController extends Controller
                 'regulated' => 1,
             ]);
         }
+    }
+
+    /**
+     * @param Request $request
+     * @return JsonResponse
+     *
+     * @permission RegulationController::ignoreFacture
+     * @permission_desc Ingorer les factures qui ne sont pas regler par l’assurance ou un client associer
+     */
+    public function ignoreFacture(Request $request)
+    {
+        $request->validate([
+            'facture_ids' => ['required', 'array'],
+            'facture_ids.*' => ['exists:factures,id']
+        ]);
+
+        foreach ($request->facture_ids as $facture_id) {
+            $facture = Facture::find($facture_id);
+            $this->validatedFacture($facture, true);
+
+            $facture->update([
+                'contentieux' => true,
+            ]);
+        }
+
+        return \response()->json([
+            'message' => __('Operation effectuee avec succes ')
+        ], 202);
     }
 }

@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Pagination\Paginator;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -26,5 +27,7 @@ class AppServiceProvider extends ServiceProvider
         });
 
         Paginator::useBootstrapFour();
+
+        Carbon::setLocale('fr');
     }
 }

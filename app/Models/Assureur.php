@@ -105,10 +105,13 @@ class Assureur extends Model
             ->withPivot(['pu']);
     }
 
-
-
     public function specialRegulations(): MorphMany
     {
         return $this->morphMany(SpecialRegulation::class, 'regulation');
+    }
+
+    public function factures(): MorphMany
+    {
+        return $this->morphMany(FactureAssociate::class, 'facturable');
     }
 }
