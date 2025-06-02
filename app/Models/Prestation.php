@@ -6,6 +6,7 @@ use App\Enums\StateFacture;
 use App\Enums\StatusRegulation;
 use App\Enums\TypePrestation;
 use App\Models\Trait\UpdatingUser;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -53,6 +54,35 @@ class Prestation extends Model
         return Attribute::make(
             get: fn()  => TypePrestation::label($this->type),
         );
+    }
+
+    public function scopeFilterInProgress(Builder $query, $startDate, $endDate, $assurance = null, bool $latestFacture = false): Builder
+    {
+        $centreId = request()->header('centre');
+
+        $factureFilter = function ($query) use ($startDate, $endDate, $latestFacture) {
+            $query->where('factures.type', 2)
+                ->where('factures.state', StateFacture::IN_PROGRESS->value)
+                ->when($latestFacture,
+                    fn($q) => $q->whereDate('factures.date_fact', '<', $startDate),
+                    fn($q) => $q->whereBetween('factures.date_fact', [$startDate, $endDate])
+                );
+        };
+
+        return $query->where('centre_id', $centreId)
+            ->whereHas('factures', $factureFilter)
+            ->with([
+                'factures' => fn($q) => $q->where('factures.type', 2),
+                'actes',
+                'soins',
+                'consultations',
+                'client:id,nom_cli,prenom_cli,nomcomplet_client,ref_cli,date_naiss_cli',
+                'priseCharge:id,assureur_id,taux_pc',
+                'priseCharge.assureur:id,nom',
+            ])
+            ->when($assurance, function ($query) use ($assurance) {
+                $query->whereHas('priseCharge.assureur', fn($q) => $q->where('id', $assurance));
+            });
     }
 
     protected function paid(): Attribute

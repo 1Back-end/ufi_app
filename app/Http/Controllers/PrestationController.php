@@ -295,32 +295,38 @@ class PrestationController extends Controller
             'end_date' => ['required', 'date'],
         ]);
 
-        $assureurs = [];
+        $prestations = [];
         $clients = [];
         $lastFactures = false;
         $dateLatestFacture = '';
+        $totalAmount = 0;
 
         if ($request->input('assurance')) {
-            $latestPriseCharge = PriseEnCharge::filterFactureInProgress(
+            $latestPrestations = Prestation::filterInProgress(
                 startDate: $request->input('start_date'),
                 endDate: $request->input('end_date'),
                 assurance: $request->input('assurance'),
                 latestFacture: true
-            )->get();
+            )->paginate(
+                perPage: $request->input('per_page', 25),
+                page: $request->input('page', 1)
+            );
 
-            if ($latestPriseCharge->isEmpty()) {
-                $assureurs = PriseEnCharge::filterFactureInProgress(
+            if (! $latestPrestations->items()) {
+                $prestations = Prestation::filterInProgress(
                     startDate: $request->input('start_date'),
                     endDate: $request->input('end_date'),
                     assurance: $request->input('assurance')
                 )
-                ->get();
-
+                ->paginate(
+                    perPage: $request->input('per_page', 25),
+                    page: $request->input('page', 1)
+                );
             }
             else {
                 $lastFactures = true;
-                $dateLatestFacture = $latestPriseCharge->first()->prestations->first()->factures->first()->date_fact;
-                $assureurs = $latestPriseCharge;
+                $dateLatestFacture = $latestPrestations->first()->factures->first()->date_fact;
+                $prestations = $latestPrestations;
             }
         }
 
@@ -361,12 +367,24 @@ class PrestationController extends Controller
                 ->get();
         }
 
+        $totalAmount = DB::table('factures')
+            ->join('prestations', 'factures.prestation_id', '=', 'prestations.id')
+            ->where('factures.type', 2)
+            ->where('factures.state', StateFacture::IN_PROGRESS->value)
+            ->when($lastFactures, fn($query) => $query->whereDate('factures.date_fact', '<', $request->input('start_date')))
+            ->where('prestations.centre_id', $request->header('centre'))
+            ->when($request->input('assurance'), fn($q) => $q->where('prise_en_charges.assureur_id', $request->input('assurance')))
+            ->join('prise_en_charges', 'prestations.prise_charge_id', '=', 'prise_en_charges.id')
+            ->selectRaw('SUM(factures.amount_pc) / 100 as total')
+            ->value('total');
+
         return response()->json([
-            'assureurs' => $assureurs,
+            'prestations' => $prestations,
             'clients' => $clients,
             'regulation_methods' => RegulationMethod::get()->toArray(),
             'last_factures' => $lastFactures,
-            'date_latest_facture' => $dateLatestFacture
+            'date_latest_facture' => $dateLatestFacture,
+            'total_amount' => $totalAmount
         ]);
     }
 
@@ -546,11 +564,11 @@ class PrestationController extends Controller
      * already exists, it retrieves the existing file URL instead of generating a new one.
      *
      * @param Request $request The HTTP request object containing the input data.
-     * 
+     *
      * @return \Illuminate\Http\JsonResponse A JSON response containing the URL of the generated or existing PDF invoice.
      *
      * @throws \Throwable If an error occurs during the PDF generation process.
-     * 
+     *
      * @permission PrestationController::printFactureAssurance
      * @permission_desc Imprimer la facture d'assurance
      */
