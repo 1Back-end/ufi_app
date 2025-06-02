@@ -2,11 +2,12 @@
 
 namespace App\Models;
 
+use App\Models\Trait\UpdatingUser;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 class RendezVous extends Model
 {
-    use HasFactory;
+    use HasFactory, UpdatingUser;
     // Spécification de la table si ce n'est pas le nom par défaut (rendez_vouses)
     protected $table = 'rendez_vouses';
 
@@ -64,7 +65,7 @@ class RendezVous extends Model
         return $query->where('is_deleted', false);
     }
 
-    
+
     public function getDateheureRdvAttribute($value)
     {
         return \Carbon\Carbon::parse($value)->format('d-m-Y H:i');

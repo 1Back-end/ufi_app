@@ -9,6 +9,7 @@ use App\Models\Acte;
 use App\Models\Assureur;
 use App\Models\Centre;
 use App\Models\Client;
+use App\Models\Consultant;
 use App\Models\Consultation;
 use App\Models\Facture;
 use App\Models\FactureAssociate;
@@ -16,8 +17,10 @@ use App\Models\Media;
 use App\Models\Prestation;
 use App\Models\PriseEnCharge;
 use App\Models\RegulationMethod;
+use App\Models\RendezVous;
 use App\Models\Setting;
 use App\Models\Soins;
+use App\Notifications\SendRdvNotification;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -392,7 +395,7 @@ class PrestationController extends Controller
     protected function attachElementWithPrestation(PrestationRequest $request, Prestation $prestation, bool $update = false)
     {
         // ToDo: récupérer la durée d'une prestation dans la table Settings (en Heure).
-        $prestationDuration = Setting::whereKey('rdv_duration')->first()->value;
+        $prestationDuration = Setting::where('key','rdv_duration')->first()->value;
 
         switch ($request->type) {
             case TypePrestation::ACTES->value:
@@ -414,11 +417,13 @@ class PrestationController extends Controller
                         'remise' => $item['remise'],
                         'quantity' => $item['quantity'],
                         'date_rdv' => $item['date_rdv'],
-                        'date_rdv_end' => Carbon::createFromTimeString($item['date_rdv'])->addMinutes($prestationDuration),
+                        'date_rdv_end' => Carbon::createFromTimeString($item['date_rdv'])->addMinutes((int)$prestationDuration),
                         'b' => $b,
                         'k_modulateur' => $kModulateur,
                         'pu' => $prestation->priseCharge ? $b * $kModulateur : $acte->pu
                     ]);
+
+                    $this->createRdv($request->input('consultant_id'), $request->input('client_id'), $item['date_rdv']);
                 }
                 break;
             case TypePrestation::SOINS->value:
@@ -466,9 +471,11 @@ class PrestationController extends Controller
                         'date_rdv' => $item['date_rdv'],
                         'remise' => $item['remise'],
                         'quantity' => $item['quantity'],
-                        'date_rdv_end' => Carbon::createFromTimeString($item['date_rdv'])->addMinutes($prestationDuration),
+                        'date_rdv_end' => Carbon::createFromTimeString($item['date_rdv'])->addMinutes((int)$prestationDuration),
                         'pu' =>  $pu
                     ]);
+
+                    $this->createRdv($request->input('consultant_id'), $request->input('client_id'), $item['date_rdv']);
                 }
                 break;
             default:
@@ -658,8 +665,18 @@ class PrestationController extends Controller
         ]);
     }
 
-    private function createRdv()
+    private function createRdv($consultantId, $clientId, $date)
     {
-        
+        RendezVous::create([
+            'client_id' => $clientId,
+            'consultant_id' => $consultantId,
+            'dateheure_rdv' => $date,
+            'details' => "",
+            'nombre_jour_validite' => Setting::where('key','rdv_validity_by_day')->first()->value,
+            'duration' => Setting::where('key','rdv_duration')->first()->value,
+        ]);
+//        Todo: Mettre en marche les notifications envoyées
+//        $consultant = Consultant::find($consultantId);
+//        $consultant->user()->notify(SendRdvNotification::class);
     }
 }
