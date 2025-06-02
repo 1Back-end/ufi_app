@@ -18,8 +18,6 @@ class RendezVous extends Model
         'consultant_id',
         'date_emission',
         'dateheure_rdv',
-        'heure_debut',
-        'heure_fin',
         'details',
         'nombre_jour_validite',
         'type',
