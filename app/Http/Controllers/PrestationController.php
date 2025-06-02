@@ -16,6 +16,7 @@ use App\Models\Media;
 use App\Models\Prestation;
 use App\Models\PriseEnCharge;
 use App\Models\RegulationMethod;
+use App\Models\Setting;
 use App\Models\Soins;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -391,7 +392,7 @@ class PrestationController extends Controller
     protected function attachElementWithPrestation(PrestationRequest $request, Prestation $prestation, bool $update = false)
     {
         // ToDo: récupérer la durée d'une prestation dans la table Settings (en Heure).
-        $prestationDuration = 1;
+        $prestationDuration = Setting::whereKey('rdv_duration')->first()->value;
 
         switch ($request->type) {
             case TypePrestation::ACTES->value:
@@ -413,7 +414,7 @@ class PrestationController extends Controller
                         'remise' => $item['remise'],
                         'quantity' => $item['quantity'],
                         'date_rdv' => $item['date_rdv'],
-                        'date_rdv_end' => Carbon::createFromTimeString($item['date_rdv'])->addHours($prestationDuration),
+                        'date_rdv_end' => Carbon::createFromTimeString($item['date_rdv'])->addMinutes($prestationDuration),
                         'b' => $b,
                         'k_modulateur' => $kModulateur,
                         'pu' => $prestation->priseCharge ? $b * $kModulateur : $acte->pu
@@ -465,7 +466,7 @@ class PrestationController extends Controller
                         'date_rdv' => $item['date_rdv'],
                         'remise' => $item['remise'],
                         'quantity' => $item['quantity'],
-                        'date_rdv_end' => Carbon::createFromTimeString($item['date_rdv'])->addHours($prestationDuration),
+                        'date_rdv_end' => Carbon::createFromTimeString($item['date_rdv'])->addMinutes($prestationDuration),
                         'pu' =>  $pu
                     ]);
                 }
@@ -655,5 +656,10 @@ class PrestationController extends Controller
             'base64' => $base64,
             'filename' => $fileName
         ]);
+    }
+
+    private function createRdv()
+    {
+        
     }
 }
