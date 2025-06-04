@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\ConventionAssocieRequest;
 use App\Models\ConventionAssocie;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 
 class ConventionAssocieController extends Controller
@@ -21,7 +22,27 @@ class ConventionAssocieController extends Controller
                 'client:id,nomcomplet_client',
                 'createdBy:id,nom_utilisateur',
                 'updatedBy:id,nom_utilisateur'
-            ])->latest()->paginate(
+            ])
+            ->latest()
+            ->when(request('convention'), function (Builder $query) {
+                $query->whereDate('start_date', '<=', now())
+                    ->whereDate('end_date', '>=', now())
+                    ->whereColumn('amount', '<', 'amount_max');
+            })
+            ->when(request('search'), function (Builder $query) {
+                $query->whereHas('client', function (Builder $query) {
+                    $search = request('search');
+                    $query->whereLike('nom_cli', "%{$search}%")
+                        ->orWhereLike('nomcomplet_client', "%{$search}%")
+                        ->orWhereLike('prenom_cli', "%{$search}%")
+                        ->orWhereLike('secondprenom_cli', "%{$search}%")
+                        ->orWhereLike('ref_cli', "%{$search}%")
+                        ->orWhereLike('email', "%{$search}%")
+                        ->orWhereLike('tel_cli', "%{$search}%")
+                        ->orWhereLike('tel2_cli', "%{$search}%");
+                });
+            })
+            ->paginate(
                 perPage: request('per_page', 15),
                 page: request('page', 1),
             )
@@ -86,7 +107,7 @@ class ConventionAssocieController extends Controller
      */
     public function activate(ConventionAssocie $conventionAssocie)
     {
-        if (! $conventionAssocie->active) {
+        if (!$conventionAssocie->active) {
             $convention = ConventionAssocie::where('client_id', $conventionAssocie->client_id)
                 ->where('id', '!=', $conventionAssocie->id)
                 ->where('active', true)

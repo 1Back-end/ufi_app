@@ -293,6 +293,16 @@ if (! function_exists('save_facture')) {
             ]);
         }
 
+        if ($facture->type == 2 && $prestation->payable_by){
+            $convention = $prestation->payableBy->conventionAssocies()
+                ->where('start_date', '<=', now())
+                ->where('end_date', '>=', now())
+                ->whereColumn('amount', '<=', 'amount_max')
+                ->first();
+
+            $convention->increment('amount', $facture->amount_client);
+        }
+
         return $facture;
     }
 }

@@ -11,6 +11,7 @@ use App\Models\Centre;
 use App\Models\Client;
 use App\Models\Consultant;
 use App\Models\Consultation;
+use App\Models\ConventionAssocie;
 use App\Models\Facture;
 use App\Models\FactureAssociate;
 use App\Models\Media;
@@ -130,29 +131,58 @@ class PrestationController extends Controller
      */
     public function store(PrestationRequest $request)
     {
+        $centre = $request->header('centre');
+        $data = array_merge($request->validated(), ['centre_id' => $centre]);
+
         DB::beginTransaction();
         try {
             if ($errorConflit = $request->validateRdvDate()) {
                 return response()->json($errorConflit, Response::HTTP_CONFLICT);
             }
 
-            $centre = $request->header('centre');
-            $data = array_merge($request->except(['actes']), ['centre_id' => $centre]);
-
             // Si le montant de la remise + la prise en charge est supérieur au montant de la prestation alors cette prestation passe en état encours
             $data = $this->getDataForPriseEnCharge($request, $data);
 
-            $prestation = Prestation::create($data);
+            if ($data['payable_by']) {
+                $convention = ConventionAssocie::query()
+                    ->whereClientId($data['payable_by'])
+                    ->where('start_date', '<=', now())
+                    ->where('end_date', '>=', now())
+                    ->whereColumn('amount', '<=', 'amount_max')
+                    ->first();
+
+                if ($convention && ($convention->amount + $data['amount']) > $convention->amount_max) {
+                    throw new \Exception('Le plafond de la convention est dépassé de : ' . $convention->amount + $data['amount'] - $convention->amount_max . "FCFA", 400);
+                }
+
+                $data['convention_id'] = $convention->id;
+            }
+
+            $prestation = Prestation::create(\Arr::except($data, ['payable_by_file_update', 'payable_by_file', 'actes', 'amount_pc', 'amount_remise', 'amount']));
+
             $this->attachElementWithPrestation($request, $prestation);
 
             // Si le montant de la remise + la prise en charge est égal au montant de la prestation alors on crée la facture
             if ($data['regulated'] == 2 || $data['payable_by']) {
                 save_facture($prestation, $centre, 2);
             }
+
+            // Save File for associate client !
+            if ($data['payable_by'] && $request->file('payable_by_file')) {
+                upload_media(
+                    model: $prestation,
+                    file: $request->file('payable_by_file'),
+                    name: 'prestations-client-associate',
+                    disk: 'public',
+                    path: 'prestations/client-associate',
+                    filename: $prestation->client->ref_cli . "-" . $prestation->id,
+                );
+            }
+
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json([
-                'message' => $e->getMessage()
+                'message' => $e->getTraceAsString()()
             ], $e->getCode() === 0 ? Response::HTTP_INTERNAL_SERVER_ERROR : Response::HTTP_BAD_REQUEST);
         }
         DB::commit();
@@ -178,6 +208,7 @@ class PrestationController extends Controller
                 'actes',
                 'soins',
                 'consultations',
+                'medias',
             ])
         ]);
     }
@@ -204,11 +235,39 @@ class PrestationController extends Controller
             // Si le montant de la remise + la prise en charge est supérieur au montant de la prestation alors cette prestation passe en état encours
             $data = $this->getDataForPriseEnCharge($request, $data);
 
+            if ($data['payable_by']) {
+                $convention = ConventionAssocie::query()
+                    ->whereClientId($data['payable_by'])
+                    ->where('start_date', '<=', now())
+                    ->where('end_date', '>=', now())
+                    ->whereColumn('amount', '<=', 'amount_max')
+                    ->first();
+
+                if ($convention && ($convention->amount + $data['amount']) > $convention->amount_max) {
+                    throw new \Exception('Le plafond de la convention est dépassé de : ' . $convention->amount + $data['amount'] - $convention->amount_max . "FCFA", 400);
+                }
+
+                $data['convention_id'] = $convention->id;
+            }
+
             $prestation->update($data);
             $this->attachElementWithPrestation($request, $prestation, true);
 
             if ($data['regulated'] == 2) {
                 save_facture($prestation, $prestation->centre->id, 2);
+            }
+
+            // Save File for associate client !
+            if ($data['payable_by'] && $request->file('payable_by_file') && $request->input('payable_by_file_update')) {
+                upload_media(
+                    model: $prestation,
+                    file: $request->file('payable_by_file'),
+                    name: 'prestations-client-associate',
+                    disk: 'public',
+                    path: 'prestations/client-associate',
+                    filename: $prestation->client->ref_cli . "-" . $prestation->id,
+                    update: $prestation->medias()->where('name', 'prestations-client-associate')->first()
+                );
             }
         } catch (\Exception $e) {
             DB::rollBack();
@@ -394,7 +453,6 @@ class PrestationController extends Controller
 
     protected function attachElementWithPrestation(PrestationRequest $request, Prestation $prestation, bool $update = false)
     {
-        // ToDo: récupérer la durée d'une prestation dans la table Settings (en Heure).
         $prestationDuration = Setting::where('key','rdv_duration')->first()->value;
 
         switch ($request->type) {
@@ -493,74 +551,110 @@ class PrestationController extends Controller
      */
     public function getDataForPriseEnCharge(PrestationRequest $request, mixed &$data): mixed
     {
+        $amount = 0;
+        $amount_pc = 0;
+        $amount_remise = 0;
+        $requestData = $request->all();
+
+        $priseCharge = null;
         if ($request->input('prise_charge_id')) {
-            $amount = 0;
-            $amount_pc = 0;
-            $amount_remise = 0;
             $priseCharge = PriseEnCharge::find($request->input('prise_charge_id'));
 
             if ($priseCharge->usage_unique) {
                 $priseCharge->update(['used' => true]);
             }
+        }
 
+        if (isset($requestData['actes']) && $requestData['actes']) {
             foreach ($request->input('actes') as $acteData) {
-                if ($acte = $priseCharge->assureur->actes()->find($acteData['id'])) {
-                    $pu = $acte->pivot->b * $acte->pivot->k_modulateur;
-                } else {
-                    $acte = Acte::find($acteData['id']);
-                    $pu = $acte->b * $acte->k_modulateur;
-                }
+                if ($priseCharge) {
+                    if ($acte = $priseCharge->assureur->actes()->find($acteData['id'])) {
+                        $pu = $acte->pivot->b * $acte->pivot->k_modulateur;
+                    }
+                    else {
+                        $acte = Acte::find($acteData['id']);
+                        $pu = $acte->b * $acte->k_modulateur;
+                    }
 
-                $amount_acte_pc = ($acteData['quantity'] * $pu * $priseCharge->taux_pc) / 100;
-                $amount_pc += $amount_acte_pc;
+                    $amount_acte_pc = ($acteData['quantity'] * $pu * $priseCharge->taux_pc) / 100;
+                    $amount_pc += $amount_acte_pc;
+                }
+                else {
+                    $acte = Acte::find($acteData['id']);
+                    $pu = $acte->pu;
+                }
 
                 $amount_acte_remise = ($acteData['quantity'] * $pu * $acteData['remise']) / 100;
                 $amount_remise += $amount_acte_remise;
 
                 $amount += $acteData['quantity'] * $pu;
             }
+        }
 
+        if (isset($requestData['soins']) && $requestData['soins']) {
             foreach ($request->input('soins') as $soinData) {
-                if ($soins = $priseCharge->assureur->soins()->find($soinData['id'])) {
-                    $pu = $soins->pivot->pu;
-                } else {
+                if ($priseCharge) {
+                    if ($soins = $priseCharge->assureur->soins()->find($soinData['id'])) {
+                        $pu = $soins->pivot->pu;
+                    }
+                    else {
+                        $soin = Soins::find($soinData['id']);
+                        $pu = $soin->pu_default;
+                    }
+
+                    $amount_soin_pc = ($soinData['nbr_days'] * $pu * $priseCharge->taux_pc) / 100;
+                    $amount_pc += $amount_soin_pc;
+                }
+                else {
                     $soin = Soins::find($soinData['id']);
                     $pu = $soin->pu;
                 }
 
-                $amount_acte_pc = ($soinData['nbr_days'] * $pu * $priseCharge->taux_pc) / 100;
-                $amount_pc += $amount_acte_pc;
-
-                $amount_acte_remise = ($soinData['nbr_days'] * $pu * $soinData['remise']) / 100;
-                $amount_remise += $amount_acte_remise;
+                $amount_soin_remise = ($soinData['nbr_days'] * $pu * $soinData['remise']) / 100;
+                $amount_remise += $amount_soin_remise;
 
                 $amount += $soinData['nbr_days'] * $pu;
             }
+        }
 
+        if (isset($requestData['consultations']) && $requestData['consultations']) {
             foreach ($request->input('consultations') as $consultationData) {
-                if ($consultation = $priseCharge->assureur->consultations()->find($consultationData['id'])) {
-                    $pu = $consultation->pivot->pu;
-                } else {
+                if ($priseCharge) {
+                    if ($consultation = $priseCharge->assureur->consultations()->find($consultationData['id'])) {
+                        $pu = $consultation->pivot->pu;
+                    }
+                    else {
+                        $consultation = Consultation::find($consultationData['id']);
+                        $pu = $consultation->pu_default;
+                    }
+
+                    $amount_consultation_pc = ($consultationData['quantity'] * $pu * $priseCharge->taux_pc) / 100;
+                    $amount_pc += $amount_consultation_pc;
+                }
+                else {
                     $consultation = Consultation::find($consultationData['id']);
                     $pu = $consultation->pu;
                 }
 
-                $amount_acte_pc = ($consultationData['quantity'] * $pu * $priseCharge->taux_pc) / 100;
-                $amount_pc += $amount_acte_pc;
-
-                $amount_acte_remise = ($consultationData['quantity'] * $pu * $consultationData['remise']) / 100;
-                $amount_remise += $amount_acte_remise;
+                $amount_consultation_remise = ($consultationData['quantity'] * $pu * $consultationData['remise']) / 100;
+                $amount_remise += $amount_consultation_remise;
 
                 $amount += $consultationData['quantity'] * $pu;
             }
+        }
 
-            $data['regulated'] = $amount == ($amount_remise + $amount_pc) ? 2 : 0;
-            $data['amount_pc'] = $amount_pc;
-            $data['amount_remise'] = $amount_remise;
-            $data['amount'] = $amount;
-        } else {
+
+        if (isset($data['payable_by']) && $data['payable_by']) {
             $data['regulated'] = $data['payable_by'] ? 1 : 0;
         }
+        else {
+            $data['regulated'] = $amount == ($amount_remise + $amount_pc) ? 2 : 0;
+        }
+
+        $data['amount_pc'] = $amount_pc;
+        $data['amount_remise'] = $amount_remise;
+        $data['amount'] = $amount;
+
         return $data;
     }
 
@@ -676,7 +770,7 @@ class PrestationController extends Controller
             'duration' => Setting::where('key','rdv_duration')->first()->value,
         ]);
 //        Todo: Mettre en marche les notifications envoyées
-//        $consultant = Consultant::find($consultantId);
-//        $consultant->user()->notify(SendRdvNotification::class);
+//        Todo: $consultant = Consultant::find($consultantId);
+//        Todo: $consultant->user()->notify(SendRdvNotification::class);
     }
 }

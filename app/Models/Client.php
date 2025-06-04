@@ -169,4 +169,9 @@ class Client extends Model
             'created_at' => 'date:d/m/Y H:i:s',
         ];
     }
+
+    public function conventionAssocies(): HasMany
+    {
+        return $this->hasMany(ConventionAssocie::class, 'client_id');
+    }
 }

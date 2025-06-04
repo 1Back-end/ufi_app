@@ -14,8 +14,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
+use Illuminate\Database\Eloquent\Relations\MorphOne;
 use Illuminate\Database\Eloquent\Relations\MorphToMany;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 
 class Prestation extends Model
 {
@@ -26,6 +28,7 @@ class Prestation extends Model
         'client_id',
         'consultant_id',
         'payable_by',
+        'convention_id',
         'programmation_date',
         'created_by',
         'updated_by',
@@ -46,13 +49,39 @@ class Prestation extends Model
     protected $appends = [
         'type_label',
         'paid',
-        'can_update'
+        'can_update',
+        'associate_file',
+        'associate_file_name',
     ];
 
     protected function typeLabel(): Attribute
     {
         return Attribute::make(
-            get: fn()  => TypePrestation::label($this->type),
+            get: fn() => TypePrestation::label($this->type),
+        );
+    }
+
+    protected function associateFile(): Attribute
+    {
+        return Attribute::make(
+            get: function($value, array $attributes) {
+                $media = $this->medias()->where('name', 'prestations-client-associate')->first();
+                if ($media) {
+                    return Storage::disk($media->disk)->url($media->path .'/'. $media->filename);
+                }
+            },
+        );
+    }
+
+    protected function associateFileName(): Attribute
+    {
+        return Attribute::make(
+            get: function($value, array $attributes) {
+                $media = $this->medias()->where('name', 'prestations-client-associate')->first();
+                if ($media) {
+                    return $media->filename;
+                }
+            },
         );
     }
 
@@ -110,14 +139,13 @@ class Prestation extends Model
             get: function () {
                 $facture = $this->factures()->where('factures.type', 2)->first();
                 if ($facture) {
-                    return $facture->amount_client && ! $this->payable_by && $facture->regulations()->where('regulations.state', StatusRegulation::ACTIVE->value)->count() == 0;
+                    return $facture->amount_client && !$this->payable_by && $facture->regulations()->where('regulations.state', StatusRegulation::ACTIVE->value)->count() == 0;
                 }
 
                 return true;
             }
         );
     }
-
 
     public function centre()
     {
@@ -178,5 +206,15 @@ class Prestation extends Model
         return $this->morphedByMany(Consultation::class, 'prestationable')
             ->withPivot(['amount_regulate', 'date_rdv', 'remise', 'quantity', 'pu'])
             ->withTimestamps();
+    }
+
+    public function medias(): MorphOne
+    {
+        return $this->morphOne(Media::class, 'mediable');
+    }
+
+    public function convention(): BelongsTo
+    {
+        return $this->belongsTo(ConventionAssocie::class, 'convention_id');
     }
 }
