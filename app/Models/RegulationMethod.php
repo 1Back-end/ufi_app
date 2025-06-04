@@ -17,6 +17,7 @@ class RegulationMethod extends Model
         'active',
         'comment_required',
         'type_regulation',
+        'phone_method',
         'created_by',
         'updated_by',
     ];
@@ -36,7 +37,8 @@ class RegulationMethod extends Model
         return [
             'active' => 'boolean',
             'comment_required' => 'boolean',
-            'type_regulation' => TypeRegulation::class
+            'type_regulation' => TypeRegulation::class,
+            'phone_method' => 'boolean',
         ];
     }
 }

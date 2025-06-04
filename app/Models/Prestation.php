@@ -98,7 +98,7 @@ class Prestation extends Model
                 );
         };
 
-        return $query->where('centre_id', $centreId)
+        return $query->where('prestations.centre_id', $centreId)
             ->whereHas('factures', $factureFilter)
             ->with([
                 'factures' => fn($q) => $q->where('factures.type', 2),

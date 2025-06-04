@@ -11,12 +11,14 @@ use App\Models\Assureur;
 use App\Models\Client;
 use App\Models\Facture;
 use App\Models\Regulation;
+use App\Models\RegulationMethod;
 use App\Models\SpecialRegulation;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use App\Rules\ValidateAmountForRegulateFactureRule;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Enum;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -42,6 +44,8 @@ class RegulationController extends Controller
                 'type' => $request->input('type'),
                 'comment' => $regulation['comment'] ?? null,
                 'reason' => $regulation['reason'] ?? null,
+                'phone' => $regulation['phone'] ?? null,
+                'reference' => $regulation['reference'] ?? null,
             ]);
         }
 
@@ -74,6 +78,8 @@ class RegulationController extends Controller
             'reason' => ['nullable', 'string', 'max:255'],
             'comment' => ['nullable', 'string', 'max:255'],
             'type' => ['required', new Enum(TypeRegulation::class)],
+            'phone' => [Rule::requiredIf(RegulationMethod::find($request->post('regulation_method_id'))->phone_method)],
+            'reference' => [Rule::requiredIf(RegulationMethod::find($request->post('regulation_method_id'))->phone_method)],
         ]);
 
         $regulation->update([
@@ -82,6 +88,8 @@ class RegulationController extends Controller
             'reason' => $request->post('reason'),
             'comment' => $request->post('comment'),
             'type' => $request->post('type'),
+            'phone' => $request->input('phone'),
+            'reference' => $request->input('reference'),
         ]);
 
         $this->validatedFacture($regulation->facture, false, true);

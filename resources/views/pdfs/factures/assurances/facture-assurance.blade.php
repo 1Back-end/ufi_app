@@ -139,29 +139,27 @@
             </tr>
         </thead>
         <tbody>
-            @foreach($priseEnCharges as $priseEnCharge)
-                @foreach($priseEnCharge->prestations as $prestation)
-                    @foreach($prestation->factures as $facture)
-                        <tr>
-                            <td>
-                                {{ $i++ }}
-                            </td>
-                            <td>{{ $facture->code }}</td>
-                            <td>{{ $facture->date_fact->format('d/m/Y') }}</td>
-                            <td>{{ $priseEnCharge->client->nomcomplet_client }}</td>
-                            <td class="text-center">
-                                {{ \App\Helpers\FormatPrice::format($facture->amount) }}
-                            </td>
-                            <td class="text-center">
-                                {{ \App\Helpers\FormatPrice::format($facture->amount_client) }}
-                            </td>
-                            <td class="text-center">
-                                {{ \App\Helpers\FormatPrice::format($facture->amount_pc) }}
-                            </td>
-                        </tr>
-                    @endforeach
-                @endforeach
+        @foreach($prestations as $prestation)
+            @foreach($prestation->factures as $facture)
+                <tr>
+                    <td>
+                        {{ $i++ }}
+                    </td>
+                    <td>{{ $facture->code }}</td>
+                    <td>{{ $facture->date_fact->format('d/m/Y') }}</td>
+                    <td>{{ $prestation->client->nomcomplet_client }}</td>
+                    <td class="text-center">
+                        {{ \App\Helpers\FormatPrice::format($facture->amount) }}
+                    </td>
+                    <td class="text-center">
+                        {{ \App\Helpers\FormatPrice::format($facture->amount_client) }}
+                    </td>
+                    <td class="text-center">
+                        {{ \App\Helpers\FormatPrice::format($facture->amount_pc) }}
+                    </td>
+                </tr>
             @endforeach
+        @endforeach
         </tbody>
     </table>
 </div>

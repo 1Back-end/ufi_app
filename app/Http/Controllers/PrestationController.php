@@ -693,18 +693,26 @@ class PrestationController extends Controller
             $path = $mediaFacture->path;
         }
         else {
-            $priseEnCharges = PriseEnCharge::filterFactureInProgress(
+            /*$priseEnCharges = PriseEnCharge::filterFactureInProgress(
                 startDate: $request->input('start_date'),
                 endDate: $request->input('end_date'),
                 assurance: $request->input('assurance')
-            )->get();
+            )->get();*/
+
+            $prestations = Prestation::filterInProgress(
+                startDate: $request->input('start_date'),
+                endDate: $request->input('end_date'),
+                assurance: $request->input('assurance')
+            )
+            ->get();
+
             $centre = Centre::find($request->header('centre'));
             $code = Str::padLeft((FactureAssociate::max('id') ? FactureAssociate::max('id') + 1 : 1), 4, 0) .'/'. Str::upper($centre->reference) .'/'. now()->format('y');
             $media = $centre->medias()->where('name', 'logo')->first();
 
             $data = [
                 'assurance' => $assurance,
-                'priseEnCharges' => $priseEnCharges,
+                'prestations' => $prestations,
                 'code' => $code,
                 'centre' => $centre,
                 'logo' => $media ? 'storage/'. $media->path .'/'. $media->filename : '',
@@ -730,13 +738,23 @@ class PrestationController extends Controller
                 ], 400);
             }
 
+            $totalAmount = DB::table('factures')
+                ->join('prestations', 'factures.prestation_id', '=', 'prestations.id')
+                ->where('factures.type', 2)
+                ->where('factures.state', StateFacture::IN_PROGRESS->value)
+                ->where('prestations.centre_id', $request->header('centre'))
+                ->when($request->input('assurance'), fn($q) => $q->where('prise_en_charges.assureur_id', $request->input('assurance')))
+                ->join('prise_en_charges', 'prestations.prise_charge_id', '=', 'prise_en_charges.id')
+                ->selectRaw('SUM(factures.amount_pc) / 100 as total')
+                ->value('total');
+
             $path = 'facture-assurance/' . $fileName;
 
             $facture = $assurance->factures()->create([
                 'start_date' =>  $request->input('start_date'),
                 'end_date' => $request->input('end_date'),
                 'code' => $code,
-                'amount' => $priseEnCharges->first()->total_amount,
+                'amount' => $totalAmount,
                 'date' => now(),
             ]);
 
