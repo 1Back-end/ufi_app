@@ -18,6 +18,7 @@ use Illuminate\Database\Eloquent\Relations\MorphOne;
 use Illuminate\Database\Eloquent\Relations\MorphToMany;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use function Laravel\Prompts\search;
 
 class Prestation extends Model
 {
@@ -85,13 +86,14 @@ class Prestation extends Model
         );
     }
 
-    public function scopeFilterInProgress(Builder $query, $startDate, $endDate, $assurance = null, bool $latestFacture = false): Builder
+    public function scopeFilterInProgress(Builder $query, $startDate, $endDate, $assurance = null, $payableBy = null, bool $latestFacture = false, $search = ''): Builder
     {
         $centreId = request()->header('centre');
 
-        $factureFilter = function ($query) use ($startDate, $endDate, $latestFacture) {
+        $factureFilter = function ($query) use ($startDate, $endDate, $latestFacture, $search) {
             $query->where('factures.type', 2)
                 ->where('factures.state', StateFacture::IN_PROGRESS->value)
+                ->when($search, fn($q) => $q->where('factures.code', 'like', "%$search%"))
                 ->when($latestFacture,
                     fn($q) => $q->whereDate('factures.date_fact', '<', $startDate),
                     fn($q) => $q->whereBetween('factures.date_fact', [$startDate, $endDate])
@@ -108,9 +110,13 @@ class Prestation extends Model
                 'client:id,nom_cli,prenom_cli,nomcomplet_client,ref_cli,date_naiss_cli',
                 'priseCharge:id,assureur_id,taux_pc',
                 'priseCharge.assureur:id,nom',
+                'payableBy'
             ])
             ->when($assurance, function ($query) use ($assurance) {
                 $query->whereHas('priseCharge.assureur', fn($q) => $q->where('id', $assurance));
+            })
+            ->when($payableBy, function ($query) use ($payableBy) {
+                $query->where('payable_by', $payableBy);
             });
     }
 

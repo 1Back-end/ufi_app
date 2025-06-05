@@ -358,78 +358,40 @@ class PrestationController extends Controller
             'end_date' => ['required', 'date'],
         ]);
 
-        $prestations = [];
-        $clients = [];
         $lastFactures = false;
         $dateLatestFacture = '';
-        $totalAmount = 0;
 
-        if ($request->input('assurance')) {
-            $latestPrestations = Prestation::filterInProgress(
+        $latestPrestations = Prestation::filterInProgress(
+            startDate: $request->input('start_date'),
+            endDate: $request->input('end_date'),
+            assurance: $request->input('assurance'),
+            payableBy: $request->input('payable_by'),
+            latestFacture: true
+        )->paginate(
+            perPage: $request->input('per_page', 25),
+            page: $request->input('page', 1)
+        );
+
+        if (! $latestPrestations->items()) {
+            $prestations = Prestation::filterInProgress(
                 startDate: $request->input('start_date'),
                 endDate: $request->input('end_date'),
                 assurance: $request->input('assurance'),
-                latestFacture: true
-            )->paginate(
-                perPage: $request->input('per_page', 25),
-                page: $request->input('page', 1)
-            );
-
-            if (! $latestPrestations->items()) {
-                $prestations = Prestation::filterInProgress(
-                    startDate: $request->input('start_date'),
-                    endDate: $request->input('end_date'),
-                    assurance: $request->input('assurance')
-                )
+                payableBy: $request->input('payable_by'),
+                search: $request->input('search'),
+            )
                 ->paginate(
                     perPage: $request->input('per_page', 25),
                     page: $request->input('page', 1)
                 );
-            }
-            else {
-                $lastFactures = true;
-                $dateLatestFacture = $latestPrestations->first()->factures->first()->date_fact;
-                $prestations = $latestPrestations;
-            }
+        }
+        else {
+            $lastFactures = true;
+            $dateLatestFacture = $latestPrestations->first()->factures->first()->date_fact;
+            $prestations = $latestPrestations;
         }
 
-        if ($request->input('payable_by')) {
-            $clients = Client::with([
-                'toPay' => function ($query) use ($request) {
-                    $query->whereHas('factures', function ($query) use ($request) {
-                        $query->where('factures.type', 2)
-                            ->where('factures.state', StateFacture::IN_PROGRESS->value)
-                            ->whereBetween('factures.date_fact', [$request->input('start_date'), $request->input('end_date')]);
-                    });
-                },
-                'toPay.factures' => function ($query) use ($request) {
-                    $query->where('factures.type', 2);
-                },
-                'toPay.actes',
-                'toPay.soins',
-                'toPay.client:id,nom_cli,prenom_cli,nomcomplet_client,ref_cli,date_naiss_cli'
-            ])
-                ->whereHas('toPay', function ($query) use ($request) {
-                    $query->whereHas('factures', function ($query) use ($request) {
-                        $query->where('factures.type', 2)
-                            ->where('factures.state', StateFacture::IN_PROGRESS->value)
-                            ->whereBetween('factures.date_fact', [$request->input('start_date'), $request->input('end_date')]);
-                    });
-                })
-                ->select('clients.*')
-                ->selectSub(function ($query) use ($request) {
-                    $query->from('factures')
-                        ->join('prestations', 'prestations.id', '=', 'factures.prestation_id')
-                        ->whereColumn('prestations.payable_by', 'clients.id')
-                        ->where('factures.type', 2)
-                        ->where('factures.state', StateFacture::IN_PROGRESS->value)
-                        ->whereBetween('factures.date_fact', [$request->input('start_date'), $request->input('end_date')])
-                        ->selectRaw('SUM(factures.amount_client) / 100');
-                }, 'total_amount')
-                ->whereTypeCli('associate')
-                ->get();
-        }
-
+        $column = $request->input('assurance') ? 'amount_pc' : 'amount_client' ;
         $totalAmount = DB::table('factures')
             ->join('prestations', 'factures.prestation_id', '=', 'prestations.id')
             ->where('factures.type', 2)
@@ -437,17 +399,18 @@ class PrestationController extends Controller
             ->when($lastFactures, fn($query) => $query->whereDate('factures.date_fact', '<', $request->input('start_date')))
             ->where('prestations.centre_id', $request->header('centre'))
             ->when($request->input('assurance'), fn($q) => $q->where('prise_en_charges.assureur_id', $request->input('assurance')))
-            ->join('prise_en_charges', 'prestations.prise_charge_id', '=', 'prise_en_charges.id')
-            ->selectRaw('SUM(factures.amount_pc) / 100 as total')
+            ->when($request->input('payable_by'), fn($q) => $q->where('prestations.payable_by', $request->input('payable_by')))
+            ->when($request->input('payable_by'), fn($q) => $q->join('clients', 'prestations.payable_by', '=', 'clients.id'))
+            ->when($request->input('assurance'), fn($q) => $q->join('prise_en_charges', 'prestations.prise_charge_id', '=', 'prise_en_charges.id'))
+            ->selectRaw("SUM(factures.$column) / 100 as total")
             ->value('total');
 
         return response()->json([
             'prestations' => $prestations,
-            'clients' => $clients,
             'regulation_methods' => RegulationMethod::get()->toArray(),
             'last_factures' => $lastFactures,
             'date_latest_facture' => $dateLatestFacture,
-            'total_amount' => $totalAmount
+            'total_amount' => round($totalAmount, 2)
         ]);
     }
 
@@ -677,32 +640,32 @@ class PrestationController extends Controller
     public function printFactureAssurance(Request $request)
     {
         $request->validate([
-            'assurance' => ['required', 'exists:assureurs,id'],
+            'assurance' => ['required_if:client,null', 'exists:assureurs,id'],
+            'client' => ['required_if:assurance,null', 'exists:clients,id'],
             'start_date' => ['required', 'date'],
             'end_date' => ['required', 'date'],
-            'actualize' => ["boolean"]
+            'actualize' => ["boolean"],
         ]);
         $assurance = Assureur::find($request->assurance);
+        $client = Client::find($request->client);
+
+        $ref = $client ? $client->ref_cli : $assurance->ref;
+
         $startDate = Carbon::createFromTimeString($request->input("start_date"));
         $endDate = Carbon::createFromTimeString($request->input("end_date"));
-        $fileName = $assurance->ref .'-'. $startDate->format('d-m-Y')  .'-'. $endDate->format('d-m-Y') . '.pdf';
+        $fileName = $ref .'-'. $startDate->format('d-m-Y')  .'-'. $endDate->format('d-m-Y') . '.pdf';
 
         $mediaFacture = Media::where('filename', $fileName)->first();
 
         if ($mediaFacture) {
-            $path = $mediaFacture->path;
+            $path = 'storage/' . $mediaFacture->path;
         }
         else {
-            /*$priseEnCharges = PriseEnCharge::filterFactureInProgress(
-                startDate: $request->input('start_date'),
-                endDate: $request->input('end_date'),
-                assurance: $request->input('assurance')
-            )->get();*/
-
             $prestations = Prestation::filterInProgress(
                 startDate: $request->input('start_date'),
                 endDate: $request->input('end_date'),
-                assurance: $request->input('assurance')
+                assurance: $request->input('assurance'),
+                payableBy: $request->input('client'),
             )
             ->get();
 
@@ -712,6 +675,7 @@ class PrestationController extends Controller
 
             $data = [
                 'assurance' => $assurance,
+                'client' => $client,
                 'prestations' => $prestations,
                 'code' => $code,
                 'centre' => $centre,
@@ -720,13 +684,18 @@ class PrestationController extends Controller
                 "end_date" => $endDate,
             ];
 
+            $view = $client ? 'pdfs.factures.clients.facture-client-associate' : 'pdfs.factures.assurances.facture-assurance';
+            $footer = $client ? 'pdfs.factures.clients.footer' : 'pdfs.factures.assurances.footer';
+            $folderPath = $client ? 'storage/facture-clients' : 'storage/facture-assurance';
+            $path = $client ? 'storage/facture-clients/' : 'storage/facture-assurance/';
+
             try {
                 save_browser_shot_pdf(
-                    view: 'pdfs.factures.assurances.facture-assurance',
+                    view: $view,
                     data: $data,
-                    folderPath: 'storage/facture-assurance',
-                    path: 'storage/facture-assurance/' . $fileName,
-                    footer: 'pdfs.factures.assurances.footer',
+                    folderPath: $folderPath,
+                    path: $path . $fileName,
+                    footer: $footer,
                     margins: [15, 10, 15, 10]
                 );
             }
@@ -738,25 +707,39 @@ class PrestationController extends Controller
                 ], 400);
             }
 
+            $column = $request->input('assurance') ? 'amount_client' : 'amount_pc';
             $totalAmount = DB::table('factures')
                 ->join('prestations', 'factures.prestation_id', '=', 'prestations.id')
                 ->where('factures.type', 2)
                 ->where('factures.state', StateFacture::IN_PROGRESS->value)
                 ->where('prestations.centre_id', $request->header('centre'))
                 ->when($request->input('assurance'), fn($q) => $q->where('prise_en_charges.assureur_id', $request->input('assurance')))
-                ->join('prise_en_charges', 'prestations.prise_charge_id', '=', 'prise_en_charges.id')
-                ->selectRaw('SUM(factures.amount_pc) / 100 as total')
+                ->when($request->input('client'), fn($q) => $q->where('prestations.payable_by', $request->input('client')))
+                ->when($request->input('client'), fn($q) => $q->join('clients', 'prestations.payable_by', '=', 'clients.id'))
+                ->when($request->input('assurance'), fn($q) => $q->join('prise_en_charges', 'prestations.prise_charge_id', '=', 'prise_en_charges.id'))
+                ->selectRaw("SUM(factures.$column) / 100 as total")
                 ->value('total');
 
-            $path = 'facture-assurance/' . $fileName;
+            if ($request->input('client')) {
+                $facture = $client->factures()->create([
+                    'start_date' =>  $request->input('start_date'),
+                    'end_date' => $request->input('end_date'),
+                    'code' => $code,
+                    'amount' => $totalAmount,
+                    'date' => now(),
+                ]);
+            }
+            else {
+                $facture = $assurance->factures()->create([
+                    'start_date' =>  $request->input('start_date'),
+                    'end_date' => $request->input('end_date'),
+                    'code' => $code,
+                    'amount' => $totalAmount,
+                    'date' => now(),
+                ]);
+            }
 
-            $facture = $assurance->factures()->create([
-                'start_date' =>  $request->input('start_date'),
-                'end_date' => $request->input('end_date'),
-                'code' => $code,
-                'amount' => $totalAmount,
-                'date' => now(),
-            ]);
+            $path = $client ? 'facture-clients/' . $fileName : 'facture-assurance/' . $fileName;
 
             $facture->medias()->create([
                 'name' => "FACTURE-ASSOCIATE",
@@ -766,9 +749,11 @@ class PrestationController extends Controller
                 'mimetype' => 'pdf',
                 'extension' => 'pdf',
             ]);
+
+            $path = 'storage/' . $path;
         }
 
-        $pdfContent = file_get_contents('storage/facture-assurance/' . $fileName);
+        $pdfContent = file_get_contents($path);
         $base64 = base64_encode($pdfContent);
 
         return response()->json([

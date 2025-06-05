@@ -174,4 +174,9 @@ class Client extends Model
     {
         return $this->hasMany(ConventionAssocie::class, 'client_id');
     }
+
+    public function factures(): MorphMany
+    {
+        return $this->morphMany(FactureAssociate::class, 'facturable');
+    }
 }
