@@ -333,7 +333,7 @@ if (! function_exists('save_browser_shot_pdf')) {
         }
 
         $browserShot = Browsershot::html(view($view, $data)->render())
-            ->setChromePath('C:\Users\User\.cache\puppeteer\chrome\win64-136.0.7103.94\chrome-win64\chrome.exe')
+//            ->setChromePath('C:\Users\User\.cache\puppeteer\chrome\win64-136.0.7103.94\chrome-win64\chrome.exe')
             ->format($format)
             ->margins($margins[0], $margins[1], $margins[2], $margins[3])
             ->showBackground();

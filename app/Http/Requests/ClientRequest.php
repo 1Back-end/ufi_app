@@ -60,13 +60,29 @@ class ClientRequest extends FormRequest
             'client_anonyme_cli' => ['boolean'],
             'addresse_cli' => ['nullable'],
             'tel_whatsapp' => ['boolean'],
+            'urgent_contact' => ['nullable'],
+            'urgent_contact_number' => ['nullable'],
         ];
     }
 
     public function messages(): array
     {
         return [
-
+            'date_naiss_cli.required_if' => 'La date de naissance est obligatoire.',
+            'date_naiss_cli.before_or_equal' => 'La date de naissance doit être antérieure ou égale à la date actuelle.',
+            'date_naiss_cli.after_or_equal' => 'La date de naissance doit être postérieure ou égale à 1900-01-01.',
+            'age.required_if' => 'L’âge est obligatoire.',
+            'age.integer' => 'L’âge doit être un nombre entier.',
+            'age.min' => 'L’âge doit être au moins 0.',
+            'age.max' => 'L’âge doit être au plus 120.',
+            'status_familiale_id.required' => 'Le statut familial est obligatoire.',
+            'type_document_id.required' => 'Le type de document est obligatoire.',
+            'sexe_id.required' => 'Le sexe est obligatoire.',
+            'nomcomplet_client.required' => 'Le nom complet est obligatoire.',
+            'tel_cli.required' => 'Le numéro de téléphone est obligatoire.',
+            'type_cli.required' => 'Le type de client est obligatoire.',
+            'email.email' => 'L\'adresse email doit avoir un format valide.',
+            'email.unique' => 'L\'adresse email doit être unique.',
         ];
     }
 }

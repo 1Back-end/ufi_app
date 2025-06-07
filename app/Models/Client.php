@@ -48,7 +48,9 @@ class Client extends Model
         'created_by',
         'updated_by',
         'tel_whatsapp',
-        'user_id'
+        'user_id',
+        'urgent_contact',
+        'urgent_contact_number',
     ];
 
     protected $appends = ['age', 'validity_card'];
