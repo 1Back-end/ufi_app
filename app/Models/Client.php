@@ -48,7 +48,9 @@ class Client extends Model
         'created_by',
         'updated_by',
         'tel_whatsapp',
-        'user_id'
+        'user_id',
+        'urgent_contact',
+        'urgent_contact_number',
     ];
 
     protected $appends = ['age', 'validity_card'];
@@ -168,5 +170,15 @@ class Client extends Model
             'tel_whatsapp' => 'boolean',
             'created_at' => 'date:d/m/Y H:i:s',
         ];
+    }
+
+    public function conventionAssocies(): HasMany
+    {
+        return $this->hasMany(ConventionAssocie::class, 'client_id');
+    }
+
+    public function factures(): MorphMany
+    {
+        return $this->morphMany(FactureAssociate::class, 'facturable');
     }
 }

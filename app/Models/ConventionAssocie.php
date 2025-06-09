@@ -6,6 +6,7 @@ use App\Models\Trait\UpdatingUser;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class ConventionAssocie extends Model
 {
@@ -15,6 +16,7 @@ class ConventionAssocie extends Model
         'client_id',
         'date',
         'amount_max',
+        'amount',
         'start_date',
         'end_date',
         'active',
@@ -30,9 +32,17 @@ class ConventionAssocie extends Model
         );
     }
 
+    protected function amount(): Attribute
+    {
+        return Attribute::make(
+            get: fn($value, array $attributes) => $value / 100,
+            set: fn($value) => $value * 100,
+        );
+    }
+
     public function client(): BelongsTo
     {
-        return $this->belongsTo(Client::class);
+        return $this->belongsTo(Client::class, 'client_id');
     }
 
     public function createdBy(): BelongsTo
@@ -53,5 +63,10 @@ class ConventionAssocie extends Model
             'end_date' => 'date',
             'active' => 'boolean'
         ];
+    }
+
+    public function conventions(): HasMany
+    {
+        return $this->hasMany(ConventionAssocie::class, 'client_id');
     }
 }

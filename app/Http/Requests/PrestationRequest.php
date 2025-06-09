@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Enum;
 use Mockery\Matcher\Type;
 use PHPUnit\Framework\Exception;
@@ -25,6 +26,8 @@ class PrestationRequest extends FormRequest
             'client_id' => ['required', 'exists:clients,id'],
             'consultant_id' => ['required', 'exists:consultants,id'],
             'payable_by' => ['nullable', 'exists:clients,id'],
+            'payable_by_file' => [Rule::requiredIf($this->input('payable_by') || $this->input('payable_by_file_update')) , 'file'],
+            'payable_by_file_update' => ['boolean'],
             'programmation_date' => ['required', 'date'],
             'type' => ['required', new Enum(TypePrestation::class)],
             // Actes
@@ -72,6 +75,8 @@ class PrestationRequest extends FormRequest
             'payable_by.exists' => __("Le client n'existe pas !"),
             'client_id.exists' => __("Le client n'existe pas !"),
             'consultant_id.exists' => __("Le consultant n'existe pas !"),
+            'payable_by_file.required' => __("Vous devez télécharger un justificatif, pour une prestation payable par un client associé !"),
+            'payable_by_file.file' => __("Vous devez téléchargé un fichier !"),
         ];
     }
 

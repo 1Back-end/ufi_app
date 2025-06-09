@@ -7,16 +7,22 @@ use App\Enums\StatusRegulation;
 use App\Enums\TypePrestation;
 use App\Enums\TypeRegulation;
 use App\Http\Requests\RegulationRequest;
+use App\Models\Acte;
 use App\Models\Assureur;
 use App\Models\Client;
+use App\Models\Consultation;
 use App\Models\Facture;
+use App\Models\Prestation;
 use App\Models\Regulation;
+use App\Models\RegulationMethod;
+use App\Models\Soins;
 use App\Models\SpecialRegulation;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use App\Rules\ValidateAmountForRegulateFactureRule;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Enum;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -42,6 +48,8 @@ class RegulationController extends Controller
                 'type' => $request->input('type'),
                 'comment' => $regulation['comment'] ?? null,
                 'reason' => $regulation['reason'] ?? null,
+                'phone' => $regulation['phone'] ?? null,
+                'reference' => $regulation['reference'] ?? null,
             ]);
         }
 
@@ -74,6 +82,8 @@ class RegulationController extends Controller
             'reason' => ['nullable', 'string', 'max:255'],
             'comment' => ['nullable', 'string', 'max:255'],
             'type' => ['required', new Enum(TypeRegulation::class)],
+            'phone' => [Rule::requiredIf(RegulationMethod::find($request->post('regulation_method_id'))->phone_method)],
+            'reference' => [Rule::requiredIf(RegulationMethod::find($request->post('regulation_method_id'))->phone_method)],
         ]);
 
         $regulation->update([
@@ -82,6 +92,8 @@ class RegulationController extends Controller
             'reason' => $request->post('reason'),
             'comment' => $request->post('comment'),
             'type' => $request->post('type'),
+            'phone' => $request->input('phone'),
+            'reference' => $request->input('reference'),
         ]);
 
         $this->validatedFacture($regulation->facture, false, true);
@@ -132,7 +144,10 @@ class RegulationController extends Controller
             'number_piece' => ['required'],
             'comment' => ['required', 'string', 'max:255'],
             'date_piece' => ['required', 'date'],
-            'factures' => ['required', 'array'],
+            'factures' => ['required_if:allFacture,false', 'array'],
+            'allFacture' => ['required', 'boolean'],
+            'facture_ids' => ['array'],
+            'facture_ids.*' => ['exists:factures,id'],
             'factures.*.id' => ['required', 'exists:factures,id'],
             'factures.*.items' => ['array'],
             'factures.*.amount' => ['required'],
@@ -155,6 +170,57 @@ class RegulationController extends Controller
                 'number_piece' => $request->input('number_piece'),
                 'date_piece' => $request->input('date_piece'),
             ]);
+
+            // If all factures
+            if ($request->input('allFacture')) {
+                $prestations = Prestation::filterInProgress(
+                    startDate: $request->input('start_date'),
+                    endDate: $request->input('end_date'),
+                    assurance: $request->input('assureur_id'),
+                    payableBy: $request->input('client_id')
+                )->get();
+
+                foreach ($prestations as $prestation) {
+                    $facture = $prestation->factures()->where('factures.type', 2)->where('factures.state', StateFacture::IN_PROGRESS->value)->first();
+
+                    if (!in_array($facture->id, $request->input('facture_ids'))) {
+                        $this->validatedFacture($facture, true);
+
+                        $facture->regulations()->create([
+                            'regulation_method_id' => $request->input('regulation_method_id'),
+                            'amount' => $facture->amount_pc,
+                            'date' => now(),
+                            'type' => $request->type == 'client' ? 3 : 2,
+                            'comment' => $request->input('comment'),
+                            'particular' => true,
+                        ]);
+
+                        switch ($prestation->type) {
+                            case TypePrestation::ACTES:
+                                $prestation->actes->each(function (Acte $acte) use ($prestation) {
+                                    $prestation->actes()->updateExistingPivot($acte->id, ['amount_regulate' => $acte->pivot->b * $acte->pivot->k_modulateur * 100]);
+                                });
+                                break;
+                            case TypePrestation::CONSULTATIONS:
+                                $prestation->consultations->each(function (Consultation $consultation) use ($prestation) {
+                                    $prestation->consultations()->updateExistingPivot($consultation->id, ['amount_regulate' => $consultation->pivot->pu * 100]);
+                                });
+                                break;
+                            case TypePrestation::SOINS:
+                                $prestation->soins->each(function (Soins $soins) use ($prestation) {
+                                    $prestation->soins()->updateExistingPivot($soins->id, ['amount_regulate' => $soins->pivot->pu * 100]);
+                                });
+                                break;
+                            case TypePrestation::LABORATOIR:
+                            case TypePrestation::PRODUITS:
+                                throw new \Exception('To be implemented');
+                                break;
+                            default:
+                                throw new \Exception('To be implemented');
+                        }
+                    }
+                }
+            }
 
             foreach ($request->input('factures') as $factureData) {
                 $facture = Facture::find($factureData['id']);
@@ -205,6 +271,7 @@ class RegulationController extends Controller
 
                 }
             }
+
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json([

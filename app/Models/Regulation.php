@@ -25,6 +25,8 @@ class Regulation extends Model
         'reason',
         'state',
         'particular',
+        'phone',
+        'reference',
     ];
 
     protected function casts(): array

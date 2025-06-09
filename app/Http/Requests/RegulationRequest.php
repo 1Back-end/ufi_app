@@ -5,6 +5,7 @@ namespace App\Http\Requests;
 use App\Enums\TypeRegulation;
 use App\Rules\ValidateAmountForRegulateFactureRule;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Enum;
 
 class RegulationRequest extends FormRequest
@@ -25,6 +26,8 @@ class RegulationRequest extends FormRequest
             'regulations.*.amount' => ['required', new ValidateAmountForRegulateFactureRule($this->facture_id, $this->type)],
             'regulations.*.comment' => ['nullable', $requiredReason],
             'regulations.*.reason' => ['nullable', $requiredReason],
+            'regulations.*.phone' => [],
+            'regulations.*.reference' => [],
         ];
     }
 }

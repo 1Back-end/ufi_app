@@ -11,6 +11,7 @@ use App\Models\Centre;
 use App\Models\Client;
 use App\Models\Consultant;
 use App\Models\Consultation;
+use App\Models\ConventionAssocie;
 use App\Models\Facture;
 use App\Models\FactureAssociate;
 use App\Models\Media;
@@ -130,29 +131,58 @@ class PrestationController extends Controller
      */
     public function store(PrestationRequest $request)
     {
+        $centre = $request->header('centre');
+        $data = array_merge($request->validated(), ['centre_id' => $centre]);
+
         DB::beginTransaction();
         try {
             if ($errorConflit = $request->validateRdvDate()) {
                 return response()->json($errorConflit, Response::HTTP_CONFLICT);
             }
 
-            $centre = $request->header('centre');
-            $data = array_merge($request->except(['actes']), ['centre_id' => $centre]);
-
             // Si le montant de la remise + la prise en charge est supérieur au montant de la prestation alors cette prestation passe en état encours
             $data = $this->getDataForPriseEnCharge($request, $data);
 
-            $prestation = Prestation::create($data);
+            if ($data['payable_by']) {
+                $convention = ConventionAssocie::query()
+                    ->whereClientId($data['payable_by'])
+                    ->where('start_date', '<=', now())
+                    ->where('end_date', '>=', now())
+                    ->whereColumn('amount', '<=', 'amount_max')
+                    ->first();
+
+                if ($convention && ($convention->amount + $data['amount']) > $convention->amount_max) {
+                    throw new \Exception('Le plafond de la convention est dépassé de : ' . $convention->amount + $data['amount'] - $convention->amount_max . "FCFA", 400);
+                }
+
+                $data['convention_id'] = $convention->id;
+            }
+
+            $prestation = Prestation::create(\Arr::except($data, ['payable_by_file_update', 'payable_by_file', 'actes', 'amount_pc', 'amount_remise', 'amount']));
+
             $this->attachElementWithPrestation($request, $prestation);
 
             // Si le montant de la remise + la prise en charge est égal au montant de la prestation alors on crée la facture
             if ($data['regulated'] == 2 || $data['payable_by']) {
                 save_facture($prestation, $centre, 2);
             }
+
+            // Save File for associate client !
+            if ($data['payable_by'] && $request->file('payable_by_file')) {
+                upload_media(
+                    model: $prestation,
+                    file: $request->file('payable_by_file'),
+                    name: 'prestations-client-associate',
+                    disk: 'public',
+                    path: 'prestations/client-associate',
+                    filename: $prestation->client->ref_cli . "-" . $prestation->id,
+                );
+            }
+
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json([
-                'message' => $e->getMessage()
+                'message' => $e->getTraceAsString()()
             ], $e->getCode() === 0 ? Response::HTTP_INTERNAL_SERVER_ERROR : Response::HTTP_BAD_REQUEST);
         }
         DB::commit();
@@ -178,6 +208,7 @@ class PrestationController extends Controller
                 'actes',
                 'soins',
                 'consultations',
+                'medias',
             ])
         ]);
     }
@@ -204,11 +235,39 @@ class PrestationController extends Controller
             // Si le montant de la remise + la prise en charge est supérieur au montant de la prestation alors cette prestation passe en état encours
             $data = $this->getDataForPriseEnCharge($request, $data);
 
+            if ($data['payable_by']) {
+                $convention = ConventionAssocie::query()
+                    ->whereClientId($data['payable_by'])
+                    ->where('start_date', '<=', now())
+                    ->where('end_date', '>=', now())
+                    ->whereColumn('amount', '<=', 'amount_max')
+                    ->first();
+
+                if ($convention && ($convention->amount + $data['amount']) > $convention->amount_max) {
+                    throw new \Exception('Le plafond de la convention est dépassé de : ' . $convention->amount + $data['amount'] - $convention->amount_max . "FCFA", 400);
+                }
+
+                $data['convention_id'] = $convention->id;
+            }
+
             $prestation->update($data);
             $this->attachElementWithPrestation($request, $prestation, true);
 
             if ($data['regulated'] == 2) {
                 save_facture($prestation, $prestation->centre->id, 2);
+            }
+
+            // Save File for associate client !
+            if ($data['payable_by'] && $request->file('payable_by_file') && $request->input('payable_by_file_update')) {
+                upload_media(
+                    model: $prestation,
+                    file: $request->file('payable_by_file'),
+                    name: 'prestations-client-associate',
+                    disk: 'public',
+                    path: 'prestations/client-associate',
+                    filename: $prestation->client->ref_cli . "-" . $prestation->id,
+                    update: $prestation->medias()->where('name', 'prestations-client-associate')->first()
+                );
             }
         } catch (\Exception $e) {
             DB::rollBack();
@@ -299,78 +358,40 @@ class PrestationController extends Controller
             'end_date' => ['required', 'date'],
         ]);
 
-        $prestations = [];
-        $clients = [];
         $lastFactures = false;
         $dateLatestFacture = '';
-        $totalAmount = 0;
 
-        if ($request->input('assurance')) {
-            $latestPrestations = Prestation::filterInProgress(
+        $latestPrestations = Prestation::filterInProgress(
+            startDate: $request->input('start_date'),
+            endDate: $request->input('end_date'),
+            assurance: $request->input('assurance'),
+            payableBy: $request->input('payable_by'),
+            latestFacture: true
+        )->paginate(
+            perPage: $request->input('per_page', 25),
+            page: $request->input('page', 1)
+        );
+
+        if (! $latestPrestations->items()) {
+            $prestations = Prestation::filterInProgress(
                 startDate: $request->input('start_date'),
                 endDate: $request->input('end_date'),
                 assurance: $request->input('assurance'),
-                latestFacture: true
-            )->paginate(
-                perPage: $request->input('per_page', 25),
-                page: $request->input('page', 1)
-            );
-
-            if (! $latestPrestations->items()) {
-                $prestations = Prestation::filterInProgress(
-                    startDate: $request->input('start_date'),
-                    endDate: $request->input('end_date'),
-                    assurance: $request->input('assurance')
-                )
+                payableBy: $request->input('payable_by'),
+                search: $request->input('search'),
+            )
                 ->paginate(
                     perPage: $request->input('per_page', 25),
                     page: $request->input('page', 1)
                 );
-            }
-            else {
-                $lastFactures = true;
-                $dateLatestFacture = $latestPrestations->first()->factures->first()->date_fact;
-                $prestations = $latestPrestations;
-            }
+        }
+        else {
+            $lastFactures = true;
+            $dateLatestFacture = $latestPrestations->first()->factures->first()->date_fact;
+            $prestations = $latestPrestations;
         }
 
-        if ($request->input('payable_by')) {
-            $clients = Client::with([
-                'toPay' => function ($query) use ($request) {
-                    $query->whereHas('factures', function ($query) use ($request) {
-                        $query->where('factures.type', 2)
-                            ->where('factures.state', StateFacture::IN_PROGRESS->value)
-                            ->whereBetween('factures.date_fact', [$request->input('start_date'), $request->input('end_date')]);
-                    });
-                },
-                'toPay.factures' => function ($query) use ($request) {
-                    $query->where('factures.type', 2);
-                },
-                'toPay.actes',
-                'toPay.soins',
-                'toPay.client:id,nom_cli,prenom_cli,nomcomplet_client,ref_cli,date_naiss_cli'
-            ])
-                ->whereHas('toPay', function ($query) use ($request) {
-                    $query->whereHas('factures', function ($query) use ($request) {
-                        $query->where('factures.type', 2)
-                            ->where('factures.state', StateFacture::IN_PROGRESS->value)
-                            ->whereBetween('factures.date_fact', [$request->input('start_date'), $request->input('end_date')]);
-                    });
-                })
-                ->select('clients.*')
-                ->selectSub(function ($query) use ($request) {
-                    $query->from('factures')
-                        ->join('prestations', 'prestations.id', '=', 'factures.prestation_id')
-                        ->whereColumn('prestations.payable_by', 'clients.id')
-                        ->where('factures.type', 2)
-                        ->where('factures.state', StateFacture::IN_PROGRESS->value)
-                        ->whereBetween('factures.date_fact', [$request->input('start_date'), $request->input('end_date')])
-                        ->selectRaw('SUM(factures.amount_client) / 100');
-                }, 'total_amount')
-                ->whereTypeCli('associate')
-                ->get();
-        }
-
+        $column = $request->input('assurance') ? 'amount_pc' : 'amount_client' ;
         $totalAmount = DB::table('factures')
             ->join('prestations', 'factures.prestation_id', '=', 'prestations.id')
             ->where('factures.type', 2)
@@ -378,23 +399,23 @@ class PrestationController extends Controller
             ->when($lastFactures, fn($query) => $query->whereDate('factures.date_fact', '<', $request->input('start_date')))
             ->where('prestations.centre_id', $request->header('centre'))
             ->when($request->input('assurance'), fn($q) => $q->where('prise_en_charges.assureur_id', $request->input('assurance')))
-            ->join('prise_en_charges', 'prestations.prise_charge_id', '=', 'prise_en_charges.id')
-            ->selectRaw('SUM(factures.amount_pc) / 100 as total')
+            ->when($request->input('payable_by'), fn($q) => $q->where('prestations.payable_by', $request->input('payable_by')))
+            ->when($request->input('payable_by'), fn($q) => $q->join('clients', 'prestations.payable_by', '=', 'clients.id'))
+            ->when($request->input('assurance'), fn($q) => $q->join('prise_en_charges', 'prestations.prise_charge_id', '=', 'prise_en_charges.id'))
+            ->selectRaw("SUM(factures.$column) / 100 as total")
             ->value('total');
 
         return response()->json([
             'prestations' => $prestations,
-            'clients' => $clients,
             'regulation_methods' => RegulationMethod::get()->toArray(),
             'last_factures' => $lastFactures,
             'date_latest_facture' => $dateLatestFacture,
-            'total_amount' => $totalAmount
+            'total_amount' => round($totalAmount, 2)
         ]);
     }
 
     protected function attachElementWithPrestation(PrestationRequest $request, Prestation $prestation, bool $update = false)
     {
-        // ToDo: récupérer la durée d'une prestation dans la table Settings (en Heure).
         $prestationDuration = Setting::where('key','rdv_duration')->first()->value;
 
         switch ($request->type) {
@@ -493,74 +514,110 @@ class PrestationController extends Controller
      */
     public function getDataForPriseEnCharge(PrestationRequest $request, mixed &$data): mixed
     {
+        $amount = 0;
+        $amount_pc = 0;
+        $amount_remise = 0;
+        $requestData = $request->all();
+
+        $priseCharge = null;
         if ($request->input('prise_charge_id')) {
-            $amount = 0;
-            $amount_pc = 0;
-            $amount_remise = 0;
             $priseCharge = PriseEnCharge::find($request->input('prise_charge_id'));
 
             if ($priseCharge->usage_unique) {
                 $priseCharge->update(['used' => true]);
             }
+        }
 
+        if (isset($requestData['actes']) && $requestData['actes']) {
             foreach ($request->input('actes') as $acteData) {
-                if ($acte = $priseCharge->assureur->actes()->find($acteData['id'])) {
-                    $pu = $acte->pivot->b * $acte->pivot->k_modulateur;
-                } else {
-                    $acte = Acte::find($acteData['id']);
-                    $pu = $acte->b * $acte->k_modulateur;
-                }
+                if ($priseCharge) {
+                    if ($acte = $priseCharge->assureur->actes()->find($acteData['id'])) {
+                        $pu = $acte->pivot->b * $acte->pivot->k_modulateur;
+                    }
+                    else {
+                        $acte = Acte::find($acteData['id']);
+                        $pu = $acte->b * $acte->k_modulateur;
+                    }
 
-                $amount_acte_pc = ($acteData['quantity'] * $pu * $priseCharge->taux_pc) / 100;
-                $amount_pc += $amount_acte_pc;
+                    $amount_acte_pc = ($acteData['quantity'] * $pu * $priseCharge->taux_pc) / 100;
+                    $amount_pc += $amount_acte_pc;
+                }
+                else {
+                    $acte = Acte::find($acteData['id']);
+                    $pu = $acte->pu;
+                }
 
                 $amount_acte_remise = ($acteData['quantity'] * $pu * $acteData['remise']) / 100;
                 $amount_remise += $amount_acte_remise;
 
                 $amount += $acteData['quantity'] * $pu;
             }
+        }
 
+        if (isset($requestData['soins']) && $requestData['soins']) {
             foreach ($request->input('soins') as $soinData) {
-                if ($soins = $priseCharge->assureur->soins()->find($soinData['id'])) {
-                    $pu = $soins->pivot->pu;
-                } else {
+                if ($priseCharge) {
+                    if ($soins = $priseCharge->assureur->soins()->find($soinData['id'])) {
+                        $pu = $soins->pivot->pu;
+                    }
+                    else {
+                        $soin = Soins::find($soinData['id']);
+                        $pu = $soin->pu_default;
+                    }
+
+                    $amount_soin_pc = ($soinData['nbr_days'] * $pu * $priseCharge->taux_pc) / 100;
+                    $amount_pc += $amount_soin_pc;
+                }
+                else {
                     $soin = Soins::find($soinData['id']);
                     $pu = $soin->pu;
                 }
 
-                $amount_acte_pc = ($soinData['nbr_days'] * $pu * $priseCharge->taux_pc) / 100;
-                $amount_pc += $amount_acte_pc;
-
-                $amount_acte_remise = ($soinData['nbr_days'] * $pu * $soinData['remise']) / 100;
-                $amount_remise += $amount_acte_remise;
+                $amount_soin_remise = ($soinData['nbr_days'] * $pu * $soinData['remise']) / 100;
+                $amount_remise += $amount_soin_remise;
 
                 $amount += $soinData['nbr_days'] * $pu;
             }
+        }
 
+        if (isset($requestData['consultations']) && $requestData['consultations']) {
             foreach ($request->input('consultations') as $consultationData) {
-                if ($consultation = $priseCharge->assureur->consultations()->find($consultationData['id'])) {
-                    $pu = $consultation->pivot->pu;
-                } else {
+                if ($priseCharge) {
+                    if ($consultation = $priseCharge->assureur->consultations()->find($consultationData['id'])) {
+                        $pu = $consultation->pivot->pu;
+                    }
+                    else {
+                        $consultation = Consultation::find($consultationData['id']);
+                        $pu = $consultation->pu_default;
+                    }
+
+                    $amount_consultation_pc = ($consultationData['quantity'] * $pu * $priseCharge->taux_pc) / 100;
+                    $amount_pc += $amount_consultation_pc;
+                }
+                else {
                     $consultation = Consultation::find($consultationData['id']);
                     $pu = $consultation->pu;
                 }
 
-                $amount_acte_pc = ($consultationData['quantity'] * $pu * $priseCharge->taux_pc) / 100;
-                $amount_pc += $amount_acte_pc;
-
-                $amount_acte_remise = ($consultationData['quantity'] * $pu * $consultationData['remise']) / 100;
-                $amount_remise += $amount_acte_remise;
+                $amount_consultation_remise = ($consultationData['quantity'] * $pu * $consultationData['remise']) / 100;
+                $amount_remise += $amount_consultation_remise;
 
                 $amount += $consultationData['quantity'] * $pu;
             }
+        }
 
-            $data['regulated'] = $amount == ($amount_remise + $amount_pc) ? 2 : 0;
-            $data['amount_pc'] = $amount_pc;
-            $data['amount_remise'] = $amount_remise;
-            $data['amount'] = $amount;
-        } else {
+
+        if (isset($data['payable_by']) && $data['payable_by']) {
             $data['regulated'] = $data['payable_by'] ? 1 : 0;
         }
+        else {
+            $data['regulated'] = $amount == ($amount_remise + $amount_pc) ? 2 : 0;
+        }
+
+        $data['amount_pc'] = $amount_pc;
+        $data['amount_remise'] = $amount_remise;
+        $data['amount'] = $amount;
+
         return $data;
     }
 
@@ -583,34 +640,43 @@ class PrestationController extends Controller
     public function printFactureAssurance(Request $request)
     {
         $request->validate([
-            'assurance' => ['required', 'exists:assureurs,id'],
+            'assurance' => ['required_if:client,null', 'exists:assureurs,id'],
+            'client' => ['required_if:assurance,null', 'exists:clients,id'],
             'start_date' => ['required', 'date'],
             'end_date' => ['required', 'date'],
-            'actualize' => ["boolean"]
+            'actualize' => ["boolean"],
         ]);
         $assurance = Assureur::find($request->assurance);
+        $client = Client::find($request->client);
+
+        $ref = $client ? $client->ref_cli : $assurance->ref;
+
         $startDate = Carbon::createFromTimeString($request->input("start_date"));
         $endDate = Carbon::createFromTimeString($request->input("end_date"));
-        $fileName = $assurance->ref .'-'. $startDate->format('d-m-Y')  .'-'. $endDate->format('d-m-Y') . '.pdf';
+        $fileName = $ref .'-'. $startDate->format('d-m-Y')  .'-'. $endDate->format('d-m-Y') . '.pdf';
 
         $mediaFacture = Media::where('filename', $fileName)->first();
 
         if ($mediaFacture) {
-            $path = $mediaFacture->path;
+            $path = 'storage/' . $mediaFacture->path;
         }
         else {
-            $priseEnCharges = PriseEnCharge::filterFactureInProgress(
+            $prestations = Prestation::filterInProgress(
                 startDate: $request->input('start_date'),
                 endDate: $request->input('end_date'),
-                assurance: $request->input('assurance')
-            )->get();
+                assurance: $request->input('assurance'),
+                payableBy: $request->input('client'),
+            )
+            ->get();
+
             $centre = Centre::find($request->header('centre'));
             $code = Str::padLeft((FactureAssociate::max('id') ? FactureAssociate::max('id') + 1 : 1), 4, 0) .'/'. Str::upper($centre->reference) .'/'. now()->format('y');
             $media = $centre->medias()->where('name', 'logo')->first();
 
             $data = [
                 'assurance' => $assurance,
-                'priseEnCharges' => $priseEnCharges,
+                'client' => $client,
+                'prestations' => $prestations,
                 'code' => $code,
                 'centre' => $centre,
                 'logo' => $media ? 'storage/'. $media->path .'/'. $media->filename : '',
@@ -618,13 +684,18 @@ class PrestationController extends Controller
                 "end_date" => $endDate,
             ];
 
+            $view = $client ? 'pdfs.factures.clients.facture-client-associate' : 'pdfs.factures.assurances.facture-assurance';
+            $footer = $client ? 'pdfs.factures.clients.footer' : 'pdfs.factures.assurances.footer';
+            $folderPath = $client ? 'storage/facture-clients' : 'storage/facture-assurance';
+            $path = $client ? 'storage/facture-clients/' : 'storage/facture-assurance/';
+
             try {
                 save_browser_shot_pdf(
-                    view: 'pdfs.factures.assurances.facture-assurance',
+                    view: $view,
                     data: $data,
-                    folderPath: 'storage/facture-assurance',
-                    path: 'storage/facture-assurance/' . $fileName,
-                    footer: 'pdfs.factures.assurances.footer',
+                    folderPath: $folderPath,
+                    path: $path . $fileName,
+                    footer: $footer,
                     margins: [15, 10, 15, 10]
                 );
             }
@@ -636,15 +707,39 @@ class PrestationController extends Controller
                 ], 400);
             }
 
-            $path = 'facture-assurance/' . $fileName;
+            $column = $request->input('assurance') ? 'amount_client' : 'amount_pc';
+            $totalAmount = DB::table('factures')
+                ->join('prestations', 'factures.prestation_id', '=', 'prestations.id')
+                ->where('factures.type', 2)
+                ->where('factures.state', StateFacture::IN_PROGRESS->value)
+                ->where('prestations.centre_id', $request->header('centre'))
+                ->when($request->input('assurance'), fn($q) => $q->where('prise_en_charges.assureur_id', $request->input('assurance')))
+                ->when($request->input('client'), fn($q) => $q->where('prestations.payable_by', $request->input('client')))
+                ->when($request->input('client'), fn($q) => $q->join('clients', 'prestations.payable_by', '=', 'clients.id'))
+                ->when($request->input('assurance'), fn($q) => $q->join('prise_en_charges', 'prestations.prise_charge_id', '=', 'prise_en_charges.id'))
+                ->selectRaw("SUM(factures.$column) / 100 as total")
+                ->value('total');
 
-            $facture = $assurance->factures()->create([
-                'start_date' =>  $request->input('start_date'),
-                'end_date' => $request->input('end_date'),
-                'code' => $code,
-                'amount' => $priseEnCharges->first()->total_amount,
-                'date' => now(),
-            ]);
+            if ($request->input('client')) {
+                $facture = $client->factures()->create([
+                    'start_date' =>  $request->input('start_date'),
+                    'end_date' => $request->input('end_date'),
+                    'code' => $code,
+                    'amount' => $totalAmount,
+                    'date' => now(),
+                ]);
+            }
+            else {
+                $facture = $assurance->factures()->create([
+                    'start_date' =>  $request->input('start_date'),
+                    'end_date' => $request->input('end_date'),
+                    'code' => $code,
+                    'amount' => $totalAmount,
+                    'date' => now(),
+                ]);
+            }
+
+            $path = $client ? 'facture-clients/' . $fileName : 'facture-assurance/' . $fileName;
 
             $facture->medias()->create([
                 'name' => "FACTURE-ASSOCIATE",
@@ -654,9 +749,11 @@ class PrestationController extends Controller
                 'mimetype' => 'pdf',
                 'extension' => 'pdf',
             ]);
+
+            $path = 'storage/' . $path;
         }
 
-        $pdfContent = file_get_contents('storage/facture-assurance/' . $fileName);
+        $pdfContent = file_get_contents($path);
         $base64 = base64_encode($pdfContent);
 
         return response()->json([
@@ -676,7 +773,7 @@ class PrestationController extends Controller
             'duration' => Setting::where('key','rdv_duration')->first()->value,
         ]);
 //        Todo: Mettre en marche les notifications envoyées
-//        $consultant = Consultant::find($consultantId);
-//        $consultant->user()->notify(SendRdvNotification::class);
+//        Todo: $consultant = Consultant::find($consultantId);
+//        Todo: $consultant->user()->notify(SendRdvNotification::class);
     }
 }

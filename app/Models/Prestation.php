@@ -14,8 +14,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
+use Illuminate\Database\Eloquent\Relations\MorphOne;
 use Illuminate\Database\Eloquent\Relations\MorphToMany;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
+use function Laravel\Prompts\search;
 
 class Prestation extends Model
 {
@@ -26,6 +29,7 @@ class Prestation extends Model
         'client_id',
         'consultant_id',
         'payable_by',
+        'convention_id',
         'programmation_date',
         'created_by',
         'updated_by',
@@ -46,30 +50,57 @@ class Prestation extends Model
     protected $appends = [
         'type_label',
         'paid',
-        'can_update'
+        'can_update',
+        'associate_file',
+        'associate_file_name',
     ];
 
     protected function typeLabel(): Attribute
     {
         return Attribute::make(
-            get: fn()  => TypePrestation::label($this->type),
+            get: fn() => TypePrestation::label($this->type),
         );
     }
 
-    public function scopeFilterInProgress(Builder $query, $startDate, $endDate, $assurance = null, bool $latestFacture = false): Builder
+    protected function associateFile(): Attribute
+    {
+        return Attribute::make(
+            get: function($value, array $attributes) {
+                $media = $this->medias()->where('name', 'prestations-client-associate')->first();
+                if ($media) {
+                    return Storage::disk($media->disk)->url($media->path .'/'. $media->filename);
+                }
+            },
+        );
+    }
+
+    protected function associateFileName(): Attribute
+    {
+        return Attribute::make(
+            get: function($value, array $attributes) {
+                $media = $this->medias()->where('name', 'prestations-client-associate')->first();
+                if ($media) {
+                    return $media->filename;
+                }
+            },
+        );
+    }
+
+    public function scopeFilterInProgress(Builder $query, $startDate, $endDate, $assurance = null, $payableBy = null, bool $latestFacture = false, $search = ''): Builder
     {
         $centreId = request()->header('centre');
 
-        $factureFilter = function ($query) use ($startDate, $endDate, $latestFacture) {
+        $factureFilter = function ($query) use ($startDate, $endDate, $latestFacture, $search) {
             $query->where('factures.type', 2)
                 ->where('factures.state', StateFacture::IN_PROGRESS->value)
+                ->when($search, fn($q) => $q->where('factures.code', 'like', "%$search%"))
                 ->when($latestFacture,
                     fn($q) => $q->whereDate('factures.date_fact', '<', $startDate),
                     fn($q) => $q->whereBetween('factures.date_fact', [$startDate, $endDate])
                 );
         };
 
-        return $query->where('centre_id', $centreId)
+        return $query->where('prestations.centre_id', $centreId)
             ->whereHas('factures', $factureFilter)
             ->with([
                 'factures' => fn($q) => $q->where('factures.type', 2),
@@ -79,9 +110,13 @@ class Prestation extends Model
                 'client:id,nom_cli,prenom_cli,nomcomplet_client,ref_cli,date_naiss_cli',
                 'priseCharge:id,assureur_id,taux_pc',
                 'priseCharge.assureur:id,nom',
+                'payableBy'
             ])
             ->when($assurance, function ($query) use ($assurance) {
                 $query->whereHas('priseCharge.assureur', fn($q) => $q->where('id', $assurance));
+            })
+            ->when($payableBy, function ($query) use ($payableBy) {
+                $query->where('payable_by', $payableBy);
             });
     }
 
@@ -110,14 +145,13 @@ class Prestation extends Model
             get: function () {
                 $facture = $this->factures()->where('factures.type', 2)->first();
                 if ($facture) {
-                    return $facture->amount_client && ! $this->payable_by && $facture->regulations()->where('regulations.state', StatusRegulation::ACTIVE->value)->count() == 0;
+                    return $facture->amount_client && !$this->payable_by && $facture->regulations()->where('regulations.state', StatusRegulation::ACTIVE->value)->count() == 0;
                 }
 
                 return true;
             }
         );
     }
-
 
     public function centre()
     {
@@ -178,5 +212,15 @@ class Prestation extends Model
         return $this->morphedByMany(Consultation::class, 'prestationable')
             ->withPivot(['amount_regulate', 'date_rdv', 'remise', 'quantity', 'pu'])
             ->withTimestamps();
+    }
+
+    public function medias(): MorphOne
+    {
+        return $this->morphOne(Media::class, 'mediable');
+    }
+
+    public function convention(): BelongsTo
+    {
+        return $this->belongsTo(ConventionAssocie::class, 'convention_id');
     }
 }

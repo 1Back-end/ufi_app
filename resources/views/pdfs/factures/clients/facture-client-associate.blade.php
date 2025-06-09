@@ -104,8 +104,8 @@
         <div class="mt-2">
             <p class="my-0">A</p>
 
-            <p class="my-0">L'attention de Monsieur le Directeur Général</p>
-            <p>{{ $assurance->nom }}</p>
+            <p class="my-0">L'attention de notre client associé </p>
+            <p>{{ $client->nomcomplet_client }}</p>
         </div>
     </div>
 </div>
@@ -135,7 +135,6 @@
                 <th>Nom du patient</th>
                 <th class="text-center">Montant Réclamé</th>
                 <th class="text-center">Modérateur</th>
-                <th class="text-center">Montant à réglé</th>
             </tr>
         </thead>
         <tbody>
@@ -153,9 +152,6 @@
                     </td>
                     <td class="text-center">
                         {{ \App\Helpers\FormatPrice::format($facture->amount_client) }}
-                    </td>
-                    <td class="text-center">
-                        {{ \App\Helpers\FormatPrice::format($facture->amount_pc) }}
                     </td>
                 </tr>
             @endforeach
