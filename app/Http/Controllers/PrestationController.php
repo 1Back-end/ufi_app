@@ -181,8 +181,9 @@ class PrestationController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
+            Log::error($e->getMessage());
             return response()->json([
-                'message' => $e->getTraceAsString()()
+                'message' => $e->getMessage()
             ], $e->getCode() === 0 ? Response::HTTP_INTERNAL_SERVER_ERROR : Response::HTTP_BAD_REQUEST);
         }
         DB::commit();

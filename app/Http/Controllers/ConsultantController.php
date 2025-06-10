@@ -44,8 +44,7 @@ class ConsultantController extends Controller
                     ->orWhere('email', 'like', '%' . $search . '%')
                     ->orWhere('type', 'like', '%' . $search . '%')
                     ->orWhere('status', 'like', '%' . $search . '%')
-                    ->orWhere('id', 'like', '%' . $search . '%')
-                    ->orWhere('centre_id', 'like', '%' . $search . '%');
+                    ->orWhere('id', 'like', '%' . $search . '%');
             })
             ->latest()
             ->paginate(perPage: $perPage, page: $page);
