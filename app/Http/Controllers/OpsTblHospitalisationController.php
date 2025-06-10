@@ -1,10 +1,12 @@
 <?php
 
 namespace App\Http\Controllers;
+
 use App\Models\Assurable;
 use App\Models\Assureur;
 use App\Models\User;
 use App\Models\OpsTblHospitalisation;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -15,11 +17,18 @@ class OpsTblHospitalisationController extends Controller
      * @permission OpsTblHospitalisationController::index
      * @permission_desc Afficher les hospitalisations avec pagination
      */
-    public  function  index(Request $request){
+    public function index(Request $request)
+    {
         $perPage = $request->input('limit', 5);  // Par défaut, 10 éléments par page
         $page = $request->input('page', 1);  // Page courante
 
         $hospitalisations = OpsTblHospitalisation::where('is_deleted', false)
+            ->when($request->has('active'), function (Builder $query) {
+                $query->where('status', request('active'));
+            })
+            ->when($request->input('search'), function (Builder $query) {
+                $query->where('name', 'like', '%' . request('search') . '%');
+            })
             ->latest()->paginate(perPage: $perPage, page: $page);
         return response()->json([
             'data' => $hospitalisations->items(),
@@ -29,20 +38,22 @@ class OpsTblHospitalisationController extends Controller
         ]);
 
     }
+
     /**
      * Display a listing of the resource.
      * @permission OpsTblHospitalisationController::store
      * @permission_desc Créer une Hospitalisation
      */
-    public function store(Request $request){
+    public function store(Request $request)
+    {
         $auth = auth()->user();
 
         try {
             $data = $request->validate([
                 'name' => 'required|string|unique:ops_tbl_hospitalisation,name',
-                'pu'=>'required|numeric',
+                'pu' => 'required|numeric',
                 'pu_default' => 'required|integer',
-                'description'=>'nullable|string',
+                'description' => 'nullable|string',
             ]);
             $data['created_by'] = $auth->id;
             $hospitalisation = OpsTblHospitalisation::create($data);
@@ -64,6 +75,7 @@ class OpsTblHospitalisationController extends Controller
             ], 500);
         }
     }
+
     /**
      * Display a listing of the resource.
      * @permission OpsTblHospitalisationController::update
@@ -101,6 +113,7 @@ class OpsTblHospitalisationController extends Controller
             ], 500);
         }
     }
+
     /**
      * Display a listing of the resource.
      * @permission OpsTblHospitalisationController::updateStatus
@@ -134,6 +147,7 @@ class OpsTblHospitalisationController extends Controller
             'soins' => $hospitalisation // Corrected to $assureur
         ], 200);
     }
+
     public function getPuByHospitalisationId($id, Request $request)
     {
         $assureurId = $request->query('assureur_id');
@@ -161,7 +175,6 @@ class OpsTblHospitalisationController extends Controller
             'pu' => $pu,
         ]);
     }
-
 
 
     //

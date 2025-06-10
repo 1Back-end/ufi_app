@@ -11,6 +11,7 @@ enum TypePrestation: int
     case SOINS = 3;
     case PRODUITS = 4;
     case LABORATOIR = 5;
+    case HOSPITALISATION = 6;
 
     public static function toArray(): array
     {
@@ -18,8 +19,9 @@ enum TypePrestation: int
             self::ACTES->value => 'Actes',
              self::CONSULTATIONS->value => 'Consultations',
             self::SOINS->value => 'Soins',
-            // self::PRODUITS->value => 'Produits',
-            // self::LABORATOIR->value => 'Laboratoire',
+             self::PRODUITS->value => 'Produits',
+//             self::LABORATOIR->value => 'Laboratoire',
+            self::HOSPITALISATION->value => 'Hospitalisation',
         ];
     }
 
@@ -31,6 +33,7 @@ enum TypePrestation: int
             self::SOINS => 'Soins',
             self::PRODUITS => 'Produits',
             self::LABORATOIR => 'Laboratoire',
+            self::HOSPITALISATION => 'Hospitalisation',
         };
     }
 }

@@ -12,6 +12,7 @@ use App\Models\Assureur;
 use App\Models\Client;
 use App\Models\Consultation;
 use App\Models\Facture;
+use App\Models\OpsTblHospitalisation;
 use App\Models\Prestation;
 use App\Models\Regulation;
 use App\Models\RegulationMethod;
@@ -215,6 +216,11 @@ class RegulationController extends Controller
                             case TypePrestation::PRODUITS:
                                 throw new \Exception('To be implemented');
                                 break;
+                            case TypePrestation::HOSPITALISATION:
+                                $prestation->hospitalisations->each(function (OpsTblHospitalisation $hospitalisation) use ($prestation) {
+                                    $prestation->hospitalisations()->updateExistingPivot($hospitalisation->id, ['amount_regulate' => $hospitalisation->pivot->pu * 100]);
+                                });
+                                break;
                             default:
                                 throw new \Exception('To be implemented');
                         }
@@ -264,6 +270,10 @@ class RegulationController extends Controller
                         case TypePrestation::LABORATOIR:
                         case TypePrestation::PRODUITS:
                             throw new \Exception('To be implemented');
+                            break;
+                        case TypePrestation::HOSPITALISATION:
+                            $facture->prestation->hospitalisations()
+                                ->updateExistingPivot($item['id'], ['amount_regulate' => $item['amount'] * 100]);
                             break;
                         default:
                             throw new \Exception('To be implemented');

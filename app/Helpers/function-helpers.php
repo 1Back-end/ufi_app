@@ -242,6 +242,29 @@ if (! function_exists('calculate_amount_facture')) {
             case TypePrestation::LABORATOIR:
                 throw new \Exception('To be implemented');
                 break;
+            case TypePrestation::HOSPITALISATION:
+                foreach ($prestation->hospitalisations as $hospitalisation) {
+                    $pu = $hospitalisation->pu;
+                    $amount_hospitalisation_pc = 0;
+                    if ($prestation->priseCharge) {
+                        if ($prestation->priseCharge->assureur->hospitalisations()->find($hospitalisation->id)) {
+                            $hospitalisationPc = $prestation->priseCharge->assureur->hospitalisations()->find($hospitalisation->id);
+                            $pu = $hospitalisationPc->pivot->pu;
+                        } else {
+                            $pu = $hospitalisation->pu_default;
+                        }
+
+                        $amount_hospitalisation_pc = ($hospitalisation->pivot->quantity * $pu * $prestation->priseCharge->taux_pc) / 100;
+                        $amount_pc += $amount_hospitalisation_pc;
+                    }
+
+                    $amount_hospitalisation_remise = ($hospitalisation->pivot->quantity * $pu * $hospitalisation->pivot->remise) / 100;
+                    $amount_remise += $amount_hospitalisation_remise;
+
+                    $amount += $hospitalisation->pivot->quantity * $pu;
+                    $amount_client += ($hospitalisation->pivot->quantity * $pu) - $amount_hospitalisation_remise - $amount_hospitalisation_pc;
+                }
+                    break;
         }
 
 
