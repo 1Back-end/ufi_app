@@ -18,6 +18,7 @@ use App\Models\Media;
 use App\Models\OpsTblHospitalisation;
 use App\Models\Prestation;
 use App\Models\PriseEnCharge;
+use App\Models\Product;
 use App\Models\RegulationMethod;
 use App\Models\RendezVous;
 use App\Models\Setting;
@@ -66,6 +67,7 @@ class PrestationController extends Controller
             'soins',
             'consultations',
             'hospitalisations',
+            'products',
             'centre',
             'factures',
             'factures.regulations',
@@ -212,7 +214,8 @@ class PrestationController extends Controller
                 'soins',
                 'consultations',
                 'medias',
-                'hospitalisations'
+                'hospitalisations',
+                'products',
             ])
         ]);
     }
@@ -530,6 +533,22 @@ class PrestationController extends Controller
                     $this->createRdv($request->input('consultant_id'), $request->input('client_id'), $item['date_rdv']);
                 }
                 break;
+            case TypePrestation::PRODUITS->value:
+                if ($update) {
+                    $prestation->products()->detach();
+                }
+
+                foreach ($request->post('products') as $item) {
+                    $product = Product::find($item['id']);
+                    $pu = $product->price;
+
+                    $prestation->products()->attach($item['id'], [
+                        'remise' => $item['remise'],
+                        'quantity' => $item['quantity'],
+                        'pu' =>  $pu
+                    ]);
+                }
+                break;
             default:
                 throw new Exception("Ce type de prestation n'est pas encore implémenté", Response::HTTP_BAD_REQUEST);
         }
@@ -660,6 +679,18 @@ class PrestationController extends Controller
                 $amount_remise += $amount_hospitalisation_remise;
 
                 $amount += $hospitalisationData['quantity'] * $pu;
+            }
+        }
+
+        if (isset($requestData['products']) && $requestData['products']) {
+            foreach ($request->input('products') as $productData) {
+                $product = Product::find($productData['id']);
+                $pu = $product->price;
+
+                $amount_product_remise = ($productData['quantity'] * $pu * $productData['remise']) / 100;
+                $amount_remise += $amount_product_remise;
+
+                $amount += $productData['quantity'] * $pu;
             }
         }
 

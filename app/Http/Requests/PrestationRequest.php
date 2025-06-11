@@ -25,7 +25,7 @@ class PrestationRequest extends FormRequest
         return [
             'prise_charge_id' => ['nullable', 'exists:prise_en_charges,id'],
             'client_id' => ['required', 'exists:clients,id'],
-            'consultant_id' => ['required', 'exists:consultants,id'],
+            'consultant_id' => [Rule::requiredIf($this->input('type') != TypePrestation::PRODUITS->value), 'exists:consultants,id'],
             'payable_by' => ['nullable', 'exists:clients,id'],
             'payable_by_file' => [Rule::requiredIf($this->input('payable_by') || $this->input('payable_by_file_update')) , 'file'],
             'payable_by_file_update' => ['boolean'],
@@ -56,6 +56,11 @@ class PrestationRequest extends FormRequest
             'hospitalisations.*.remise' => ['min:0', 'numeric', 'max:100'],
             'hospitalisations.*.quantity' => ['integer', 'required_if:type,' . TypePrestation::HOSPITALISATION->value, 'min:1'],
             'hospitalisations.*.date_rdv' => ['required_if:type,' . TypePrestation::HOSPITALISATION->value, 'date'],
+            // Products
+            'products' => ['nullable', 'array', 'required_if:type,' . TypePrestation::PRODUITS->value],
+            'products*.id' => ['integer', 'required_if:type,' . TypePrestation::PRODUITS->value, 'exists:prodcuts,id'],
+            'products*.remise' => ['min:0', 'numeric', 'max:100'],
+            'products*.quantity' => ['integer', 'required_if:type,' . TypePrestation::PRODUITS->value, 'min:1'],
         ];
     }
 
@@ -140,6 +145,7 @@ class PrestationRequest extends FormRequest
 
                 break;
             case TypePrestation::SOINS->value:
+            case TypePrestation::PRODUITS->value:
                 break;
             case TypePrestation::CONSULTATIONS->value:
 

@@ -222,6 +222,13 @@ class Prestation extends Model
             ->withTimestamps();
     }
 
+    public function products(): MorphToMany
+    {
+        return $this->morphedByMany(Product::class, 'prestationable')
+            ->withPivot(['amount_regulate', 'remise', 'quantity', 'pu'])
+            ->withTimestamps();
+    }
+
     public function medias(): MorphOne
     {
         return $this->morphOne(Media::class, 'mediable');
