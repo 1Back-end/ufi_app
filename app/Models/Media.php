@@ -17,4 +17,9 @@ class Media extends Model
     {
         return $this->morphTo(Centre::class, 'mediable');
     }
+
+    public function dossierConsultations(): MorphTo
+    {
+        return $this->morphTo(DossierConsultation::class, 'mediable');
+    }
 }

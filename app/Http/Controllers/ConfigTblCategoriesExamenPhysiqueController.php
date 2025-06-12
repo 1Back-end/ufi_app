@@ -15,28 +15,32 @@ class ConfigTblCategoriesExamenPhysiqueController extends Controller
      */
     public function index(Request $request)
     {
-        $perPage = $request->input('limit', 5);  // Par défaut, 10 éléments par page
-        $page = $request->input('page', 1);  // Page courante
+        $perPage = $request->input('limit', 5);
+        $page = $request->input('page', 1);
 
-        $antecedents= ConfigTblCategoriesExamenPhysique::where('is_deleted', false)
-            ->with(['creator:id,login','updater:id,login'])
-            ->when($request->input('search'), function ($query) use ($request) {
-                $search = $request->input('search');
-                $query->where('name', 'like', '%' . $search . '%')
-                    ->orWhere('description', 'like', '%' . $search . '%')
-                    ->orWhere('id', 'like', '%' . $search . '%');
-            })
-            ->latest()->paginate(perPage: $perPage, page: $page);
+        $query = ConfigTblCategoriesExamenPhysique::where('is_deleted', false)
+            ->with(['creator:id,login', 'updater:id,login']);
+
+        // Ajout de la recherche si le champ 'search' est rempli
+        if ($request->filled('search')) {
+            $search = $request->input('search');
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%$search%")
+                    ->orWhere('description', 'like', "%$search%")
+                    ->orWhere('id', 'like', "%$search%");
+            });
+        }
+
+        $results = $query->latest()->paginate(perPage: $perPage, page: $page);
 
         return response()->json([
-            'data' => $antecedents->items(),
-            'current_page' => $antecedents->currentPage(),  // Page courante
-            'last_page' => $antecedents->lastPage(),  // Dernière page
-            'total' => $antecedents->total(),  // Nombre total d'éléments
+            'data' => $results->items(),
+            'current_page' => $results->currentPage(),
+            'last_page' => $results->lastPage(),
+            'total' => $results->total(),
         ]);
-
-        //
     }
+
     /**
      * Display a listing of the resource.
      * @permission ConfigTblCategoriesExamenPhysiqueController::store

@@ -13,12 +13,20 @@ class OpsTblAntecedentController extends Controller
      * @permission OpsTblAntecedentController::index
      * @permission_desc Afficher  la liste des antécédants
      */
-    public  function index(Request $request)
+    public function index(Request $request, $client_id)
     {
         $perPage = $request->input('limit', 5);
         $page = $request->input('page', 1);
+
         $antecedents = OpsTblAntecedent::where('is_deleted', false)
-            ->with(['createdBy:id,login', 'updatedBy:id,login','client:id,nomcomplet_client','categorie:id,name','sousCategorie:id,name'])
+            ->where('client_id', $client_id) // filtre direct avec le paramètre
+            ->with([
+                'createdBy:id,login',
+                'updatedBy:id,login',
+                'client:id,nomcomplet_client',
+                'categorie:id,name',
+                'sousCategorie:id,name'
+            ])
             ->when($request->input('search'), function ($query) use ($request) {
                 $search = $request->input('search');
                 $query->where(function ($q) use ($search) {
@@ -28,15 +36,16 @@ class OpsTblAntecedentController extends Controller
             })
             ->latest()
             ->paginate($perPage, page: $page);
+
         return response()->json([
             'data' => $antecedents->items(),
             'current_page' => $antecedents->currentPage(),
             'last_page' => $antecedents->lastPage(),
             'total' => $antecedents->total(),
         ]);
-
-
     }
+
+
     /**
      * Display a listing of the resource.
      * @permission OpsTblAntecedentController::store

@@ -2,16 +2,17 @@
 
 namespace App\Models;
 
+use App\Enums\TypePrestation;
 use App\Models\Trait\UpdatingUser;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+
 class RendezVous extends Model
 {
     use HasFactory, UpdatingUser;
-    // Spécification de la table si ce n'est pas le nom par défaut (rendez_vouses)
+
     protected $table = 'rendez_vouses';
 
-    // Définir les attributs qui peuvent être remplis en masse
     protected $fillable = [
         'created_by',
         'updated_by',
@@ -24,7 +25,10 @@ class RendezVous extends Model
         'type',
         'etat',
         'code',
+        'etat_paiement',
         'is_deleted',
+        'rendez_vous_id',  // Pense à ajouter ici aussi
+        'prestation_id',
     ];
 
     protected static function boot()
@@ -38,7 +42,27 @@ class RendezVous extends Model
         });
     }
 
-    // Relations
+    public function getTypePrestationLabelAttribute()
+    {
+        return $this->prestation ? TypePrestation::label($this->prestation->type) : null;
+    }
+    public function parent()
+    {
+        return $this->belongsTo(RendezVous::class, 'rendez_vous_id');
+    }
+
+
+    public function children()
+    {
+        return $this->hasMany(RendezVous::class, 'rendez_vous_id');
+    }
+
+    public function prestation()
+    {
+        return $this->belongsTo(Prestation::class, 'prestation_id');
+    }
+
+
     public function client()
     {
         return $this->belongsTo(Client::class);
@@ -65,10 +89,9 @@ class RendezVous extends Model
         return $query->where('is_deleted', false);
     }
 
-
+    // Mutateur pour formater la date/heure
     public function getDateheureRdvAttribute($value)
     {
         return \Carbon\Carbon::parse($value)->format('d-m-Y H:i');
     }
-    //
 }
