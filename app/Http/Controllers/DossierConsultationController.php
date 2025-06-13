@@ -6,6 +6,7 @@ use App\Exports\ConsultantsExport;
 use App\Exports\DossierConsultationExport;
 use App\Exports\DossierConsultationExportSearch;
 use App\Models\DossierConsultation;
+use App\Models\RendezVous;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
@@ -122,7 +123,6 @@ class DossierConsultationController extends Controller
         $auth = auth()->user();
 
         $data = $request->validate([
-            'facture_id' => 'required|exists:factures,id',
             'rendez_vous_id' => 'required|exists:rendez_vouses,id',
             'poids' => 'required|string',
             'tension' => 'required|string',
@@ -149,6 +149,12 @@ class DossierConsultationController extends Controller
 
         // Création du dossier
         $dossier = DossierConsultation::create($data);
+        // ✅ Mettre à jour l'état du rendez-vous à "Traitement en cours"
+        if ($dossier && $data['rendez_vous_id']) {
+            RendezVous::where('id', $data['rendez_vous_id'])->update([
+                'etat' => 'Traitement en cours',
+            ]);
+        }
 
         if ($request->hasFile('fichier_associe')) {
             $file = $request->file('fichier_associe');
@@ -255,9 +261,6 @@ class DossierConsultationController extends Controller
             ->with([
                 'creator:id,login',
                 'updater:id,login',
-                'facture:id,code'
-                ,'rendezVous:id,code,client_id',
-                'rendezVous.client:id,nomcomplet_client'
             ])
             ->findOrFail($id);
 

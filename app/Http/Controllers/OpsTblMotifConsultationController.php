@@ -26,7 +26,6 @@ class OpsTblMotifConsultationController extends Controller
         $query = OpsTbl_Motif_consultation::where('is_deleted', false)
             ->with([
                 'dossierConsultation:id,code,rendez_vous_id',
-                'dossierConsultation.rendezVous:id,code,client_id',
                 'dossierConsultation.rendezVous.client:id,nomcomplet_client,ref_cli',
                 'creator:id,login',
                 'updater:id,login',

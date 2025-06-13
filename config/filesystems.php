@@ -127,6 +127,12 @@ return [
             'url' => env('APP_URL') . '/export-examensphysiques',
             'visibility' => 'public',
         ],
+        'examensenquetes' => [
+            'driver' => 'local',
+            'root' => public_path('export-examensenquetes'),
+            'url' => env('APP_URL') . '/export-examensenquetes',
+            'visibility' => 'public',
+        ],
 
 
 
