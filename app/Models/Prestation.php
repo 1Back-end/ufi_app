@@ -46,6 +46,10 @@ class Prestation extends Model
             'type' => TypePrestation::class,
         ];
     }
+    public function rendezVous()
+    {
+        return $this->hasMany(RendezVous::class);
+    }
 
     protected $appends = [
         'type_label',

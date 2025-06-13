@@ -109,6 +109,26 @@ return [
             'url' => env('APP_URL') . '/export-rendezvous',
             'visibility' => 'public',
         ],
+        'dossiersconsultations' => [
+            'driver' => 'local',
+            'root' => public_path('export-dossiersconsultations'),
+            'url' => env('APP_URL') . '/export-dossiersconsultations',
+            'visibility' => 'public',
+        ],
+        'motifsconsultations' => [
+            'driver' => 'local',
+            'root' => public_path('export-motifsconsultations'),
+            'url' => env('APP_URL') . '/export-motifsconsultations',
+            'visibility' => 'public',
+        ],
+        'examensphysiques' => [
+            'driver' => 'local',
+            'root' => public_path('export-examensphysiques'),
+            'url' => env('APP_URL') . '/export-examensphysiques',
+            'visibility' => 'public',
+        ],
+
+
 
         's3' => [
             'driver' => 's3',

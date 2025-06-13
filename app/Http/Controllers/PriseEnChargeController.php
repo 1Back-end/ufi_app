@@ -121,6 +121,12 @@ class PriseEnChargeController extends Controller
             'taux_pc' => 'required|integer',
             'usage_unique' => 'boolean',
         ]);
+        // Vérifier que date_debut >= aujourd'hui
+        if (strtotime($data['date_debut']) < strtotime(date('Y-m-d'))) {
+            return response()->json([
+                'message' => 'La date de début ne peut pas être antérieure à la date d\'aujourd\'hui.'
+            ], 400);
+        }
         // Vérification si la date de début est après la date de fin
         if (strtotime($data['date_fin']) <= strtotime($data['date_debut'])) {
             return response()->json([

@@ -4,7 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Exports\PrisesEnChargeExport;
 use App\Exports\RendezVousExport;
+use App\Models\DossierConsultation;
 use App\Models\RendezVous;
+use App\Models\Setting;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
@@ -17,28 +19,68 @@ class RendezVousController extends Controller
      * @permission RendezVousController::index
      * @permission_desc Afficher la liste des rendez-vous
      */
-    public function index(Request $request){
-        $perPage = $request->input('limit', 10);  // Par défaut, 10 éléments par page
-        $page = $request->input('page', 1);  // Page courante
+    public function index(Request $request)
+    {
+        $perPage = $request->input('limit', 10);
+        $page = $request->input('page', 1);
 
-        // Récupérer les assureurs avec pagination
-        $rendez_vous = RendezVous::where('is_deleted', false)
-            ->with(
+        $query = RendezVous::where('is_deleted', false)
+            ->with([
                 'client:id,nomcomplet_client',
                 'consultant:id,nomcomplet',
                 'createdBy:id,email',
-                'updatedBy:id,email'
-            )
-            ->latest()
-            ->paginate(perPage: $perPage, page: $page);
+                'updatedBy:id,email',
+                'prestation:id,type',
+                'parent:id,code,dateheure_rdv' // ← ici
+            ]);
+
+
+        // Filtrage sur le(s) état(s)
+        if ($request->has('etat')) {
+            // On récupère les états passés en query, séparés par des virgules
+            $etats = explode(',', $request->input('etat'));
+            $query->whereIn('etat', $etats);
+        } else {
+            // Par défaut, ces états seulement
+            $query->whereIn('etat', ['Actif', 'Inactif', 'No show']);
+        }
+
+        if ($request->filled('type')) {
+            $query->where('type', $request->input('type'));
+        }
+
+        if ($request->filled('client_id')) {
+            $query->where('client_id', $request->input('client_id'));
+        }
+
+        // 🔍 Recherche globale
+        if ($search = $request->input('search')) {
+            $query->where(function ($q) use ($search) {
+                $q->where('nombre_jour_validite', 'like', "%{$search}%")
+                    ->orWhere('type', 'like', "%{$search}%")
+                    ->orWhere('code', 'like', "%{$search}%")
+                    ->orWhere('id', 'like', "%{$search}%")
+                    ->orWhereHas('client', function ($subQ) use ($search) {
+                        $subQ->where('nomcomplet_client', 'like', "%{$search}%");
+                    })
+                    ->orWhereHas('consultant', function ($subQ) use ($search) {
+                        $subQ->where('nomcomplet', 'like', "%{$search}%");
+                    });
+            });
+        }
+
+        $rendez_vous = $query->latest()
+            ->paginate($perPage, ['*'], 'page', $page);
 
         return response()->json([
             'data' => $rendez_vous->items(),
-            'current_page' => $rendez_vous->currentPage(),  // Page courante
-            'last_page' => $rendez_vous->lastPage(),  // Dernière page
-            'total' => $rendez_vous->total(),  // Nombre total d'éléments
+            'current_page' => $rendez_vous->currentPage(),
+            'last_page' => $rendez_vous->lastPage(),
+            'total' => $rendez_vous->total(),
         ]);
     }
+
+
 
     /**
      * Show the form for creating a new resource.
@@ -58,52 +100,41 @@ class RendezVousController extends Controller
         $auth = auth()->user();
 
         try {
-            // Validation des données entrantes
             $data = $request->validate([
                 'client_id' => 'required|integer|exists:clients,id',
                 'consultant_id' => 'required|exists:consultants,id',
                 'dateheure_rdv' => 'required|date',
-                'heure_debut' => 'required|date_format:H:i',
-                'heure_fin' => 'required|date_format:H:i|after:heure_debut',
-                'details' => 'required',
-                'nombre_jour_validite' => 'required|integer',
+                'details' => 'nullable|string',
+                'rendez_vous_id' => 'nullable|exists:rendez_vouses,id',
             ]);
 
-            // Vérifie que le consultant n'a pas déjà un RDV qui chevauche
-            $rdvDate = \Carbon\Carbon::parse($data['dateheure_rdv'])->toDateString();
+            $validity = Setting::where('key', 'rdv_validity_by_day')->value('value');
+            $duration = Setting::where('key', 'rdv_duration')->value('value');
 
-            $hasConflict = RendezVous::where('consultant_id', $data['consultant_id'])
-                ->whereDate('dateheure_rdv', $rdvDate)
-                ->where(function ($query) use ($data) {
-                    $query->where(function ($q) use ($data) {
-                        $q->where('heure_debut', '<', $data['heure_fin'])
-                            ->where('heure_fin', '>', $data['heure_debut']);
-                    });
-                })
-                ->exists();
-
-            if ($hasConflict) {
-                return response()->json([
-                    'message' => 'Le consultant a déjà un rendez-vous dans cette plage horaire.',
-                ], 400);
-            }
-
-            // Vérifie si un RDV existe déjà pour le client ce jour-là (optionnel)
-            $existingRdvClient = RendezVous::where('client_id', $data['client_id'])
-                ->whereDate('dateheure_rdv', $rdvDate)
-                ->exists();
-
-            if ($existingRdvClient) {
-                return response()->json([
-                    'message' => 'Un rendez-vous est déjà prévu pour ce client à cette date.',
-                ], 400);
-            }
-
-            // Ajoute les champs manquants
-            $data['date_emission'] = now();
+            $data['nombre_jour_validite'] = $validity;
+            $data['duration'] = $duration;
+            $data['type'] = 'Non facturé';
+            $data['details'] = $data['details'] ?? '';
             $data['created_by'] = $auth->id;
 
-            // Création du rendez-vous
+//            $start = Carbon::parse($data['dateheure_rdv']);
+//            $end = $start->copy()->addMinutes($duration);
+//
+//            // ✅ Vérification de conflit pour ce consultant
+//            $conflict = RendezVous::where('consultant_id', $data['consultant_id'])
+//                ->where('is_deleted', false)
+//                ->where(function ($query) use ($start, $end) {
+//                    $query->whereBetween('dateheure_rdv', [$start, $end])
+//                        ->orWhereRaw('? BETWEEN dateheure_rdv AND DATE_ADD(dateheure_rdv, INTERVAL duration MINUTE)', [$start]);
+//                })
+//                ->exists();
+//
+//            if ($conflict) {
+//                return response()->json([
+//                    'error' => 'Ce consultant a déjà un rendez-vous durant cette plage horaire.'
+//                ], 409);
+//            }
+
             $rendez_vous = RendezVous::create($data);
 
             return response()->json([
@@ -123,6 +154,9 @@ class RendezVousController extends Controller
             ], 500);
         }
     }
+
+
+
 
     /**
      * Display a listing of the resource.
@@ -206,28 +240,39 @@ class RendezVousController extends Controller
      * @permission RendezVousController::updateStatus
      * @permission_desc Mettre à jour  le statut des rendez-vous
      */
-    public function updateStatus(Request $request, $id,$etat)
+    public function updateStatus(Request $request, $id, $etat)
     {
         $rendez_vous = RendezVous::find($id);
+
         if (!$rendez_vous) {
-            return response()->json(['message' => 'Rendez vous non trouvé'], 404);
+            return response()->json(['message' => 'Rendez-vous non trouvé'], 404);
         }
-        // Check if the assureur is deleted
+
         if ($rendez_vous->is_deleted) {
-            return response()->json(['message' => 'Impossible de mettre à jour un rendez supprimé'], 400);
+            return response()->json(['message' => 'Impossible de mettre à jour un rendez-vous supprimé'], 400);
         }
-        // Validate the status
-        if (!in_array($etat, ['Actif','Inactif','Clos', 'No show'])) {
+
+        if (!in_array($etat, ['Actif', 'Inactif', 'Clos', 'No show'])) {
             return response()->json(['message' => 'Type invalide'], 400);
         }
-        // Update the status
-        $rendez_vous->etat = $etat;  // Ensure the correct field name
+
+        // Si on essaie de mettre No show et que le rendez-vous a déjà un dossier de consultation
+        $hasConsultation = DossierConsultation::where('rendez_vous_id', $id)
+            ->where('is_deleted', false)
+            ->exists();
+
+        if ($etat === 'No show' && $hasConsultation) {
+            return response()->json([
+                'message' => 'Impossible de marquer comme No show : ce rendez-vous a déjà un dossier de consultation.'
+            ], 400);
+        }
+
+        $rendez_vous->etat = $etat;
         $rendez_vous->save();
 
-        // Return the updated assureur
         return response()->json([
-            'message' => 'Etat mis à jour avec succès',
-            'rendez vous' => $rendez_vous // Corrected to $assureur
+            'message' => 'État mis à jour avec succès',
+            'rendez_vous' => $rendez_vous
         ], 200);
     }
     /**
@@ -288,48 +333,7 @@ class RendezVousController extends Controller
             ], 500); // Code de statut 500 pour une erreur serveur
         }
     }
-    /**
-     * Display a listing of the resource.
-     * @permission RendezVousController::search
-     * @permission_desc Rechercher des rendez-vous
-     */
-    public function search(Request $request)
-    {
-        $request->validate([
-            'query' => 'nullable|string|max:255',
-        ]);
 
-        $searchQuery = $request->input('query', '');
-
-        $query = RendezVous::where('is_deleted', false);
-
-        if ($searchQuery) {
-            $query->where(function($q) use ($searchQuery) {
-                $q->where('details', 'like', '%' . $searchQuery . '%')
-                    ->orWhere('nombre_jour_validite', 'like', '%' . $searchQuery . '%')
-                    ->orWhere('type', 'like', '%' . $searchQuery . '%')
-                    ->orWhere('etat', 'like', '%' . $searchQuery . '%')
-                    ->orWhere('code', 'like', '%' . $searchQuery . '%')
-                    ->orWhereHas('client', function ($subQ) use ($searchQuery) {
-                        $subQ->where('nomcomplet_client', 'like', '%' . $searchQuery . '%');
-                    })
-                    ->orWhereHas('consultant', function ($subQ) use ($searchQuery) {
-                        $subQ->where('nomcomplet', 'like', '%' . $searchQuery . '%');
-                    });
-            });
-        }
-
-        $rendez_vous = $query
-            ->with([
-                'client:id,nomcomplet_client',
-                'consultant:id,nomcomplet'
-            ])
-            ->get();
-
-        return response()->json([
-            'data' => $rendez_vous,
-        ]);
-    }
     /**
      * Display a listing of the resource.
      * @permission RendezVousController::show
@@ -338,7 +342,6 @@ class RendezVousController extends Controller
     public function searchAndExport(Request $request){
 
     }
-
 
     /**
      * Display a listing of the resource.
@@ -352,13 +355,20 @@ class RendezVousController extends Controller
                 ->with([
                     'client:id,nomcomplet_client',
                     'consultant:id,nomcomplet',
+                    'createdBy:id,email',
+                    'updatedBy:id,email',
+                    'prestation:id,type'
                 ])
                 ->findOrFail($id);
-            return response()->json($rendez_vous);
+
+            return response()->json([
+                'rendez_vous' => $rendez_vous
+            ]);
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             return response()->json(['message' => 'Prise en charge introuvable'], 404);
         }
     }
+
 
     /**
      * Show the form for editing the specified resource.

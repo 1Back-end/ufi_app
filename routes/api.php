@@ -43,6 +43,14 @@ use App\Http\Controllers\OpsTblAntecedentController;
 use App\Http\Controllers\ConfigTblCategoriesExamenPhysiqueController;
 use App\Http\Controllers\ConfigTblTypeDiagnosticController;
 use App\Http\Controllers\ConfigTblCategoriesEnquetesController;
+use App\Http\Controllers\DossierConsultationController;
+use App\Http\Controllers\OpsTblMotifConsultationController;
+use App\Http\Controllers\ExamenPhysiqueController;
+use App\Http\Controllers\OpsTblEnqueteController;
+use App\Http\Controllers\OpsTblRapportConsultationController;
+use App\Http\Controllers\OpsTblCertificatMedicalController;
+use App\Http\Controllers\OrdonnanceController;
+use App\Http\Controllers\DiagnosticController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['activity'])->group(function () {
@@ -322,6 +330,7 @@ Route::middleware(['activity'])->group(function () {
             Route::get('/get_by_id/{id}', 'show');
             Route::put('/edit/{id}', 'update');
             Route::delete('/delete/{id}', 'destroy');
+            Route::get('/client/{client_id}',  'index');
         });
         Route::controller(ConfigTblCategoriesExamenPhysiqueController::class)->prefix('config_examen_physiques')->group(function () {
             Route::get('/list', 'index');
@@ -336,6 +345,8 @@ Route::middleware(['activity'])->group(function () {
             Route::get('/get_by_id/{id}', 'show');
             Route::put('/edit/{id}', 'update');
             Route::delete('/delete/{id}', 'destroy');
+
+
         });
         Route::controller(ConfigTblCategoriesEnquetesController::class)->prefix('config_enquetes')->group(function () {
             Route::get('/list', 'index');
@@ -344,6 +355,71 @@ Route::middleware(['activity'])->group(function () {
             Route::put('/edit/{id}', 'update');
             Route::delete('/delete/{id}', 'destroy');
         });
+        Route::controller(DossierConsultationController::class)->prefix('dossiers_consultations')->group(function () {
+            Route::get('/list', 'index');
+            Route::post('/create', 'store');
+            Route::get('/get_by_id/{id}', 'show');
+            Route::post('/edit/{id}', 'update');
+            Route::delete('/delete/{id}', 'destroy');
+            Route::get('/export',  'export');
+            Route::get('/search-and-export', 'search_and_export');
+            Route::get('/client/{client_id}',  'historiqueClient');
+
+        });
+        Route::controller(OpsTblMotifConsultationController::class)->prefix('ops_tbl_motif_consultations')->group(function () {
+            Route::get('/list', 'index');
+            Route::post('/create', 'store');
+            Route::get('/export',  'export');
+            Route::get('/search-and-export', 'search_and_export');
+        });
+        Route::controller(ExamenPhysiqueController::class)->prefix('examen_physiques')->group(function () {
+            Route::get('/list', 'index');
+            Route::post('/create', 'store');
+            Route::get('/get_by_id/{id}', 'show');
+            Route::put('/edit/{id}', 'update');
+            Route::delete('/delete/{id}', 'destroy');
+            Route::get('/export',  'export');
+
+        });
+
+        Route::controller(OpsTblEnqueteController::class)->prefix('ops_tbl_enquetes')->group(function () {
+            Route::get('/list', 'index');
+            Route::post('/create', 'store');
+            Route::get('/get_by_id/{id}', 'show');
+            Route::put('/edit/{id}', 'update');
+            Route::delete('/delete/{id}', 'destroy');
+        });
+
+        Route::controller(OpsTblRapportConsultationController::class)->prefix('ops_tbl_rapport_consultations')->group(function () {
+            Route::get('/list', 'index');
+            Route::post('/create', 'store');
+            Route::get('/get_by_id/{id}', 'show');
+            Route::put('/edit/{id}', 'update');
+            Route::delete('/delete/{id}', 'destroy');
+        });
+
+        Route::controller(OpsTblCertificatMedicalController::class)->prefix('ops_tbl_certificat_medicals')->group(function () {
+            Route::get('/list', 'index');
+            Route::post('/create', 'store');
+            Route::get('/get_by_id/{id}', 'show');
+            Route::put('/edit/{id}', 'update');
+            Route::delete('/delete/{id}', 'destroy');
+        });
+        Route::controller(OrdonnanceController::class)->prefix('ordonnances')->group(function () {
+            Route::get('/list', 'index');
+            Route::post('/create', 'store');
+            Route::get('/get_by_id/{id}', 'show');
+            Route::put('/edit/{id}', 'update');
+            Route::delete('/delete/{id}', 'destroy');
+        });
+        Route::controller(DiagnosticController::class)->prefix('diagnostics')->group(function () {
+            Route::get('/list', 'index');
+            Route::post('/create', 'store');
+            Route::get('/get_by_id/{id}', 'show');
+            Route::put('/edit/{id}', 'update');
+            Route::delete('/delete/{id}', 'destroy');
+        });
+
 
         // Setting management
         Route::apiResource('settings', SettingController::class);
