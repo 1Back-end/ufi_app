@@ -237,10 +237,42 @@ if (! function_exists('calculate_amount_facture')) {
                 }
                 break;
             case TypePrestation::PRODUITS:
-                throw new \Exception('To be implemented');
+                foreach ($prestation->products as $product) {
+                    $pu = $product->price;
+                    $amount_product_pc = 0;
+
+                    $amount_product_remise = ($product->pivot->quantity * $pu * $product->pivot->remise) / 100;
+                    $amount_remise += $amount_product_remise;
+
+                    $amount += $product->pivot->quantity * $pu;
+                    $amount_client += ($product->pivot->quantity * $pu) - $amount_product_remise - $amount_product_pc;
+                }
                 break;
             case TypePrestation::LABORATOIR:
                 throw new \Exception('To be implemented');
+                break;
+            case TypePrestation::HOSPITALISATION:
+                foreach ($prestation->hospitalisations as $hospitalisation) {
+                    $pu = $hospitalisation->pu;
+                    $amount_hospitalisation_pc = 0;
+                    if ($prestation->priseCharge) {
+                        if ($prestation->priseCharge->assureur->hospitalisations()->find($hospitalisation->id)) {
+                            $hospitalisationPc = $prestation->priseCharge->assureur->hospitalisations()->find($hospitalisation->id);
+                            $pu = $hospitalisationPc->pivot->pu;
+                        } else {
+                            $pu = $hospitalisation->pu_default;
+                        }
+
+                        $amount_hospitalisation_pc = ($hospitalisation->pivot->quantity * $pu * $prestation->priseCharge->taux_pc) / 100;
+                        $amount_pc += $amount_hospitalisation_pc;
+                    }
+
+                    $amount_hospitalisation_remise = ($hospitalisation->pivot->quantity * $pu * $hospitalisation->pivot->remise) / 100;
+                    $amount_remise += $amount_hospitalisation_remise;
+
+                    $amount += $hospitalisation->pivot->quantity * $pu;
+                    $amount_client += ($hospitalisation->pivot->quantity * $pu) - $amount_hospitalisation_remise - $amount_hospitalisation_pc;
+                }
                 break;
         }
 

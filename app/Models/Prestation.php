@@ -111,6 +111,7 @@ class Prestation extends Model
                 'actes',
                 'soins',
                 'consultations',
+                'hospitalisations',
                 'client:id,nom_cli,prenom_cli,nomcomplet_client,ref_cli,date_naiss_cli',
                 'priseCharge:id,assureur_id,taux_pc',
                 'priseCharge.assureur:id,nom',
@@ -215,6 +216,20 @@ class Prestation extends Model
     {
         return $this->morphedByMany(Consultation::class, 'prestationable')
             ->withPivot(['amount_regulate', 'date_rdv', 'remise', 'quantity', 'pu'])
+            ->withTimestamps();
+    }
+
+    public function hospitalisations(): MorphToMany
+    {
+        return $this->morphedByMany(OpsTblHospitalisation::class, 'prestationable')
+            ->withPivot(['amount_regulate', 'date_rdv', 'remise', 'quantity', 'pu'])
+            ->withTimestamps();
+    }
+
+    public function products(): MorphToMany
+    {
+        return $this->morphedByMany(Product::class, 'prestationable')
+            ->withPivot(['amount_regulate', 'remise', 'quantity', 'pu'])
             ->withTimestamps();
     }
 

@@ -15,8 +15,10 @@ use App\Models\ConventionAssocie;
 use App\Models\Facture;
 use App\Models\FactureAssociate;
 use App\Models\Media;
+use App\Models\OpsTblHospitalisation;
 use App\Models\Prestation;
 use App\Models\PriseEnCharge;
+use App\Models\Product;
 use App\Models\RegulationMethod;
 use App\Models\RendezVous;
 use App\Models\Setting;
@@ -64,6 +66,8 @@ class PrestationController extends Controller
             'actes',
             'soins',
             'consultations',
+            'hospitalisations',
+            'products',
             'centre',
             'factures',
             'factures.regulations',
@@ -210,6 +214,8 @@ class PrestationController extends Controller
                 'soins',
                 'consultations',
                 'medias',
+                'hospitalisations',
+                'products',
             ])
         ]);
     }
@@ -500,6 +506,49 @@ class PrestationController extends Controller
                     $this->createRdv($request->input('consultant_id'), $request->input('client_id'), $item['date_rdv']);
                 }
                 break;
+            case TypePrestation::HOSPITALISATION->value:
+                if ($update) {
+                    $prestation->hospitalisations()->detach();
+                }
+
+                foreach ($request->post('hospitalisations') as $item) {
+                    $hospitalisation = OpsTblHospitalisation::find($item['id']);
+                    $pu = $hospitalisation->pu;
+                    if ($prestation->priseCharge) {
+                        if ($hospitalisationPC = $prestation->priseCharge->assureur->hospitalisations()->find($hospitalisation->id)) {
+                            $pu = $hospitalisationPC->pivot->pu;
+                        } else {
+                            $pu = $hospitalisation->pu_default;
+                        }
+                    }
+
+                    $prestation->hospitalisations()->attach($item['id'], [
+                        'date_rdv' => $item['date_rdv'],
+                        'remise' => $item['remise'],
+                        'quantity' => $item['quantity'],
+                        'date_rdv_end' => Carbon::createFromTimeString($item['date_rdv'])->addMinutes((int)$prestationDuration),
+                        'pu' =>  $pu
+                    ]);
+
+                    $this->createRdv($request->input('consultant_id'), $request->input('client_id'), $item['date_rdv']);
+                }
+                break;
+            case TypePrestation::PRODUITS->value:
+                if ($update) {
+                    $prestation->products()->detach();
+                }
+
+                foreach ($request->post('products') as $item) {
+                    $product = Product::find($item['id']);
+                    $pu = $product->price;
+
+                    $prestation->products()->attach($item['id'], [
+                        'remise' => $item['remise'],
+                        'quantity' => $item['quantity'],
+                        'pu' =>  $pu
+                    ]);
+                }
+                break;
             default:
                 throw new Exception("Ce type de prestation n'est pas encore implémenté", Response::HTTP_BAD_REQUEST);
         }
@@ -607,6 +656,43 @@ class PrestationController extends Controller
             }
         }
 
+        if (isset($requestData['hospitalisations']) && $requestData['hospitalisations']) {
+            foreach ($request->input('hospitalisations') as $hospitalisationData) {
+                if ($priseCharge) {
+                    if ($hospitalisation = $priseCharge->assureur->hospitalisations()->find($hospitalisationData['id'])) {
+                        $pu = $hospitalisation->pivot->pu;
+                    }
+                    else {
+                        $hospitalisation = OpsTblHospitalisation::find($hospitalisationData['id']);
+                        $pu = $hospitalisation->pu_default;
+                    }
+
+                    $amount_hospitalisation_pc = ($hospitalisationData['quantity'] * $pu * $priseCharge->taux_pc) / 100;
+                    $amount_pc += $amount_hospitalisation_pc;
+                }
+                else {
+                    $hospitalisation = OpsTblHospitalisation::find($hospitalisationData['id']);
+                    $pu = $hospitalisation->pu;
+                }
+
+                $amount_hospitalisation_remise = ($hospitalisationData['quantity'] * $pu * $hospitalisationData['remise']) / 100;
+                $amount_remise += $amount_hospitalisation_remise;
+
+                $amount += $hospitalisationData['quantity'] * $pu;
+            }
+        }
+
+        if (isset($requestData['products']) && $requestData['products']) {
+            foreach ($request->input('products') as $productData) {
+                $product = Product::find($productData['id']);
+                $pu = $product->price;
+
+                $amount_product_remise = ($productData['quantity'] * $pu * $productData['remise']) / 100;
+                $amount_remise += $amount_product_remise;
+
+                $amount += $productData['quantity'] * $pu;
+            }
+        }
 
         if (isset($data['payable_by']) && $data['payable_by']) {
             $data['regulated'] = $data['payable_by'] ? 1 : 0;

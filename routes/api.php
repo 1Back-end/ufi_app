@@ -11,6 +11,7 @@ use App\Http\Controllers\HopitalController;
 use App\Http\Controllers\PrefixController;
 use App\Http\Controllers\RegulationController;
 use App\Http\Controllers\RegulationMethodController;
+use App\Http\Controllers\Reports\FacturationsController;
 use App\Http\Controllers\ServiceHopitalController;
 use App\Http\Controllers\SettingController;
 use App\Http\Controllers\SexeController;
@@ -103,7 +104,8 @@ Route::middleware(['activity'])->group(function () {
 
         // Prestations
         Route::get('prestations/types', [PrestationController::class, 'typePrestation']);
-        Route::apiResource('prestations', PrestationController::class)->except(['destroy']);
+        Route::apiResource('prestations', PrestationController::class)->except(['destroy', 'update']);
+        Route::post('prestations/{prestation}', [PrestationController::class, 'update']);
         Route::post('prestations/{prestation}/facture', [PrestationController::class, 'saveFacture']);
         Route::patch('prestations/{prestation}/change-state', [PrestationController::class, 'changeState']);
         Route::apiResource('regulation-methods', RegulationMethodController::class)->except(['show', 'destroy']);
@@ -423,5 +425,15 @@ Route::middleware(['activity'])->group(function () {
 
         // Setting management
         Route::apiResource('settings', SettingController::class);
+
+        // Report Management
+        Route::prefix('reports')->group(function () {
+            // Rapports Facturations
+            Route::controller(FacturationsController::class)->prefix('facturations')->group(function () {
+                Route::get('/report-caisse', 'reportCaisse');
+                Route::get('/prise-charge', 'priseCharge');
+            });
+
+        });
     });
 });

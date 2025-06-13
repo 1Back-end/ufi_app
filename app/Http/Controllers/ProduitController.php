@@ -43,6 +43,9 @@ class ProduitController extends Controller
                     // Ajoute d'autres champs ici si besoin
                 });
             })
+            ->when($request->input('facturable'), function ($query) {
+                $query->where('facturable', request('facturable'));
+            })
             ->latest()
             ->paginate(perPage: $perPage, page: $page);
 
