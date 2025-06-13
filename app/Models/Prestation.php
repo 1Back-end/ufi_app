@@ -242,4 +242,8 @@ class Prestation extends Model
     {
         return $this->belongsTo(ConventionAssocie::class, 'convention_id');
     }
+
+    public function appointments() {
+        return $this->hasMany(RendezVous::class, 'prestation_id');
+    }
 }

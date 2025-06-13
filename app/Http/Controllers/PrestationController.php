@@ -425,6 +425,10 @@ class PrestationController extends Controller
     {
         $prestationDuration = Setting::where('key','rdv_duration')->first()->value;
 
+        if ($update) {
+            $prestation->appointments()->delete();
+        }
+
         switch ($request->type) {
             case TypePrestation::ACTES->value:
                 if ($update) {
@@ -451,7 +455,7 @@ class PrestationController extends Controller
                         'pu' => $prestation->priseCharge ? $b * $kModulateur : $acte->pu
                     ]);
 
-                    $this->createRdv($request->input('consultant_id'), $request->input('client_id'), $item['date_rdv']);
+                    $this->createRdv($prestation, $request->input('consultant_id'), $request->input('client_id'), $item['date_rdv']);
                 }
                 break;
             case TypePrestation::SOINS->value:
@@ -503,7 +507,7 @@ class PrestationController extends Controller
                         'pu' =>  $pu
                     ]);
 
-                    $this->createRdv($request->input('consultant_id'), $request->input('client_id'), $item['date_rdv']);
+                    $this->createRdv($prestation, $request->input('consultant_id'), $request->input('client_id'), $item['date_rdv']);
                 }
                 break;
             case TypePrestation::HOSPITALISATION->value:
@@ -530,7 +534,7 @@ class PrestationController extends Controller
                         'pu' =>  $pu
                     ]);
 
-                    $this->createRdv($request->input('consultant_id'), $request->input('client_id'), $item['date_rdv']);
+                    $this->createRdv($prestation, $request->input('consultant_id'), $request->input('client_id'), $item['date_rdv']);
                 }
                 break;
             case TypePrestation::PRODUITS->value:
@@ -849,16 +853,17 @@ class PrestationController extends Controller
         ]);
     }
 
-    private function createRdv($consultantId, $clientId, $date)
+    private function createRdv(Prestation $prestation, $consultantId, $clientId, $date)
     {
-        RendezVous::create([
-            'client_id' => $clientId,
-            'consultant_id' => $consultantId,
+        $prestation->appointments()->updateOrCreate([
+            'client_id' => $prestation->client_id,
+            'consultant_id' => $prestation->consultant_id,
             'dateheure_rdv' => $date,
-            'details' => "",
+            'details' => "Rendez-vous programmé pour le client " . $prestation->client->nomcomplet_client . " et le consultant " . $prestation->consultant->nomcomplet,
             'nombre_jour_validite' => Setting::where('key','rdv_validity_by_day')->first()->value,
             'duration' => Setting::where('key','rdv_duration')->first()->value,
         ]);
+
 //        Todo: Mettre en marche les notifications envoyées
 //        Todo: $consultant = Consultant::find($consultantId);
 //        Todo: $consultant->user()->notify(SendRdvNotification::class);
