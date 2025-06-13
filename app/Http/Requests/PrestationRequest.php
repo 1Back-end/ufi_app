@@ -23,14 +23,14 @@ class PrestationRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'type' => ['required', new Enum(TypePrestation::class)],
             'prise_charge_id' => ['nullable', 'exists:prise_en_charges,id'],
             'client_id' => ['required', 'exists:clients,id'],
-            'consultant_id' => [Rule::requiredIf($this->input('type') != TypePrestation::PRODUITS->value), 'exists:consultants,id'],
+            'consultant_id' => [Rule::requiredIf(fn () => TypePrestation::PRODUITS->value != $this->input('type')), 'nullable', 'exists:consultants,id'],
             'payable_by' => ['nullable', 'exists:clients,id'],
             'payable_by_file' => [Rule::requiredIf($this->input('payable_by') || $this->input('payable_by_file_update')) , 'file'],
             'payable_by_file_update' => ['boolean'],
             'programmation_date' => ['required', 'date'],
-            'type' => ['required', new Enum(TypePrestation::class)],
             // Actes
             'actes' => ['nullable', 'array', 'required_if:type,' . TypePrestation::ACTES->value],
             'actes.*.id' => ['integer', 'required_if:type,' . TypePrestation::ACTES->value, 'exists:actes,id'],
