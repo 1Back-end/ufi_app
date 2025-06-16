@@ -43,13 +43,23 @@ class FacturationsController extends Controller
                 'client'
             ])
             ->where('centre_id', $request->header('centre'))
-            ->whereHas('factures', function (Builder $query) use ($startDate, $endDate) {
-                $query->where('type', 2)
-                    ->whereBetween("date_fact", [$startDate, $endDate])
-                    ->where(function (Builder $query) {
-                        $query->where('state', StateFacture::PAID)
-                            ->orWhereHas('regulations');
-                    });
+            ->where(function (Builder $query) use ($startDate, $endDate) {
+                $query->where(function (Builder $query) use ($startDate, $endDate) {
+                    $query->where('regulated', 2)
+                        ->whereHas('factures', function (Builder $query) use ($startDate, $endDate) {
+                            $query->where('type', 2)
+                                ->where('state', StateFacture::IN_PROGRESS)
+                                ->where('amount_client', 0)
+                                ->whereBetween("date_fact", [$startDate, $endDate]);
+                        });
+                })->orWhereHas('factures', function (Builder $query) use ($startDate, $endDate) {
+                    $query->where('type', 2)
+                        ->whereBetween("date_fact", [$startDate, $endDate])
+                        ->where(function (Builder $query) {
+                            $query->where('state', StateFacture::PAID)
+                                ->orWhereHas('regulations');
+                        });
+                });
             })
             ->get();
 
@@ -69,12 +79,18 @@ class FacturationsController extends Controller
             ->whereBetween('date_fact',[$startDate, $endDate])
             ->where('factures.type', 2)
             ->where(function (QueryBuilder $query) {
-                $query->where('factures.state', StateFacture::PAID->value)
-                    ->orWhereExists(function (QueryBuilder $subQuery) {
-                        $subQuery->select(DB::raw(1))
-                            ->from('regulations')
-                            ->whereColumn('regulations.facture_id', 'factures.id');
-                    });
+                $query->where(function (QueryBuilder $query) {
+                    $query->where('prestations.regulated', 2)
+                        ->where('factures.state', StateFacture::IN_PROGRESS->value)
+                        ->where('factures.amount_client', 0);
+                })->orWhere(function (QueryBuilder $query) {
+                    $query->where('factures.state', StateFacture::PAID->value)
+                        ->orWhereExists(function (QueryBuilder $subQuery) {
+                            $subQuery->select(DB::raw(1))
+                                ->from('regulations')
+                                ->whereColumn('regulations.facture_id', 'factures.id');
+                        });
+                });
             })
             ->where('prestations.centre_id', $request->header('centre'))
             ->selectRaw("SUM(factures.amount) / 100 as total")
@@ -159,8 +175,14 @@ class FacturationsController extends Controller
                 $query->whereHas('factures', function ($query) use ($request, $startDate, $endDate) {
                     $query->where('factures.type', 2)
                         ->where(function ($query) {
-                            $query->where('factures.state', StateFacture::PAID)
-                                ->orWhereHas('regulations');
+                            $query->where(function (Builder $query) {
+                                    $query->where('factures.state', StateFacture::IN_PROGRESS)
+                                        ->where('factures.amount_client', 0);
+                                })
+                                ->orWhere(function (Builder $query) {
+                                    $query->where('factures.state', StateFacture::PAID)
+                                        ->orWhereHas('regulations');
+                            });
                         })
                         ->when($startDate && $endDate, function ($query) use ($request, $startDate, $endDate) {
                             $query->whereBetween('factures.date_fact', [$startDate, $endDate]);
@@ -182,8 +204,14 @@ class FacturationsController extends Controller
             $query->whereHas('factures', function ($query) use ($request, $startDate, $endDate) {
                 $query->where('factures.type', 2)
                     ->where(function ($query) {
-                        $query->where('factures.state', StateFacture::PAID)
-                            ->orWhereHas('regulations');
+                        $query->where(function (Builder $query) {
+                            $query->where('factures.state', StateFacture::IN_PROGRESS)
+                                ->where('factures.amount_client', 0);
+                        })
+                            ->orWhere(function (Builder $query) {
+                                $query->where('factures.state', StateFacture::PAID)
+                                    ->orWhereHas('regulations');
+                            });
                     })
                     ->whereBetween('factures.date_fact', [$startDate, $endDate]);
             });
@@ -194,12 +222,19 @@ class FacturationsController extends Controller
                     ->join('prestations', 'prestations.id', '=', 'factures.prestation_id')
                     ->where('factures.type', 2)
                     ->where(function ($query) {
-                        $query->where('factures.state', StateFacture::PAID)
-                            ->orWhereExists(function ($q) {
-                                $q->select(DB::raw(1))
-                                    ->from('regulations')
-                                    ->whereColumn('regulations.facture_id', 'factures.id');
-                            });
+                        $query
+                            ->where(function ($query) {
+                                $query->where('factures.state', StateFacture::IN_PROGRESS)
+                                    ->where('factures.amount_client', 0);
+                            })
+                            ->orWhere(function ($query) {
+                                $query->where('factures.state', StateFacture::PAID)
+                                    ->orWhereExists(function ($q) {
+                                        $q->select(DB::raw(1))
+                                            ->from('regulations')
+                                            ->whereColumn('regulations.facture_id', 'factures.id');
+                                    });
+                        });
                     })
                     ->whereBetween('factures.date_fact', [$startDate, $endDate])
                     ->selectRaw('SUM(factures.amount_pc) / 100');
