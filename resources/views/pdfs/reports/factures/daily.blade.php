@@ -125,13 +125,15 @@
                     <td>
                         <ul class="list-unstyled">
                             @foreach($prestation->factures[0]->regulations as $regulation)
-                                <li>{{ $regulation->regulationMethod->name }}</li>
+                                @if(! $regulation->particular)
+                                    <li>{{ $regulation->regulationMethod->name }}</li>
+                                @endif
                             @endforeach
                         </ul>
                     </td>
                     <td>{{ $prestation->client->nomcomplet_client }}</td>
                     <td>{{ \App\Helpers\FormatPrice::format($prestation->factures[0]->amount) }}</td>
-                    <td>{{ \App\Helpers\FormatPrice::format($prestation->factures[0]->regulations_total / 100) }}</td>
+                    <td>{{ \App\Helpers\FormatPrice::format($prestation->factures[0]->regulations_total_except_particular) }}</td>
                     <td>{{ \App\Helpers\FormatPrice::format($prestation->factures[0]->amount_remise) }}</td>
                     <td>{{ \App\Helpers\FormatPrice::format($prestation->factures[0]->amount_pc) }}</td>
                 </tr>

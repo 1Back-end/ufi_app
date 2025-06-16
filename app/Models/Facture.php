@@ -37,6 +37,11 @@ class Facture extends Model
         ];
     }
 
+    protected $appends = [
+      'regulations_total',
+      'regulations_total_except_particular'
+    ];
+
     protected function amount(): Attribute
     {
         return Attribute::make(
@@ -66,6 +71,20 @@ class Facture extends Model
         return Attribute::make(
             get: fn($value, array $attributes) => $value / 100,
             set: fn($value) => $value * 100,
+        );
+    }
+
+    protected function regulationsTotal(): Attribute
+    {
+        return Attribute::make(
+            get: fn($value, array $attributes) => $this->regulations()->sum('regulations.amount') / 100,
+        );
+    }
+
+    protected function regulationsTotalExceptParticular(): Attribute
+    {
+        return Attribute::make(
+            get: fn($value, array $attributes) => $this->regulations()->where('regulations.particular', false)->sum('regulations.amount') / 100,
         );
     }
 
