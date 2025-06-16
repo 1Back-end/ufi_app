@@ -32,20 +32,18 @@ class RendezVousController extends Controller
                 'createdBy:id,email',
                 'updatedBy:id,email',
                 'prestation:id,type',
-                'parent:id,code,dateheure_rdv' // ← ici
+                'parent:id,code,dateheure_rdv',
             ]);
 
-
-        // Filtrage sur le(s) état(s)
+        // Filtrage par état
         if ($request->has('etat')) {
-            // On récupère les états passés en query, séparés par des virgules
             $etats = explode(',', $request->input('etat'));
             $query->whereIn('etat', $etats);
         } else {
-            // Par défaut, ces états seulement
-            $query->whereIn('etat', ['Actif', 'Inactif', 'No show']);
+            $query->whereIn('etat', ['Actif', 'Inactif', 'No show','Traitement en cours']);
         }
 
+        // Autres filtres
         if ($request->filled('type')) {
             $query->where('type', $request->input('type'));
         }
@@ -62,10 +60,16 @@ class RendezVousController extends Controller
                     ->orWhere('code', 'like', "%{$search}%")
                     ->orWhere('id', 'like', "%{$search}%")
                     ->orWhereHas('client', function ($subQ) use ($search) {
-                        $subQ->where('nomcomplet_client', 'like', "%{$search}%");
+                        $subQ->where('nomcomplet_client', 'like', "%{$search}%")
+                            ->orWhere('email', 'like', "%{$search}%")
+                            ->orWhere('id', 'like', "%{$search}%");
+
                     })
                     ->orWhereHas('consultant', function ($subQ) use ($search) {
-                        $subQ->where('nomcomplet', 'like', "%{$search}%");
+                        $subQ->where('nomcomplet', 'like', "%{$search}%")
+                            ->orWhere('email', 'like', "%{$search}%")
+                            ->orWhere('id', 'like', "%{$search}%");
+
                     });
             });
         }
@@ -80,6 +84,8 @@ class RendezVousController extends Controller
             'total' => $rendez_vous->total(),
         ]);
     }
+
+
 
 
     /**

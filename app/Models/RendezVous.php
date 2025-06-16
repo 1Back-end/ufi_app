@@ -6,12 +6,16 @@ use App\Enums\TypePrestation;
 use App\Models\Trait\UpdatingUser;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Carbon\Carbon;
+use DateTimeInterface;
 
 class RendezVous extends Model
 {
     use HasFactory, UpdatingUser;
 
     protected $table = 'rendez_vouses';
+    protected $appends = ['past'];
+
 
     protected $fillable = [
         'created_by',
@@ -31,6 +35,10 @@ class RendezVous extends Model
         'prestation_id',
     ];
 
+    protected $casts = [
+        'dateheure_rdv' => 'datetime',
+    ];
+
     protected static function boot()
     {
         parent::boot();
@@ -41,6 +49,12 @@ class RendezVous extends Model
             $rdv->code = $prefix . $timestamp;
         });
     }
+
+    protected function serializeDate(DateTimeInterface $date)
+    {
+        return $date->format('Y-m-d\TH:i:s'); // sans microsecondes ni Z
+    }
+
 
     public function getTypePrestationLabelAttribute()
     {
@@ -89,9 +103,15 @@ class RendezVous extends Model
         return $query->where('is_deleted', false);
     }
 
-    // Mutateur pour formater la date/heure
-    public function getDateheureRdvAttribute($value)
+
+
+    public function getPastAttribute(): bool
     {
-        return \Carbon\Carbon::parse($value)->format('d-m-Y H:i');
+        return now()->greaterThan($this->dateheure_rdv->addDays($this->nombre_jour_validite));
     }
+
+
+
+
+
 }

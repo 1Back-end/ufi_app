@@ -2,9 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Exports\ExamenEnqueteExport;
+use App\Exports\MotifsExport;
 use App\Models\OpsTbl_Examen_Physique;
 use App\Models\OpsTblEnquete;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Storage;
+use Maatwebsite\Excel\Facades\Excel;
 
 class OpsTblEnqueteController extends Controller
 {
@@ -122,8 +127,6 @@ class OpsTblEnqueteController extends Controller
      * @permission OpsTblEnqueteController::update
      * @permission_desc Modification  des enquetes pour des dossiers de consultations
      */
-
-
     public function update(Request $request, $id)
     {
         $enquete = OpsTblEnquete::where('is_deleted', false)->find($id);
@@ -147,6 +150,23 @@ class OpsTblEnqueteController extends Controller
         return response()->json([
             'message' => 'Enquête mise à jour avec succès',
             'data' => $enquete,
+        ]);
+    }
+    /**
+     * Display a listing of the resource.
+     * @permission OpsTblEnqueteController::export
+     * @permission_desc Exporter les enquetes systémiques pour des dossiers de consultations
+     */
+    public function export()
+    {
+        $fileName = 'examens-enquetes-' . Carbon::now()->format('Y-m-d') . '.xlsx';
+
+        Excel::store(new ExamenEnqueteExport(), $fileName, 'examensenquetes');
+
+        return response()->json([
+            "message" => "Exportation des données effectuée avec succès",
+            "filename" => $fileName,
+            "url" => Storage::disk('examensenquetes')->url($fileName)
         ]);
     }
 
