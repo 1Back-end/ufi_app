@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Reports;
 
 use App\Enums\StateFacture;
+use App\Enums\TypePrestation;
 use App\Http\Controllers\Controller;
 use App\Models\Centre;
 use App\Models\Prestation;
@@ -42,20 +43,32 @@ class FacturationsController extends Controller
                 'factures.regulations.regulationMethod',
                 'client'
             ])
+
             ->where('centre_id', $request->header('centre'))
-            ->where(function (Builder $query) use ($startDate, $endDate) {
-                $query->whereHas('factures', function (Builder $query) use ($startDate, $endDate) {
+            ->when($request->input('type'), fn($q) => $q->where('prestations.type', $request->input('type')))
+            ->when($request->input('client_id'), fn($q) => $q->where('prestations.client_id', $request->input('client_id')))
+            ->when($request->input('consultant_id'), fn($q) => $q->where('prestations.consultant_id', $request->input('consultant_id')))
+
+            ->when($request->input('payment_mode') && $request->input('payment_mode') == "associate-client", fn($q) => $q->has('payableBy'))
+            ->when($request->input('payment_mode') && $request->input('payment_mode') == "pris-en-charge", fn($q) => $q->has('priseCharge'))
+            ->when($request->input('payment_mode') && $request->input('payment_mode') == "comptant", fn($q) => $q->whereNull('prestations.prise_charge_id')->whereNull('prestations.payable_by'))
+
+            ->when($request->input('payable_by'), fn($q) => $q->where('prestations.payable_by', $request->input('payable_by')))
+            ->when($request->input('prise_charge_id'), fn($q) => $q->where('prestations.prise_charge_id', $request->input('prise_charge_id')))
+
+            ->where(function (Builder $query) use ($startDate, $endDate, $request) {
+                $query->whereHas('factures', function (Builder $query) use ($startDate, $endDate, $request) {
                     $query->where('type', 2)
                         ->whereBetween("date_fact", [$startDate, $endDate])
-                        ->where(function (Builder $query) {
+                        ->where(function (Builder $query) use ($request) {
                             $query->where('state', StateFacture::PAID)
-                                ->orWhere(function (Builder $query) {
+                                ->orWhere(function (Builder $query) use ($request) {
                                     $query->where('state', StateFacture::IN_PROGRESS)
-                                        ->where(function (Builder $query) {
-                                            $query->where(function (Builder $query) {
+                                        ->where(function (Builder $query) use ($request) {
+                                            $query->where(function (Builder $query) use ($request) {
                                                 $query->whereNotNull('prestations.prise_charge_id')
                                                     ->where('amount_client', 0);
-                                            })->orWhere(function (Builder $query) {
+                                            })->orWhere(function (Builder $query) use ($request) {
                                                 $query->whereNull('prestations.prise_charge_id')
                                                     ->whereNotNull('prestations.payable_by');
                                             })->orWhereHas('regulations');
@@ -64,6 +77,7 @@ class FacturationsController extends Controller
                         });
                 });
             })
+
             ->get();
 
         $amountTotalRegulation = 0;
@@ -83,6 +97,18 @@ class FacturationsController extends Controller
             ->join('prestations', 'factures.prestation_id', '=', 'prestations.id')
             ->whereBetween('date_fact',[$startDate, $endDate])
             ->where('factures.type', 2)
+
+            ->when($request->input('type'), fn($q) => $q->where('prestations.type', $request->input('type')))
+            ->when($request->input('client_id'), fn($q) => $q->where('prestations.client_id', $request->input('client_id')))
+            ->when($request->input('consultant_id'), fn($q) => $q->where('prestations.consultant_id', $request->input('consultant_id')))
+
+            ->when($request->input('payment_mode') && $request->input('payment_mode') == "associate-client", fn($q) => $q->whereNotNull('prestations.payable_by'))
+            ->when($request->input('payment_mode') && $request->input('payment_mode') == "pris-en-charge", fn($q) => $q->whereNotNull('prestations.prise_charge_id'))
+            ->when($request->input('payment_mode') && $request->input('payment_mode') == "comptant", fn($q) => $q->whereNull('prestations.prise_charge_id')->whereNull('prestations.payable_by'))
+
+            ->when($request->input('payable_by'), fn($q) => $q->where('prestations.payable_by', $request->input('payable_by')))
+            ->when($request->input('prise_charge_id'), fn($q) => $q->where('prestations.prise_charge_id', $request->input('prise_charge_id')))
+
             ->where(function (QueryBuilder $query) {
                 $query->where('factures.state', StateFacture::PAID->value)
                     ->orWhere(function (QueryBuilder $query) {
@@ -120,6 +146,7 @@ class FacturationsController extends Controller
             'centre' => $centre,
             'start_date' => $startDate,
             'end_date' => $endDate,
+            'request' => $request->all(),
         ];
 
         $folderPath = "storage/daily-caisse";
