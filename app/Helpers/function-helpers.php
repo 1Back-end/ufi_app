@@ -364,11 +364,16 @@ if (! function_exists('save_browser_shot_pdf')) {
             File::makeDirectory($folderPath, 0755, true);
         }
 
+
         $browserShot = Browsershot::html(view($view, $data)->render())
-//            ->setChromePath('C:\Users\User\.cache\puppeteer\chrome\win64-136.0.7103.94\chrome-win64\chrome.exe')
             ->format($format)
             ->margins($margins[0], $margins[1], $margins[2], $margins[3])
             ->showBackground();
+
+
+        if(env('APP_ENV') == "production") {
+            $browserShot->setChromePath('C:\chrome-headless\chrome-headless-shell.exe');
+        }
 
 
 
