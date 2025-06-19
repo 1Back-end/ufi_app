@@ -433,6 +433,8 @@ Route::middleware(['activity'])->group(function () {
             Route::controller(FacturationsController::class)->prefix('facturations')->group(function () {
                 Route::get('/report-caisse', 'reportCaisse');
                 Route::get('/prise-charge', 'priseCharge');
+                Route::get('/examen-factures', 'examenFactures');
+                Route::get('/prise-charge-in-progress', 'priseChargeInProgress');
             });
 
         });

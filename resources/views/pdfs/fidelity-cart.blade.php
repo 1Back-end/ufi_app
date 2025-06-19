@@ -5,7 +5,7 @@
     <title>Carte de fidélité</title>
 
     <style>
-        {{ $bootstrap }}
+        {!! $bootstrap !!}
     </style>
 
     <style>

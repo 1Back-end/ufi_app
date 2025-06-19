@@ -114,4 +114,9 @@ class Assureur extends Model
     {
         return $this->morphMany(FactureAssociate::class, 'facturable');
     }
+
+    public function priseEnCharges(): HasMany
+    {
+        return $this->hasMany(PriseEnCharge::class, 'assureur_id');
+    }
 }
