@@ -5,9 +5,15 @@ namespace App\Http\Controllers\Reports;
 use App\Enums\StateFacture;
 use App\Enums\TypePrestation;
 use App\Http\Controllers\Controller;
+use App\Models\Acte;
+use App\Models\Assureur;
 use App\Models\Centre;
+use App\Models\Consultation;
+use App\Models\OpsTblHospitalisation;
 use App\Models\Prestation;
 use App\Models\PriseEnCharge;
+use App\Models\Product;
+use App\Models\Soins;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Http\JsonResponse;
@@ -56,27 +62,7 @@ class FacturationsController extends Controller
             ->when($request->input('payable_by'), fn($q) => $q->where('prestations.payable_by', $request->input('payable_by')))
             ->when($request->input('prise_charge_id'), fn($q) => $q->where('prestations.prise_charge_id', $request->input('prise_charge_id')))
 
-            ->where(function (Builder $query) use ($startDate, $endDate, $request) {
-                $query->whereHas('factures', function (Builder $query) use ($startDate, $endDate, $request) {
-                    $query->where('type', 2)
-                        ->whereBetween("date_fact", [$startDate, $endDate])
-                        ->where(function (Builder $query) use ($request) {
-                            $query->where('state', StateFacture::PAID)
-                                ->orWhere(function (Builder $query) use ($request) {
-                                    $query->where('state', StateFacture::IN_PROGRESS)
-                                        ->where(function (Builder $query) use ($request) {
-                                            $query->where(function (Builder $query) use ($request) {
-                                                $query->whereNotNull('prestations.prise_charge_id')
-                                                    ->where('amount_client', 0);
-                                            })->orWhere(function (Builder $query) use ($request) {
-                                                $query->whereNull('prestations.prise_charge_id')
-                                                    ->whereNotNull('prestations.payable_by');
-                                            })->orWhereHas('regulations');
-                                        });
-                                });
-                        });
-                });
-            })
+            ->where($this->getClosure($startDate, $endDate, $request))
 
             ->get();
 
@@ -347,5 +333,268 @@ class FacturationsController extends Controller
             'base64' => $base64,
             'filename' => $fileName
         ]);
+    }
+
+    /**
+     * @param Request $request
+     * @return JsonResponse
+     *
+     * @permission Reports\FacturationsController::examenFactures
+     * @permission_desc Télécharger la liste des examens des facturés
+     * @throws Throwable
+     */
+    public function examenFactures(Request $request): JsonResponse
+    {
+        $startDate = Carbon::parse($request->input('start'))->startOfDay() ?? now()->startOfDay();
+        $endDate = Carbon::parse($request->input('end'))->endOfDay() ?? now()->endOfDay();
+
+        $centre = Centre::find($request->header('centre'));
+        $media = $centre->medias()->where('name', 'logo')->first();
+
+        $prestationsPrisCharges = collect();
+        $prestationsNonPrisCharges = collect();
+        $amountPrisCharges = 0;
+        $amountNonPrisCharges = 0;
+        $prestations = Prestation::query()
+            ->with([
+                'factures' => fn($q) => $q->where('factures.type', 2),
+                'centre',
+            ])
+
+            ->where('centre_id', $request->header('centre'))
+            ->when($request->input('type'), fn($q) => $q->where('prestations.type', $request->input('type')))
+            ->when($request->input('client_id'), fn($q) => $q->where('prestations.client_id', $request->input('client_id')))
+            ->when($request->input('consultant_id'), fn($q) => $q->where('prestations.consultant_id', $request->input('consultant_id')))
+
+            ->when($request->input('payment_mode') && $request->input('payment_mode') == "associate-client", fn($q) => $q->has('payableBy'))
+            ->when($request->input('payment_mode') && $request->input('payment_mode') == "pris-en-charge", fn($q) => $q->has('priseCharge'))
+            ->when($request->input('payment_mode') && $request->input('payment_mode') == "comptant", fn($q) => $q->whereNull('prestations.prise_charge_id')->whereNull('prestations.payable_by'))
+
+            ->when($request->input('payable_by'), fn($q) => $q->where('prestations.payable_by', $request->input('payable_by')))
+            ->when($request->input('prise_charge_id'), fn($q) => $q->where('prestations.prise_charge_id', $request->input('prise_charge_id')))
+
+            ->where($this->getClosure($startDate, $endDate, $request))
+
+            ->get()
+            ->each(function (Prestation $prestation) use ($prestationsPrisCharges, $prestationsNonPrisCharges, &$amountPrisCharges, &$amountNonPrisCharges) {
+                if ($prestation->priseCharge) {
+                    $prestationsPrisCharges->push($prestation);
+                }
+                else {
+                    $prestationsNonPrisCharges->push($prestation);
+                }
+
+                $prestation->actes->each(function (Acte $acte) use ($prestation, &$amountPrisCharges, &$amountNonPrisCharges) {
+                    if ($prestation->priseCharge) {
+                        $amountPrisCharges += $acte->pivot->b * $acte->pivot->k_modulateur;
+                    } else {
+                        $amountNonPrisCharges += $acte->pivot->b * $acte->pivot->k_modulateur;
+                    }
+                });
+
+                $prestation->soins->each(function (Soins $soins) use ($prestation, &$amountPrisCharges, &$amountNonPrisCharges) {
+                    if ($prestation->priseCharge) {
+                        $amountPrisCharges += $soins->pivot->pu;
+                    } else {
+                        $amountNonPrisCharges += $soins->pivot->pu;
+                    }
+                });
+
+                $prestation->consultations->each(function (Consultation $consultation) use ($prestation, &$amountPrisCharges, &$amountNonPrisCharges) {
+                    if ($prestation->priseCharge) {
+                        $amountPrisCharges += $consultation->pivot->pu;
+                    } else {
+                        $amountNonPrisCharges += $consultation->pivot->pu;
+                    }
+                });
+
+                $prestation->hospitalisations->each(function (OpsTblHospitalisation $hospitalisation) use ($prestation, &$amountPrisCharges, &$amountNonPrisCharges) {
+                    if ($prestation->priseCharge) {
+                        $amountPrisCharges += $hospitalisation->pivot->pu;
+                    } else {
+                        $amountNonPrisCharges += $hospitalisation->pivot->pu;
+                    }
+                });
+
+                $prestation->products->each(function (Product $product) use ($prestation, &$amountPrisCharges, &$amountNonPrisCharges) {
+                    $amountNonPrisCharges += $product->pivot->pu;
+                });
+            });
+
+        $data = [
+            'prestationsPrisCharges' => $prestationsPrisCharges,
+            'prestationsNonPrisCharges' => $prestationsNonPrisCharges,
+            'amountPrisCharges' => $amountPrisCharges,
+            'amountNonPrisCharges' => $amountNonPrisCharges,
+            'logo' => $media ? 'storage/' . $media->path . '/' . $media->filename : '',
+            'centre' => $centre,
+            'start_date' => $startDate,
+            'end_date' => $endDate,
+        ];
+
+        $folderPath = "storage/examen-factures";
+        $fileName = "LISTE_DES_EXAMENS_DES_FACTURES_" . $centre->reference . "_PERIOD_" . $startDate->format("d_m_Y") . "_AU_" . $endDate->format("d_m_Y") . '.pdf';
+        $path = "$folderPath/$fileName";
+        $footer = 'pdfs.reports.factures.footer';
+
+        DB::beginTransaction();
+        try {
+            save_browser_shot_pdf(
+                view: 'pdfs.reports.factures.examenfactures',
+                data: $data,
+                folderPath: $folderPath,
+                path: $path,
+                footer: $footer,
+                margins: [15, 10, 15, 10]
+            );
+
+            $centre->medias()->create([
+                'name' => "EXAMEN-FACTURES",
+                'disk' => 'public',
+                'path' => $path,
+                'filename' => $fileName,
+                'mimetype' => 'pdf',
+                'extension' => 'pdf',
+            ]);
+        }
+        catch (CouldNotTakeBrowsershot|Throwable $e) {
+            DB::rollBack();
+            Log::error($e->getMessage());
+
+            return \response()->json([
+                'message' => __("Un erreur inattendue est survenu.")
+            ], 400);
+        }
+        DB::commit();
+
+        $pdfContent = file_get_contents($path);
+        $base64 = base64_encode($pdfContent);
+
+        return response()->json([
+            'base64' => $base64,
+            'filename' => $fileName
+        ]);
+    }
+
+    /**
+     * @param Request $request
+     * @return JsonResponse
+     *
+     * @permission Reports\FacturationsController::priseChargeInProgress
+     * @permission_desc Télécharger le rapport de prise de charge en cours.
+     * @throws Throwable
+     */
+    public function priseChargeInProgress(Request $request): JsonResponse
+    {
+        $assurances = Assureur::with([
+            'priseEnCharges' => function ($query) use ($request) {
+                $query->when($request->input('client_id'), function ($query) use ($request){
+                    $query->whereHas('client', function ($query) use ($request) {
+                        $query->where('clients.id', $request->input('client_id'));
+                    });
+                });
+            },
+            'priseEnCharges.client' => function ($query) use ($request) {
+                $query->when($request->input('client_id'), function ($query) use ($request) {
+                    $query->where('clients.id', $request->input('client_id'));
+                });
+            },
+        ])
+            ->whereHas('priseEnCharges', function ($query) {
+                $query->where('is_deleted', false)
+                    ->whereDate('date_fin', '>=', now())
+                    ->where('used', false);;
+            })
+            ->when($request->input('client_id'), function ($query) use ($request) {
+                $query->whereHas('priseEnCharges', function ($query) use ($request) {
+                    $query->where('client_id', $request->input('client_id'));
+                });
+            })
+            ->orderBy('nom')
+            ->get();
+
+
+        $centre = Centre::find($request->header('centre'));
+        $media = $centre->medias()->where('name', 'logo')->first();
+
+        $data = [
+            'assurances' => $assurances,
+            'logo' => $media ? 'storage/' . $media->path . '/' . $media->filename : '',
+            'centre' => $centre,
+        ];
+
+        $folderPath = "storage/prise-charge-in-progress";
+        $fileName = "PRISES_DE_CHARGE_EN_COURS_" . $centre->reference . "_PERIOD_" . now()->format("d_m_Y") . '.pdf';
+        $path = "$folderPath/$fileName";
+        $footer = 'pdfs.reports.factures.footer';
+
+        DB::beginTransaction();
+        try {
+            save_browser_shot_pdf(
+                view: 'pdfs.reports.prisecharges.priseenchargeinprogress',
+                data: $data,
+                folderPath: $folderPath,
+                path: $path,
+                footer: $footer,
+                margins: [15, 10, 15, 10]
+            );
+
+            $centre->medias()->create([
+                'name' => "PRISE-EN-CHARGE-EN-COURS",
+                'disk' => 'public',
+                'path' => $path,
+                'filename' => $fileName,
+                'mimetype' => 'pdf',
+                'extension' => 'pdf',
+            ]);
+        }
+        catch (CouldNotTakeBrowsershot|Throwable $e) {
+            DB::rollBack();
+            Log::error($e->getMessage());
+
+            return \response()->json([
+                'message' => __("Un erreur inattendue est survenu.")
+            ], 400);
+        }
+        DB::commit();
+
+        $pdfContent = file_get_contents($path);
+        $base64 = base64_encode($pdfContent);
+
+        return response()->json([
+            'base64' => $base64,
+            'filename' => $fileName
+        ]);
+    }
+
+    /**
+     * @param Carbon $startDate
+     * @param Carbon $endDate
+     * @param Request $request
+     * @return \Closure
+     */
+    public function getClosure(Carbon $startDate, Carbon $endDate, Request $request): \Closure
+    {
+        return function (Builder $query) use ($startDate, $endDate, $request) {
+            $query->whereHas('factures', function (Builder $query) use ($startDate, $endDate, $request) {
+                $query->where('type', 2)
+                    ->whereBetween("date_fact", [$startDate, $endDate])
+                    ->where(function (Builder $query) use ($request) {
+                        $query->where('state', StateFacture::PAID)
+                            ->orWhere(function (Builder $query) use ($request) {
+                                $query->where('state', StateFacture::IN_PROGRESS)
+                                    ->where(function (Builder $query) use ($request) {
+                                        $query->where(function (Builder $query) use ($request) {
+                                            $query->whereNotNull('prestations.prise_charge_id')
+                                                ->where('amount_client', 0);
+                                        })->orWhere(function (Builder $query) use ($request) {
+                                            $query->whereNull('prestations.prise_charge_id')
+                                                ->whereNotNull('prestations.payable_by');
+                                        })->orWhereHas('regulations');
+                                    });
+                            });
+                    });
+            });
+        };
     }
 }
