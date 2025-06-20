@@ -9,6 +9,7 @@ use App\Models\Acte;
 use App\Models\Assureur;
 use App\Models\Centre;
 use App\Models\Consultation;
+use App\Models\Facture;
 use App\Models\OpsTblHospitalisation;
 use App\Models\Prestation;
 use App\Models\PriseEnCharge;
@@ -541,6 +542,186 @@ class FacturationsController extends Controller
 
             $centre->medias()->create([
                 'name' => "PRISE-EN-CHARGE-EN-COURS",
+                'disk' => 'public',
+                'path' => $path,
+                'filename' => $fileName,
+                'mimetype' => 'pdf',
+                'extension' => 'pdf',
+            ]);
+        }
+        catch (CouldNotTakeBrowsershot|Throwable $e) {
+            DB::rollBack();
+            Log::error($e->getMessage());
+
+            return \response()->json([
+                'message' => __("Un erreur inattendue est survenu.")
+            ], 400);
+        }
+        DB::commit();
+
+        $pdfContent = file_get_contents($path);
+        $base64 = base64_encode($pdfContent);
+
+        return response()->json([
+            'base64' => $base64,
+            'filename' => $fileName
+        ]);
+    }
+
+    /**
+     * @param Request $request
+     * @return JsonResponse
+     *
+     * @permission Reports\FacturationsController::stateConsultantPrescription
+     * @permission_desc Télécharger le rapport de l'état des prescriptions des consultants.
+     * @throws Throwable
+     */
+    public function stateConsultantPrescription(Request $request): JsonResponse
+    {
+        $startDate = Carbon::parse($request->input('start'))->startOfDay() ?? now()->startOfDay();
+        $endDate = Carbon::parse($request->input('end'))->endOfDay() ?? now()->endOfDay();
+
+        $centre = Centre::find($request->header('centre'));
+        $media = $centre->medias()->where('name', 'logo')->first();
+
+        $consultants = Prestation::query()
+            ->with([
+                'factures' => fn($q) => $q->where('factures.type', 2),
+                'centre',
+                'consultant',
+                'priseCharge',
+            ])
+
+            ->where('centre_id', $request->header('centre'))
+            ->when($request->input('type'), fn($q) => $q->where('prestations.type', $request->input('type')))
+            ->when($request->input('client_id'), fn($q) => $q->where('prestations.client_id', $request->input('client_id')))
+            ->when($request->input('consultant_id'), fn($q) => $q->where('prestations.consultant_id', $request->input('consultant_id')))
+
+            ->when($request->input('payment_mode') && $request->input('payment_mode') == "associate-client", fn($q) => $q->has('payableBy'))
+            ->when($request->input('payment_mode') && $request->input('payment_mode') == "pris-en-charge", fn($q) => $q->has('priseCharge'))
+            ->when($request->input('payment_mode') && $request->input('payment_mode') == "comptant", fn($q) => $q->whereNull('prestations.prise_charge_id')->whereNull('prestations.payable_by'))
+
+            ->when($request->input('payable_by'), fn($q) => $q->where('prestations.payable_by', $request->input('payable_by')))
+            ->when($request->input('prise_charge_id'), fn($q) => $q->where('prestations.prise_charge_id', $request->input('prise_charge_id')))
+
+            ->where($this->getClosure($startDate, $endDate, $request))
+            ->get()
+            ->groupBy('consultant_id');
+
+
+        $data = [
+            'consultants' => $consultants,
+            'logo' => $media ? 'storage/' . $media->path . '/' . $media->filename : '',
+            'centre' => $centre,
+            'start_date' => $startDate,
+            'end_date' => $endDate,
+        ];
+
+        $folderPath = "storage/etat-prescriptions-consultants";
+        $fileName = "ETAT_PRESCRIPTIONS_CONSULTANTS_" . $centre->reference . "_PERIOD_" . $startDate->format("d_m_Y") . "_AU_" . $endDate->format("d_m_Y") . '.pdf';
+        $path = "$folderPath/$fileName";
+        $footer = 'pdfs.layouts.footer';
+
+        DB::beginTransaction();
+        try {
+            save_browser_shot_pdf(
+                view: 'pdfs.reports.factures.state_consultant_prescription',
+                data: $data,
+                folderPath: $folderPath,
+                path: $path,
+                footer: $footer,
+                margins: [15, 10, 15, 10]
+            );
+
+            $centre->medias()->create([
+                'name' => "ETAT-PRESCRIPTIONS-CONSULTANTS",
+                'disk' => 'public',
+                'path' => $path,
+                'filename' => $fileName,
+                'mimetype' => 'pdf',
+                'extension' => 'pdf',
+            ]);
+        }
+        catch (CouldNotTakeBrowsershot|Throwable $e) {
+            DB::rollBack();
+            Log::error($e->getMessage());
+
+            return \response()->json([
+                'message' => __("Un erreur inattendue est survenu.")
+            ], 400);
+        }
+        DB::commit();
+
+        $pdfContent = file_get_contents($path);
+        $base64 = base64_encode($pdfContent);
+
+        return response()->json([
+            'base64' => $base64,
+            'filename' => $fileName
+        ]);
+    }
+
+        /**
+     * @param Request $request
+     * @return JsonResponse
+     *
+     * @permission Reports\FacturationsController::facturesNonSolde
+     * @permission_desc Telecharger le rapport des factures non soldees.
+     * @throws Throwable
+     */
+    public function facturesNonSolde(Request $request)
+    {
+        $startDate = Carbon::parse($request->input('start'))->startOfDay() ?? now()->startOfDay();
+        $endDate = Carbon::parse($request->input('end'))->endOfDay() ?? now()->endOfDay();
+
+        $centre = Centre::find($request->header('centre'));
+        $media = $centre->medias()->where('name', 'logo')->first();
+
+        $dateFactures = Facture::query()
+            ->with([
+                'prestation.client',
+                'regulations' => fn($q) => $q->where('particular', false),
+            ])
+            ->where('type', 2)
+            ->where('centre_id', $centre->id)
+            ->whereBetween('date_fact', [$startDate, $endDate])
+            ->where('state', StateFacture::IN_PROGRESS->value)
+            ->whereHas('prestation', fn ($q) => $q->whereNull('payable_by'))
+            ->whereHas('prestation', fn ($q) => $q->whereHas('priseCharge', fn ($q) => $q->where('taux_pc', '<',  100)))
+            ->get()
+            ->filter(function (Facture $facture) {
+                return $facture->regulations->sum('amount') < $facture->amount_client;
+            })
+            ->groupBy(function (Facture $facture) {
+                return $facture->date_fact->format('d-m-Y');
+            });
+
+        $data = [
+            'dateFactures' => $dateFactures,
+            'logo' => $media ? 'storage/' . $media->path . '/' . $media->filename : '',
+            'centre' => $centre,
+            'start_date' => $startDate,
+            'end_date' => $endDate,
+        ];
+
+        $folderPath = "storage/factures-non-solde";
+        $fileName = "FACTURES_NON_SOLDE_" . $centre->reference . "_PERIOD_" . $startDate->format("d_m_Y") . "_AU_" . $endDate->format("d_m_Y") . '.pdf';
+        $path = "$folderPath/$fileName";
+        $footer = 'pdfs.layouts.footer';
+
+        DB::beginTransaction();
+        try {
+            save_browser_shot_pdf(
+                view: 'pdfs.reports.factures.factures_non_solde',
+                data: $data,
+                folderPath: $folderPath,
+                path: $path,
+                footer: $footer,
+                margins: [15, 10, 15, 10]
+            );
+
+            $centre->medias()->create([
+                'name' => "FACTURES-NON-SOLDE",
                 'disk' => 'public',
                 'path' => $path,
                 'filename' => $fileName,
