@@ -435,6 +435,8 @@ Route::middleware(['activity'])->group(function () {
                 Route::get('/prise-charge', 'priseCharge');
                 Route::get('/examen-factures', 'examenFactures');
                 Route::get('/prise-charge-in-progress', 'priseChargeInProgress');
+                Route::get('/state-consultant-prescription', 'stateConsultantPrescription');
+                Route::get('/factures-non-solde', 'facturesNonSolde');
             });
 
         });

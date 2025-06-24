@@ -1,99 +1,8 @@
 @php use App\Helpers\FormatPrice; @endphp
-    <!doctype html>
-<html lang="fr">
 
-<head>
-    <meta charset="UTF-8">
+@extends('pdfs.layouts.template')
 
-    <style>
-        {!! $bootstrap !!}
-    </style>
-
-    <style>
-        body,
-        html {
-            height: 100%;
-            margin: 0;
-            padding: 0;
-            font-size: 3mm !important;
-            font-family: "Times New Roman", serif;
-        }
-
-        header {
-            font-family: 'Helvetica', serif;
-        }
-
-        h1 {
-            font-size: 6mm !important;
-        }
-
-        table {
-            font-size: 3mm !important;
-        }
-
-        img {
-            width: auto;
-            height: auto;
-        }
-
-        .print-wrapper {
-            position: relative;
-            min-height: 100%;
-            padding-bottom: 10mm;
-            box-sizing: border-box;
-        }
-
-        .print-footer {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            height: 10mm;
-            text-align: center;
-            background-color: white;
-            border-top: 1mm solid rgb(15, 187, 105);
-            opacity: .5;
-            font-size: 2.5mm;
-        }
-    </style>
-</head>
-
-<body>
-{{-- Header --}}
-<header class="row pb-2 border-bottom border-1 border-black">
-    <div class="col-4">
-        @if($logo)
-            <img src="data:image/png;base64,{{ base64_encode(file_get_contents(public_path($logo))) }}" alt="">
-        @endif
-    </div>
-
-    <div class="text-center col text-success">
-        <div class="fs-1 text-uppercase">
-            {{ $centre->name }}
-        </div>
-
-        <hr class="my-1 border border-success border-1 opacity-75 col-12">
-
-        <div class="">
-            - {{ $centre->address }} - {{ $centre->town }}
-        </div>
-
-        <div class="">
-            BP: {{ $centre->postal_code }} {{ $centre->town }} -
-            Tél. {{ $centre->tel }} {{ $centre->tel2 ? '/' . $centre->tel2 : '' }}
-            / Fax: {{ $centre->fax }}
-        </div>
-
-        <div class="">
-            Email: {{ $centre->email }}
-        </div>
-
-        <div class="">
-            Autorisation n° {{ $centre->autorisation }}
-            NUI: {{ $centre->contribuable }}
-        </div>
-    </div>
-</header>
+@section('content')
 
 <h1 class="fs-3 fw-bold text-center text-uppercase text-decoration-underline">
     LISTE ELEMEMENTS DE FACTURES
@@ -247,6 +156,4 @@
         class="text-decoration-underline">{{  FormatPrice::format($amountPrisCharges + $amountNonPrisCharges) }}</span>
 </p>
 
-</body>
-
-</html>
+@endsection
