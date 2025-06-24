@@ -8,6 +8,7 @@ use App\Http\Controllers\ConsultantController;
 use App\Http\Controllers\ConventionAssocieController;
 use App\Http\Controllers\CountryController;
 use App\Http\Controllers\HopitalController;
+use App\Http\Controllers\KbPrelevementController;
 use App\Http\Controllers\PrefixController;
 use App\Http\Controllers\RegulationController;
 use App\Http\Controllers\RegulationMethodController;
@@ -440,5 +441,8 @@ Route::middleware(['activity'])->group(function () {
             });
 
         });
+
+        // Gestion des Kb Prélèvement
+        Route::apiResource('kb-prelevements', KbPrelevementController::class);
     });
 });
