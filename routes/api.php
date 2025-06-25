@@ -2,6 +2,8 @@
 
 use App\Http\Controllers\ActeController;
 use App\Http\Controllers\Admin\UserController;
+use App\Http\Controllers\AnalysisTechniqueController;
+use App\Http\Controllers\CategoryElementResultController;
 use App\Http\Controllers\CentreController;
 use App\Http\Controllers\ClientController;
 use App\Http\Controllers\ConsultantController;
@@ -26,6 +28,8 @@ use App\Http\Controllers\QuotationController;
 use App\Http\Controllers\AssureurController;
 use App\Http\Controllers\FournisseurController;
 use App\Http\Controllers\PriseEnChargeController;
+use App\Http\Controllers\TypePrelevementController;
+use App\Http\Controllers\TypeResultController;
 use App\Http\Controllers\VoixTransmissionController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\UniteProduitController;
@@ -444,5 +448,17 @@ Route::middleware(['activity'])->group(function () {
 
         // Gestion des Kb Prélèvement
         Route::apiResource('kb-prelevements', KbPrelevementController::class);
+
+        // Gestion des Techniques d'analyse
+        Route::apiResource('analysis-techniques', AnalysisTechniqueController::class);
+
+        // Gestion des Types de prélèvement
+        Route::apiResource('type-prelevements', TypePrelevementController::class);
+
+        // Gestion des catégories éléments de résultat
+        Route::apiResource('category-element-results', CategoryElementResultController::class);
+
+        // Gestion des types de résultat
+        Route::apiResource('type-results', TypeResultController::class);
     });
 });
