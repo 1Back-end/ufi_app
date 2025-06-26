@@ -90,13 +90,6 @@ class ExamenPhysiqueController extends Controller
 
     }
 
-
-
-
-
-
-
-
     /**
      * Display a listing of the resource.
      * @permission ExamenPhysiqueController::store
@@ -111,7 +104,7 @@ class ExamenPhysiqueController extends Controller
             'examens.*.libelle' => 'required|string|max:255',
             'examens.*.resultat' => 'nullable|string',
             'examens.*.categorie_examen_physique_id' => 'required|exists:config_tbl_categories_examen_physiques,id',
-            'examens.*.motif_consultation_id' => 'required|exists:ops_tbl__motif_consultations,id',
+            'examens.*.dossier_consultation_id' => 'required|exists:dossier_consultations,id',
         ]);
 
         $created = [];

@@ -80,9 +80,10 @@ class OpsTblMotifConsultationController extends Controller
         $auth = auth()->user();
 
         $request->validate([
-            'libelle'=> 'required|string',
+            'libelle'=> 'nullable|string',
             'description' => 'required|string',
             'dossier_consultation_id' => 'required|exists:dossier_consultations,id',
+            'categorie_visite_id' => 'nullable|exists:config_tbl_categorie_visites,id',
         ]);
 
         // Vérifie si le dossier a déjà un motif
@@ -102,6 +103,7 @@ class OpsTblMotifConsultationController extends Controller
             'description' => $request->description,
             'libelle'=> $request->libelle,
             'dossier_consultation_id' => $request->dossier_consultation_id,
+            'categorie_visite_id' => $request->categorie_visite_id,
             'created_by' => $auth->id
         ]);
 

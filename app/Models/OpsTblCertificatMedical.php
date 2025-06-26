@@ -13,7 +13,7 @@ class OpsTblCertificatMedical extends Model
         'type',
         'commentaire',
         'nbre_jour_repos',
-        'motif_consultation_id',
+        'rapport_consultation_id',
         'is_deleted',
         'created_by',
         'updated_by',
@@ -24,9 +24,9 @@ class OpsTblCertificatMedical extends Model
     ];
 
     // Relations
-    public function motifConsultation()
+    public function rapportConsultation()
     {
-        return $this->belongsTo(OpsTbl_Motif_consultation::class, 'motif_consultation_id');
+        return $this->belongsTo(OpsTblRapportConsultation::class, 'rapport_consultation_id');
     }
 
     public function creator()

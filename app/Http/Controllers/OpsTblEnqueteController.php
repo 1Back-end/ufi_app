@@ -85,7 +85,7 @@ class OpsTblEnqueteController extends Controller
             'enquetes.*.libelle' => 'required|string|max:255',
             'enquetes.*.resultat' => 'nullable|string',
             'enquetes.*.categories_enquetes_id' => 'required|exists:configtbl_categories_enquetes,id',
-            'enquetes.*.motif_consultation_id' => 'required|exists:ops_tbl__motif_consultations,id',
+            'enquetes.*.dossier_consultation_id' => 'required|exists:dossier_consultations,id',
         ]);
 
         $created = [];

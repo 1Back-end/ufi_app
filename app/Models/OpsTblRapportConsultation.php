@@ -10,15 +10,16 @@ class OpsTblRapportConsultation extends Model
         'code',
         'conclusion',
         'recommandations',
-        'motif_consultation_id',
+        'dossier_consultation_id',
         'is_deleted',
         'created_by',
         'updated_by'
     ];
 
-    public function motifConsultation()
+    public function dossierConsultation()
     {
-        return $this->belongsTo(OpsTbl_Motif_consultation::class, 'motif_consultation_id');
+        return $this->belongsTo(DossierConsultation::class, 'dossier_consultation_id');
+
     }
 
     public function creator()
@@ -29,6 +30,10 @@ class OpsTblRapportConsultation extends Model
     public function updater()
     {
         return $this->belongsTo(User::class, 'updated_by');
+    }
+    public function misesEnObservation()
+    {
+        return $this->hasMany(OpsTblMiseEnObservationHospitalisation::class, 'rapport_consultation_id');
     }
     protected static function boot()
     {

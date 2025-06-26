@@ -134,6 +134,14 @@ return [
             'visibility' => 'public',
         ],
 
+        'infirmieres' => [
+            'driver' => 'local',
+            'root' => public_path('export-infirmieres'),
+            'url' => env('APP_URL') . '/export-infirmieres',
+            'visibility' => 'public',
+        ],
+
+
 
 
         's3' => [

@@ -27,14 +27,14 @@ class OpsTblCertificatMedicalController extends Controller
             'type' => 'nullable|string|max:255',
             'commentaire' => 'nullable|string',
             'nbre_jour_repos' => 'nullable|integer',
-            'motif_consultation_id' => 'nullable|exists:ops_tbl__motif_consultations,id',
+            'rapport_consultation_id' => 'nullable|exists:ops_tbl_rapport_consultations,id',
         ]);
 
         $certificat = OpsTblCertificatMedical::create([
             'type' => $request->type,
             'commentaire' => $request->commentaire,
             'nbre_jour_repos' => $request->nbre_jour_repos,
-            'motif_consultation_id' => $request->motif_consultation_id,
+            'rapport_consultation_id' => $request->rapport_consultation_id,
             'created_by' => $auth->id
 
         ]);

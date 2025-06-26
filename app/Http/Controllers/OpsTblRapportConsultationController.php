@@ -20,7 +20,10 @@ class OpsTblRapportConsultationController extends Controller
             ->with([
                 'creator:id,login',
                 'updater:id,login',
-                'motifConsultation:id,code',
+                'dossierConsultation:id,id,code,created_at,rendez_vous_id',
+                'dossierConsultation.rendezVous:id,id,client_id,consultant_id,dateheure_rdv',
+                'dossierConsultation.rendezVous.client:id,id,nomcomplet_client,ref_cli',
+                'dossierConsultation.rendezVous.consultant:id,id,nomcomplet,ref',
             ]);
 
         // Recherche globale
@@ -31,7 +34,7 @@ class OpsTblRapportConsultationController extends Controller
                 $q->where('code', 'like', "%$search%")
                     ->orWhere('conclusion', 'like', "%$search%")
                     ->orWhere('recommandations', 'like', "%$search%")
-                    ->orWhereHas('motifConsultation', function ($q2) use ($search) {
+                    ->orWhereHas('dossierConsultation', function ($q2) use ($search) {
                         $q2->where('code', 'like', "%$search%"); // ou selon la colonne affichable
                     });
             });
@@ -59,13 +62,13 @@ class OpsTblRapportConsultationController extends Controller
         $request->validate([
             'conclusion' => 'nullable|string',
             'recommandations' => 'nullable|string',
-            'motif_consultation_id' => 'required|exists:ops_tbl__motif_consultations,id',
+            'dossier_consultation_id' => 'required|exists:dossier_consultations,id',
         ]);
 
         $rapport = OpsTblRapportConsultation::create([
             'conclusion' => $request->conclusion,
             'recommandations' => $request->recommandations,
-            'motif_consultation_id' => $request->motif_consultation_id,
+            'dossier_consultation_id' => $request->dossier_consultation_id,
             'created_by' => $auth->id
         ]);
 
@@ -106,7 +109,15 @@ class OpsTblRapportConsultationController extends Controller
      */
     public function show($id)
     {
-        $rapport = OpsTblRapportConsultation::with('motifConsultation')->findOrFail($id);
+        $rapport =  OpsTblRapportConsultation::where('is_deleted', false)
+            ->with([
+                'creator:id,login',
+                'updater:id,login',
+                'dossierConsultation:id,id,code,created_at,rendez_vous_id',
+                'dossierConsultation.rendezVous:id,id,client_id,consultant_id,dateheure_rdv',
+                'dossierConsultation.rendezVous.client:id,id,nomcomplet_client,ref_cli',
+                'dossierConsultation.rendezVous.consultant:id,id,nomcomplet,ref',
+            ])->findOrFail($id);
 
         return response()->json([
             'rapport' => $rapport

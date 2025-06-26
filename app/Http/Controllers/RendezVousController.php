@@ -39,7 +39,8 @@ class RendezVousController extends Controller
             $etats = explode(',', $request->input('etat'));
             $query->whereIn('etat', $etats);
         } else {
-            $query->whereIn('etat', ['Actif', 'Inactif', 'No show','Traitement en cours']);
+            // Par défaut, ces états seulement
+            $query->whereIn('etat', ['Actif', 'Inactif', 'No show','En cours de consultation']);
         }
 
         // Autres filtres
@@ -84,6 +85,45 @@ class RendezVousController extends Controller
         ]);
     }
 
+    public function HistoriqueRendezVous(Request $request, $client_id)
+    {
+        $perPage = $request->input('limit', 10);
+        $page = $request->input('page', 1);
+
+        $query = RendezVous::where('is_deleted', false)
+            ->where('client_id', $client_id)
+            ->with([
+                'consultant:id,nomcomplet',
+                'createdBy:id,email',
+                'updatedBy:id,email',
+                'prestation:id,type',
+                'parent:id,code,dateheure_rdv'
+            ])
+            ->orderByDesc('dateheure_rdv'); // du plus récent au plus ancien
+
+        // Filtrage sur le(s) état(s)
+        if ($request->has('etat')) {
+            // On récupère les états passés en query, séparés par des virgules
+            $etats = explode(',', $request->input('etat'));
+            $query->whereIn('etat', $etats);
+        } else {
+            // Par défaut, ces états seulement
+            $query->whereIn('etat', ['Actif', 'Inactif', 'No show','En cours de consultation']);
+        }
+
+        if ($request->filled('type')) {
+            $query->where('type', $request->input('type'));
+        }
+
+        $rendez_vous = $query->paginate($perPage, ['*'], 'page', $page);
+
+        return response()->json([
+            'data' => $rendez_vous->items(),
+            'current_page' => $rendez_vous->currentPage(),
+            'last_page' => $rendez_vous->lastPage(),
+            'total' => $rendez_vous->total(),
+        ]);
+    }
 
 
 
@@ -140,7 +180,17 @@ class RendezVousController extends Controller
 //                ], 409);
 //            }
 
-            $rendez_vous = RendezVous::create($data);
+            $rendezVous = RendezVous::find($data['rendez_vous_id'])->replicate();
+            $rendezVous->fill(array_merge($data,[
+                'created_by' => $auth->id,
+                'updated_by' => $auth->id,
+                'type' => 'Non facturé'
+            ]));
+            $rendezVous->save();
+
+//        Todo: Mettre en marche les notifications envoyées
+//        Todo: $consultant = Consultant::find($consultantId);
+//        Todo: $consultant->user()->notify(SendRdvNotification::class);$
 
             return response()->json([
                 'data' => $rendez_vous,

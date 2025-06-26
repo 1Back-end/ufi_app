@@ -51,6 +51,14 @@ use App\Http\Controllers\OpsTblRapportConsultationController;
 use App\Http\Controllers\OpsTblCertificatMedicalController;
 use App\Http\Controllers\OrdonnanceController;
 use App\Http\Controllers\DiagnosticController;
+use App\Http\Controllers\ConfigTblTypeVisiteController;
+use App\Http\Controllers\ConfigTblCategorieVisiteController;
+use App\Http\Controllers\NurseController;
+use App\Http\Controllers\OpsTblMiseEnObservationHospitalisationController;
+use App\Http\Controllers\OpsTblReferreMedicalController;
+use App\Http\Controllers\CategorieDiagnosticController;
+use App\Http\Controllers\ConfigSousCategorieDiagnosticController;
+use App\Http\Controllers\ConfigTblMaladieDiagnosticController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['activity'])->group(function () {
@@ -307,6 +315,8 @@ Route::middleware(['activity'])->group(function () {
             Route::get('/search', 'search');
             Route::get('/export',  'export');
             Route::get('/get_by_id/{id}', 'show');
+            Route::get('/client/{client_id}',  'HistoriqueRendezVous');
+
         });
 
         Route::controller(ConfigTblSousCategorieAntecedentController::class)->prefix('config_sous_categories_antecedents')->group(function () {
@@ -345,8 +355,6 @@ Route::middleware(['activity'])->group(function () {
             Route::get('/get_by_id/{id}', 'show');
             Route::put('/edit/{id}', 'update');
             Route::delete('/delete/{id}', 'destroy');
-
-
         });
         Route::controller(ConfigTblCategoriesEnquetesController::class)->prefix('config_enquetes')->group(function () {
             Route::get('/list', 'index');
@@ -420,7 +428,71 @@ Route::middleware(['activity'])->group(function () {
             Route::put('/edit/{id}', 'update');
             Route::delete('/delete/{id}', 'destroy');
         });
+        Route::controller(ConfigTblTypeVisiteController::class)->prefix('config_tbl_type_visites')->group(function () {
+            Route::get('/list', 'index');
+            Route::post('/create', 'store');
+            Route::get('/get_by_id/{id}', 'show');
+            Route::put('/edit/{id}', 'update');
+            Route::delete('/delete/{id}', 'destroy');
+            Route::patch('/{id}/status', 'updateStatus');
+        });
+        Route::controller(ConfigTblCategorieVisiteController::class)->prefix('config_tbl_categorie_visites')->group(function () {
+            Route::get('/list', 'index');
+            Route::post('/create', 'store');
+            Route::get('/get_by_id/{id}', 'show');
+            Route::put('/edit/{id}', 'update');
+            Route::delete('/delete/{id}', 'destroy');
+            Route::patch('/{id}/status', 'updateStatus');
+        });
+        Route::controller(NurseController::class)->prefix('nurses')->group(function () {
+            Route::get('/list', 'index');
+            Route::post('/create', 'store');
+            Route::get('/get_by_id/{id}', 'show');
+            Route::put('/edit/{id}', 'update');
+            Route::delete('/delete/{id}', 'destroy');
+            Route::patch('/{id}/status', 'updateStatus');
+            Route::get('/export',  'export');
 
+        });
+        Route::controller(OpsTblMiseEnObservationHospitalisationController::class)->prefix('ops_tbl_mise_en_observation_hospitalisations')->group(function () {
+            Route::get('/list', 'index');
+            Route::post('/create', 'store');
+            Route::get('/get_by_id/{id}', 'show');
+            Route::put('/edit/{id}', 'update');
+            Route::delete('/delete/{id}', 'destroy');
+            Route::get('/rapport_consultation/{rapport_consultation_id}',  'historiqueByRapport');
+        });
+        Route::controller(OpsTblReferreMedicalController::class)->prefix('ops_tbl_referre_medicals')->group(function () {
+            Route::get('/list', 'index');
+            Route::post('/create', 'store');
+            Route::get('/get_by_id/{id}', 'show');
+            Route::put('/edit/{id}', 'update');
+            Route::delete('/delete/{id}', 'destroy');
+        });
+        Route::controller(CategorieDiagnosticController::class)->prefix('categorie_diagnostics')->group(function () {
+            Route::get('/list', 'index');
+            Route::post('/create', 'store');
+            Route::get('/get_by_id/{id}', 'show');
+            Route::put('/edit/{id}', 'update');
+            Route::delete('/delete/{id}', 'destroy');
+            Route::get('/sous_categories_diagnostics/by_categorie/{id}', 'getByCategorie');
+            Route::get('/maladies/by_sous_categorie/{id}', 'getBySousCategorie');
+
+        });
+        Route::controller(ConfigSousCategorieDiagnosticController::class)->prefix('config_sous_categorie_diagnostics')->group(function () {
+            Route::get('/list', 'index');
+            Route::post('/create', 'store');
+            Route::get('/get_by_id/{id}', 'show');
+            Route::put('/edit/{id}', 'update');
+            Route::delete('/delete/{id}', 'destroy');
+        });
+        Route::controller(ConfigTblMaladieDiagnosticController::class)->prefix('config_tbl_maladie_diagnostics')->group(function () {
+            Route::get('/list', 'index');
+            Route::post('/create', 'store');
+            Route::get('/get_by_id/{id}', 'show');
+            Route::put('/edit/{id}', 'update');
+            Route::delete('/delete/{id}', 'destroy');
+        });
 
         // Setting management
         Route::apiResource('settings', SettingController::class);

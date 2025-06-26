@@ -31,7 +31,6 @@ class DossierConsultationController extends Controller
             ->with([
                 'creator:id,login',
                 'updater:id,login',
-                'facture:id,code',
                 'rendezVous:id,code,dateheure_rdv,client_id,consultant_id',
                 'rendezVous.client:id,nomcomplet_client,ref_cli',
                 'rendezVous.consultant:id,nomcomplet,ref',
@@ -74,6 +73,8 @@ class DossierConsultationController extends Controller
             'total' => $dossiers->total(),
         ]);
     }
+
+
     /**
      * Display a listing of the resource.
      * @permission DossierConsultationController::historiqueClient
@@ -92,7 +93,6 @@ class DossierConsultationController extends Controller
             ->with([
                 'creator:id,login',
                 'updater:id,login',
-                'facture:id,code',
                 'rendezVous:id,code,dateheure_rdv,client_id,consultant_id',
                 'rendezVous.client:id,nomcomplet_client,ref_cli',
                 'rendezVous.consultant:id,nomcomplet,ref',
@@ -149,11 +149,11 @@ class DossierConsultationController extends Controller
 
         // Création du dossier
         $dossier = DossierConsultation::create($data);
-        // ✅ Mettre à jour l'état du rendez-vous à "Traitement en cours"
-        if ($dossier && $data['rendez_vous_id']) {
-            RendezVous::where('id', $data['rendez_vous_id'])->update([
-                'etat' => 'Traitement en cours',
-            ]);
+
+        $rendezVous = RendezVous::find($data['rendez_vous_id']);
+        if ($rendezVous) {
+            $rendezVous->etat = 'En cours de consultation';
+            $rendezVous->save();
         }
 
         if ($request->hasFile('fichier_associe')) {
@@ -261,6 +261,10 @@ class DossierConsultationController extends Controller
             ->with([
                 'creator:id,login',
                 'updater:id,login',
+                'rendezVous:id,code,dateheure_rdv,client_id,consultant_id',
+                'rendezVous.client:id,nomcomplet_client,ref_cli',
+                'rendezVous.consultant:id,nomcomplet,ref',
+                'medias'
             ])
             ->findOrFail($id);
 

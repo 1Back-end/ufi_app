@@ -14,7 +14,7 @@ class RendezVous extends Model
     use HasFactory, UpdatingUser;
 
     protected $table = 'rendez_vouses';
-    protected $appends = ['past'];
+    protected $appends = ['past','nombre_jours'];
 
 
     protected $fillable = [
@@ -103,12 +103,16 @@ class RendezVous extends Model
         return $query->where('is_deleted', false);
     }
 
-
-
     public function getPastAttribute(): bool
     {
-        return now()->greaterThan($this->dateheure_rdv->addDays($this->nombre_jour_validite));
+        return now()->greaterThan($this->dateheure_rdv->copy()->addDays($this->nombre_jour_validite));
     }
+
+    public function getNombreJoursAttribute(): ?int
+    {
+        return (int) ceil($this->duration / 60);
+    }
+
 
 
 
