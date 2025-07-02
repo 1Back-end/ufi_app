@@ -9,8 +9,11 @@ use App\Http\Controllers\ClientController;
 use App\Http\Controllers\ConsultantController;
 use App\Http\Controllers\ConventionAssocieController;
 use App\Http\Controllers\CountryController;
+use App\Http\Controllers\ElementResultController;
+use App\Http\Controllers\FamilyExamController;
 use App\Http\Controllers\HopitalController;
 use App\Http\Controllers\KbPrelevementController;
+use App\Http\Controllers\PaillasseController;
 use App\Http\Controllers\PrefixController;
 use App\Http\Controllers\RegulationController;
 use App\Http\Controllers\RegulationMethodController;
@@ -21,7 +24,10 @@ use App\Http\Controllers\SexeController;
 use App\Http\Controllers\SocieteController;
 use App\Http\Controllers\SpecialiteController;
 use App\Http\Controllers\StatusFamilialeController;
+use App\Http\Controllers\SubFamilyExamController;
+use App\Http\Controllers\TechniqueExamController;
 use App\Http\Controllers\TitreController;
+use App\Http\Controllers\TubePrelevementController;
 use App\Http\Controllers\TypeActeController;
 use App\Http\Controllers\TypeDocumentController;
 use App\Http\Controllers\QuotationController;
@@ -452,13 +458,31 @@ Route::middleware(['activity'])->group(function () {
         // Gestion des Techniques d'analyse
         Route::apiResource('analysis-techniques', AnalysisTechniqueController::class);
 
+        // Gestion des technique d'examen
+        Route::apiResource('technique-exams', TechniqueExamController::class);
+
         // Gestion des Types de prélèvement
         Route::apiResource('type-prelevements', TypePrelevementController::class);
 
         // Gestion des catégories éléments de résultat
         Route::apiResource('category-element-results', CategoryElementResultController::class);
 
+        // Gestion des élements de résultat
+        Route::apiResource('element-results', ElementResultController::class);
+
         // Gestion des types de résultat
         Route::apiResource('type-results', TypeResultController::class);
+
+        // Gestion des familles d'examen
+        Route::apiResource('family-exams', FamilyExamController::class);
+
+        // Gestion des sous familles d'examen
+        Route::apiResource('sub-family-exams', SubFamilyExamController::class);
+
+        // Gestion sdes Paillasses
+        Route::apiResource('paillasses', PaillasseController::class);
+
+        //Gestion des Tubes de Prélèvement
+        Route::apiResource('tube-prelevements', TubePrelevementController::class);
     });
 });
