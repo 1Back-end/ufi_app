@@ -11,6 +11,7 @@ use App\Http\Controllers\ConventionAssocieController;
 use App\Http\Controllers\CountryController;
 use App\Http\Controllers\ElementResultController;
 use App\Http\Controllers\FamilyExamController;
+use App\Http\Controllers\GroupePopulationController;
 use App\Http\Controllers\HopitalController;
 use App\Http\Controllers\KbPrelevementController;
 use App\Http\Controllers\PaillasseController;
@@ -484,5 +485,8 @@ Route::middleware(['activity'])->group(function () {
 
         //Gestion des Tubes de Prélèvement
         Route::apiResource('tube-prelevements', TubePrelevementController::class);
+
+        // Gestion des groupes populations
+        Route::apiResource('groupe-population', GroupePopulationController::class);
     });
 });
