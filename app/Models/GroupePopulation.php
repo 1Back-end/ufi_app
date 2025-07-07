@@ -25,13 +25,13 @@ class GroupePopulation extends Model
     protected function parseAgeMin(): Attribute
     {
         return Attribute::make(
-            get: function($value, array $attributes) {
-                $years = floor($attributes['agemin']/12);
-                $months = $attributes['agemin'] - $years * 12 ;
+            get: function ($value, array $attributes) {
+                $years = floor($attributes['agemin'] / 12);
+                $months = $attributes['agemin'] - $years * 12;
 
-                if ($years > 0 && $months > 0) return "$years years $months months";
-                if ($years > 0) return "$years years";
-                if ($months > 0) return "$months months";
+                if ($years > 0 && $months > 0) return "$years ans $months mois";
+                if ($years > 0) return "$years ans";
+                if ($months > 0) return "$months mois";
             },
         );
     }
@@ -39,15 +39,15 @@ class GroupePopulation extends Model
     protected function parseAgeMax(): Attribute
     {
         return Attribute::make(
-            get: function($value, array $attributes) {
+            get: function ($value, array $attributes) {
                 if (!$attributes['agemax']) return "";
 
                 $years = floor($attributes['agemax'] / 12);
-                $months = $attributes['agemax'] - $years * 12 ;
+                $months = $attributes['agemax'] - $years * 12;
 
-                if ($years > 0 && $months > 0) return "$years years $months months";
-                if ($years > 0) return "$years years";
-                if ($months > 0) return "$months months";
+                if ($years > 0 && $months > 0) return "$years ans $months mois";
+                if ($years > 0) return "$years ans";
+                if ($months > 0) return "$months mois";
             },
         );
     }

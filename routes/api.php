@@ -9,7 +9,9 @@ use App\Http\Controllers\ClientController;
 use App\Http\Controllers\ConsultantController;
 use App\Http\Controllers\ConventionAssocieController;
 use App\Http\Controllers\CountryController;
+use App\Http\Controllers\ElementPaillasseController;
 use App\Http\Controllers\ElementResultController;
+use App\Http\Controllers\ExamenController;
 use App\Http\Controllers\FamilyExamController;
 use App\Http\Controllers\GroupePopulationController;
 use App\Http\Controllers\HopitalController;
@@ -276,9 +278,9 @@ Route::middleware(['activity'])->group(function () {
             Route::get('/export',  'export');
             Route::get('/search-and-export', 'searchAndExport');
         });
-        Route::controller(ConsultationController::class)->prefix('consultations')->group(function (){
-            route::get('/list','index');
-            Route::post('/create','store');
+        Route::controller(ConsultationController::class)->prefix('consultations')->group(function () {
+            route::get('/list', 'index');
+            Route::post('/create', 'store');
             Route::get('/get_by_id/{id}', 'show');
             Route::put('/edit/{id}', 'update');
             Route::delete('/delete/{id}', 'destroy');
@@ -304,7 +306,7 @@ Route::middleware(['activity'])->group(function () {
             Route::get('/list', 'index');
             Route::post('/create', 'store');
             route::get('/data', 'get_data');
-            Route::post('/create','store');
+            Route::post('/create', 'store');
             Route::put('/edit/{id}', 'update');
             Route::put('update_status/{id}/status/{status}', 'updateStatus');
             Route::get('/{id}/pu',  'getPuByHospitalisationId');
@@ -359,8 +361,6 @@ Route::middleware(['activity'])->group(function () {
             Route::get('/get_by_id/{id}', 'show');
             Route::put('/edit/{id}', 'update');
             Route::delete('/delete/{id}', 'destroy');
-
-
         });
         Route::controller(ConfigTblCategoriesEnquetesController::class)->prefix('config_enquetes')->group(function () {
             Route::get('/list', 'index');
@@ -378,7 +378,6 @@ Route::middleware(['activity'])->group(function () {
             Route::get('/export',  'export');
             Route::get('/search-and-export', 'search_and_export');
             Route::get('/client/{client_id}',  'historiqueClient');
-
         });
         Route::controller(OpsTblMotifConsultationController::class)->prefix('ops_tbl_motif_consultations')->group(function () {
             Route::get('/list', 'index');
@@ -393,7 +392,6 @@ Route::middleware(['activity'])->group(function () {
             Route::put('/edit/{id}', 'update');
             Route::delete('/delete/{id}', 'destroy');
             Route::get('/export',  'export');
-
         });
 
         Route::controller(OpsTblEnqueteController::class)->prefix('ops_tbl_enquetes')->group(function () {
@@ -450,7 +448,6 @@ Route::middleware(['activity'])->group(function () {
                 Route::get('/state-consultant-prescription', 'stateConsultantPrescription');
                 Route::get('/factures-non-solde', 'facturesNonSolde');
             });
-
         });
 
         // Gestion des Kb Prélèvement
@@ -487,6 +484,12 @@ Route::middleware(['activity'])->group(function () {
         Route::apiResource('tube-prelevements', TubePrelevementController::class);
 
         // Gestion des groupes populations
-        Route::apiResource('groupe-population', GroupePopulationController::class);
+        Route::apiResource('groupe-populations', GroupePopulationController::class);
+
+        // Gestion des Examen
+        Route::apiResource('examens', ExamenController::class);
+
+        // Gestion Element Paillasse
+        Route::apiResource('element-paillasses', ElementPaillasseController::class);
     });
 });

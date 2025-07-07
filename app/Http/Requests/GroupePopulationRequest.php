@@ -11,7 +11,7 @@ class GroupePopulationRequest extends FormRequest
         return [
             'name' => ['required'],
             'agemin' => ['required', 'integer', 'min:0', 'max:' . 100 * 12],
-            'agemax' => ['nullable', 'integer', 'min:0', 'max:' . 100 * 12, 'after:agemin'],
+            'agemax' => ['nullable', 'integer', 'min:0', 'max:' . 100 * 12,],
         ];
     }
 
@@ -24,7 +24,6 @@ class GroupePopulationRequest extends FormRequest
             'agemin.max' => __("L'age max doit être au maximum 100."),
             'agemax.min' => __("l'age maximum doit être au minimum 0"),
             'agemax.max' => __("L'age maxi doit être au maximum 100"),
-            'agemax.after' => __("L'age max doit être supérieur à l'âge min")
         ];
     }
 }

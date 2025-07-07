@@ -34,7 +34,12 @@ class GroupePopulationController extends Controller
      */
     public function store(GroupePopulationRequest $request)
     {
-        GroupePopulation::create($request->validated());
+        $data = array_merge($request->validated(), [
+            'code' => str()->slug($request->name),
+        ]);
+
+
+        GroupePopulation::create($data);
         return response()->json([
             'message' => 'Groupe population created'
         ], 201);
@@ -53,7 +58,11 @@ class GroupePopulationController extends Controller
      */
     public function update(GroupePopulationRequest $request, GroupePopulation $groupePopulation)
     {
-        $groupePopulation->update($request->validated());
+        $data = array_merge($request->validated(), [
+            'code' => str()->slug($request->name),
+        ]);
+
+        $groupePopulation->update($data);
 
         return \response()->json([
             'message' => 'Groupe population updated'
