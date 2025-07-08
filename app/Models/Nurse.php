@@ -2,12 +2,15 @@
 
 namespace App\Models;
 
+use App\Models\Trait\CreateDefaultUser;
+use App\Models\Trait\UpdatingUser;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Nurse extends Model
 {
-    use HasFactory;
+    use HasFactory,UpdatingUser, CreateDefaultUser;
 
     protected $fillable = [
         'nom_complet',
@@ -22,8 +25,14 @@ class Nurse extends Model
         'created_by',
         'updated_by',
         'is_deleted',
+        'user_id'
     ];
 
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'user_id');
+    }
 
     protected static function booted()
     {

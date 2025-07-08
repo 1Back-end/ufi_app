@@ -54,7 +54,8 @@ class AuthenticatedSessionController extends Controller
             'new_user' => $user->default,
             'permissions' => $permissions,
             'centres' => $centres,
-            'centre_default' => $centre
+            'centre_default' => $centre,
+            'user' => $user
         ]);
     }
 

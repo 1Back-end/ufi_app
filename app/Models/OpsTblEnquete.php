@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
 
 class OpsTblEnquete extends Model
 {
@@ -45,9 +46,11 @@ class OpsTblEnquete extends Model
         parent::boot();
 
         static::creating(function ($examenPhysique) {
-            $prefix = 'EXAMEN-ENQUETE-';
-            $timestamp = now()->format('YmdHis');
-            $examenPhysique->code = $prefix . $timestamp;
+            $prefix = 'ENQUETE-';
+            $timestamp = now()->format('ymdHi');
+
+            $random = strtoupper(Str::random(7));
+            $examenPhysique->code = $prefix . $timestamp . $random;
         });
     }
     //

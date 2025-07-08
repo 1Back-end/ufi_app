@@ -13,6 +13,7 @@ class OpsTblReferreMedical extends Model
     protected $fillable = [
         'rapport_consultations_id',
         'description',
+        'code_prescripteur',
         'created_by',
         'updated_by',
         'is_deleted',

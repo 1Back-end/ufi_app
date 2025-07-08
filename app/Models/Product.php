@@ -60,5 +60,11 @@ class Product extends Model
     {
         return $this->belongsTo(User::class, 'updated_by');
     }
+    public function prescriptions()
+    {
+        return $this->belongsToMany(PrescriptionPharmaceutique::class, 'prescription_pharmaceutique_has_ops_tbl_products', 'product_id', 'prescription_pharmaceutique_id')
+            ->withPivot('quantite')
+            ->withTimestamps();
+    }
     //
 }

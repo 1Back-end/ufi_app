@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Carbon\Carbon;
 use DateTimeInterface;
+use Illuminate\Support\Str;
 
 class RendezVous extends Model
 {
@@ -43,10 +44,12 @@ class RendezVous extends Model
     {
         parent::boot();
 
-        static::creating(function ($rdv) {
-            $prefix = 'RDV-';
-            $timestamp = now()->format('YmdHis');
-            $rdv->code = $prefix . $timestamp;
+        static::creating(function ($examenPhysique) {
+            $prefix = 'RD-';
+            $timestamp = now()->format('ymdHi');
+
+            $random = strtoupper(Str::random(7));
+            $examenPhysique->code = $prefix . $timestamp . $random;
         });
     }
 

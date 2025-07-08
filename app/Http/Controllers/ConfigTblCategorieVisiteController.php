@@ -159,5 +159,24 @@ class ConfigTblCategorieVisiteController extends Controller
             'data' => $categorie
         ]);
     }
+    public function getTypesParents($id)
+    {
+        // 1. Récupérer la catégorie demandée avec son typeVisite
+        $categorie = ConfigTblCategorieVisite::with(['typeVisite:id,libelle'])->findOrFail($id);
+
+        // 2. Vérifier si c'est un sous-type
+        if (!$categorie->sous_type) {
+            return response()->json([
+                'message' => 'Cette catégorie n\'est pas un sous-type.'
+            ], 200);
+        }
+
+        // 3. Retourner uniquement le type de visite
+        return response()->json([
+            'message' => 'Type de visite récupéré avec succès.',
+            'type_visite' => $categorie->typeVisite
+        ], 200);
+    }
+
 
 }

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Client;
 use App\Models\Diagnostic;
 use Illuminate\Http\Request;
 
@@ -36,6 +37,47 @@ class DiagnosticController extends Controller
             ], 500);
         }
     }
+
+    public function historiqueDiagnostics(Request $request, $client_id)
+    {
+        try {
+            $perPage = $request->input('limit', 25);
+            $page = $request->input('page', 1);
+
+            // Vérifier si le client existe
+            $client = Client::find($client_id);
+            if (!$client) {
+                return response()->json(['message' => 'Client non trouvé'], 404);
+            }
+
+            // Récupérer les diagnostics liés au client via la relation des rendez-vous
+            $diagnostics = Diagnostic::whereHas('rapportConsultation.dossierConsultation.rendezVous', function ($query) use ($client_id) {
+                $query->where('client_id', $client_id);
+            })
+                ->with([
+                    'typeDiagnostic',
+                    'categories.sousCategories.maladies',
+                    'rapportConsultation.dossierConsultation.rendezVous.client',
+                    'rapportConsultation.dossierConsultation.rendezVous.consultant',
+                ])
+                ->latest()
+                ->paginate($perPage, ['*'], 'page', $page);
+
+            return response()->json([
+                'success' => true,
+                'data' => $diagnostics->items(),
+                'current_page' => $diagnostics->currentPage(),
+                'last_page' => $diagnostics->lastPage(),
+                'total' => $diagnostics->total(),
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Une erreur est survenue : ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
 
     /**
      * Display a listing of the resource.

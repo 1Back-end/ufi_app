@@ -56,9 +56,9 @@ class Diagnostic extends Model
         return $this->belongsToMany(
             CategorieDiagnostic::class,
             'ops_tbl_diagnostic_has_config_categorie_diagnostic',
-            'code_diagnostic_id',      // clé étrangère de ce modèle dans la table pivot
-            'categorie_diagnostic_id'  // clé étrangère de catégorie dans la table pivot
-        )->with('sousCategories.maladies'); // charge relations imbriquées
+            'code_diagnostic_id',
+            'categorie_diagnostic_id'
+        );
     }
     //
 }

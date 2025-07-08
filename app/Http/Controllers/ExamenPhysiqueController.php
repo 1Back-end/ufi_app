@@ -29,14 +29,13 @@ class ExamenPhysiqueController extends Controller
             ->with([
                 'creator:id,login',
                 'updater:id,login',
-                'categorieExamenPhysique:id,name',
-                'motifConsultation:id,libelle,code,description,dossier_consultation_id',
-                'motifConsultation.dossierConsultation:id,code'
+                'categorieExamenPhysique',
+                'dossierConsultation',
             ]);
 
 
-        if ($request->filled('motif_consultation_id')) {
-            $query->where('motif_consultation_id', $request->motif_consultation_id);
+        if ($request->filled('dossier_consultation_id')) {
+            $query->where('dossier_consultation_id', $request->dossier_consultation_id);
         }
 
 
@@ -54,10 +53,8 @@ class ExamenPhysiqueController extends Controller
                     ->orWhereHas('categorieExamenPhysique', function ($q2) use ($search) {
                         $q2->where('name', 'like', "%$search%");
                     })
-                    ->orWhereHas('motifConsultation', function ($q2) use ($search) {
-                        $q2->where('libelle', 'like', "%$search%")
-                            ->orWhere('code', 'like', "%$search%")
-                            ->orWhere('description', 'like', "%$search%");
+                    ->orWhereHas('dossierConsultation', function ($q2) use ($search) {
+                        $q2->where('code', 'like', "%$search%");
                     });
             });
         }
@@ -71,6 +68,36 @@ class ExamenPhysiqueController extends Controller
             'total' => $results->total(),
         ]);
     }
+
+    public function getHistoriqueExamensClient(Request $request, $client_id)
+    {
+        $perPage = $request->input('limit', 25);
+        $page = $request->input('page', 1);
+
+        $query = OpsTbl_Examen_Physique::where('is_deleted', false)
+            ->whereHas('dossierConsultation.rendezVous', function ($query) use ($client_id) {
+                $query->where('client_id', $client_id);
+            })
+            ->with([
+                'categorieExamenPhysique:id,name',
+                'dossierConsultation:id,code,rendez_vous_id',
+                'dossierConsultation.rendezVous:id,dateheure_rdv,code,client_id',
+            ])
+            ->orderByDesc('created_at');
+
+        $results = $query->paginate($perPage, ['*'], 'page', $page);
+
+        return response()->json([
+            'data' => $results->items(),
+            'current_page' => $results->currentPage(),
+            'last_page' => $results->lastPage(),
+            'total' => $results->total(),
+        ]);
+    }
+
+
+
+
     /**
      * Display a listing of the resource.
      * @permission ExamenPhysiqueController::export

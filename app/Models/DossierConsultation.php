@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
+use Illuminate\Support\Str;
 
 class DossierConsultation extends Model
 {
@@ -51,10 +52,12 @@ class DossierConsultation extends Model
     {
         parent::boot();
 
-        static::creating(function ($dossier) {
+        static::creating(function ($examenPhysique) {
             $prefix = 'DOSSIER-';
-            $timestamp = now()->format('YmdHis');
-            $dossier->code = $prefix . $timestamp;
+            $timestamp = now()->format('ymdHi');
+
+            $random = strtoupper(Str::random(7));
+            $examenPhysique->code = $prefix . $timestamp . $random;
         });
     }
     //

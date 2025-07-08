@@ -387,6 +387,7 @@ Route::middleware(['activity'])->group(function () {
             Route::put('/edit/{id}', 'update');
             Route::delete('/delete/{id}', 'destroy');
             Route::get('/export',  'export');
+            Route::get('/client/{client_id}',  'getHistoriqueExamensClient');
 
         });
 
@@ -397,6 +398,7 @@ Route::middleware(['activity'])->group(function () {
             Route::put('/edit/{id}', 'update');
             Route::delete('/delete/{id}', 'destroy');
             Route::get('/export',  'export');
+            Route::get('/client/{client_id}',  'getHistoriqueEnqueteClient');
         });
 
         Route::controller(OpsTblRapportConsultationController::class)->prefix('ops_tbl_rapport_consultations')->group(function () {
@@ -405,6 +407,7 @@ Route::middleware(['activity'])->group(function () {
             Route::get('/get_by_id/{id}', 'show');
             Route::put('/edit/{id}', 'update');
             Route::delete('/delete/{id}', 'destroy');
+            Route::get('/client/{client_id}',  'getHistoriqueRapportClient');
         });
 
         Route::controller(OpsTblCertificatMedicalController::class)->prefix('ops_tbl_certificat_medicals')->group(function () {
@@ -413,6 +416,8 @@ Route::middleware(['activity'])->group(function () {
             Route::get('/get_by_id/{id}', 'show');
             Route::put('/edit/{id}', 'update');
             Route::delete('/delete/{id}', 'destroy');
+            Route::get('/client/{client_id}/', 'HistoriqueCertificatMedical');
+
         });
         Route::controller(OrdonnanceController::class)->prefix('ordonnances')->group(function () {
             Route::get('/list', 'index');
@@ -420,6 +425,7 @@ Route::middleware(['activity'])->group(function () {
             Route::get('/get_by_id/{id}', 'show');
             Route::put('/edit/{id}', 'update');
             Route::delete('/delete/{id}', 'destroy');
+            Route::get('/client/{client_id}/', 'HistoriqueOrdonnancesClient');
         });
         Route::controller(DiagnosticController::class)->prefix('diagnostics')->group(function () {
             Route::get('/list', 'index');
@@ -427,6 +433,7 @@ Route::middleware(['activity'])->group(function () {
             Route::get('/get_by_id/{id}', 'show');
             Route::put('/edit/{id}', 'update');
             Route::delete('/delete/{id}', 'destroy');
+            Route::get('/client/{client_id}/', 'historiqueDiagnostics');
         });
         Route::controller(ConfigTblTypeVisiteController::class)->prefix('config_tbl_type_visites')->group(function () {
             Route::get('/list', 'index');
@@ -443,6 +450,8 @@ Route::middleware(['activity'])->group(function () {
             Route::put('/edit/{id}', 'update');
             Route::delete('/delete/{id}', 'destroy');
             Route::patch('/{id}/status', 'updateStatus');
+            Route::get('/categories/{id}/types-parents',  'getTypesParents');
+
         });
         Route::controller(NurseController::class)->prefix('nurses')->group(function () {
             Route::get('/list', 'index');
@@ -461,6 +470,7 @@ Route::middleware(['activity'])->group(function () {
             Route::put('/edit/{id}', 'update');
             Route::delete('/delete/{id}', 'destroy');
             Route::get('/rapport_consultation/{rapport_consultation_id}',  'historiqueByRapport');
+            Route::get('/client/{client_id}/', 'historiqueMisesEnObservation');
         });
         Route::controller(OpsTblReferreMedicalController::class)->prefix('ops_tbl_referre_medicals')->group(function () {
             Route::get('/list', 'index');

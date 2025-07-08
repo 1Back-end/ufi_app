@@ -83,19 +83,21 @@ class OpsTblMotifConsultationController extends Controller
             'libelle'=> 'nullable|string',
             'description' => 'required|string',
             'dossier_consultation_id' => 'required|exists:dossier_consultations,id',
-            'categorie_visite_id' => 'nullable|exists:config_tbl_categorie_visites,id',
+            'categorie_visite_id' => 'required|exists:config_tbl_categorie_visites,id',
+            'type_visite_id' => 'nullable|exists:config_tbl_type_visite,id',
+
         ]);
 
-        // Vérifie si le dossier a déjà un motif
-        $motifExistant = OpsTbl_Motif_consultation::where('dossier_consultation_id', $request->dossier_consultation_id)
-            ->where('is_deleted', false)
-            ->first();
-
-        if ($motifExistant) {
-            return response()->json([
-                'message' => 'Ce dossier a déjà un motif de consultation.'
-            ], 422);
-        }
+//        // Vérifie si le dossier a déjà un motif
+//        $motifExistant = OpsTbl_Motif_consultation::where('dossier_consultation_id', $request->dossier_consultation_id)
+//            ->where('is_deleted', false)
+//            ->first();
+//
+//        if ($motifExistant) {
+//            return response()->json([
+//                'message' => 'Ce dossier a déjà un motif de consultation.'
+//            ], 422);
+//        }
 
         // Création du nouveau motif
         $motif = OpsTbl_Motif_consultation::create([
@@ -104,6 +106,7 @@ class OpsTblMotifConsultationController extends Controller
             'libelle'=> $request->libelle,
             'dossier_consultation_id' => $request->dossier_consultation_id,
             'categorie_visite_id' => $request->categorie_visite_id,
+            'type_visite_id' => $request->type_visite_id,
             'created_by' => $auth->id
         ]);
 

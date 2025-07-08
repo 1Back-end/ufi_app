@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Support\Str;
 
 class ConfigTblTypeDiagnostic extends Model
 {
@@ -32,9 +33,14 @@ class ConfigTblTypeDiagnostic extends Model
         parent::boot();
 
         static::creating(function ($type_diagnostic) {
-            $prefix = 'TD-';
-            $timestamp = now()->format('YmdHis');
-            $type_diagnostic->code = $prefix . $timestamp;
+            do {
+                $prefix = 'TD-';
+                $timestamp = now()->format('YmdHis');
+                $random = strtoupper(Str::random(4));
+                $code = $prefix . $timestamp . '-' . $random;
+            } while (self::where('code', $code)->exists());
+
+            $type_diagnostic->code = $code;
         });
     }
     //

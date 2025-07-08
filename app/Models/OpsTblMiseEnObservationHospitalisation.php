@@ -41,5 +41,10 @@ class OpsTblMiseEnObservationHospitalisation extends Model
     {
         return $this->belongsTo(User::class, 'updated_by');
     }
+    public function prescriptionPharmaceutique()
+    {
+        return $this->hasOne(PrescriptionPharmaceutique::class, 'mise_en_observation_id');
+    }
+
     //
 }

@@ -7,6 +7,7 @@ use App\Exports\RendezVousExport;
 use App\Models\DossierConsultation;
 use App\Models\RendezVous;
 use App\Models\Setting;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
@@ -31,11 +32,13 @@ class RendezVousController extends Controller
                 'createdBy:id,email',
                 'updatedBy:id,email',
                 'prestation:id,type',
-                'parent:id,code,dateheure_rdv',
+                'parent:id,code,dateheure_rdv' // ← ici
             ]);
 
-        // Filtrage par état
+
+        // Filtrage sur le(s) état(s)
         if ($request->has('etat')) {
+            // On récupère les états passés en query, séparés par des virgules
             $etats = explode(',', $request->input('etat'));
             $query->whereIn('etat', $etats);
         } else {
@@ -43,7 +46,6 @@ class RendezVousController extends Controller
             $query->whereIn('etat', ['Actif', 'Inactif', 'No show','En cours de consultation']);
         }
 
-        // Autres filtres
         if ($request->filled('type')) {
             $query->where('type', $request->input('type'));
         }
@@ -60,16 +62,10 @@ class RendezVousController extends Controller
                     ->orWhere('code', 'like', "%{$search}%")
                     ->orWhere('id', 'like', "%{$search}%")
                     ->orWhereHas('client', function ($subQ) use ($search) {
-                        $subQ->where('nomcomplet_client', 'like', "%{$search}%")
-                            ->orWhere('email', 'like', "%{$search}%")
-                            ->orWhere('id', 'like', "%{$search}%");
-
+                        $subQ->where('nomcomplet_client', 'like', "%{$search}%");
                     })
                     ->orWhereHas('consultant', function ($subQ) use ($search) {
-                        $subQ->where('nomcomplet', 'like', "%{$search}%")
-                            ->orWhere('email', 'like', "%{$search}%")
-                            ->orWhere('id', 'like', "%{$search}%");
-
+                        $subQ->where('nomcomplet', 'like', "%{$search}%");
                     });
             });
         }
@@ -146,39 +142,26 @@ class RendezVousController extends Controller
 
         try {
             $data = $request->validate([
-                'client_id' => 'required|integer|exists:clients,id',
-                'consultant_id' => 'required|exists:consultants,id',
                 'dateheure_rdv' => 'required|date',
-                'details' => 'nullable|string',
-                'rendez_vous_id' => 'nullable|exists:rendez_vouses,id',
+                'details' => 'required|string',
+                'rendez_vous_id' => 'required|exists:rendez_vouses,id',
             ]);
 
-            $validity = Setting::where('key', 'rdv_validity_by_day')->value('value');
-            $duration = Setting::where('key', 'rdv_duration')->value('value');
+            $firstRendezVous = RendezVous::find($data['rendez_vous_id']);
 
-            $data['nombre_jour_validite'] = $validity;
-            $data['duration'] = $duration;
-            $data['type'] = 'Non facturé';
-            $data['details'] = $data['details'] ?? '';
-            $data['created_by'] = $auth->id;
+            $conflict = RendezVous::where('is_deleted', false)
+                ->where(function (Builder $query) use ($firstRendezVous) {
+                    $query->where('client_id', $firstRendezVous->client_id)
+                        ->orWhere('consultant_id', $firstRendezVous->consultant_id);
+                })
+                ->whereBetween('dateheure_rdv', [$data['dateheure_rdv'], Carbon::parse($data['dateheure_rdv'])->addMinutes($firstRendezVous->duration)])
+                ->exists();
 
-//            $start = Carbon::parse($data['dateheure_rdv']);
-//            $end = $start->copy()->addMinutes($duration);
-//
-//            // ✅ Vérification de conflit pour ce consultant
-//            $conflict = RendezVous::where('consultant_id', $data['consultant_id'])
-//                ->where('is_deleted', false)
-//                ->where(function ($query) use ($start, $end) {
-//                    $query->whereBetween('dateheure_rdv', [$start, $end])
-//                        ->orWhereRaw('? BETWEEN dateheure_rdv AND DATE_ADD(dateheure_rdv, INTERVAL duration MINUTE)', [$start]);
-//                })
-//                ->exists();
-//
-//            if ($conflict) {
-//                return response()->json([
-//                    'error' => 'Ce consultant a déjà un rendez-vous durant cette plage horaire.'
-//                ], 409);
-//            }
+            if ($conflict) {
+                return response()->json([
+                    'error' => 'Ce client ou consultant a déjà un rendez-vous durant cette plage horaire.'
+                ], 409);
+            }
 
             $rendezVous = RendezVous::find($data['rendez_vous_id'])->replicate();
             $rendezVous->fill(array_merge($data,[
@@ -193,7 +176,7 @@ class RendezVousController extends Controller
 //        Todo: $consultant->user()->notify(SendRdvNotification::class);$
 
             return response()->json([
-                'data' => $rendez_vous,
+                'data' => $rendezVous,
                 'message' => 'Enregistrement effectué avec succès'
             ]);
 
@@ -209,8 +192,6 @@ class RendezVousController extends Controller
             ], 500);
         }
     }
-
-
 
 
     /**
@@ -330,6 +311,7 @@ class RendezVousController extends Controller
             'rendez_vous' => $rendez_vous
         ], 200);
     }
+
     /**
      * Display a listing of the resource.
      * @permission RendezVousController::toggleType
@@ -363,6 +345,7 @@ class RendezVousController extends Controller
             'rendez vous' => $rendez_vous // Corrected to $assureur
         ], 200);
     }
+
     /**
      * Display a listing of the resource.
      * @permission RendezVousController::export
@@ -394,7 +377,8 @@ class RendezVousController extends Controller
      * @permission RendezVousController::show
      * @permission_desc Rechercher et afficher  des rendez-vous
      */
-    public function searchAndExport(Request $request){
+    public function searchAndExport(Request $request)
+    {
 
     }
 

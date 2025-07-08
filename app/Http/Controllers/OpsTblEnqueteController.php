@@ -72,6 +72,34 @@ class OpsTblEnqueteController extends Controller
             'total' => $results->total(),
         ]);
     }
+
+    public function getHistoriqueEnqueteClient(Request $request, $client_id)
+    {
+        $perPage = $request->input('limit', 25);
+        $page = $request->input('page', 1);
+
+        $query = OpsTblEnquete::where('is_deleted', false)
+            ->whereHas('dossierConsultation.rendezVous', function ($query) use ($client_id) {
+                $query->where('client_id', $client_id);
+            })
+            ->with([
+                'categorieEnquete:id,name',
+                'dossierConsultation:id,code,rendez_vous_id',
+                'dossierConsultation.rendezVous:id,dateheure_rdv,code,client_id',
+            ])
+            ->orderByDesc('created_at');
+
+        $results = $query->paginate($perPage, ['*'], 'page', $page);
+
+        return response()->json([
+            'data' => $results->items(),
+            'current_page' => $results->currentPage(),
+            'last_page' => $results->lastPage(),
+            'total' => $results->total(),
+        ]);
+    }
+
+
     /**
      * Display a listing of the resource.
      * @permission OpsTblEnqueteController::store

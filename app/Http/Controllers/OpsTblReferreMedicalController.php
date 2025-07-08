@@ -28,12 +28,14 @@ class OpsTblReferreMedicalController extends Controller
 
         $request->validate([
             'rapport_consultations_id' => 'required|exists:ops_tbl_rapport_consultations,id',
-            'description' => 'nullable|string',
+            'description' => 'required|string',
+            'code_prescripteur' => 'required|string',
         ]);
 
         $result = OpsTblReferreMedical::create([
             'rapport_consultations_id' => $request->rapport_consultations_id,
             'description' => $request->description,
+            'code_prescripteur' => $request->code_prescripteur,
             'created_by' => $auth->id,
         ]);
         return response()->json([
@@ -64,7 +66,8 @@ class OpsTblReferreMedicalController extends Controller
 
         $request->validate([
             'rapport_consultations_id' => 'required|exists:ops_tbl_rapport_consultations,id',
-            'description' => 'nullable|string',
+            'description' => 'required|string',
+            'code_prescripteur' => 'required|string',
         ]);
 
         $referre = OpsTblReferreMedical::where('is_deleted', false)
@@ -73,6 +76,7 @@ class OpsTblReferreMedicalController extends Controller
         $referre->update([
             'rapport_consultations_id' => $request->rapport_consultations_id,
             'description' => $request->description,
+            'code_prescripteur' => $request->code_prescripteur,
             'updated_by' => $auth->id,
         ]);
 

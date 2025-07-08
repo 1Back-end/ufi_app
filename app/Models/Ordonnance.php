@@ -33,6 +33,10 @@ class Ordonnance extends Model
     {
         return $this->belongsTo(User::class, 'updated_by');
     }
+    public function produits()
+    {
+        return $this->hasMany(OrdonnanceProduit::class, 'ordonnance_id');
+    }
     protected static function boot()
     {
         parent::boot();

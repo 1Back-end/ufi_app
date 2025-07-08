@@ -274,7 +274,7 @@ class AssureurController extends Controller
                 'nom_abrege' => 'nullable|string',
                 'adresse' => 'required|string',
                 'tel' => 'required|string|unique:assureurs,tel,' . $assureur->id,
-                'tel1' => 'nullable',
+                'tel1' => 'nullable|string|unique:assureurs,tel1,'. $assureur->id,
                 'code_quotation' => 'required|exists:quotations,id',
                 'Reg_com' => 'required|string|unique:assureurs,Reg_com,' . $assureur->id,
                 'num_com' => 'required|string|unique:assureurs,num_com,' . $assureur->id,

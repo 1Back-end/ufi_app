@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
 
 class OpsTblCertificatMedical extends Model
 {
@@ -45,9 +46,9 @@ class OpsTblCertificatMedical extends Model
         static::creating(function ($certificatMedical) {
             $prefix = 'CERTIFICATE-';
             $timestamp = now()->format('YmdHis');
-            $certificatMedical->code = $prefix . $timestamp;
+            $random = strtoupper(Str::random(4)); // Génère 4 caractères aléatoires
+            $certificatMedical->code = $prefix . $timestamp . '-' . $random;
         });
     }
-    //
     //
 }
