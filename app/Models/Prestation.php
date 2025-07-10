@@ -6,6 +6,7 @@ use App\Enums\StateFacture;
 use App\Enums\StatusRegulation;
 use App\Enums\TypePrestation;
 use App\Models\Trait\UpdatingUser;
+use App\Pivots\PrelevementsPivot;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -69,10 +70,10 @@ class Prestation extends Model
     protected function associateFile(): Attribute
     {
         return Attribute::make(
-            get: function($value, array $attributes) {
+            get: function ($value, array $attributes) {
                 $media = $this->medias()->where('name', 'prestations-client-associate')->first();
                 if ($media) {
-                    return Storage::disk($media->disk)->url($media->path .'/'. $media->filename);
+                    return Storage::disk($media->disk)->url($media->path . '/' . $media->filename);
                 }
             },
         );
@@ -81,7 +82,7 @@ class Prestation extends Model
     protected function associateFileName(): Attribute
     {
         return Attribute::make(
-            get: function($value, array $attributes) {
+            get: function ($value, array $attributes) {
                 $media = $this->medias()->where('name', 'prestations-client-associate')->first();
                 if ($media) {
                     return $media->filename;
@@ -98,7 +99,8 @@ class Prestation extends Model
             $query->where('factures.type', 2)
                 ->where('factures.state', StateFacture::IN_PROGRESS->value)
                 ->when($search, fn($q) => $q->where('factures.code', 'like', "%$search%"))
-                ->when($latestFacture,
+                ->when(
+                    $latestFacture,
                     fn($q) => $q->whereDate('factures.date_fact', '<', $startDate),
                     fn($q) => $q->whereBetween('factures.date_fact', [$startDate, $endDate])
                 );
@@ -112,9 +114,11 @@ class Prestation extends Model
                 'soins',
                 'consultations',
                 'hospitalisations',
-                'client:id,nom_cli,prenom_cli,nomcomplet_client,ref_cli,date_naiss_cli',
-                'priseCharge:id,assureur_id,taux_pc',
-                'priseCharge.assureur:id,nom',
+                'products',
+                'examens',
+                'client',
+                'priseCharge',
+                'priseCharge.assureur',
                 'payableBy'
             ])
             ->when($assurance, function ($query) use ($assurance) {
@@ -233,6 +237,14 @@ class Prestation extends Model
             ->withTimestamps();
     }
 
+    public function examens(): MorphToMany
+    {
+        return $this->morphedByMany(Examen::class, 'prestationable')
+            ->withPivot(['amount_regulate', 'remise', 'quantity', 'pu', 'prelevements'])
+            ->using(PrelevementsPivot::class)
+            ->withTimestamps();
+    }
+
     public function medias(): MorphOne
     {
         return $this->morphOne(Media::class, 'mediable');
@@ -243,7 +255,8 @@ class Prestation extends Model
         return $this->belongsTo(ConventionAssocie::class, 'convention_id');
     }
 
-    public function appointments() {
+    public function appointments()
+    {
         return $this->hasMany(RendezVous::class, 'prestation_id');
     }
 }

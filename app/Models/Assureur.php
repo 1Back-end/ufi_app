@@ -105,6 +105,13 @@ class Assureur extends Model
             ->withPivot(['pu']);
     }
 
+    public function examens(): MorphToMany
+    {
+        return  $this->morphedByMany(Examen::class, 'assurable')
+            ->withTimestamps()
+            ->withPivot(['b']);
+    }
+
     public function specialRegulations(): MorphMany
     {
         return $this->morphMany(SpecialRegulation::class, 'regulation');

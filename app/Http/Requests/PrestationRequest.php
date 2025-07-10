@@ -26,9 +26,9 @@ class PrestationRequest extends FormRequest
             'type' => ['required', new Enum(TypePrestation::class)],
             'prise_charge_id' => ['nullable', 'exists:prise_en_charges,id'],
             'client_id' => ['required', 'exists:clients,id'],
-            'consultant_id' => [Rule::requiredIf(fn () => TypePrestation::PRODUITS->value != $this->input('type')), 'nullable', 'exists:consultants,id'],
+            'consultant_id' => [Rule::requiredIf(fn() => TypePrestation::PRODUITS->value != $this->input('type') && TypePrestation::LABORATOIR->value != $this->input('type')), 'nullable', 'exists:consultants,id'],
             'payable_by' => ['nullable', 'exists:clients,id'],
-            'payable_by_file' => [Rule::requiredIf($this->input('payable_by') || $this->input('payable_by_file_update')) , 'file'],
+            'payable_by_file' => [Rule::requiredIf($this->input('payable_by') || $this->input('payable_by_file_update')), 'file'],
             'payable_by_file_update' => ['boolean'],
             'programmation_date' => ['required', 'date'],
             // Actes
@@ -61,6 +61,11 @@ class PrestationRequest extends FormRequest
             'products*.id' => ['integer', 'required_if:type,' . TypePrestation::PRODUITS->value, 'exists:prodcuts,id'],
             'products*.remise' => ['min:0', 'numeric', 'max:100'],
             'products*.quantity' => ['integer', 'required_if:type,' . TypePrestation::PRODUITS->value, 'min:1'],
+            // Examens
+            'examens' => ['nullable', 'array', 'required_if:type,' . TypePrestation::LABORATOIR->value],
+            'examens.*.id' => ['integer', 'required_if:type,' . TypePrestation::LABORATOIR->value, 'exists:examens,id'],
+            'examens.*.remise' => ['min:0', 'numeric', 'max:100'],
+            'examens.*.quantity' => ['integer', 'required_if:type,' . TypePrestation::LABORATOIR->value, 'min:1'],
         ];
     }
 
@@ -93,6 +98,16 @@ class PrestationRequest extends FormRequest
             'hospitalisations.*.id.required' => __("L'hospitalisation est requise !"),
             'hospitalisations.*.id.exists' => __("L'hospitalisation n'existe pas !"),
             'hospitalisations.*.date_rdv.required' => __("La date de rendez-vous est requise !"),
+            'products.required' => __("Vous devez choisir les produits, lorsque le type de prestation est PRODUITS !"),
+            'products.*.id.required' => __("Le produit est requis !"),
+            'products.*.id.exists' => __("Le produit n'existe pas !"),
+            'products.*.quantity.required' => __("La quantité est requise !"),
+            'products.*.remise.required' => __("La remise est requise !"),
+            'examens.required' => __("Vous devez choisir les examens, lorsque le type de prestation est LABORATOIRE !"),
+            'examens.*.id.required' => __("L'examen est requis !"),
+            'examens.*.id.exists' => __("L'examen n'existe pas !"),
+            'examens.*.quantity.required' => __("La quantité est requise !"),
+            'examens.*.remise.required' => __("La remise est requise !"),
         ];
     }
 
@@ -145,6 +160,7 @@ class PrestationRequest extends FormRequest
 
                 break;
             case TypePrestation::SOINS->value:
+            case TypePrestation::LABORATOIR->value:
             case TypePrestation::PRODUITS->value:
                 break;
             case TypePrestation::CONSULTATIONS->value:

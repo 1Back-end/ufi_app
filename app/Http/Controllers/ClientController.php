@@ -161,6 +161,13 @@ class ClientController extends Controller
     {
         $dataValidated = $request->validated();
 
+
+        if ($client->nom_cli == $client->ref_cli) {
+            unset($dataValidated['nom_cli']);
+            unset($dataValidated['nomcomplet_client']);
+            unset($dataValidated['prenom_cli']);
+        }
+
         $dataValidated['enfant_cli'] = Carbon::parse($dataValidated['date_naiss_cli'])->age <= 14;
         $dataValidated['date_naiss_cli'] = $dataValidated['date_naiss_cli_estime']
             ? now()->subYears($dataValidated['age'])->year . '-01-01'
@@ -301,7 +308,7 @@ class ClientController extends Controller
                 'validity' => intval($request->input('validity')),
                 'client' => $client,
                 'centre' => $centre,
-                'logo' => $media ?  base64_encode(file_get_contents('storage/' . $media->path . '/'. $media->filename)) : '',
+                'logo' => $media ?  base64_encode(file_get_contents('storage/' . $media->path . '/' . $media->filename)) : '',
                 'mimetype' => $media ? $media->mimetype : '',
             ];
 
@@ -314,8 +321,7 @@ class ClientController extends Controller
                     format: 'a6',
                     direction: 'landscape'
                 );
-            }
-            catch (CouldNotTakeBrowsershot|Throwable $e) {
+            } catch (CouldNotTakeBrowsershot | Throwable $e) {
                 Log::error($e->getMessage());
 
                 return \response()->json([

@@ -67,7 +67,7 @@ class PriseEnChargeController extends Controller
             ->with([
                 'assureur:id,nom',
                 'quotation:id,taux,code',
-                'client:id,nomcomplet_client',
+                'client',
                 'creator:id,login',
                 'updater:id,login'
             ])
