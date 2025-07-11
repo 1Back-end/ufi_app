@@ -5,10 +5,13 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Examen extends Model
 {
     protected $fillable = [
+        "code",
         'name',
         'price',
         'b',
@@ -58,5 +61,16 @@ class Examen extends Model
     public function kbPrelevement(): BelongsTo
     {
         return $this->belongsTo(KbPrelevement::class, 'kb_prelevement_id');
+    }
+
+    public function techniqueAnalysis(): BelongsToMany
+    {
+        return $this->belongsToMany(AnalysisTechnique::class, 'technique_exams')
+            ->withPivot(['type']);
+    }
+
+    public function elementPaillasses(): HasMany
+    {
+        return $this->hasMany(ElementPaillasse::class, 'examen_id');
     }
 }

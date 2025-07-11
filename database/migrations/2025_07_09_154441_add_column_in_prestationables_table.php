@@ -15,7 +15,7 @@ return new class extends Migration {
     public function down(): void
     {
         Schema::table('prestationables', function (Blueprint $table) {
-            $table->dropColumn('prelevements'  );
+            $table->dropColumn('prelevements');
         });
     }
 };

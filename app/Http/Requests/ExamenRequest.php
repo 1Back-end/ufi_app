@@ -3,12 +3,14 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class ExamenRequest extends FormRequest
 {
     public function rules(): array
     {
         return [
+            'code' => ['required', Rule::unique('examens', 'code')->ignore($this->route('examen'))],
             'name' => ['required'],
             'price' => ['required', 'numeric'],
             'b' => ['required'],
@@ -26,6 +28,21 @@ class ExamenRequest extends FormRequest
             'paillasse_id' => ['required', 'exists:paillasses,id'],
             'sub_family_exam_id' => ['required', 'exists:sub_family_exams,id'],
             'kb_prelevement_id' => ['required', 'exists:kb_prelevements,id'],
+            'technique_analysis' => ['required', 'array'],
+            'technique_analysis.*.id' => ['required', 'exists:analysis_techniques,id'],
+            'technique_analysis.*.default' => ['required', 'boolean'],
+            'elements' => ['required', 'array'],
+            'elements.*.id' => ['nullable', 'exists:element_paillasses,id'],
+            'elements.*.name' => ['required'],
+            'elements.*.category_element_result_id' => ['required', 'exists:category_element_results,id'],
+            'elements.*.type_result_id' => ['required', 'exists:type_results,id'],
+            'elements.*.numero_order' => ['required', 'integer'],
+            'elements.*.unit' => ['required'],
+            'elements.*.normal_values' => ['required', 'array'],
+            'elements.*.normal_values.*.populate_id' => ['required', 'exists:groupe_populations,id'],
+            'elements.*.normal_values.*.value' => ['required', 'numeric'],
+            'elements.*.normal_values.*.value_max' => ['nullable', 'numeric'],
+            'elements.*.normal_values.*.sign' => ['required', 'in:=,>,>=,<=,<'],
         ];
     }
 

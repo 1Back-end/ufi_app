@@ -9,6 +9,7 @@ return new class extends Migration {
     {
         Schema::create('examens', function (Blueprint $table) {
             $table->id();
+            $table->string('code')->unique();
             $table->string('name');
             $table->float('price');
             $table->string('b');

@@ -16,7 +16,7 @@ class TechniqueExamController extends Controller
      */
     public function index()
     {
-        return response()->json(TechniqueExam::with('analysisTechnique')->get());
+        return response()->json(TechniqueExam::with(['analysisTechnique', 'examen'])->get());
     }
 
     /**

@@ -9,13 +9,9 @@ return new class extends Migration {
     {
         Schema::create('technique_exams', function (Blueprint $table) {
             $table->id();
-            $table->string('code')->unique();
             $table->foreignId('analysis_technique_id')->constrained('analysis_techniques')->references('id')->restrictOnDelete();
-            $table->string('type')->default('default');
-            $table->foreignId('created_by')->constrained('users')->references('id')->restrictOnDelete();
-            $table->foreignId('updated_by')->constrained('users')->references('id')->restrictOnDelete();
-            $table->timestamps();
-            $table->softDeletes();
+            $table->foreignId('examen_id')->constrained('examens')->restrictOnDelete();
+            $table->boolean('type')->default(false);
         });
     }
 
