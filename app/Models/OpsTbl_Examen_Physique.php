@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
 
 class OpsTbl_Examen_Physique extends Model
 {
@@ -14,7 +15,7 @@ class OpsTbl_Examen_Physique extends Model
         'code',
         'libelle',
         'resultat',
-        'motif_consultation_id',
+        'dossier_consultation_id',
         'categorie_examen_physique_id',
         'is_deleted',
         'created_by',
@@ -27,9 +28,9 @@ class OpsTbl_Examen_Physique extends Model
         return $this->belongsTo(ConfigTblCategoriesExamenPhysique::class, 'categorie_examen_physique_id');
     }
 
-    public function motifConsultation()
+    public function dossierConsultation()
     {
-        return $this->belongsTo(OpsTbl_Motif_consultation::class, 'motif_consultation_id');
+        return $this->belongsTo(DossierConsultation::class, 'dossier_consultation_id');
     }
 
     public function creator()
@@ -46,9 +47,11 @@ class OpsTbl_Examen_Physique extends Model
         parent::boot();
 
         static::creating(function ($examenPhysique) {
-            $prefix = 'EXAMEN-PYSIQUE-';
-            $timestamp = now()->format('YmdHis');
-            $examenPhysique->code = $prefix . $timestamp;
+            $prefix = 'EXAMEN-';
+            $timestamp = now()->format('ymdHi');
+
+            $random = strtoupper(Str::random(7));
+            $examenPhysique->code = $prefix . $timestamp . $random;
         });
     }
     //

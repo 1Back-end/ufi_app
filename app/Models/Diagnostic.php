@@ -21,6 +21,7 @@ class Diagnostic extends Model
 
     // Relations
 
+
     public function rapportConsultation()
     {
         return $this->belongsTo(OpsTblRapportConsultation::class, 'rapport_consultations_id');
@@ -49,6 +50,15 @@ class Diagnostic extends Model
             $timestamp = now()->format('YmdHis');
             $diagnostic->code = $prefix . $timestamp;
         });
+    }
+    public function categories()
+    {
+        return $this->belongsToMany(
+            CategorieDiagnostic::class,
+            'ops_tbl_diagnostic_has_config_categorie_diagnostic',
+            'code_diagnostic_id',
+            'categorie_diagnostic_id'
+        );
     }
     //
 }

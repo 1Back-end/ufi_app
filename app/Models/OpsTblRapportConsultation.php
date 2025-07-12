@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
 
 class OpsTblRapportConsultation extends Model
 {
@@ -10,15 +11,16 @@ class OpsTblRapportConsultation extends Model
         'code',
         'conclusion',
         'recommandations',
-        'motif_consultation_id',
+        'dossier_consultation_id',
         'is_deleted',
         'created_by',
         'updated_by'
     ];
 
-    public function motifConsultation()
+    public function dossierConsultation()
     {
-        return $this->belongsTo(OpsTbl_Motif_consultation::class, 'motif_consultation_id');
+        return $this->belongsTo(DossierConsultation::class, 'dossier_consultation_id');
+
     }
 
     public function creator()
@@ -30,14 +32,20 @@ class OpsTblRapportConsultation extends Model
     {
         return $this->belongsTo(User::class, 'updated_by');
     }
+    public function misesEnObservation()
+    {
+        return $this->hasMany(OpsTblMiseEnObservationHospitalisation::class, 'rapport_consultation_id');
+    }
     protected static function boot()
     {
         parent::boot();
 
-        static::creating(function ($rapport) {
+        static::creating(function ($examenPhysique) {
             $prefix = 'RAPPORT-';
-            $timestamp = now()->format('YmdHis');
-            $rapport->code = $prefix . $timestamp;
+            $timestamp = now()->format('ymdHi');
+
+            $random = strtoupper(Str::random(7));
+            $examenPhysique->code = $prefix . $timestamp . $random;
         });
     }
     //

@@ -126,7 +126,7 @@ class ProduitController extends Controller
                 'fournisseurs_id' => 'required|array',
                 'fournisseurs_id.*' => 'exists:fournisseurs,id',
                 'unite_par_emballage' => 'required|integer',
-                'condition_par_unite_emballage' => 'required|integer',
+                'condition_par_unite_emballage' => 'required|string',
                 'Dosage_defaut' => 'required|string',
                 'schema_administration' => 'required|string',
                 'facturable' => 'required|boolean', // <- ici
@@ -288,7 +288,7 @@ class ProduitController extends Controller
                 'fournisseurs_id' => 'required|array',
                 'fournisseurs_id.*' => 'exists:fournisseurs,id',
                 'unite_par_emballage' => 'required|integer',
-                'condition_par_unite_emballage' => 'required|integer',
+                'condition_par_unite_emballage' => 'required|string',
                 'Dosage_defaut' => 'required|string',
                 'schema_administration' => 'required|string',
                 'facturable' => 'required|boolean', // <- ici

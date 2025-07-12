@@ -32,18 +32,20 @@ class RendezVousController extends Controller
                 'createdBy:id,email',
                 'updatedBy:id,email',
                 'prestation:id,type',
-                'parent:id,code,dateheure_rdv',
+                'parent:id,code,dateheure_rdv' // ← ici
             ]);
 
-        // Filtrage par état
+
+        // Filtrage sur le(s) état(s)
         if ($request->has('etat')) {
+            // On récupère les états passés en query, séparés par des virgules
             $etats = explode(',', $request->input('etat'));
             $query->whereIn('etat', $etats);
         } else {
-            $query->whereIn('etat', ['Actif', 'Inactif', 'No show','Traitement en cours']);
+            // Par défaut, ces états seulement
+            $query->whereIn('etat', ['Actif', 'Inactif', 'No show', 'En cours de consultation']);
         }
 
-        // Autres filtres
         if ($request->filled('type')) {
             $query->where('type', $request->input('type'));
         }
@@ -60,16 +62,10 @@ class RendezVousController extends Controller
                     ->orWhere('code', 'like', "%{$search}%")
                     ->orWhere('id', 'like', "%{$search}%")
                     ->orWhereHas('client', function ($subQ) use ($search) {
-                        $subQ->where('nomcomplet_client', 'like', "%{$search}%")
-                            ->orWhere('email', 'like', "%{$search}%")
-                            ->orWhere('id', 'like', "%{$search}%");
-
+                        $subQ->where('nomcomplet_client', 'like', "%{$search}%");
                     })
                     ->orWhereHas('consultant', function ($subQ) use ($search) {
-                        $subQ->where('nomcomplet', 'like', "%{$search}%")
-                            ->orWhere('email', 'like', "%{$search}%")
-                            ->orWhere('id', 'like', "%{$search}%");
-
+                        $subQ->where('nomcomplet', 'like', "%{$search}%");
                     });
             });
         }
@@ -85,6 +81,45 @@ class RendezVousController extends Controller
         ]);
     }
 
+    public function HistoriqueRendezVous(Request $request, $client_id)
+    {
+        $perPage = $request->input('limit', 10);
+        $page = $request->input('page', 1);
+
+        $query = RendezVous::where('is_deleted', false)
+            ->where('client_id', $client_id)
+            ->with([
+                'consultant:id,nomcomplet',
+                'createdBy:id,email',
+                'updatedBy:id,email',
+                'prestation:id,type',
+                'parent:id,code,dateheure_rdv'
+            ])
+            ->orderByDesc('dateheure_rdv'); // du plus récent au plus ancien
+
+        // Filtrage sur le(s) état(s)
+        if ($request->has('etat')) {
+            // On récupère les états passés en query, séparés par des virgules
+            $etats = explode(',', $request->input('etat'));
+            $query->whereIn('etat', $etats);
+        } else {
+            // Par défaut, ces états seulement
+            $query->whereIn('etat', ['Actif', 'Inactif', 'No show', 'En cours de consultation']);
+        }
+
+        if ($request->filled('type')) {
+            $query->where('type', $request->input('type'));
+        }
+
+        $rendez_vous = $query->paginate($perPage, ['*'], 'page', $page);
+
+        return response()->json([
+            'data' => $rendez_vous->items(),
+            'current_page' => $rendez_vous->currentPage(),
+            'last_page' => $rendez_vous->lastPage(),
+            'total' => $rendez_vous->total(),
+        ]);
+    }
 
 
 
@@ -129,18 +164,21 @@ class RendezVousController extends Controller
             }
 
             $rendezVous = RendezVous::find($data['rendez_vous_id'])->replicate();
-            $rendezVous->fill(array_merge($data, ['created_by' => $auth->id, 'updated_by' => $auth->id, 'type' => 'Non facturé']));
+            $rendezVous->fill(array_merge($data, [
+                'created_by' => $auth->id,
+                'updated_by' => $auth->id,
+                'type' => 'Non facturé'
+            ]));
             $rendezVous->save();
 
-//        Todo: Mettre en marche les notifications envoyées
-//        Todo: $consultant = Consultant::find($consultantId);
-//        Todo: $consultant->user()->notify(SendRdvNotification::class);$
+            //        Todo: Mettre en marche les notifications envoyées
+            //        Todo: $consultant = Consultant::find($consultantId);
+            //        Todo: $consultant->user()->notify(SendRdvNotification::class);$
 
             return response()->json([
                 'data' => $rendezVous,
                 'message' => 'Enregistrement effectué avec succès'
             ]);
-
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
                 'error' => 'Erreur de validation',
@@ -217,7 +255,6 @@ class RendezVousController extends Controller
                 'data' => $rendezVous,
                 'message' => 'Rendez-vous mis à jour avec succès'
             ]);
-
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
                 'error' => 'Erreur de validation',
@@ -338,10 +375,7 @@ class RendezVousController extends Controller
      * @permission RendezVousController::show
      * @permission_desc Rechercher et afficher  des rendez-vous
      */
-    public function searchAndExport(Request $request)
-    {
-
-    }
+    public function searchAndExport(Request $request) {}
 
     /**
      * Display a listing of the resource.

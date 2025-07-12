@@ -17,6 +17,8 @@ class OpsTbl_Motif_consultation extends Model
         'is_deleted',
         'libelle',
         'dossier_consultation_id',
+        'categorie_visite_id',
+        'type_visite_id',
         'created_by',
         'updated_by',
     ];
@@ -25,6 +27,17 @@ class OpsTbl_Motif_consultation extends Model
     public function dossierConsultation()
     {
         return $this->belongsTo(DossierConsultation::class);
+    }
+
+    public function categorieVisite()
+    {
+        return $this->belongsTo(ConfigTblCategorieVisite::class);
+    }
+
+    function TypeVisite()
+    {
+        return $this->belongsTo(ConfigTblTypeVisite::class);
+
     }
 
     // 🔗 Créateur

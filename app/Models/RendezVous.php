@@ -8,13 +8,14 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Carbon\Carbon;
 use DateTimeInterface;
+use Illuminate\Support\Str;
 
 class RendezVous extends Model
 {
     use HasFactory, UpdatingUser;
 
     protected $table = 'rendez_vouses';
-    protected $appends = ['past'];
+    protected $appends = ['past','nombre_jours'];
 
 
     protected $fillable = [
@@ -43,10 +44,12 @@ class RendezVous extends Model
     {
         parent::boot();
 
-        static::creating(function ($rdv) {
-            $prefix = 'RDV-';
-            $timestamp = now()->format('YmdHis');
-            $rdv->code = $prefix . $timestamp;
+        static::creating(function ($examenPhysique) {
+            $prefix = 'RD-';
+            $timestamp = now()->format('ymdHi');
+
+            $random = strtoupper(Str::random(7));
+            $examenPhysique->code = $prefix . $timestamp . $random;
         });
     }
 
@@ -103,12 +106,16 @@ class RendezVous extends Model
         return $query->where('is_deleted', false);
     }
 
-
-
     public function getPastAttribute(): bool
     {
-        return now()->greaterThan($this->dateheure_rdv->addDays($this->nombre_jour_validite));
+        return now()->greaterThan($this->dateheure_rdv->copy()->addDays($this->nombre_jour_validite));
     }
+
+    public function getNombreJoursAttribute(): ?int
+    {
+        return (int) ceil($this->duration / 60);
+    }
+
 
 
 

@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Client;
 use App\Models\OpsTblCertificatMedical;
+use App\Models\Ordonnance;
 use Illuminate\Http\Request;
 
 class OpsTblCertificatMedicalController extends Controller
@@ -15,6 +17,56 @@ class OpsTblCertificatMedicalController extends Controller
     public function index(){
 
     }
+
+    /**
+     * Display a listing of the resource.
+     * @permission OpsTblCertificatMedicalController::HistoriqueCertificatMedical
+     * @permission_desc Afficher l'historique des certificats médicaux d'un client
+     */
+    public function HistoriqueCertificatMedical(Request $request, $client_id)
+    {
+        try {
+            $perPage = $request->input('limit', 25);
+            $page = $request->input('page', 1);
+
+            // Vérifier si le client existe
+            $client = Client::find($client_id);
+            if (!$client) {
+                return response()->json(['message' => 'Client non trouvé'], 404);
+            }
+
+            // Récupérer les certificats médicaux liés au client via les relations
+            $certificats = OpsTblCertificatMedical::whereHas('rapportConsultation.dossierConsultation.rendezVous', function ($query) use ($client_id) {
+                $query->where('client_id', $client_id);
+            })
+                ->with([
+                    'rapportConsultation.dossierConsultation.rendezVous.client',
+                    'rapportConsultation.dossierConsultation.rendezVous.consultant',
+                    'creator',
+                    'updater',
+                ])
+                ->where('is_deleted', false)
+                ->orderByDesc('created_at')
+                ->paginate($perPage, ['*'], 'page', $page);
+
+            return response()->json([
+                'data' => $certificats->items(),
+                'current_page' => $certificats->currentPage(),
+                'last_page' => $certificats->lastPage(),
+                'total' => $certificats->total(),
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Erreur lors de la récupération des certificats médicaux.',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+
+
+
     /**
      * Display a listing of the resource.
      * @permission OpsTblCertificatMedicalController::store
@@ -27,14 +79,14 @@ class OpsTblCertificatMedicalController extends Controller
             'type' => 'nullable|string|max:255',
             'commentaire' => 'nullable|string',
             'nbre_jour_repos' => 'nullable|integer',
-            'motif_consultation_id' => 'nullable|exists:ops_tbl__motif_consultations,id',
+            'rapport_consultation_id' => 'nullable|exists:ops_tbl_rapport_consultations,id',
         ]);
 
         $certificat = OpsTblCertificatMedical::create([
             'type' => $request->type,
             'commentaire' => $request->commentaire,
             'nbre_jour_repos' => $request->nbre_jour_repos,
-            'motif_consultation_id' => $request->motif_consultation_id,
+            'rapport_consultation_id' => $request->rapport_consultation_id,
             'created_by' => $auth->id
 
         ]);
