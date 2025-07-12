@@ -489,6 +489,9 @@ Route::middleware(['activity'])->group(function () {
         // Gestion des Examen
         Route::apiResource('examens', ExamenController::class);
 
+        // Prélèvements
+        Route::post('/prelevements/{examen}/{prestation}', [ExamenController::class, 'prelevement']);
+
         // Gestion Element Paillasse
         Route::apiResource('element-paillasses', ElementPaillasseController::class);
     });

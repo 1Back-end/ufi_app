@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\ExamenRequest;
 use App\Models\ElementPaillasse;
 use App\Models\Examen;
+use App\Models\Prestation;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Response;
@@ -173,5 +174,31 @@ class ExamenController extends Controller
         $examen->delete();
 
         return response()->json();
+    }
+
+    /**
+     * @param Examen $examen
+     * @param Prestation $prestation
+     * @return JsonResponse
+     *
+     * @permission ExamenController::prelevement
+     * @permission_desc Effectuer un prélèvement d’un examen
+     */
+    public function prelevement(Examen $examen, Prestation $prestation)
+    {
+        $prelevements = $prestation->examens()->find($examen->id)->pivot->prelevements;
+
+        $prelevement = $prelevements ?? [];
+
+        $prestation->examens()->updateExistingPivot($examen->id, [
+            'prelevements' => array_merge($prelevement, [
+                'preleve' => true,
+                'preleve_date' => now(),
+            ])
+        ]);
+
+        return response()->json([
+            'message' => 'Examen prelevement successfully'
+        ], ResponseAlias::HTTP_OK);
     }
 }
