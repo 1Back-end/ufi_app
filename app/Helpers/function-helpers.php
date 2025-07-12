@@ -250,6 +250,7 @@ if (! function_exists('calculate_amount_facture')) {
                 break;
             case TypePrestation::LABORATOIR:
 
+                $kbprelevementIds = [];
                 foreach ($prestation->examens as $examen) {
                     $pu = $examen->price;
                     $amount_examen_pc = 0;
@@ -267,6 +268,11 @@ if (! function_exists('calculate_amount_facture')) {
 
                     $amount_examen_remise = ($examen->pivot->quantity * $pu * $examen->pivot->remise) / 100;
                     $amount_remise += $amount_examen_remise;
+
+                    if (! in_array($examen->kb_prelevement_id, $kbprelevementIds)) {
+                        $amount += $examen->kbPrelevement->amount;
+                        $amount_client += $examen->kbPrelevement->amount;
+                    }
 
                     $amount += $examen->pivot->quantity * $pu;
                     $amount_client += ($examen->pivot->quantity * $pu) - $amount_examen_remise - $amount_examen_pc;
