@@ -32,7 +32,7 @@ class DossierConsultationController extends Controller
                 'creator:id,login',
                 'updater:id,login',
                 'rendezVous:id,code,dateheure_rdv,client_id,consultant_id',
-                'rendezVous.client:id,nomcomplet_client,ref_cli',
+                'rendezVous.client',
                 'rendezVous.consultant:id,nomcomplet,ref',
                 'medias'
             ]);
@@ -233,14 +233,12 @@ class DossierConsultationController extends Controller
                 'message' => 'Dossier mis à jour avec succès.',
                 'data' => $dossier->load('medias')
             ]);
-
         } catch (\Illuminate\Validation\ValidationException $e) {
             // Erreur de validation
             return response()->json([
                 'message' => 'Erreur de validation',
                 'errors' => $e->errors()
             ], 422);
-
         } catch (\Exception $e) {
             // Autres erreurs
             return response()->json([
@@ -256,7 +254,8 @@ class DossierConsultationController extends Controller
      * @permission DossierConsultationController::show
      * @permission_desc Afficher les détaisl des dossiers de consultations
      */
-    public function show(string $id){
+    public function show(string $id)
+    {
         $dossiers = DossierConsultation::where('is_deleted', false)
             ->with([
                 'creator:id,login',
@@ -268,9 +267,9 @@ class DossierConsultationController extends Controller
             ])
             ->findOrFail($id);
 
-        if(!$dossiers){
+        if (!$dossiers) {
             return response()->json(['message' => 'Dossiers introuvable'], 404);
-        }else{
+        } else {
             return response()->json($dossiers);
         }
     }
@@ -364,4 +363,3 @@ class DossierConsultationController extends Controller
 
     //
 }
-

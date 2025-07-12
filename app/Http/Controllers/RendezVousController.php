@@ -27,7 +27,7 @@ class RendezVousController extends Controller
 
         $query = RendezVous::where('is_deleted', false)
             ->with([
-                'client:id,nomcomplet_client',
+                'client',
                 'consultant:id,nomcomplet',
                 'createdBy:id,email',
                 'updatedBy:id,email',
