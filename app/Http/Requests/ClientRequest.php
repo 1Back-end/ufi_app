@@ -62,6 +62,7 @@ class ClientRequest extends FormRequest
             'tel_whatsapp' => ['boolean'],
             'urgent_contact' => ['nullable'],
             'urgent_contact_number' => ['nullable'],
+            'religion' => ['nullable'],
         ];
     }
 

@@ -249,7 +249,35 @@ if (! function_exists('calculate_amount_facture')) {
                 }
                 break;
             case TypePrestation::LABORATOIR:
-                throw new \Exception('To be implemented');
+
+                $kbprelevementIds = [];
+                foreach ($prestation->examens as $examen) {
+                    $pu = $examen->price;
+                    $amount_examen_pc = 0;
+                    if ($prestation->priseCharge) {
+                        if ($prestation->priseCharge->assureur->examens()->find($examen->id)) {
+                            $examenPc = $prestation->priseCharge->assureur->examens()->find($examen->id);
+                            $pu = $examenPc->pivot->b * $prestation->priseCharge->quotation->taux;
+                        } else {
+                            $pu = ($prestation->priseCharge && $prestation->priseCharge->assureur->BM ? $examen->b1 : $examen->b) * $prestation->priseCharge->quotation->taux;
+                        }
+
+                        $amount_examen_pc = ($examen->pivot->quantity * $pu * $prestation->priseCharge->taux_pc) / 100;
+                        $amount_pc += $amount_examen_pc;
+                    }
+
+                    $amount_examen_remise = ($examen->pivot->quantity * $pu * $examen->pivot->remise) / 100;
+                    $amount_remise += $amount_examen_remise;
+
+                    if (! in_array($examen->kb_prelevement_id, $kbprelevementIds)) {
+                        $amount += $examen->kbPrelevement->amount;
+                        $amount_client += $examen->kbPrelevement->amount;
+                    }
+
+                    $amount += $examen->pivot->quantity * $pu;
+                    $amount_client += ($examen->pivot->quantity * $pu) - $amount_examen_remise - $amount_examen_pc;
+                }
+
                 break;
             case TypePrestation::HOSPITALISATION:
                 foreach ($prestation->hospitalisations as $hospitalisation) {
@@ -325,7 +353,7 @@ if (! function_exists('save_facture')) {
             ]);
         }
 
-        if ($facture->type == 2 && $prestation->payable_by){
+        if ($facture->type == 2 && $prestation->payable_by) {
             $convention = $prestation->payableBy->conventionAssocies()
                 ->where('start_date', '<=', now())
                 ->where('end_date', '>=', now())
@@ -371,7 +399,7 @@ if (! function_exists('save_browser_shot_pdf')) {
             ->showBackground();
 
 
-        if(env('APP_ENV') == "production") {
+        if (env('APP_ENV') == "production") {
             $browserShot->setChromePath('C:\chrome-headless\chrome-headless-shell.exe');
         }
 

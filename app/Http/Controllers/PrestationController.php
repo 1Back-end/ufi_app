@@ -12,6 +12,7 @@ use App\Models\Client;
 use App\Models\Consultant;
 use App\Models\Consultation;
 use App\Models\ConventionAssocie;
+use App\Models\Examen;
 use App\Models\Facture;
 use App\Models\FactureAssociate;
 use App\Models\Media;
@@ -63,11 +64,18 @@ class PrestationController extends Controller
             'consultant.code_specialite:id,nom_specialite',
             'priseCharge',
             'priseCharge.assureur',
+            'priseCharge.quotation',
             'actes',
             'soins',
             'consultations',
             'hospitalisations',
             'products',
+            'examens',
+            'examens.kbPrelevement',
+            'examens.typePrelevement',
+            'examens.paillasse',
+            'examens.subFamilyExam',
+            'examens.subFamilyExam.familyExam',
             'centre',
             'factures',
             'factures.regulations',
@@ -182,7 +190,6 @@ class PrestationController extends Controller
                     filename: $prestation->client->ref_cli . "-" . $prestation->id,
                 );
             }
-
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error($e->getMessage());
@@ -208,14 +215,16 @@ class PrestationController extends Controller
                 'payableBy:id,nomcomplet_client',
                 'client',
                 'consultant:id,nomcomplet',
-                'priseCharge:id,assureur_id,taux_pc',
-                'priseCharge.assureur:id,nom',
+                'priseCharge',
+                'priseCharge.assureur',
+                'priseCharge.quotation',
                 'actes',
                 'soins',
                 'consultations',
                 'medias',
                 'hospitalisations',
                 'products',
+                'examens',
             ])
         ]);
     }
@@ -391,14 +400,13 @@ class PrestationController extends Controller
                     perPage: $request->input('per_page', 25),
                     page: $request->input('page', 1)
                 );
-        }
-        else {
+        } else {
             $lastFactures = true;
             $dateLatestFacture = $latestPrestations->first()->factures->first()->date_fact;
             $prestations = $latestPrestations;
         }
 
-        $column = $request->input('assurance') ? 'amount_pc' : 'amount_client' ;
+        $column = $request->input('assurance') ? 'amount_pc' : 'amount_client';
         $totalAmount = DB::table('factures')
             ->join('prestations', 'factures.prestation_id', '=', 'prestations.id')
             ->where('factures.type', 2)
@@ -423,7 +431,7 @@ class PrestationController extends Controller
 
     protected function attachElementWithPrestation(PrestationRequest $request, Prestation $prestation, bool $update = false)
     {
-        $prestationDuration = Setting::where('key','rdv_duration')->first()->value;
+        $prestationDuration = Setting::where('key', 'rdv_duration')->first()->value;
 
         if ($update) {
             $prestation->appointments()->delete();
@@ -537,6 +545,30 @@ class PrestationController extends Controller
                     $this->createRdv($prestation, $request->input('consultant_id'), $request->input('client_id'), $item['date_rdv']);
                 }
                 break;
+            case TypePrestation::LABORATOIR->value:
+                if ($update) {
+                    $prestation->examens()->detach();
+                }
+
+                foreach ($request->input('examens') as $item) {
+                    $examen = Examen::find($item['id']);
+                    $pu = $examen->price;
+                    if ($prestation->priseCharge) {
+                        if ($examenPC = $prestation->priseCharge->assureur->examens()->find($examen->id)) {
+                            $pu = $examenPC->pivot->b * $prestation->priseCharge->quotation->taux;
+                        } else {
+                            $pu = ($prestation->priseCharge && $prestation->priseCharge->assureur->BM ? $examen->b1 : $examen->b) * $prestation->priseCharge->quotation->taux;
+                        }
+                    }
+
+                    $prestation->examens()->attach($item['id'], [
+                        'remise' => $item['remise'],
+                        'quantity' => $item['quantity'],
+                        'pu' =>  $pu,
+                        'b' => $prestation->priseCharge && $prestation->priseCharge->assureur->BM ? $examen->b1 : $examen->b,
+                    ]);
+                }
+                break;
             case TypePrestation::PRODUITS->value:
                 if ($update) {
                     $prestation->products()->detach();
@@ -587,16 +619,14 @@ class PrestationController extends Controller
                 if ($priseCharge) {
                     if ($acte = $priseCharge->assureur->actes()->find($acteData['id'])) {
                         $pu = $acte->pivot->b * $acte->pivot->k_modulateur;
-                    }
-                    else {
+                    } else {
                         $acte = Acte::find($acteData['id']);
                         $pu = $acte->b * $acte->k_modulateur;
                     }
 
                     $amount_acte_pc = ($acteData['quantity'] * $pu * $priseCharge->taux_pc) / 100;
                     $amount_pc += $amount_acte_pc;
-                }
-                else {
+                } else {
                     $acte = Acte::find($acteData['id']);
                     $pu = $acte->pu;
                 }
@@ -613,16 +643,14 @@ class PrestationController extends Controller
                 if ($priseCharge) {
                     if ($soins = $priseCharge->assureur->soins()->find($soinData['id'])) {
                         $pu = $soins->pivot->pu;
-                    }
-                    else {
+                    } else {
                         $soin = Soins::find($soinData['id']);
                         $pu = $soin->pu_default;
                     }
 
                     $amount_soin_pc = ($soinData['nbr_days'] * $pu * $priseCharge->taux_pc) / 100;
                     $amount_pc += $amount_soin_pc;
-                }
-                else {
+                } else {
                     $soin = Soins::find($soinData['id']);
                     $pu = $soin->pu;
                 }
@@ -639,16 +667,14 @@ class PrestationController extends Controller
                 if ($priseCharge) {
                     if ($consultation = $priseCharge->assureur->consultations()->find($consultationData['id'])) {
                         $pu = $consultation->pivot->pu;
-                    }
-                    else {
+                    } else {
                         $consultation = Consultation::find($consultationData['id']);
                         $pu = $consultation->pu_default;
                     }
 
                     $amount_consultation_pc = ($consultationData['quantity'] * $pu * $priseCharge->taux_pc) / 100;
                     $amount_pc += $amount_consultation_pc;
-                }
-                else {
+                } else {
                     $consultation = Consultation::find($consultationData['id']);
                     $pu = $consultation->pu;
                 }
@@ -665,22 +691,20 @@ class PrestationController extends Controller
                 if ($priseCharge) {
                     if ($hospitalisation = $priseCharge->assureur->hospitalisations()->find($hospitalisationData['id'])) {
                         $pu = $hospitalisation->pivot->pu;
-                    }
-                    else {
+                    } else {
                         $hospitalisation = OpsTblHospitalisation::find($hospitalisationData['id']);
                         $pu = $hospitalisation->pu_default;
                     }
 
-                    $amount_hospitalisation_pc = ($hospitalisationData['quantity'] * $pu * $priseCharge->taux_pc) / 100;
-                    $amount_pc += $amount_hospitalisation_pc;
-                }
-                else {
+                    $amount_examen_pc = ($hospitalisationData['quantity'] * $pu * $priseCharge->taux_pc) / 100;
+                    $amount_pc += $amount_examen_pc;
+                } else {
                     $hospitalisation = OpsTblHospitalisation::find($hospitalisationData['id']);
                     $pu = $hospitalisation->pu;
                 }
 
-                $amount_hospitalisation_remise = ($hospitalisationData['quantity'] * $pu * $hospitalisationData['remise']) / 100;
-                $amount_remise += $amount_hospitalisation_remise;
+                $amount_examen_remise = ($hospitalisationData['quantity'] * $pu * $hospitalisationData['remise']) / 100;
+                $amount_remise += $amount_examen_remise;
 
                 $amount += $hospitalisationData['quantity'] * $pu;
             }
@@ -698,10 +722,33 @@ class PrestationController extends Controller
             }
         }
 
+        if (isset($requestData['examens']) && $requestData['examens']) {
+            foreach ($request->input('examens') as $examenData) {
+                if ($priseCharge) {
+                    if ($examen = $priseCharge->assureur->examens()->find($examenData['id'])) {
+                        $pu = $examen->pivot->b * $priseCharge->quotation->taux;
+                    } else {
+                        $examen = Examen::find($examenData['id']);
+                        $pu = $examen->b * $priseCharge->quotation->taux;
+                    }
+
+                    $amount_examen_pc = ($examenData['quantity'] * $pu * $priseCharge->taux_pc) / 100;
+                    $amount_pc += $amount_examen_pc;
+                } else {
+                    $examen = Examen::find($examenData['id']);
+                    $pu = $examen->price;
+                }
+
+                $amount_examen_remise = ($examenData['quantity'] * $pu * $examenData['remise']) / 100;
+                $amount_remise += $amount_examen_remise;
+
+                $amount += $examenData['quantity'] * $pu;
+            }
+        }
+
         if (isset($data['payable_by']) && $data['payable_by']) {
             $data['regulated'] = $data['payable_by'] ? 1 : 0;
-        }
-        else {
+        } else {
             $data['regulated'] = $amount == ($amount_remise + $amount_pc) ? 2 : 0;
         }
 
@@ -744,24 +791,23 @@ class PrestationController extends Controller
 
         $startDate = Carbon::createFromTimeString($request->input("start_date"));
         $endDate = Carbon::createFromTimeString($request->input("end_date"));
-        $fileName = $ref .'-'. $startDate->format('d-m-Y')  .'-'. $endDate->format('d-m-Y') . '.pdf';
+        $fileName = $ref . '-' . $startDate->format('d-m-Y')  . '-' . $endDate->format('d-m-Y') . '.pdf';
 
         $mediaFacture = Media::where('filename', $fileName)->first();
 
         if ($mediaFacture) {
             $path = 'storage/' . $mediaFacture->path;
-        }
-        else {
+        } else {
             $prestations = Prestation::filterInProgress(
                 startDate: $request->input('start_date'),
                 endDate: $request->input('end_date'),
                 assurance: $request->input('assurance'),
                 payableBy: $request->input('client'),
             )
-            ->get();
+                ->get();
 
             $centre = Centre::find($request->header('centre'));
-            $code = Str::padLeft((FactureAssociate::max('id') ? FactureAssociate::max('id') + 1 : 1), 4, 0) .'/'. Str::upper($centre->reference) .'/'. now()->format('y');
+            $code = Str::padLeft((FactureAssociate::max('id') ? FactureAssociate::max('id') + 1 : 1), 4, 0) . '/' . Str::upper($centre->reference) . '/' . now()->format('y');
             $media = $centre->medias()->where('name', 'logo')->first();
 
             $data = [
@@ -770,7 +816,7 @@ class PrestationController extends Controller
                 'prestations' => $prestations,
                 'code' => $code,
                 'centre' => $centre,
-                'logo' => $media ? 'storage/'. $media->path .'/'. $media->filename : '',
+                'logo' => $media ? 'storage/' . $media->path . '/' . $media->filename : '',
                 "start_date" => $startDate,
                 "end_date" => $endDate,
             ];
@@ -789,8 +835,7 @@ class PrestationController extends Controller
                     footer: $footer,
                     margins: [15, 10, 15, 10]
                 );
-            }
-            catch (CouldNotTakeBrowsershot|Throwable $e) {
+            } catch (CouldNotTakeBrowsershot | Throwable $e) {
                 Log::error($e->getMessage());
 
                 return \response()->json([
@@ -819,8 +864,7 @@ class PrestationController extends Controller
                     'amount' => $totalAmount,
                     'date' => now(),
                 ]);
-            }
-            else {
+            } else {
                 $facture = $assurance->factures()->create([
                     'start_date' =>  $request->input('start_date'),
                     'end_date' => $request->input('end_date'),
@@ -860,12 +904,12 @@ class PrestationController extends Controller
             'consultant_id' => $prestation->consultant_id,
             'dateheure_rdv' => $date,
             'details' => "Rendez-vous programmé pour le client " . $prestation->client->nomcomplet_client . " et le consultant " . $prestation->consultant->nomcomplet,
-            'nombre_jour_validite' => Setting::where('key','rdv_validity_by_day')->first()->value,
-            'duration' => Setting::where('key','rdv_duration')->first()->value,
+            'nombre_jour_validite' => Setting::where('key', 'rdv_validity_by_day')->first()->value,
+            'duration' => Setting::where('key', 'rdv_duration')->first()->value,
         ]);
 
-//        Todo: Mettre en marche les notifications envoyées
-//        Todo: $consultant = Consultant::find($consultantId);
-//        Todo: $consultant->user()->notify(SendRdvNotification::class);
+        //        Todo: Mettre en marche les notifications envoyées
+        //        Todo: $consultant = Consultant::find($consultantId);
+        //        Todo: $consultant->user()->notify(SendRdvNotification::class);
     }
 }

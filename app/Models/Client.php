@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Log;
 
 class Client extends Model
 {
@@ -51,6 +52,7 @@ class Client extends Model
         'user_id',
         'urgent_contact',
         'urgent_contact_number',
+        'religion',
     ];
 
     protected $appends = ['age', 'validity_card'];
@@ -59,7 +61,62 @@ class Client extends Model
     protected function nomCli(): Attribute
     {
         return Attribute::make(
-            get: fn($value, array $attributes) => $this->client_anonyme_cli ? $this->ref_cli : $value,
+            get: function ($value, array $attributes) {
+                if (
+                    $this->client_anonyme_cli == 1
+                    && (
+                        auth()->user()->roles()->where('confidential', true)->exists()
+                        || auth()->user()->client?->user_id === $attributes['user_id']
+                        || ($this->created_at->diffInMinutes(now()) <= 10 && $attributes['created_by'] === auth()->user()->id)
+                    )
+                ) {
+                    return $attributes['nom_cli'];
+                }
+
+                return $attributes['client_anonyme_cli'] ? $attributes['ref_cli'] : $attributes['nom_cli'];
+            },
+            set: fn($value) => $value,
+        );
+    }
+
+    protected function nomcompletClient(): Attribute
+    {
+        return Attribute::make(
+            get: function ($value, array $attributes) {
+                if (
+                    $attributes['client_anonyme_cli']
+                    && (
+                        auth()->user()->roles()->where('confidential', true)->exists()
+                        || auth()->user()->client?->user_id === $attributes['user_id']
+                        || ($this->created_at?->diffInMinutes(now()) <= 10 && $attributes['created_by'] === auth()->user()->id)
+                    )
+                ) {
+                    return $attributes['nomcomplet_client'];
+                }
+
+                return $attributes['client_anonyme_cli'] ? $attributes['ref_cli'] : $attributes['nomcomplet_client'];
+            },
+            set: fn($value) => $value,
+        );
+    }
+
+    protected function prenomCli(): Attribute
+    {
+        return Attribute::make(
+            get: function ($value, array $attributes) {
+                if (
+                    $attributes['client_anonyme_cli']
+                    && (
+                        auth()->user()->roles()->where('confidential', true)->exists()
+                        || auth()->user()->client?->user_id === $attributes['user_id']
+                        || ($this->created_at->diffInMinutes(now()) <= 10 && $attributes['created_by'] === auth()->user()->id)
+                    )
+                ) {
+                    return $attributes['prenom_cli'];
+                }
+
+                return $attributes['client_anonyme_cli'] ? $attributes['ref_cli'] : $attributes['prenom_cli'];
+            },
             set: fn($value) => $value,
         );
     }
@@ -71,14 +128,6 @@ class Client extends Model
                 $fidelityCard = $this->fidelityCard()->where('name', 'fidelityCard')->latest()->first();
                 return $fidelityCard ? $fidelityCard->created_at->greaterThan(now()->subDays($fidelityCard->validity)) : null;
             },
-        );
-    }
-
-    protected function nomcompletClient(): Attribute
-    {
-        return Attribute::make(
-            get: fn($value, array $attributes) => $this->client_anonyme_cli ? $this->ref_cli : $value,
-            set: fn($value) => $value,
         );
     }
 
@@ -168,7 +217,6 @@ class Client extends Model
             'status_cli' => 'integer',
             'client_anonyme_cli' => 'boolean',
             'tel_whatsapp' => 'boolean',
-            'created_at' => 'date:d/m/Y H:i:s',
         ];
     }
 
