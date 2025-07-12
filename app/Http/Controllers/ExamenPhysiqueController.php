@@ -69,6 +69,11 @@ class ExamenPhysiqueController extends Controller
         ]);
     }
 
+    /**
+     * Display a listing of the resource.
+     * @permission ExamenPhysiqueController::getHistoriqueExamensClient
+     * @permission_desc Afficher l'historique des examens physiques d'un client
+     */
     public function getHistoriqueExamensClient(Request $request, $client_id)
     {
         $perPage = $request->input('limit', 25);

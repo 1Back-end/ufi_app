@@ -50,6 +50,12 @@ class OpsTblRapportConsultationController extends Controller
         ]);
     }
 
+
+    /**
+     * Display a listing of the resource.
+     * @permission OpsTblRapportConsultationController::getHistoriqueRapportClient
+     * @permission_desc Afficher l'historique des rapports de consultation d'un client
+     */
     public function getHistoriqueRapportClient(Request $request, $client_id)
     {
         $perPage = $request->input('limit', 25);

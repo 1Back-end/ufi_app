@@ -65,6 +65,12 @@ class OpsTblMiseEnObservationHospitalisationController extends Controller
             'message' => 'Liste des observations récupérée avec succès.',
         ]);
     }
+
+    /**
+     * Display a listing of the resource.
+     * @permission OpsTblMiseEnObservationHospitalisationController::historiqueMisesEnObservation
+     * @permission_desc Afficher l'historique des mises en observation d'un client
+     */
     public function historiqueMisesEnObservation(Request $request, $client_id)
     {
         $perPage = $request->input('limit', 25);

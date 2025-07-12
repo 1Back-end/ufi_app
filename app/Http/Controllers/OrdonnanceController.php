@@ -14,6 +14,11 @@ class OrdonnanceController extends Controller
     {
 
     }
+    /**
+     * Display a listing of the resource.
+     * @permission OpsTblReferreMedicalController::historiqueReferresMedicaux
+     * @permission_desc Afficher l'historique des referres médicals d'un client
+     */
     public function HistoriqueOrdonnancesClient(Request $request, $client_id)
     {
         try {

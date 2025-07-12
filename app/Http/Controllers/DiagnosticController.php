@@ -38,6 +38,12 @@ class DiagnosticController extends Controller
         }
     }
 
+    /**
+     * Display a listing of the resource.
+     * @permission DiagnosticController::historiqueDiagnostics
+     * @permission_desc Afficher l'historique  des diagnostics d'un client
+     */
+
     public function historiqueDiagnostics(Request $request, $client_id)
     {
         try {

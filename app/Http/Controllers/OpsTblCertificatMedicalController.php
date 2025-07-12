@@ -18,6 +18,11 @@ class OpsTblCertificatMedicalController extends Controller
 
     }
 
+    /**
+     * Display a listing of the resource.
+     * @permission OpsTblCertificatMedicalController::HistoriqueCertificatMedical
+     * @permission_desc Afficher l'historique des certificats médicaux d'un client
+     */
     public function HistoriqueCertificatMedical(Request $request, $client_id)
     {
         try {

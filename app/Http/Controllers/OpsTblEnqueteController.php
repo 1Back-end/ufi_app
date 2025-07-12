@@ -73,6 +73,11 @@ class OpsTblEnqueteController extends Controller
         ]);
     }
 
+    /**
+     * Display a listing of the resource.
+     * @permission OpsTblEnqueteController::getHistoriqueEnqueteClient
+     * @permission_desc Afficher l'historique des enquete systémiques d'un client
+     */
     public function getHistoriqueEnqueteClient(Request $request, $client_id)
     {
         $perPage = $request->input('limit', 25);
