@@ -225,6 +225,11 @@ class PrestationController extends Controller
                 'hospitalisations',
                 'products',
                 'examens',
+                'examens.kbPrelevement',
+                'examens.typePrelevement',
+                'examens.paillasse',
+                'examens.subFamilyExam',
+                'examens.subFamilyExam.familyExam',
             ])
         ]);
     }
@@ -247,6 +252,8 @@ class PrestationController extends Controller
             }
 
             $data = $request->validated();
+
+            Log::info('DATA:', $request->all());
 
             // Si le montant de la remise + la prise en charge est supérieur au montant de la prestation alors cette prestation passe en état encours
             $data = $this->getDataForPriseEnCharge($request, $data);

@@ -32,7 +32,6 @@ class ExamenRequest extends FormRequest
             'technique_analysis.*.id' => ['required', 'exists:analysis_techniques,id'],
             'technique_analysis.*.default' => ['required', 'boolean'],
             'elements' => ['required', 'array'],
-            'elements.*.id' => ['nullable', 'exists:element_paillasses,id'],
             'elements.*.name' => ['required'],
             'elements.*.category_element_result_id' => ['required', 'exists:category_element_results,id'],
             'elements.*.type_result_id' => ['required', 'exists:type_results,id'],

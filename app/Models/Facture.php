@@ -26,7 +26,8 @@ class Facture extends Model
         'amount_client',
         'centre_id',
         'state',
-        'contentieux'
+        'contentieux',
+        'amount_prelevement'
     ];
 
     protected function casts(): array
@@ -38,8 +39,8 @@ class Facture extends Model
     }
 
     protected $appends = [
-      'regulations_total',
-      'regulations_total_except_particular'
+        'regulations_total',
+        'regulations_total_except_particular'
     ];
 
     protected function amount(): Attribute
@@ -67,6 +68,14 @@ class Facture extends Model
     }
 
     protected function amountClient(): Attribute
+    {
+        return Attribute::make(
+            get: fn($value, array $attributes) => $value / 100,
+            set: fn($value) => $value * 100,
+        );
+    }
+
+    protected function amountPrelevement(): Attribute
     {
         return Attribute::make(
             get: fn($value, array $attributes) => $value / 100,

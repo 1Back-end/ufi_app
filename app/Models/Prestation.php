@@ -37,6 +37,7 @@ class Prestation extends Model
         'type',
         'regulated',
         'centre_id',
+        'apply_prelevement'
     ];
 
     protected function casts(): array
