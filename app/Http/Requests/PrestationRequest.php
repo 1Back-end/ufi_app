@@ -31,6 +31,7 @@ class PrestationRequest extends FormRequest
             'payable_by_file' => [Rule::requiredIf($this->input('payable_by') || $this->input('payable_by_file_update')), 'file'],
             'payable_by_file_update' => ['boolean'],
             'programmation_date' => ['required', 'date'],
+            'apply_prelevement' => ["nullable", 'boolean'],
             // Actes
             'actes' => ['nullable', 'array', 'required_if:type,' . TypePrestation::ACTES->value],
             'actes.*.id' => ['integer', 'required_if:type,' . TypePrestation::ACTES->value, 'exists:actes,id'],

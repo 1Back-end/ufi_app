@@ -4,6 +4,7 @@ use App\Http\Controllers\ActeController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\AnalysisTechniqueController;
 use App\Http\Controllers\CategoryElementResultController;
+use App\Http\Controllers\CatPredefinedListController;
 use App\Http\Controllers\CentreController;
 use App\Http\Controllers\ClientController;
 use App\Http\Controllers\ConsultantController;
@@ -21,6 +22,7 @@ use App\Http\Controllers\PrefixController;
 use App\Http\Controllers\RegulationController;
 use App\Http\Controllers\RegulationMethodController;
 use App\Http\Controllers\Reports\FacturationsController;
+use App\Http\Controllers\ResultController;
 use App\Http\Controllers\ServiceHopitalController;
 use App\Http\Controllers\SettingController;
 use App\Http\Controllers\SexeController;
@@ -617,8 +619,21 @@ Route::middleware(['activity'])->group(function () {
 
         // Prélèvements
         Route::post('/prelevements/{examen}/{prestation}', [ExamenController::class, 'prelevement']);
+        Route::post('/prelevements/{prestation}', [ExamenController::class, 'prelevementAll']);
+        Route::delete('/prelevements/{prestation}/{examen}/cancel', [ExamenController::class, 'cancelPrelevement']);
 
         // Gestion Element Paillasse
         Route::apiResource('element-paillasses', ElementPaillasseController::class);
+
+        // Gestion Result
+        Route::post('/prestations/examens/status', [ResultController::class, 'status']);
+        Route::apiResource('results', ResultController::class)->only(['store', 'index']);
+
+        // Gestion des catégories de listes prédéfinies
+        Route::apiResource('cat-predefined-lists', CatPredefinedListController::class);
+        Route::get('predefined-lists', [CatPredefinedListController::class, 'predefinedLists']);
+
+        // Change Status Prestation For Examen
+        Route::post('/change-status-print', [PrestationController::class, 'statusExamen']);
     });
 });

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\StateExamen;
 use App\Enums\StateFacture;
 use App\Enums\StatusRegulation;
 use App\Enums\TypePrestation;
@@ -37,6 +38,7 @@ class Prestation extends Model
         'type',
         'regulated',
         'centre_id',
+        'apply_prelevement'
     ];
 
     protected function casts(): array
@@ -58,6 +60,8 @@ class Prestation extends Model
         'can_update',
         'associate_file',
         'associate_file_name',
+        'state_examen',
+        'prelevement',
     ];
 
     protected function typeLabel(): Attribute
@@ -87,6 +91,79 @@ class Prestation extends Model
                 if ($media) {
                     return $media->filename;
                 }
+            },
+        );
+    }
+
+    protected function stateExamen(): Attribute
+    {
+        return Attribute::make(
+            get: function () {
+                if ($this->examens()->wherePivotNull('prelevements')->count() == $this->examens()->count()) {
+                    return 0;
+                    // return "Aucun prélèvement";
+                }
+
+                if (
+                    $this->examens()->wherePivotNull('status_examen')->count() == $this->examens()->count()
+                    && $this->examens()->wherePivotNotNull('prelevements')->count() == $this->examens()->count()
+                ) {
+                    return 1;
+                    // return "En attente de résultats";
+                }
+
+                if (
+                    $this->examens()->wherePivotNull('status_examen')->count() == $this->examens()->count()
+                    && $this->examens()->wherePivotNull('prelevements')->count() > 0
+                ) {
+                    return 2;
+                    // return "En cours de prélèvement";
+                }
+
+                if ($this->examens()->wherePivot('status_examen', StateExamen::CREATED->value)->count() > 0) {
+                    return 3;
+                    // return "Résultat partiel";
+                }
+
+                if ($this->examens()->wherePivot('status_examen', StateExamen::PENDING->value)->count() > 0) {
+                    return 4;
+                    // return "Résultat en attente de validation";
+                }
+
+                if ($this->examens()->wherePivot('status_examen', StateExamen::VALIDATED->value)->count() > 0) {
+                    return 5;
+                    // return "Résultat validé";
+                }
+
+                if ($this->examens()->wherePivot('status_examen', StateExamen::PRINTED->value)->count() > 0) {
+                    return 6;
+                    // return "Résultat déjà imprimé";
+                }
+
+                if ($this->examens()->wherePivot('status_examen', StateExamen::DELIVERED->value)->count() > 0) {
+                    return 7;
+                    // return "Résultat distribué";
+                }
+
+                return 8;
+                // return "Résultat";
+            },
+        );
+    }
+
+    protected function prelevement(): Attribute
+    {
+        return Attribute::make(
+            get: function () {
+                if ($this->examens()->wherePivotNotNull('prelevements')->count() == $this->examens()->count()) {
+                    return "Prélèvement effectué";
+                }
+
+                if ($this->examens()->wherePivotNotNull('prelevements')->count() > 0) {
+                    return "En cours de prélèvement";
+                }
+
+                return "Aucun prélèvement";
             },
         );
     }
@@ -240,7 +317,7 @@ class Prestation extends Model
     public function examens(): MorphToMany
     {
         return $this->morphedByMany(Examen::class, 'prestationable')
-            ->withPivot(['amount_regulate', 'remise', 'quantity', 'pu', 'prelevements'])
+            ->withPivot(['amount_regulate', 'remise', 'quantity', 'pu', 'prelevements', 'status_examen'])
             ->using(PrelevementsPivot::class)
             ->withTimestamps();
     }
@@ -258,5 +335,15 @@ class Prestation extends Model
     public function appointments()
     {
         return $this->hasMany(RendezVous::class, 'prestation_id');
+    }
+
+    public function prestationables(): HasMany
+    {
+        return $this->hasMany(Prestationable::class, 'prestation_id');
+    }
+
+    public function results(): HasMany
+    {
+        return $this->hasMany(Result::class, 'prestation_id');
     }
 }

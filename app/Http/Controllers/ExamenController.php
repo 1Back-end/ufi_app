@@ -8,6 +8,7 @@ use App\Models\Examen;
 use App\Models\Prestation;
 use Exception;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -191,14 +192,152 @@ class ExamenController extends Controller
         $prelevement = $prelevements ?? [];
 
         $prestation->examens()->updateExistingPivot($examen->id, [
-            'prelevements' => array_merge($prelevement, [
-                'preleve' => true,
-                'preleve_date' => now(),
-            ])
+            'prelevements' => [
+                ...$prelevement,
+                [
+                    'id' => str()->uuid(),
+                    'cancel' => false,
+                    'preleve_date' => now(),
+                ]
+            ]
         ]);
 
         return response()->json([
-            'message' => 'Examen prelevement successfully'
+            'message' => 'Examen prelevement successfully',
+            'prestation' => $prestation->load([
+                'payableBy:id,nomcomplet_client',
+                'client',
+                'consultant:id,nomcomplet',
+                'priseCharge',
+                'priseCharge.assureur',
+                'priseCharge.quotation',
+                'actes',
+                'soins',
+                'consultations',
+                'medias',
+                'hospitalisations',
+                'products',
+                'examens',
+                'examens.kbPrelevement',
+                'examens.typePrelevement',
+                'examens.paillasse',
+                'examens.subFamilyExam',
+                'examens.subFamilyExam.familyExam',
+            ])
+        ], ResponseAlias::HTTP_OK);
+    }
+
+    /**
+     * @param Prestation $prestation
+     * @return JsonResponse
+     *
+     * @permission ExamenController::prelevementAll
+     * @permission_desc Effectuer un prélèvement de tous les examens d’une prestation
+     */
+    public function prelevementAll(Prestation $prestation)
+    {
+        $examens = $prestation->examens;
+
+        foreach ($examens as $examen) {
+            $prelevements = $examen->pivot->prelevements;
+
+            $prelevement = $prelevements ?? [];
+
+            $prestation->examens()->updateExistingPivot($examen->id, [
+                'prelevements' => [
+                    ...$prelevement,
+                    [
+                        'id' => str()->uuid(),
+                        'cancel' => false,
+                        'preleve_date' => now(),
+                    ]
+                ]
+            ]);
+        }
+
+        return response()->json([
+            'message' => 'All examens prelevement successfully',
+            'prestation' => $prestation->load([
+                'payableBy:id,nomcomplet_client',
+                'client',
+                'consultant:id,nomcomplet',
+                'priseCharge',
+                'priseCharge.assureur',
+                'priseCharge.quotation',
+                'actes',
+                'soins',
+                'consultations',
+                'medias',
+                'hospitalisations',
+                'products',
+                'examens',
+                'examens.kbPrelevement',
+                'examens.typePrelevement',
+                'examens.paillasse',
+                'examens.subFamilyExam',
+                'examens.subFamilyExam.familyExam',
+            ])
+        ], ResponseAlias::HTTP_OK);
+    }
+
+    /**
+     * @param Prestation $prestation
+     * @param Examen $examen
+     * @param Request $request
+     * @return JsonResponse
+     *
+     * @permission ExamenController::cancelPrelevement
+     * @permission_desc Annuler un prélèvement d’un examen
+     */
+    public function cancelPrelevement(Prestation $prestation, Examen $examen, Request $request)
+    {
+        $request->validate([
+            'ids' => ['required', 'array'],
+            'ids.*' => ['required', 'uuid'],
+        ]);
+
+        foreach ($request->input('ids') as $id) {
+            $prelevements = $prestation->examens()->find($examen->id)->pivot->prelevements;
+
+            if (!$prelevements) {
+                return response()->json([
+                    'message' => 'No prelevements found for this examen',
+                ], ResponseAlias::HTTP_NOT_FOUND);
+            }
+
+            $prestation->examens()->updateExistingPivot($examen->id, [
+                'prelevements' => array_map(function ($prelevement) use ($id) {
+                    if ($prelevement['id'] === $id) {
+                        $prelevement['cancel'] = true;
+                        $prelevement['cancel_date'] = now();
+                    }
+                    return $prelevement;
+                }, $prelevements)
+            ]);
+        }
+
+        return response()->json([
+            'message' => 'Prelevements cancelled successfully',
+            'prestation' => $prestation->load([
+                'payableBy:id,nomcomplet_client',
+                'client',
+                'consultant:id,nomcomplet',
+                'priseCharge',
+                'priseCharge.assureur',
+                'priseCharge.quotation',
+                'actes',
+                'soins',
+                'consultations',
+                'medias',
+                'hospitalisations',
+                'products',
+                'examens',
+                'examens.kbPrelevement',
+                'examens.typePrelevement',
+                'examens.paillasse',
+                'examens.subFamilyExam',
+                'examens.subFamilyExam.familyExam',
+            ])
         ], ResponseAlias::HTTP_OK);
     }
 }

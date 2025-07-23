@@ -20,7 +20,7 @@ class GroupePopulationController extends Controller
      */
     public function index()
     {
-        return response()->json(GroupePopulation::all());
+        return response()->json(GroupePopulation::with(['sex'])->get());
     }
 
     /**

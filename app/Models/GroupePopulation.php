@@ -16,6 +16,7 @@ class GroupePopulation extends Model
         'name',
         'agemin',
         'agemax',
+        'sex_id',
         'created_by',
         'updated_by',
     ];
@@ -60,5 +61,10 @@ class GroupePopulation extends Model
     public function updatedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'updated_by');
+    }
+
+    public function sex(): BelongsTo
+    {
+        return $this->belongsTo(Sexe::class, 'sex_id');
     }
 }

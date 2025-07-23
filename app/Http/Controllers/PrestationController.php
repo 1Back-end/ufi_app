@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\StateExamen;
 use App\Enums\StateFacture;
 use App\Enums\TypePrestation;
 use App\Http\Requests\PrestationRequest;
@@ -18,10 +19,12 @@ use App\Models\FactureAssociate;
 use App\Models\Media;
 use App\Models\OpsTblHospitalisation;
 use App\Models\Prestation;
+use App\Models\Prestationable;
 use App\Models\PriseEnCharge;
 use App\Models\Product;
 use App\Models\RegulationMethod;
 use App\Models\RendezVous;
+use App\Models\Result;
 use App\Models\Setting;
 use App\Models\Soins;
 use App\Notifications\SendRdvNotification;
@@ -34,6 +37,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\Enum;
 use PHPUnit\Framework\Exception;
 use Spatie\Browsershot\Exceptions\CouldNotTakeBrowsershot;
 use Symfony\Component\HttpFoundation\Response;
@@ -76,10 +80,18 @@ class PrestationController extends Controller
             'examens.paillasse',
             'examens.subFamilyExam',
             'examens.subFamilyExam.familyExam',
+            'examens.elementPaillasses',
+            'examens.elementPaillasses.group_populations',
+            'examens.elementPaillasses.typeResult',
             'centre',
             'factures',
             'factures.regulations',
             'factures.regulations.regulationMethod',
+            'results',
+            'results.elementPaillasse',
+            'results.elementPaillasse.examen',
+            'results.elementPaillasse.group_populations',
+            'results.groupePopulation',
         ])->when($request->input('client_id'), function ($query) use ($request) {
             $query->where('client_id', $request->input('client_id'));
         })->when($request->input('consultant_id'), function ($query) use ($request) {
@@ -120,16 +132,71 @@ class PrestationController extends Controller
             });
         })->when($request->input('created_at'), function (Builder $query) use ($request) {
             $query->whereDate('created_at', $request->input('created_at'));
-        })->where('centre_id', $request->header('centre'))
-            ->paginate(
-                perPage: $request->input('per_page', 25),
-                page: $request->input('page', 1)
-            );
+        })->when($request->input('prelevement'), function (Builder $query) use ($request) {
+            $query->doesntHave('results')
+                ->where('type', TypePrestation::LABORATOIR->value);
+        })->when($request->input('results'), function (Builder $query) use ($request) {
+            $query->whereHas('prestationables', function ($query) use ($request) {
+                $query->when($request->input("result_status"), function (Builder $query) use ($request) {
+                    $query->where('prestationables.status_examen', $request->input("result_status"));
+                }, function (Builder $query) {
+                    $query->where(function (Builder $query) {
+                        $query->where('prestationables.status_examen', StateExamen::CREATED->value)
+                            ->orWhereNull('prestationables.status_examen');
+                    })->whereNotNull('prelevements');
+                });
+            })->where('type', TypePrestation::LABORATOIR->value)
+                ->when($request->input('paillasse'), function (Builder $query) use ($request) {
+                    $query->whereHas('examens', function ($query) use ($request) {
+                        $query->where('paillasse_id', $request->input('paillasse'));
+                    });
+                });
+        })->where('centre_id', $request->header('centre'))->paginate(
+            perPage: $request->input('per_page', 25),
+            page: $request->input('page', 1)
+        );
 
+        Log::info('prestations', [
+            'request' => $request->all(),
+            'prestations' => $prestations->items(),
+        ]);
+
+        $anteririorResult = [];
+        $prestationIds = $prestations->pluck('id')->toArray();
+        foreach ($prestations->items() as $prestation) {
+            foreach ($prestation->examens as $examen) {
+                foreach ($examen->elementPaillasses as $elementPaillasse) {
+                    $result = Result::query()
+                        ->with([
+                            'elementPaillasse',
+                            'elementPaillasse.typeResult'
+                        ])
+                        ->where('element_paillasse_id', $elementPaillasse->id)
+                        ->whereNotIn('prestation_id', $prestationIds)
+                        ->whereHas('prestation', function ($query) use ($prestation) {
+                            $query->where('client_id', request()->input('client_id'))
+                                ->whereHas('prestationables', function ($query) {
+                                    $query->whereIn('status_examen', [StateExamen::VALIDATED->value, StateExamen::DELIVERED->value, StateExamen::PRINTED->value]);
+                                });
+                        })
+                        ->latest()
+                        ->first();
+
+                    if ($result) {
+                        $anteririorResult[] = [
+                            'prestation_id' => $result->prestation_id,
+                            'element_paillasse_id' => $elementPaillasse->id,
+                            'result' => $result,
+                        ];
+                    }
+                }
+            }
+        }
 
         return response()->json([
             'prestations' => $prestations,
             'regulation_methods' => RegulationMethod::get()->toArray(),
+            'anteririorResult' => $anteririorResult,
         ]);
     }
 
@@ -225,6 +292,14 @@ class PrestationController extends Controller
                 'hospitalisations',
                 'products',
                 'examens',
+                'examens.kbPrelevement',
+                'examens.typePrelevement',
+                'examens.paillasse',
+                'examens.subFamilyExam',
+                'examens.subFamilyExam.familyExam',
+                'examens.elementPaillasses',
+                'examens.elementPaillasses.group_populations',
+                'examens.elementPaillasses.typeResult',
             ])
         ]);
     }
@@ -247,6 +322,8 @@ class PrestationController extends Controller
             }
 
             $data = $request->validated();
+
+            Log::info('DATA:', $request->all());
 
             // Si le montant de la remise + la prise en charge est supérieur au montant de la prestation alors cette prestation passe en état encours
             $data = $this->getDataForPriseEnCharge($request, $data);
@@ -894,6 +971,41 @@ class PrestationController extends Controller
         return response()->json([
             'base64' => $base64,
             'filename' => $fileName
+        ]);
+    }
+
+    /**
+     * Update the status of exams for specified prestations.
+     *
+     * @param Request $request
+     *
+     * @return JsonResponse
+     *
+     * @permission PrestationController::statusExamen
+     * @permission_desc Changer l’état des examens pour les prestations spécifiées.
+     */
+    public function statusExamen(Request $request)
+    {
+        $request->validate([
+            'prestation_ids' => ['required', 'array'],
+            'prestation_ids.*' => ['required', 'integer', 'exists:prestations,id'],
+            'status' => ['required', new Enum(StateExamen::class)],
+        ]);
+
+        $prestationables = Prestationable::whereIn('prestation_id', $request->prestation_ids)->get();
+
+        $prestationables->each(function ($prestationable) use ($request) {
+            if ($prestationable->status_examen == StateExamen::DELIVERED->value) {
+                return;
+            }
+
+            $prestationable->update([
+                'status_examen' => $request->input('status')
+            ]);
+        });
+
+        return response()->json([
+            'message' => __("L'état des examens a bien été mis à jour.")
         ]);
     }
 

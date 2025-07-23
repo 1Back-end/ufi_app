@@ -2,8 +2,10 @@
 
 namespace App\Http\Requests;
 
+use App\Enums\InputType;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\Enum;
 
 class TypeResultRequest extends FormRequest
 {
@@ -14,6 +16,8 @@ class TypeResultRequest extends FormRequest
             'name' => ['required'],
             'accept_saisi_user' => ['boolean'],
             'afficher_result' => ['boolean'],
+            'type' => ['required', new Enum(InputType::class)],
+            'cat_predefined_list_id' => ['nullable', 'exists:cat_predefined_lists,id'],
         ];
     }
 
@@ -25,6 +29,8 @@ class TypeResultRequest extends FormRequest
             'name.required' => 'Le nom est obligatoire',
             'accept_saisi_user.boolean' => 'Le champ est obligatoire',
             'afficher_result.boolean' => 'Le champ est obligatoire',
+            'type.required' => 'Le type est obligatoire',
+            'cat_predefined_list_id.exists' => 'La catégorie n\'existe pas',
         ];
     }
 }

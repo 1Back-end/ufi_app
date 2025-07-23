@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Spatie\Browsershot\Browsershot;
 use Spatie\Browsershot\Exceptions\CouldNotTakeBrowsershot;
@@ -164,6 +165,7 @@ if (! function_exists('calculate_amount_facture')) {
         $amount_pc = 0;
         $amount_remise = 0;
         $amount_client = 0;
+        $amount_prelevement = 0;
 
         switch ($prestation->type) {
             case TypePrestation::ACTES:
@@ -269,13 +271,24 @@ if (! function_exists('calculate_amount_facture')) {
                     $amount_examen_remise = ($examen->pivot->quantity * $pu * $examen->pivot->remise) / 100;
                     $amount_remise += $amount_examen_remise;
 
-                    if (! in_array($examen->kb_prelevement_id, $kbprelevementIds)) {
+                    if (! in_array($examen->kb_prelevement_id, $kbprelevementIds) && $prestation->apply_prelevement) {
                         $amount += $examen->kbPrelevement->amount;
-                        $amount_client += $examen->kbPrelevement->amount;
+                        $amount_prelevement += $examen->kbPrelevement->amount;
+                        $kbprelevementIds[] = $examen->kb_prelevement_id;
                     }
 
                     $amount += $examen->pivot->quantity * $pu;
                     $amount_client += ($examen->pivot->quantity * $pu) - $amount_examen_remise - $amount_examen_pc;
+                }
+
+                if ($prestation->apply_prelevement) {
+                    $amount_prelevement_pc = 0;
+                    if ($prestation->priseCharge) {
+                        $amount_prelevement_pc = ($amount_prelevement * $prestation->priseCharge->taux_pc) / 100;
+                        $amount_pc += $amount_prelevement_pc;
+                    }
+
+                    $amount_client += $amount_prelevement_pc ? $amount_prelevement - $amount_prelevement_pc : $amount_prelevement;
                 }
 
                 break;
@@ -305,7 +318,7 @@ if (! function_exists('calculate_amount_facture')) {
         }
 
 
-        return [$amount, $amount_pc, $amount_remise, $amount_client];
+        return [$amount, $amount_pc, $amount_remise, $amount_client, $amount_prelevement];
     }
 }
 
@@ -319,13 +332,15 @@ if (! function_exists('save_facture')) {
      */
     function save_facture(Prestation $prestation, int $centre_id, int $type): Facture
     {
-        [$amount, $amount_pc, $amount_remise, $amount_client] = calculate_amount_facture($prestation);
+        [$amount, $amount_pc, $amount_remise, $amount_client, $amount_prelevement] = calculate_amount_facture($prestation);
 
         $latestFacture = Facture::whereType($type)
             ->where('centre_id', $centre_id)
             ->whereYear('created_at', now()->year)
             ->latest()->first();
         $sequence =  $latestFacture ? $latestFacture->sequence + 1 : 1;
+
+        Log::info($amount_prelevement);
 
         $facture = $prestation->factures()->where('type', $type)->first();
         if (! $facture) {
@@ -338,6 +353,7 @@ if (! function_exists('save_facture')) {
                 'amount_pc' => $amount_pc,
                 'amount_remise' => $amount_remise,
                 'amount_client' => max($amount_client, 0),
+                'amount_prelevement' => $amount_prelevement,
                 'type' => $type,
                 'sequence' => $sequence,
                 'centre_id' => $centre_id,
@@ -350,6 +366,7 @@ if (! function_exists('save_facture')) {
                 'amount_pc' => $amount_pc,
                 'amount_remise' => $amount_remise,
                 'amount_client' => max($amount_client, 0),
+                'amount_prelevement' => $amount_prelevement
             ]);
         }
 
