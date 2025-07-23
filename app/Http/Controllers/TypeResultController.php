@@ -2,9 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\InputType;
 use App\Http\Requests\TypeResultRequest;
+use App\Models\CatPredefinedList;
 use App\Models\TypeResult;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Log;
 
 class TypeResultController extends Controller
 {
@@ -16,7 +19,10 @@ class TypeResultController extends Controller
      */
     public function index()
     {
-        return response()->json(TypeResult::all());
+        return response()->json([
+            'types' => TypeResult::with("catPredefinedList")->get(),
+            'cat_predefined_lists' => CatPredefinedList::all()
+        ]);
     }
 
     /**
@@ -45,7 +51,12 @@ class TypeResultController extends Controller
      */
     public function update(TypeResultRequest $request, TypeResult $typeResult)
     {
-        $typeResult->update($request->validated());
+        $data = $request->validated();
+        if ($request->input('type') != InputType::SELECT->value && $request->input('type') != InputType::SELECT2->value) {
+            $data['cat_predefined_list_id'] = null;
+        }
+
+        $typeResult->update($data);
 
         return response()->json([
             'message' => 'Type de résultat mis à jour',

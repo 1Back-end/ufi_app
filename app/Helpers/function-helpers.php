@@ -274,6 +274,7 @@ if (! function_exists('calculate_amount_facture')) {
                     if (! in_array($examen->kb_prelevement_id, $kbprelevementIds) && $prestation->apply_prelevement) {
                         $amount += $examen->kbPrelevement->amount;
                         $amount_prelevement += $examen->kbPrelevement->amount;
+                        $kbprelevementIds[] = $examen->kb_prelevement_id;
                     }
 
                     $amount += $examen->pivot->quantity * $pu;
