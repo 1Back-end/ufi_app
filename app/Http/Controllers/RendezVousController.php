@@ -387,11 +387,11 @@ class RendezVousController extends Controller
         try {
             $rendez_vous = RendezVous::where('is_deleted', false)
                 ->with([
-                    'client:id,nomcomplet_client',
-                    'consultant:id,nomcomplet',
-                    'createdBy:id,email',
-                    'updatedBy:id,email',
-                    'prestation:id,type'
+                    'client',
+                    'consultant',
+                    'createdBy',
+                    'updatedBy',
+                    'prestation'
                 ])
                 ->findOrFail($id);
 

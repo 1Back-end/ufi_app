@@ -64,9 +64,6 @@ class OpsTblCertificatMedicalController extends Controller
         }
     }
 
-
-
-
     /**
      * Display a listing of the resource.
      * @permission OpsTblCertificatMedicalController::store
@@ -75,27 +72,31 @@ class OpsTblCertificatMedicalController extends Controller
     public function store(Request $request)
     {
         $auth = auth()->user();
+
+        /* ─── Validation ─── */
         $request->validate([
-            'type' => 'nullable|string|max:255',
-            'commentaire' => 'nullable|string',
-            'nbre_jour_repos' => 'nullable|integer',
+            'type'  => 'required|in:Certificat d\'aptitude,Certificat médical',
+            'commentaire'       => 'nullable|string',
+            // requis SI type = Certificat médical
+            'nbre_jour_repos'   => 'nullable|integer|min:1|required_if:type,Certificat médical',
             'rapport_consultation_id' => 'nullable|exists:ops_tbl_rapport_consultations,id',
         ]);
 
+        /* ─── Création ─── */
         $certificat = OpsTblCertificatMedical::create([
-            'type' => $request->type,
-            'commentaire' => $request->commentaire,
-            'nbre_jour_repos' => $request->nbre_jour_repos,
-            'rapport_consultation_id' => $request->rapport_consultation_id,
-            'created_by' => $auth->id
-
+            'type'                   => $request->type,
+            'commentaire'            => $request->commentaire,
+            'nbre_jour_repos'        => $request->nbre_jour_repos,   // null si aptitude
+            'rapport_consultation_id'=> $request->rapport_consultation_id,
+            'created_by'             => $auth->id,
         ]);
 
         return response()->json([
             'message' => 'Certificat médical enregistré avec succès.',
-            'data' => $certificat
+            'data'    => $certificat,
         ], 201);
     }
+
 
     /**
      * Display a listing of the resource.

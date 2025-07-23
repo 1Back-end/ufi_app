@@ -74,6 +74,11 @@ use App\Http\Controllers\OpsTblReferreMedicalController;
 use App\Http\Controllers\CategorieDiagnosticController;
 use App\Http\Controllers\ConfigSousCategorieDiagnosticController;
 use App\Http\Controllers\ConfigTblMaladieDiagnosticController;
+use App\Http\Controllers\BilanActeRendezVousController;
+use App\Http\Controllers\ClasseMaladieController;
+use App\Http\Controllers\GroupeMaladieController;
+use App\Http\Controllers\MaladieController;
+use App\Http\Controllers\MaladieTypeDiagnosticController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['activity'])->group(function () {
@@ -508,6 +513,46 @@ Route::middleware(['activity'])->group(function () {
             Route::delete('/delete/{id}', 'destroy');
         });
         Route::controller(ConfigTblMaladieDiagnosticController::class)->prefix('config_tbl_maladie_diagnostics')->group(function () {
+            Route::get('/list', 'index');
+            Route::post('/create', 'store');
+            Route::get('/get_by_id/{id}', 'show');
+            Route::put('/edit/{id}', 'update');
+            Route::delete('/delete/{id}', 'destroy');
+        });
+        Route::controller(BilanActeRendezVousController::class)->prefix('bilan_acte_rendez_vous')->group(function () {
+            Route::get('/list', 'index');
+            Route::post('/create', 'store');
+            Route::get('/get_by_id/{id}', 'show');
+            Route::put('/edit/{id}', 'update');
+            Route::delete('/delete/{id}', 'destroy');
+            Route::get('/client/{client_id}',  'getHistoriqueActesClient');
+        });
+        Route::controller(ClasseMaladieController::class)->prefix('classe_maladie')->group(function () {
+            Route::get('/list', 'index');
+            Route::post('/create', 'store');
+            Route::get('/get_by_id/{id}', 'show');
+            Route::put('/edit/{id}', 'update');
+            Route::delete('/delete/{id}', 'destroy');
+            Route::patch('/{id}/status', 'updateStatus');
+        });
+        Route::controller(GroupeMaladieController::class)->prefix('groupe_maladie')->group(function () {
+            Route::get('/list', 'index');
+            Route::post('/create', 'store');
+            Route::get('/get_by_id/{id}', 'show');
+            Route::put('/edit/{id}', 'update');
+            Route::delete('/delete/{id}', 'destroy');
+            Route::patch('/{id}/status', 'updateStatus');
+
+        });
+        Route::controller(MaladieController::class)->prefix('maladie')->group(function () {
+            Route::get('/list', 'index');
+            Route::post('/create', 'store');
+            Route::get('/get_by_id/{id}', 'show');
+            Route::put('/edit/{id}', 'update');
+            Route::delete('/delete/{id}', 'destroy');
+            Route::patch('/{id}/status', 'updateStatus');
+        });
+        Route::controller(MaladieTypeDiagnosticController::class)->prefix('maladie_diagnostics')->group(function () {
             Route::get('/list', 'index');
             Route::post('/create', 'store');
             Route::get('/get_by_id/{id}', 'show');

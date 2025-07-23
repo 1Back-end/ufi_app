@@ -40,6 +40,11 @@ class RendezVous extends Model
         'dateheure_rdv' => 'datetime',
     ];
 
+    public function bilans()
+    {
+        return $this->hasMany(BilanActeRendezVous::class, 'rendez_vous_id');
+    }
+
     protected static function boot()
     {
         parent::boot();

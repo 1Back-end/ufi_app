@@ -171,9 +171,9 @@ class PriseEnChargeController extends Controller
         try {
             $prise_en_charge = PriseEnCharge::where('is_deleted', false)
                 ->with([
-                    'assureur:id,nom',
-                    'quotation:id,taux',
-                    'client:id,nomcomplet_client'
+                    'assureur',
+                    'quotation',
+                    'client'
                 ])
                 ->findOrFail($id);
             return response()->json($prise_en_charge);
