@@ -21,11 +21,11 @@ class OpsTblAntecedentController extends Controller
         $antecedents = OpsTblAntecedent::where('is_deleted', false)
             ->where('client_id', $client_id) // filtre direct avec le paramètre
             ->with([
-                'createdBy:id,login',
-                'updatedBy:id,login',
-                'client:id,nomcomplet_client',
-                'categorie:id,name',
-                'sousCategorie:id,name'
+                'createdBy',
+                'updatedBy',
+                'client',
+                'categorie',
+                'sousCategorie'
             ])
             ->when($request->input('search'), function ($query) use ($request) {
                 $search = $request->input('search');
@@ -73,7 +73,7 @@ class OpsTblAntecedentController extends Controller
         $validated['created_by'] = $auth->id;
 
         $antecedent = OpsTblAntecedent::create($validated);
-        $antecedent->load(['createdBy:id,login', 'updatedBy:id,login','client:id,nomcomplet_client','categorie:id,name','sousCategorie:id,name']);
+        $antecedent->load(['createdBy', 'updatedBy','client','categorie','sousCategorie']);
 
         return response()->json([
             'data' => $antecedent,
@@ -108,7 +108,7 @@ class OpsTblAntecedentController extends Controller
         ], $messages);
         $validated['updated_by'] = $auth->id;
         $antecedent->update($validated);
-        $antecedent->load(['createdBy:id,login', 'updatedBy:id,login','client:id,nomcomplet_client','categorie:id,name','sousCategorie:id,name']);
+        $antecedent->load(['createdBy', 'updatedBy','client','categorie','sousCategorie']);
 
         return response()->json([
             'status' => 'success',

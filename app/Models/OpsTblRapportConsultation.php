@@ -9,6 +9,7 @@ class OpsTblRapportConsultation extends Model
 {
     protected $fillable = [
         'code',
+        'resume',
         'conclusion',
         'recommandations',
         'dossier_consultation_id',

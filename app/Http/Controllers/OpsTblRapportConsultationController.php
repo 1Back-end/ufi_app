@@ -18,11 +18,11 @@ class OpsTblRapportConsultationController extends Controller
 
         $query = OpsTblRapportConsultation::where('is_deleted', false)
             ->with([
-                'creator:id,login',
-                'updater:id,login',
+                'creator',
+                'updater',
                 'dossierConsultation:id,id,code,created_at,rendez_vous_id',
                 'dossierConsultation.rendezVous:id,id,client_id,consultant_id,dateheure_rdv',
-                'dossierConsultation.rendezVous.client:id,id,nomcomplet_client,ref_cli',
+                'dossierConsultation.rendezVous.client',
                 'dossierConsultation.rendezVous.consultant:id,id,nomcomplet,ref',
             ]);
 
@@ -91,12 +91,14 @@ class OpsTblRapportConsultationController extends Controller
     {
         $auth = auth()->user();
         $request->validate([
+            'resume' => 'required|string',
             'conclusion' => 'nullable|string',
             'recommandations' => 'nullable|string',
             'dossier_consultation_id' => 'required|exists:dossier_consultations,id',
         ]);
 
         $rapport = OpsTblRapportConsultation::create([
+            'resume' => $request->resume,
             'conclusion' => $request->conclusion,
             'recommandations' => $request->recommandations,
             'dossier_consultation_id' => $request->dossier_consultation_id,
@@ -121,6 +123,7 @@ class OpsTblRapportConsultationController extends Controller
         $rapport = OpsTblRapportConsultation::findOrFail($id);
 
         $rapport->update([
+            'resume' => $request->resume,
             'conclusion' => $request->conclusion,
             'recommandations' => $request->recommandations,
             'motif_consultation_id' => $request->motif_consultation_id,
@@ -146,8 +149,8 @@ class OpsTblRapportConsultationController extends Controller
                 'updater:id,login',
                 'dossierConsultation:id,id,code,created_at,rendez_vous_id',
                 'dossierConsultation.rendezVous:id,id,client_id,consultant_id,dateheure_rdv',
-                'dossierConsultation.rendezVous.client:id,id,nomcomplet_client,ref_cli',
-                'dossierConsultation.rendezVous.consultant:id,id,nomcomplet,ref',
+                'dossierConsultation.rendezVous.client',
+                'dossierConsultation.rendezVous.consultant',
             ])->findOrFail($id);
 
         return response()->json([

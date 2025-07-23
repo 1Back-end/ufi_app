@@ -20,16 +20,19 @@ class OpsTblMiseEnObservationHospitalisationController extends Controller
         $page = $request->input('page', 1);
 
         $query = OpsTblMiseEnObservationHospitalisation::where('is_deleted', false)
-            ->with(['rapportConsultation', 'creator', 'updater', 'infirmiere']);
+            ->with(['rapportConsultation', 'creator', 'updater', 'infirmieres']);
 
         // Filtrer par rapport_consultation_id
         if ($request->filled('rapport_consultation_id')) {
             $query->where('rapport_consultation_id', $request->input('rapport_consultation_id'));
         }
 
-        // Filtrer par infirmiere_id
+        // Filtrer par infirmiere_id (relation many-to-many)
         if ($request->filled('infirmiere_id')) {
-            $query->where('infirmiere_id', $request->input('infirmiere_id'));
+            $infirmiereId = $request->input('infirmiere_id');
+            $query->whereHas('infirmieres', function ($q) use ($infirmiereId) {
+                $q->where('id', $infirmiereId);
+            });
         }
 
         // Recherche globale
@@ -39,7 +42,7 @@ class OpsTblMiseEnObservationHospitalisationController extends Controller
                 $q->where('observation', 'like', "%$search%")
                     ->orWhere('resume', 'like', "%$search%")
                     ->orWhere('nbre_jours', 'like', "%$search%")
-                    ->orWhereHas('infirmiere', function ($q2) use ($search) {
+                    ->orWhereHas('infirmieres', function ($q2) use ($search) {
                         $q2->where('nom', 'like', "%$search%")
                             ->orWhere('prenom', 'like', "%$search%")
                             ->orWhere('adresse', 'like', "%$search%")
@@ -66,6 +69,7 @@ class OpsTblMiseEnObservationHospitalisationController extends Controller
         ]);
     }
 
+
     /**
      * Display a listing of the resource.
      * @permission OpsTblMiseEnObservationHospitalisationController::historiqueMisesEnObservation
@@ -91,7 +95,7 @@ class OpsTblMiseEnObservationHospitalisationController extends Controller
                 'rapportConsultation.dossierConsultation.rendezVous.client',
                 'rapportConsultation.dossierConsultation.rendezVous.consultant',
                 'rapportConsultation',
-                'infirmiere',
+                'infirmieres',
                 'creator',
                 'updater',
                 'prescriptionPharmaceutique.products',
@@ -103,7 +107,7 @@ class OpsTblMiseEnObservationHospitalisationController extends Controller
             $query->where(function ($q) use ($search) {
                 $q->where('observation', 'like', "%$search%")
                     ->orWhere('resume', 'like', "%$search%")
-                    ->orWhereHas('infirmiere', function ($q2) use ($search) {
+                    ->orWhereHas('infirmieres', function ($q2) use ($search) {
                         $q2->where('nom', 'like', "%$search%")
                             ->orWhere('prenom', 'like', "%$search%");
                     });
@@ -137,11 +141,14 @@ class OpsTblMiseEnObservationHospitalisationController extends Controller
 
         $query = OpsTblMiseEnObservationHospitalisation::where('is_deleted', false)
             ->where('rapport_consultation_id', $rapport_consultation_id) // Filtre obligatoire
-            ->with(['rapportConsultation', 'creator', 'updater', 'infirmiere']);
+            ->with(['rapportConsultation', 'creator', 'updater', 'infirmieres']);
 
-        // Filtrer par infirmiere_id
+        // Filtrer par infirmiere_id (relation multiple)
         if ($request->filled('infirmiere_id')) {
-            $query->where('infirmiere_id', $request->input('infirmiere_id'));
+            $infirmiereId = $request->input('infirmiere_id');
+            $query->whereHas('infirmieres', function ($q) use ($infirmiereId) {
+                $q->where('id', $infirmiereId);
+            });
         }
 
         // Recherche globale
@@ -151,7 +158,7 @@ class OpsTblMiseEnObservationHospitalisationController extends Controller
                 $q->where('observation', 'like', "%$search%")
                     ->orWhere('resume', 'like', "%$search%")
                     ->orWhere('nbre_jours', 'like', "%$search%")
-                    ->orWhereHas('infirmiere', function ($q2) use ($search) {
+                    ->orWhereHas('infirmieres', function ($q2) use ($search) {
                         $q2->where('nom', 'like', "%$search%")
                             ->orWhere('prenom', 'like', "%$search%")
                             ->orWhere('adresse', 'like', "%$search%")
@@ -177,6 +184,7 @@ class OpsTblMiseEnObservationHospitalisationController extends Controller
             'message' => 'Historique des mises en observation récupéré avec succès.',
         ]);
     }
+
 
 
     /**
@@ -205,84 +213,100 @@ class OpsTblMiseEnObservationHospitalisationController extends Controller
         try {
             $auth = auth()->user();
 
+            /* ───── Messages d’erreur ───── */
             $messages = [
-                'observation.string' => 'L\'observation doit être une chaîne de caractères.',
-                'resume.string' => 'Le résumé doit être une chaîne de caractères.',
-                'nbre_jours.integer' => 'Le nombre de jours doit être un entier.',
-                'rapport_consultation_id.exists' => 'Le rapport de consultation sélectionné est invalide.',
-                'infirmiere_id.exists' => 'L\'infirmier(ère) sélectionné(e) est invalide.',
-                'product_quantities.array' => 'Les produits doivent être un tableau.',
-                'product_quantities.*' => 'Chaque quantité doit être un entier supérieur à 0.'
+                'type_observation.in'           => 'Le type doit être J (journalière) ou H (hospitalisation).',
+                'nbre_heures.required_if'       => 'Le nombre d’heures est requis pour une observation journalière.',
+                'nbre_jours.required_if'        => 'Le nombre de jours est requis pour une hospitalisation.',
+                'infirmiere_id.array'          => 'La sélection d\'infirmier(ère)s doit être un tableau.',
+                'infirmiere_id.*.exists'       => 'Infirmier(ère) sélectionné(e) invalide.',
+                // … autres messages inchangés
             ];
 
+            /* ───── Validation ───── */
             $validated = $request->validate([
-                'observation' => 'nullable|string',
-                'resume' => 'nullable|string',
-                'nbre_jours' => 'nullable|integer',
+                'type_observation'   => 'required|in:J,H',
+                'observation'        => 'nullable|string',
+                'resume'             => 'nullable|string',
+
+                'nbre_heures'        => 'nullable|integer|required_if:type_observation,J|prohibited_if:type_observation,H',
+                'nbre_jours'         => 'nullable|integer|required_if:type_observation,H|prohibited_if:type_observation,J',
+
                 'rapport_consultation_id' => 'required|exists:ops_tbl_rapport_consultations,id',
-                'infirmiere_id' => 'required|exists:nurses,id',
+
+                // ⇩ nouveau : plusieurs infirmier·ères
+                'infirmiere_id'     => 'required|array|min:1',
+                'infirmiere_id.*'   => 'exists:nurses,id',
+
                 'product_quantities' => 'nullable|array',
-                'product_quantities.*' => 'integer|min:1'
+                'product_quantities.*' => 'integer|min:1',
             ], $messages);
 
-            // Vérification supplémentaire : produits existent en base
+            /* ───── Vérifie l’existence des produits ───── */
             if (!empty($validated['product_quantities'])) {
-                $productIds = array_keys($validated['product_quantities']);
-
-                // Vérifie que tous les IDs existent dans la table ops_tbl_products
-                $count = \App\Models\Product::whereIn('id', $productIds)->count();
-
-                if ($count !== count($productIds)) {
+                $ids = array_keys($validated['product_quantities']);
+                if (\App\Models\Product::whereIn('id', $ids)->count() !== count($ids)) {
                     return response()->json([
                         'message' => 'Certains produits sélectionnés sont invalides ou inexistants.'
                     ], 422);
                 }
             }
 
-            $validated['created_by'] = $auth->id;
+            /* ───── Création de l’observation ───── */
+            $record = OpsTblMiseEnObservationHospitalisation::create([
+                'type_observation'        => $validated['type_observation'],
+                'observation'             => $validated['observation'] ?? null,
+                'resume'                  => $validated['resume'] ?? null,
+                'nbre_heures'             => $validated['nbre_heures'] ?? null,
+                'nbre_jours'              => $validated['nbre_jours'] ?? null,
+                'rapport_consultation_id' => $validated['rapport_consultation_id'],
+                'created_by'              => $auth->id,
+            ]);
 
-            // Création de la mise en observation
-            $record = OpsTblMiseEnObservationHospitalisation::create($validated);
+            /* ───── Attache les infirmier·ères ───── */
+            $record->infirmieres()->attach($validated['infirmiere_id']);
 
-            // Création de la prescription si produits présents
+            /* ───── Gestion éventuelle des prescriptions ───── */
             if (!empty($validated['product_quantities'])) {
                 $prescription = $record->prescriptionPharmaceutique()->create([
                     'created_by' => $auth->id,
                 ]);
 
-                $syncData = [];
-                foreach ($validated['product_quantities'] as $productId => $quantite) {
-                    $syncData[$productId] = ['quantite' => $quantite];
+                $sync = [];
+                foreach ($validated['product_quantities'] as $pId => $qty) {
+                    $sync[$pId] = ['quantite' => $qty];
                 }
-
-                $prescription->products()->sync($syncData);
+                $prescription->products()->sync($sync);
             }
 
-            // Chargement des relations
+            /* ───── Charge les relations pour la réponse ───── */
             $record->load([
                 'rapportConsultation',
                 'creator',
                 'updater',
-                'infirmiere',
-                'prescriptionPharmaceutique.products'
+                'infirmieres',
+                'prescriptionPharmaceutique.products',
             ]);
 
             return response()->json([
-                'data' => $record,
+                'data'    => $record,
                 'message' => 'Mise en observation créée avec succès.',
             ], 201);
+
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
                 'message' => 'Validation échouée.',
-                'errors' => $e->errors(),
+                'errors'  => $e->errors(),
             ], 422);
         } catch (\Exception $e) {
             return response()->json([
                 'message' => 'Une erreur est survenue lors de la création.',
-                'error' => $e->getMessage(),
+                'error'   => $e->getMessage(),
             ], 500);
         }
     }
+
+
 
 
 

@@ -13,7 +13,9 @@ class OpsTblMiseEnObservationHospitalisation extends Model
     protected $fillable = [
         'observation',
         'resume',
+        'type_observation', // Nouveau champ ajouté
         'nbre_jours',
+        'nbre_heures',       // Nouveau champ ajouté
         'rapport_consultation_id',
         'infirmiere_id',
         'created_by',
@@ -21,16 +23,21 @@ class OpsTblMiseEnObservationHospitalisation extends Model
         'is_deleted',
     ];
 
-
     public function rapportConsultation()
     {
         return $this->belongsTo(OpsTblRapportConsultation::class, 'rapport_consultation_id');
     }
 
-    public function infirmiere()
+    public function infirmieres()
     {
-        return $this->belongsTo(Nurse::class, 'infirmiere_id');
+        return $this->belongsToMany(
+            Nurse::class,
+            'infirmiere_mise_observation',
+            'mise_observation_id',
+            'infirmiere_id'
+        );
     }
+
 
     public function creator()
     {

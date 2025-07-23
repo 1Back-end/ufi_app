@@ -54,6 +54,7 @@ class ConfigTblTypeDiagnosticController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|unique:configtbl_type_diagnostic,name',
             'description' => 'nullable|string',
+            'has_nosologies' => 'nullable|boolean',
         ], $messages);
 
         $validated['created_by'] = $auth->id ?? null;
@@ -107,6 +108,7 @@ class ConfigTblTypeDiagnosticController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|unique:configtbl_type_diagnostic,name,' . $id,
             'description' => 'nullable|string',
+            'has_nosologies' => 'nullable|boolean',
         ], $messages);
 
         $diagnostic = ConfigTbl_Type_Diagnostic::findOrFail($id);

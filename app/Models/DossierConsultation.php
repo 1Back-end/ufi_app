@@ -2,8 +2,10 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class DossierConsultation extends Model
@@ -25,6 +27,7 @@ class DossierConsultation extends Model
         'code'
 
     ];
+    protected $appends = ['logo'];
 
    public  function facture()
    {
@@ -59,6 +62,17 @@ class DossierConsultation extends Model
             $random = strtoupper(Str::random(7));
             $examenPhysique->code = $prefix . $timestamp . $random;
         });
+    }
+    protected function logo(): Attribute
+    {
+        return Attribute::make(
+            get: function($value, array $attributes) {
+                $media = $this->medias()->where('name', 'logo')->first();
+                if ($media) {
+                    return Storage::disk($media->disk)->url($media->path .'/'. $media->filename);
+                }
+            },
+        );
     }
     //
 }

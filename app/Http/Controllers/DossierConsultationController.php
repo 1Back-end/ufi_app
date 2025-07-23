@@ -9,8 +9,11 @@ use App\Models\DossierConsultation;
 use App\Models\RendezVous;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\Response;
 
 class DossierConsultationController extends Controller
 {
@@ -94,8 +97,8 @@ class DossierConsultationController extends Controller
                 'creator:id,login',
                 'updater:id,login',
                 'rendezVous:id,code,dateheure_rdv,client_id,consultant_id',
-                'rendezVous.client:id,nomcomplet_client,ref_cli',
-                'rendezVous.consultant:id,nomcomplet,ref',
+                'rendezVous.client',
+                'rendezVous.consultant',
                 'medias'
             ])
             ->latest();
@@ -123,59 +126,70 @@ class DossierConsultationController extends Controller
         $auth = auth()->user();
 
         $data = $request->validate([
-            'rendez_vous_id' => 'required|exists:rendez_vouses,id',
-            'poids' => 'required|string',
-            'tension' => 'required|string',
-            'taille' => 'required|string',
-            'saturation' => 'required|string',
-            'autres_parametres' => 'nullable|string',
-            'temperature' => 'nullable|string',
+            'rendez_vous_id'      => 'required|exists:rendez_vouses,id',
+            'poids'               => 'required|string',
+            'tension'             => 'required|string',
+            'taille'              => 'required|string',
+            'saturation'          => 'required|string',
+            'autres_parametres'   => 'nullable|string',
+            'temperature'         => 'nullable|string',
             'frequence_cardiaque' => 'nullable|string',
-            'fichier_associe' => 'nullable|file|max:10240',
+            'fichier_associe'     => 'nullable|file|max:10240',
         ]);
 
-        $data['created_by'] = $auth->id;
-
-        // Vérifier si un dossier existe déjà pour ce rendez-vous
-        if (!empty($data['rendez_vous_id'])) {
+        DB::beginTransaction();
+        try {
+            // Vérifier qu’aucun dossier n’existe déjà pour ce rendez‑vous
             $existing = DossierConsultation::where('rendez_vous_id', $data['rendez_vous_id'])->first();
             if ($existing) {
                 return response()->json([
-                    'message' => 'Un dossier est déjà ouvert pour ce rendez-vous.',
-                    'data' => $existing->load('medias'),
-                ], 409); // 409 Conflict
+                    'message' => 'Un dossier est déjà ouvert pour ce rendez‑vous.',
+                    'data'    => $existing->load('medias'),
+                ], 409);
             }
+
+            // Création du dossier
+            $dossier = DossierConsultation::create(array_merge($data, [
+                'created_by' => $auth->id,
+            ]));
+
+            // Mise à jour du rendez‑vous
+            RendezVous::where('id', $data['rendez_vous_id'])
+                ->update(['etat' => 'En cours de consultation']);
+
+            // Upload du fichier facultatif
+            if ($request->hasFile('fichier_associe')) {
+                $file     = $request->file('fichier_associe');
+                $path     = $file->store('dossiers', 'public');
+
+                $dossier->medias()->create([
+                    'name'      => $file->getClientOriginalName(),
+                    'disk'      => 'public',
+                    'path'      => $path,
+                    'filename'  => $file->hashName(),
+                    'mimetype'  => $file->getMimeType(),
+                    'extension' => $file->getClientOriginalExtension(),
+                ]);
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'message' => 'Dossier créé avec succès.',
+                'data'    => $dossier->load('medias'),
+            ], 201);
+
+        } catch (\Throwable $e) {
+
+            DB::rollBack();
+            Log::error('Erreur création dossier : ' . $e->getMessage());
+
+            return response()->json([
+                'message' => 'Une erreur est survenue lors de la création du dossier.',
+            ], 500);
         }
-
-        // Création du dossier
-        $dossier = DossierConsultation::create($data);
-
-        $rendezVous = RendezVous::find($data['rendez_vous_id']);
-        if ($rendezVous) {
-            $rendezVous->etat = 'En cours de consultation';
-            $rendezVous->save();
-        }
-
-        if ($request->hasFile('fichier_associe')) {
-            $file = $request->file('fichier_associe');
-            $filename = $file->getClientOriginalName();
-            $path = $file->store('dossiers', 'public');
-
-            $dossier->medias()->create([
-                'name' => $filename,
-                'disk' => 'public',
-                'path' => $path,
-                'filename' => $filename,
-                'mimetype' => $file->getMimeType(),
-                'extension' => $file->getClientOriginalExtension()
-            ]);
-        }
-
-        return response()->json([
-            'message' => 'Dossier créé avec fichier associé.',
-            'data' => $dossier->load('medias')
-        ], 201);
     }
+
 
     /**
      * Display a listing of the resource.
@@ -261,8 +275,8 @@ class DossierConsultationController extends Controller
                 'creator:id,login',
                 'updater:id,login',
                 'rendezVous:id,code,dateheure_rdv,client_id,consultant_id',
-                'rendezVous.client:id,nomcomplet_client,ref_cli',
-                'rendezVous.consultant:id,nomcomplet,ref',
+                'rendezVous.client',
+                'rendezVous.consultant',
                 'medias'
             ])
             ->findOrFail($id);

@@ -12,6 +12,7 @@ class CategorieDiagnostic extends Model
 
     protected $fillable = [
         'name',
+        'has_nosologies',
         'is_deleted',
         'created_by',
         'updated_by',

@@ -64,4 +64,13 @@ class Nurse extends Model
     {
         return $this->belongsTo(User::class, 'updated_by');
     }
+    public function misesEnObservation()
+    {
+        return $this->belongsToMany(
+            OpsTblMiseEnObservationHospitalisation::class,
+            'infirmiere_mise_observation',
+            'infirmiere_id',
+            'mise_observation_id'
+        );
+    }
 }

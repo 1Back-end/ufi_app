@@ -3,23 +3,27 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-
-class ConfigTbl_Type_Diagnostic extends Model
+use Illuminate\Support\Str;
+class GroupeMaladie extends Model
 {
-    protected $table = 'configtbl_type_diagnostic';
+    protected $table = 'groupes_maladies';
 
     protected $fillable = [
+        'classe_maladie_id',
+        'code',
         'name',
-        'has_nosologies',
-        'description',
-        'is_deleted',
         'created_by',
         'updated_by',
+        'is_active',
+        'is_deleted',
     ];
-    public function diagnostics()
+
+
+    public function classeMaladie()
     {
-        return $this->hasMany(Diagnostic::class, 'code_diagnostic_id');
+        return $this->belongsTo(ClasseMaladie::class, 'classe_maladie_id');
     }
+
     public function creator()
     {
         return $this->belongsTo(User::class, 'created_by');
