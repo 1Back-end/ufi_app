@@ -12,6 +12,7 @@ class CatPredefinedListRequest extends FormRequest
             'name' => ['required'],
             'predefined_lists' => ['nullable', 'array'],
             'predefined_lists.*.name' => ['nullable', 'string'],
+            'predefined_lists.*.show' => ['nullable', 'boolean'],
         ];
     }
 

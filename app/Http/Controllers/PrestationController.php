@@ -83,6 +83,9 @@ class PrestationController extends Controller
             'examens.elementPaillasses',
             'examens.elementPaillasses.group_populations',
             'examens.elementPaillasses.typeResult',
+            'examens.elementPaillasses.catPredefinedList',
+            'examens.elementPaillasses.parent',
+            'examens.elementPaillasses.children',
             'centre',
             'factures',
             'factures.regulations',
@@ -138,12 +141,12 @@ class PrestationController extends Controller
         })->when($request->input('results'), function (Builder $query) use ($request) {
             $query->whereHas('prestationables', function ($query) use ($request) {
                 $query->when($request->input("result_status"), function (Builder $query) use ($request) {
-                    $query->where('prestationables.status_examen', $request->input("result_status"));
+                    $query->whereIn('prestationables.status_examen', is_array($request->input("result_status")) ? $request->input("result_status") : [$request->input("result_status")])
+                        ->when($request->input('state_null'), function (Builder $query) {
+                            $query->orWhereNull('prestationables.status_examen');
+                        });
                 }, function (Builder $query) {
-                    $query->where(function (Builder $query) {
-                        $query->where('prestationables.status_examen', StateExamen::CREATED->value)
-                            ->orWhereNull('prestationables.status_examen');
-                    })->whereNotNull('prelevements');
+                    $query->whereNotNull('prelevements');
                 });
             })->where('type', TypePrestation::LABORATOIR->value)
                 ->when($request->input('paillasse'), function (Builder $query) use ($request) {
@@ -151,15 +154,18 @@ class PrestationController extends Controller
                         $query->where('paillasse_id', $request->input('paillasse'));
                     });
                 });
-        })->where('centre_id', $request->header('centre'))->paginate(
-            perPage: $request->input('per_page', 25),
-            page: $request->input('page', 1)
-        );
-
-        Log::info('prestations', [
-            'request' => $request->all(),
-            'prestations' => $prestations->items(),
-        ]);
+        })->when($request->input('show_results'), function (Builder $query) use ($request) {
+            $query->whereHas('prestationables', function ($query) use ($request) {
+                $query->whereIn('status_examen', $request->input("states"));
+            })->where('type', TypePrestation::LABORATOIR->value);
+        })
+            ->when($request->input('prestation_id'), function (Builder $query) use ($request) {
+                $query->where('id', $request->input('prestation_id'));
+            })
+            ->where('centre_id', $request->header('centre'))->paginate(
+                perPage: $request->input('per_page', 25),
+                page: $request->input('page', 1)
+            );
 
         $anteririorResult = [];
         $prestationIds = $prestations->pluck('id')->toArray();
@@ -171,13 +177,11 @@ class PrestationController extends Controller
                             'elementPaillasse',
                             'elementPaillasse.typeResult'
                         ])
+                        ->where('created_at', '<', $prestation->created_at)
                         ->where('element_paillasse_id', $elementPaillasse->id)
                         ->whereNotIn('prestation_id', $prestationIds)
                         ->whereHas('prestation', function ($query) use ($prestation) {
-                            $query->where('client_id', request()->input('client_id'))
-                                ->whereHas('prestationables', function ($query) {
-                                    $query->whereIn('status_examen', [StateExamen::VALIDATED->value, StateExamen::DELIVERED->value, StateExamen::PRINTED->value]);
-                                });
+                            $query->where('client_id', request()->input('client_id'));
                         })
                         ->latest()
                         ->first();
@@ -410,7 +414,7 @@ class PrestationController extends Controller
 
         return response()->json([
             'message' => "Facture enregistrée avec succès !",
-            'facture' => $facture
+            'facture' => $facture->load(['regulations'])
         ]);
     }
 

@@ -60,6 +60,7 @@ class CatPredefinedListController extends Controller
                 foreach ($request->input('predefined_lists') as $predefined_list) {
                     PredefinedList::create([
                         'name' => $predefined_list['name'],
+                        'show' => $predefined_list['show'],
                         'slug' => str()->slug($predefined_list['name']),
                         'cat_predefined_list_id' => $cat->id,
                     ]);
@@ -102,6 +103,7 @@ class CatPredefinedListController extends Controller
                     ], [
                         'name' => $predefined_list['name'],
                         'cat_predefined_list_id' => $catPredefinedList->id,
+                        'show' => $predefined_list['show'],
                     ]);
                 }
             }

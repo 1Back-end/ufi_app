@@ -16,7 +16,8 @@ class ElementPaillasse extends Model
         'name',
         'unit',
         'numero_order',
-        'category_element_result_id',
+        'cat_predefined_list_id',
+        'element_paillasses_id',
         'type_result_id',
         'examen_id',
         'indent',
@@ -24,10 +25,10 @@ class ElementPaillasse extends Model
         'updated_by'
     ];
 
-    public function categoryElementResult(): BelongsTo
-    {
-        return $this->belongsTo(CategoryElementResult::class, 'category_element_result_id');
-    }
+    protected $with = [
+        'catPredefinedList',
+        'catPredefinedList.predefinedLists'
+    ];
 
     public function typeResult(): BelongsTo
     {
@@ -59,5 +60,20 @@ class ElementPaillasse extends Model
     public function results(): HasMany
     {
         return $this->hasMany(Result::class, 'element_paillasse_id');
+    }
+
+    public function catPredefinedList(): BelongsTo
+    {
+        return $this->belongsTo(CatPredefinedList::class, 'cat_predefined_list_id');
+    }
+
+    public function parent(): BelongsTo
+    {
+        return $this->belongsTo(ElementPaillasse::class, 'element_paillasses_id');
+    }
+
+    public function children(): HasMany
+    {
+        return $this->hasMany(ElementPaillasse::class, 'element_paillasses_id');
     }
 }

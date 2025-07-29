@@ -20,7 +20,7 @@ class TypeResultController extends Controller
     public function index()
     {
         return response()->json([
-            'types' => TypeResult::with("catPredefinedList")->get(),
+            'types' => TypeResult::all(),
             'cat_predefined_lists' => CatPredefinedList::all()
         ]);
     }

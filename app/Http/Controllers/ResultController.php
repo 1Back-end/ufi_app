@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\InputType;
 use App\Enums\StateExamen;
 use App\Enums\TypePrestation;
 use App\Http\Requests\ResultRequest;
@@ -44,11 +45,13 @@ class ResultController extends Controller
                         ->where('groupe_population_id', $result['groupe_population_id'])
                         ->first();
 
-                    $prestationable->update([
-                        'status_examen' => $prestationable->status_examen == StateExamen::CREATED || empty($result['result_machine'])
-                            ? StateExamen::CREATED
-                            : StateExamen::PENDING
-                    ]);
+                    if ($element->typeResult->type != InputType::COMMENT->value) {
+                        $prestationable->update([
+                            'status_examen' => $prestationable->status_examen == StateExamen::CREATED || empty($result['result_machine'])
+                                ? StateExamen::CREATED
+                                : StateExamen::PENDING
+                        ]);
+                    }
 
                     if ($resultExist) {
                         $resultExist->update($result);
@@ -61,7 +64,6 @@ class ResultController extends Controller
                     ]);
                 }
             }
-
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error($e->getMessage());

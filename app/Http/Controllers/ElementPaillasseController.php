@@ -23,7 +23,6 @@ class ElementPaillasseController extends Controller
     {
         return response()->json(
             ElementPaillasse::with([
-                'categoryElementResult',
                 'typeResult',
                 'examen',
                 'group_populations',
