@@ -35,6 +35,10 @@ class ResultController extends Controller
                 $prestation = Prestation::find($data['prestation_id']);
 
                 foreach ($data['results'] as $result) {
+                    if (empty($result['result_machine'])) {
+                        continue;
+                    }
+
                     $element = ElementPaillasse::find($result['element_paillasse_id']);
                     $prestationable = Prestationable::where('prestation_id', $prestation->id)
                         ->where('prestationable_type', Examen::class)

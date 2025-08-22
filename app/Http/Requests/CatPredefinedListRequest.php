@@ -11,6 +11,7 @@ class CatPredefinedListRequest extends FormRequest
         return [
             'name' => ['required'],
             'predefined_lists' => ['nullable', 'array'],
+            'predefined_lists.*.id' => ['nullable'],
             'predefined_lists.*.name' => ['nullable', 'string'],
             'predefined_lists.*.show' => ['nullable', 'boolean'],
         ];
@@ -20,7 +21,6 @@ class CatPredefinedListRequest extends FormRequest
     {
         return [
             'name.required' => 'Le nom est obligatoire.',
-            'predefined_lists.*.name.required' => 'Le nom de la liste est obligatoire .',
         ];
     }
 }

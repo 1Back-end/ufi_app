@@ -16,6 +16,6 @@ class UploadExistingDataController extends Controller
 
         Excel::import(new UploadExistingDataImport, $request->file('file'));
 
-        return back()->with('success', 'Data imported successfully.');
+        return response()->json(['message' => 'Data imported successfully.']);
     }
 }

@@ -11,8 +11,13 @@ class UploadExistingDataImport implements WithMultipleSheets
     public function sheets(): array
     {
         return [
-//            'Examen cleaned' => new UploadExistingDataFirstSheetImport(),
             'KB' => new UploadExistingDataKBSheet(),
+            'family' => new UploadExistingDataFamilySheet(),
+            'sub_family' => new UploadExistingDataSubFamillySheet(),
+            'paillasse' => new UploadExistingDataPaillasseSheet(),
+            'tube' => new UploadExistingDataTubePrelevementSheet(),
+            'Examen' => new UploadExistingExamen(),
+            'Valeurs normales paillasses' => new UploadExistingElementPaillasse(),
         ];
     }
 }

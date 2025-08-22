@@ -28,7 +28,10 @@ class Examen extends Model
         'paillasse_id',
         'sub_family_exam_id',
         'kb_prelevement_id',
+        'code_exam',
     ];
+
+    protected $withCount = ['elementPaillasses'];
 
     protected function price(): Attribute
     {

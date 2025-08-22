@@ -37,6 +37,8 @@ class ExamenRequest extends FormRequest
             'elements.*.numero_order' => ['required', 'integer'],
             'elements.*.unit' => ['nullable'],
             'elements.*.indent' => ['required', 'integer', 'min:0', 'max:5'],
+            'elements.*.element_paillasses_id' => ['nullable'],
+            'elements.*.predefined_list_id' => ['nullable'],
             'elements.*.normal_values' => ['nullable', 'array'],
             'elements.*.normal_values.*.populate_id' => ['nullable', 'exists:groupe_populations,id'],
             'elements.*.normal_values.*.value' => ['nullable', 'numeric'],

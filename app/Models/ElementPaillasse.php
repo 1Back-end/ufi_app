@@ -21,13 +21,20 @@ class ElementPaillasse extends Model
         'type_result_id',
         'examen_id',
         'indent',
+        'num',
+        'predefined_list_id',
         'created_by',
         'updated_by'
     ];
 
     protected $with = [
         'catPredefinedList',
-        'catPredefinedList.predefinedLists'
+        'catPredefinedList.predefinedLists',
+        'predefinedList',
+        'parent',
+        'parent.catPredefinedList',
+        'parent.catPredefinedList.predefinedLists',
+        'parent.typeResult',
     ];
 
     public function typeResult(): BelongsTo
@@ -53,7 +60,7 @@ class ElementPaillasse extends Model
     public function group_populations(): BelongsToMany
     {
         return $this->belongsToMany(GroupePopulation::class, 'normal_value', 'element_paillasse_id', 'groupe_population_id')
-            ->withPivot(['value', 'value_max', 'sign'])
+            ->withPivot(['id', 'value', 'value_max', 'sign'])
             ->withTimestamps();
     }
 
@@ -65,6 +72,11 @@ class ElementPaillasse extends Model
     public function catPredefinedList(): BelongsTo
     {
         return $this->belongsTo(CatPredefinedList::class, 'cat_predefined_list_id');
+    }
+
+    public function predefinedList()
+    {
+        return $this->belongsTo(PredefinedList::class, 'predefined_list_id');
     }
 
     public function parent(): BelongsTo

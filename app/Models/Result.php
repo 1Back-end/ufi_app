@@ -16,6 +16,7 @@ class Result extends Model
         'groupe_population_id',
         'result_machine',
         'result_client',
+        'show',
     ];
 
     public function prestation(): BelongsTo

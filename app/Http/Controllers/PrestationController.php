@@ -987,6 +987,7 @@ class PrestationController extends Controller
      *
      * @permission PrestationController::statusExamen
      * @permission_desc Changer l’état des examens pour les prestations spécifiées.
+     * @throws Throwable
      */
     public function statusExamen(Request $request)
     {

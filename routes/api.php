@@ -621,7 +621,7 @@ Route::middleware(['activity'])->group(function () {
         Route::delete('/prelevements/{prestation}/{examen}/cancel', [ExamenController::class, 'cancelPrelevement']);
 
         // Gestion Element Paillasse
-        Route::apiResource('element-paillasses', ElementPaillasseController::class);
+        Route::apiResource('element-paillasses', ElementPaillasseController::class)->only(['index', 'destroy']);
 
         // Gestion Result
         Route::post('/prestations/examens/status', [ResultController::class, 'status']);
