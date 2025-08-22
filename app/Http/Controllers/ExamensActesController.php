@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\ExamenActes;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class ExamensActesController extends Controller
@@ -24,7 +25,10 @@ class ExamensActesController extends Controller
     }
 
     /**
-     * Store a newly created resource in storage.
+     * @return JsonResponse
+     *
+     * @permission ExamensActesController::store
+     * @permission_desc Ajouter des examens au rapport de consultation d'un client
      */
     public function store(Request $request)
     {

@@ -176,6 +176,12 @@ class RendezVousController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Display a listing of the resource.
+     * @permission RendezVousController::rapportResume
+     * @permission_desc Imprimer les rapports des consultants par prestations
+     */
     public function rapportResume(Request $request)
     {
         $date_debut = $request->input('start') ? Carbon::parse($request->input('start'))->startOfDay() : null;
@@ -216,7 +222,7 @@ class RendezVousController extends Controller
                 'nombre_type_consultation' => $nbTypeConsultation
             ], $types);
         })->values();
-    
+
         // --- Génération du PDF ---
         $fileName = 'rapport_resume_' . now()->format('YmdHis') . '.pdf';
         $folderPath = 'storage/rapport_resume';
