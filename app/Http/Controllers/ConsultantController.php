@@ -5,6 +5,9 @@ namespace App\Http\Controllers;
 use App\Exports\AssureurExport;
 use App\Exports\ClientsExport;
 use App\Exports\ConsultantExportSearch;
+use App\Imports\ClasseMaladieImport;
+use App\Imports\MedecinImport;
+use App\Imports\PescripteursImport;
 use App\Models\Centre;
 use App\Models\Consultation;
 use App\Models\User;
@@ -32,7 +35,11 @@ class ConsultantController extends Controller
         $perPage = $request->input('limit', 10);  // Par défaut, 10 éléments par page
         $page = $request->input('page', 1);  // Page courante
         $consultanst = Consultant::where('is_deleted', false)
-            ->with(['code_hopi:id,nom_hopi', 'code_specialite:id,nom_specialite', 'code_titre:id,nom_titre','centre:id,name'])
+            ->with([
+                'code_hopi',
+                'code_specialite',
+                'code_titre','centre'
+            ])
             ->when($request->input('search'), function ($query) use ($request) {
                 $search = $request->input('search');
                 $query->where('ref', 'like', '%' . $search . '%')
@@ -270,6 +277,31 @@ class ConsultantController extends Controller
             'consultant' => $consultant
         ], 201);
     }
+    public function import(Request $request)
+    {
+        $request->validate([
+            'file' => 'required|file|mimes:xlsx,xls,csv'
+        ]);
+
+        Excel::import(new PescripteursImport(), $request->file('file'));
+
+        return response()->json([
+            'message' => 'Importation effectuée avec succès.'
+        ], 200);
+    }
+
+    public function import_medecin(Request $request)
+    {
+        $request->validate([
+            'file' => 'required|file|mimes:xlsx,xls,csv'
+        ]);
+
+        Excel::import(new MedecinImport(), $request->file('file'));
+
+        return response()->json([
+            'message' => 'Importation effectuée avec succès.'
+        ], 200);
+    }
     /**
      * Update the specified resource in storage.
      */
@@ -295,10 +327,23 @@ class ConsultantController extends Controller
             'nom' => 'sometimes|string',
             'prenom' => 'sometimes|string',
             'tel' => 'sometimes|string',
-            'tel1' => 'sometimes|string',
+            'tel1' => 'nullable|string',
             'email' => 'sometimes|email|unique:consultants,email,' . $id,
             'type' => ['sometimes', new Enum(TypeConsultEnum::class)],
             'TelWhatsApp' => ['sometimes', new Enum(TelWhatsAppEnum::class)],
+        ], [
+            'code_hopi.exists' => 'Le code de l’hôpital est invalide.',
+            'code_service_hopi.exists' => 'Le code du service hospitalier est invalide.',
+            'code_specialite.exists' => 'Le code de spécialité est invalide.',
+            'code_titre.exists' => 'Le code du titre est invalide.',
+            'nom.string' => 'Le nom doit être une chaîne de caractères.',
+            'prenom.string' => 'Le prénom doit être une chaîne de caractères.',
+            'tel.string' => 'Le numéro de téléphone doit être une chaîne de caractères.',
+            'tel1.string' => 'Le numéro secondaire doit être une chaîne de caractères.',
+            'email.email' => 'L’adresse email n’est pas valide.',
+            'email.unique' => 'Cette adresse email est déjà utilisée par un autre consultant.',
+            'type.enum' => 'Le type de consultant sélectionné est invalide.',
+            'TelWhatsApp.enum' => 'Le numéro WhatsApp sélectionné est invalide.',
         ]);
         $validated['update_by'] =  $auth->id;
         // Vérification si un titre est présent dans la requête

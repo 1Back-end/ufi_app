@@ -30,6 +30,7 @@ class OpsTblHospitalisationController extends Controller
                 $query->where('name', 'like', '%' . request('search') . '%');
             })
             ->latest()->paginate(perPage: $perPage, page: $page);
+
         return response()->json([
             'data' => $hospitalisations->items(),
             'current_page' => $hospitalisations->currentPage(),  // Page courante

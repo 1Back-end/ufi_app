@@ -113,13 +113,25 @@ class RendezVous extends Model
 
     public function getPastAttribute(): bool
     {
-        return now()->greaterThan($this->dateheure_rdv->copy()->addDays($this->nombre_jour_validite));
+        $date = optional($this->dateheure_rdv)->copy();
+
+        if (is_null($date)) {
+            return false; // ou true selon ta logique métier
+        }
+
+        return now()->greaterThan($date->addDays($this->nombre_jour_validite));
     }
+
 
     public function getNombreJoursAttribute(): ?int
     {
         return (int) ceil($this->duration / 60);
     }
+    public function facture()
+    {
+        return $this->hasMany(Facture::class, 'prestation_id', 'prestation_id');
+    }
+
 
 
 

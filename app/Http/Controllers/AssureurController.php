@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Exports\AssureurExport;
 use App\Exports\AssureurSearchExport;
+use App\Imports\ActesImport;
+use App\Imports\AssurancesImport;
 use Illuminate\Http\Request;
 use App\Models\Assureur;
 use App\Models\User;
@@ -22,6 +24,20 @@ class AssureurController extends Controller
         return response()->json([
             'assureur' => $data
         ]);
+    }
+    public function import(Request $request)
+    {
+
+        $request->validate([
+            'file' => 'required|file|mimes:xlsx,xls,csv',
+        ]);
+
+        try {
+            Excel::import(new AssurancesImport(), $request->file('file'));
+            return response()->json(['message' => 'Importation réussie.']);
+        } catch (\Throwable $e) {
+            return response()->json(['message' => 'Erreur : ' . $e->getMessage()], 500);
+        }
     }
 
     /**

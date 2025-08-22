@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Imports\GroupeMaladieImport;
 use App\Models\ClasseMaladie;
 use App\Models\GroupeMaladie;
 use Illuminate\Http\Request;
+use Maatwebsite\Excel\Facades\Excel;
 
 class GroupeMaladieController extends Controller
 {
@@ -34,6 +36,20 @@ class GroupeMaladieController extends Controller
             'message' => 'Groupe maladie créé avec succès.',
             'data' => $groupe,
         ], 201);
+    }
+
+    public function import(Request $request)
+    {
+        $request->validate([
+            'file' => 'required|file|mimes:xlsx,xls,csv',
+        ]);
+
+        try {
+            Excel::import(new GroupeMaladieImport(), $request->file('file'));
+            return response()->json(['message' => 'Importation réussie.'], 200);
+        } catch (\Exception $e) {
+            return response()->json(['message' => 'Erreur : ' . $e->getMessage()], 500);
+        }
     }
 
     /**

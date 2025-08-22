@@ -3,10 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\ActeRequest;
+use App\Imports\ActesImport;
+use App\Imports\MaladieImport;
 use App\Models\Acte;
 use App\Models\TypeActe;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Maatwebsite\Excel\Facades\Excel;
 
 class ActeController extends Controller
 {
@@ -29,10 +32,25 @@ class ActeController extends Controller
                 'actes' => $query->paginate($request->input('per_page', 10))
             ]);
         }
-    
+
         return response()->json([
             'type_actes' => TypeActe::with(['actes', 'actes.createdBy:id,nom_utilisateur', 'actes.updatedBy:id,nom_utilisateur'])->get()
         ]);
+    }
+
+    public function import(Request $request)
+    {
+
+        $request->validate([
+            'file' => 'required|file|mimes:xlsx,xls,csv',
+        ]);
+
+        try {
+            Excel::import(new ActesImport(), $request->file('file'));
+            return response()->json(['message' => 'Importation réussie.']);
+        } catch (\Throwable $e) {
+            return response()->json(['message' => 'Erreur : ' . $e->getMessage()], 500);
+        }
     }
 
     /**

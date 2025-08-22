@@ -10,6 +10,7 @@ use App\Models\Setting;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Maatwebsite\Excel\Facades\Excel;
 
@@ -22,7 +23,7 @@ class RendezVousController extends Controller
      */
     public function index(Request $request)
     {
-        $perPage = $request->input('limit', 10);
+        $perPage = $request->input('limit', 25);
         $page = $request->input('page', 1);
 
         $query = RendezVous::where('is_deleted', false)
@@ -62,10 +63,22 @@ class RendezVousController extends Controller
                     ->orWhere('code', 'like', "%{$search}%")
                     ->orWhere('id', 'like', "%{$search}%")
                     ->orWhereHas('client', function ($subQ) use ($search) {
-                        $subQ->where('nomcomplet_client', 'like', "%{$search}%");
+                        $subQ->where('nomcomplet_client', 'like', "%{$search}%")
+                            ->orWhere('prenom', 'like', "%{$search}%")
+                            ->orWhere('email', 'like', "%{$search}%")
+                            ->orWhere('tel', 'like', "%{$search}%")
+                            ->orWhere('tel2_cli', 'like', "%{$search}%")
+                            ->orWhere('id', 'like', "%{$search}%");
+
                     })
                     ->orWhereHas('consultant', function ($subQ) use ($search) {
-                        $subQ->where('nomcomplet', 'like', "%{$search}%");
+                        $subQ->where('nomcomplet', 'like', "%{$search}%")
+                            ->orWhere('email', 'like', "%{$search}%")
+                            ->orWhere('tel', 'like', "%{$search}%")
+                            ->orWhere('tel1', 'like', "%{$search}%")
+                            ->orWhere('ref', 'like', "%{$search}%")
+                            ->orWhere('type', 'like', "%{$search}%")
+                            ->orWhere('id', 'like', "%{$search}%");
                     });
             });
         }
@@ -80,6 +93,165 @@ class RendezVousController extends Controller
             'total' => $rendez_vous->total(),
         ]);
     }
+
+
+    /**
+     * Display a listing of the resource.
+     * @permission RendezVousController::PrintRapport
+     * @permission_desc Imprimer les états de consultations des rendez-vous
+     */
+    public function PrintRapport(Request $request)
+    {
+        DB::beginTransaction();
+
+        try {
+            // Période
+            $date_debut = $request->input('start') ? Carbon::parse($request->input('start'))->startOfDay() : null;
+            $date_fin   = $request->input('end')   ? Carbon::parse($request->input('end'))->endOfDay() : null;
+
+
+            // Requête principale
+            // Requête principale
+            $query = RendezVous::with([
+                'client.sexe',
+                'consultant',
+                'prestation',
+            ])
+                ->where('is_deleted', false)
+                ->when($request->filled('consultant_id'), fn($q) => $q->where('consultant_id', $request->consultant_id))
+                ->when($request->filled('client_id'), fn($q) => $q->where('client_id', $request->client_id))
+                ->when($request->filled('type'), fn($q) => $q->whereHas('prestation', fn($subQ) => $subQ->where('type', $request->type)))
+                ->when($date_debut && $date_fin, fn($q) => $q->whereBetween('dateheure_rdv', [$date_debut, $date_fin]));
+
+            $rendezVous = $query->orderBy('dateheure_rdv', 'desc')->get();
+
+            // Préparer les données pour le PDF
+            $data = [
+                'rendezVous' => $rendezVous,
+                'periode' => $date_debut && $date_fin ? [
+                    'du' => $date_debut->format('Y-m-d'),
+                    'au' => $date_fin->format('Y-m-d')
+                ] : null,
+                'filtre' => [
+                    'type' => $request->input('type'),
+                    'client_id' => $request->input('client_id'),
+                    'consultant_id' => $request->input('consultant_id'),
+                ]
+            ];
+
+            // Nom et chemin du fichier PDF
+            $fileName = 'etat-consultations-' . now()->format('YmdHis') . '.pdf';
+            $folderPath = 'storage/etat_consultations';
+            $filePath = $folderPath . '/' . $fileName;
+
+            // Génération du PDF
+            save_browser_shot_pdf(
+                view: 'pdfs.etats.rendez_vous',
+                data: ['data' => $data],
+                folderPath: $folderPath,
+                path: $filePath,
+                margins: [15, 10, 15, 10],
+                format: 'A4',
+                direction: 'paysage'
+            );
+
+            DB::commit();
+
+            // Retourner le PDF en base64
+            $pdfContent = file_get_contents($filePath);
+            $base64 = base64_encode($pdfContent);
+
+            return response()->json([
+                "data" => $rendezVous,
+                'base64' => $base64,
+                'url' => $filePath,
+                'filename' => $fileName,
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'error' => 'Une erreur est survenue lors de la génération du rapport.',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+    public function rapportResume(Request $request)
+    {
+        $date_debut = $request->input('start') ? Carbon::parse($request->input('start'))->startOfDay() : null;
+        $date_fin   = $request->input('end')   ? Carbon::parse($request->input('end'))->endOfDay() : null;
+
+        $rendezVous = RendezVous::with(['consultant', 'prestation'])
+            ->where('is_deleted', false)
+            ->when($request->filled('consultant_id'), fn($q) => $q->where('consultant_id', $request->consultant_id))
+            ->when($request->filled('client_id'), fn($q) => $q->where('client_id', $request->client_id))
+            ->when($request->filled('type'), fn($q) => $q->whereHas('prestation', fn($subQ) => $subQ->where('type', $request->type)))
+            ->when($date_debut && $date_fin, fn($q) => $q->whereBetween('dateheure_rdv', [$date_debut, $date_fin]))
+            ->get();
+
+        $summary = $rendezVous->groupBy('consultant_id')->map(function ($rdvs) {
+            $consultantName = $rdvs->first()->consultant->nomcomplet ?? 'N/A';
+            $types = [
+                'Actes' => 0,
+                'Consultations' => 0,
+                'Soins' => 0,
+                'Produits' => 0,
+                'Examen de laboratoire' => 0,
+                'Hospitalisation' => 0,
+            ];
+
+            foreach ($rdvs as $rdv) {
+                $typeLabel = $rdv->prestation->type_label ?? null;
+                if ($typeLabel && array_key_exists($typeLabel, $types)) {
+                    $types[$typeLabel]++;
+                }
+            }
+
+            $nbRdv = $rdvs->count();
+            $nbTypeConsultation = $rdvs->pluck('prestation.type_label')->unique()->count();
+
+            return array_merge([
+                'consultant' => $consultantName,
+                'nombre_rdv' => $nbRdv,
+                'nombre_type_consultation' => $nbTypeConsultation
+            ], $types);
+        })->values();
+    
+        // --- Génération du PDF ---
+        $fileName = 'rapport_resume_' . now()->format('YmdHis') . '.pdf';
+        $folderPath = 'storage/rapport_resume';
+        $filePath = $folderPath . '/' . $fileName;
+
+        if (!file_exists($folderPath)) {
+            mkdir($folderPath, 0755, true);
+        }
+
+        save_browser_shot_pdf(
+            view: 'pdfs.etats.rapport_resume', // Crée une vue Blade pour afficher $summary
+            data: ['summary' => $summary],
+            folderPath: $folderPath,
+            path: $filePath,
+            margins: [15, 10, 15, 10],
+            format: 'A4',
+            direction: 'portrait'
+        );
+        DB::commit();
+
+        // Retourner le PDF en base64 et URL
+        $pdfContent = file_get_contents($filePath);
+        $base64 = base64_encode($pdfContent);
+
+        return response()->json([
+            'success' => true,
+            'data' => $summary,
+            'url' => $filePath,
+            'filename' => $fileName,
+            'base64' => $base64
+        ]);
+    }
+
+
+
 
     public function HistoriqueRendezVous(Request $request, $client_id)
     {
@@ -387,7 +559,7 @@ class RendezVousController extends Controller
         try {
             $rendez_vous = RendezVous::where('is_deleted', false)
                 ->with([
-                    'client',
+                    'client.sexe',
                     'consultant',
                     'createdBy',
                     'updatedBy',

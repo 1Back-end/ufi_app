@@ -1,9 +1,11 @@
 <?php
 
 namespace App\Http\Controllers;
-
+use App\Imports\MaladieImport;
 use App\Models\Maladie;
 use Illuminate\Http\Request;
+use Maatwebsite\Excel\Facades\Excel;
+
 
 class MaladieController extends Controller
 {
@@ -35,6 +37,23 @@ class MaladieController extends Controller
             'data' => $maladie,
         ], 201);
     }
+
+    public function import(Request $request)
+    {
+
+        $request->validate([
+            'file' => 'required|file|mimes:xlsx,xls,csv',
+        ]);
+
+        try {
+            Excel::import(new MaladieImport, $request->file('file'));
+            return response()->json(['message' => 'Importation réussie.']);
+        } catch (\Throwable $e) {
+            return response()->json(['message' => 'Erreur : ' . $e->getMessage()], 500);
+        }
+    }
+
+
 
     /**
      * Display a listing of the resource.
