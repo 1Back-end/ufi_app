@@ -37,6 +37,10 @@ class OpsTblRapportConsultation extends Model
     {
         return $this->hasMany(OpsTblMiseEnObservationHospitalisation::class, 'rapport_consultation_id');
     }
+    public function ordonnance()
+    {
+        return $this->hasOne(Ordonnance::class, 'rapport_consultations_id', 'id');
+    }
     protected static function boot()
     {
         parent::boot();

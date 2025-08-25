@@ -6,6 +6,7 @@ use App\Models\Client;
 use App\Models\OpsTblCertificatMedical;
 use App\Models\Ordonnance;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class OpsTblCertificatMedicalController extends Controller
 {
@@ -71,31 +72,129 @@ class OpsTblCertificatMedicalController extends Controller
      */
     public function store(Request $request)
     {
-        $auth = auth()->user();
+        try {
+            DB::beginTransaction();
 
-        /* ─── Validation ─── */
-        $request->validate([
-            'type'  => 'required|in:Certificat d\'aptitude,Certificat médical',
-            'commentaire'       => 'nullable|string',
-            // requis SI type = Certificat médical
-            'nbre_jour_repos'   => 'nullable|integer|min:1|required_if:type,Certificat médical',
-            'rapport_consultation_id' => 'nullable|exists:ops_tbl_rapport_consultations,id',
-        ]);
+            $auth = auth()->user();
 
-        /* ─── Création ─── */
-        $certificat = OpsTblCertificatMedical::create([
-            'type'                   => $request->type,
-            'commentaire'            => $request->commentaire,
-            'nbre_jour_repos'        => $request->nbre_jour_repos,   // null si aptitude
-            'rapport_consultation_id'=> $request->rapport_consultation_id,
-            'created_by'             => $auth->id,
-        ]);
+            $request->validate([
+                'type' => 'required|in:Certificat d\'aptitude,Certificat médical',
+                'commentaire' => 'nullable|string',
+                'nbre_jour_repos' => 'nullable|integer|min:1|required_if:type,Certificat médical',
+                'rapport_consultation_id' => 'nullable|exists:ops_tbl_rapport_consultations,id',
+            ]);
 
-        return response()->json([
-            'message' => 'Certificat médical enregistré avec succès.',
-            'data'    => $certificat,
-        ], 201);
+            $certificat = OpsTblCertificatMedical::create([
+                'type' => $request->type,
+                'commentaire' => $request->commentaire,
+                'nbre_jour_repos' => $request->nbre_jour_repos,
+                'rapport_consultation_id' => $request->rapport_consultation_id,
+                'created_by' => $auth->id,
+            ]);
+
+            $data = [];
+
+            if ($request->type === "Certificat médical") {
+                $rapport = optional($certificat->rapportConsultation);
+                $client = optional($rapport->dossierConsultation->rendezVous->client);
+                $consultant = optional($rapport->dossierConsultation->rendezVous->consultant);
+
+                $data = [
+                    'consultant' => $consultant,
+                    'client' => $client,
+                    'certificat' => $certificat,
+                ];
+
+                $fileName = 'certificat-medical-' . now()->format('YmdHis') . '.pdf';
+                $folderPath = 'storage/certificats-medicals';
+                $filePath = $folderPath . '/' . $fileName;
+
+                save_browser_shot_pdf(
+                    view: 'pdfs.certificats.fiche-certificat',
+                    data: $data,
+                    folderPath: $folderPath,
+                    path: $filePath,
+                    margins: [15, 10, 15, 10],
+                    format: 'A4',
+                    direction: 'portrait'
+                );
+            }
+
+            if ($request->type === "Certificat d'aptitude") {
+                $rapport = optional($certificat->rapportConsultation);
+                $dossier = optional($rapport->dossierConsultation);
+
+                // récupérer le client et sa société
+                $client = optional($dossier->rendezVous->client);
+                $societe = optional($client->societe);
+                $prefix = optional($client->prefix);
+
+                // récupérer le consultant
+                $consultant = optional($dossier->rendezVous->consultant);
+
+                // récupérer le motif de consultation (premier ou spécifique selon ton besoin)
+                $motif = optional($dossier->motifsConsultation()->first());
+
+                // récupérer la catégorie et le type de visite
+                $categorie_visite = optional($motif->categorieVisite)->libelle ?? null;
+                $type_visite = optional($motif->typeVisite)->libelle ?? null;
+
+                // préparer les données pour le PDF ou JSON
+                $data = [
+                    'client' => $client,
+                    'prefix' => $prefix,
+                    'societe' => $societe,
+                    'consultant' => $consultant,
+                    'certificat' => $certificat,
+                    'categorie_visite' => $categorie_visite,
+                    'type_visite' => $type_visite,
+                    'rapport' => $rapport,
+                ];
+
+
+                $fileName = 'certificat-aptitude-' . now()->format('YmdHis') . '.pdf';
+                $folderPath = 'storage/certificats-aptitude';
+                $filePath = $folderPath . '/' . $fileName;
+
+                save_browser_shot_pdf(
+                    view: 'pdfs.certificats.fiche-certificat-aptitude',
+                    data: $data,
+                    folderPath: $folderPath,
+                    path: $filePath,
+                    margins: [15, 10, 15, 10],
+                );
+            }
+
+            DB::commit();
+
+            if ((!isset($filePath) || !file_exists($filePath)) && $request->type !== null) {
+                return response()->json(['message' => 'Le fichier PDF n\'a pas été généré.'], 500);
+            }
+
+            $pdfContent = file_exists($filePath) ? file_get_contents($filePath) : null;
+            $base64 = $pdfContent ? base64_encode($pdfContent) : null;
+
+            return response()->json([
+                'message' => 'Certificat enregistré avec succès.',
+                'data' => $data,
+                'base64' => $base64,
+                'url' => $filePath ?? null,
+                'filename' => $fileName ?? null,
+            ], 201);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'error' => 'Erreur de validation',
+                'details' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'Une erreur est survenue',
+                'message' => $e->getMessage()
+            ], 500);
+        }
     }
+
 
 
     /**

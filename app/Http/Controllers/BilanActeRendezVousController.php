@@ -8,6 +8,15 @@ use App\Models\RendezVous;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Spatie\Browsershot\Browsershot;
+use Throwable;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Query\Builder as QueryBuilder;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Carbon;
+use Spatie\Browsershot\Exceptions\CouldNotTakeBrowsershot;
 class BilanActeRendezVousController extends Controller
 {
     public function index(){
@@ -150,6 +159,93 @@ class BilanActeRendezVousController extends Controller
             'data'    => $bilan,
         ], 200);
     }
+
+
+
+    /**
+     * Display a listing of the resource.
+     * @permission BilanActeRendezVousController::PrintRapport
+     * @permission_desc Imprimer le rapport des actes du client
+     */
+    public function PrintRapport(Request $request, int $client_id)
+    {
+        DB::beginTransaction();
+
+        try {
+            $rapports = BilanActeRendezVous::query()
+                ->whereHas('rendezVous', fn ($q) => $q->where('client_id', $client_id))
+                ->with([
+                    'rendezVous',
+                    'rendezVous.consultant',
+                    'techniqueAnalyse',
+                    'consultant',
+                    'prestation.actes', // uniquement les actes
+                    'creator',
+                    'updater'
+                ])
+                ->get();
+
+            if ($rapports->isEmpty()) {
+                DB::rollBack();
+                return response()->json(['message' => 'Aucun rapport trouvé pour ce client.'], 404);
+            }
+
+            $data = [
+                'rapports' => $rapports,
+                'client'   => $rapports->first()->rendezVous->client ?? null,
+            ];
+//            dd($data);
+
+            $fileName   = 'rapport-client-' . $client_id . '-' . now()->format('YmdHis') . '.pdf';
+            $folderPath = 'storage/rapport-clients'; // chemin absolu
+            $filePath   = $folderPath . '/' . $fileName;
+
+            // Création dossier si nécessaire
+            if (!file_exists($folderPath)) {
+                mkdir($folderPath, 0755, true);
+            }
+
+            // Génération PDF
+            save_browser_shot_pdf(
+                view: 'pdfs.rapport-clients.rapport-client',
+                data: $data,
+                folderPath: $folderPath,
+                path: $filePath,
+                margins: [15, 10, 15, 10]
+            );
+
+            DB::commit();
+
+            // Lecture du contenu PDF et encodage base64
+            if (!file_exists($filePath)) {
+                return response()->json(['message' => 'Le fichier PDF n\'a pas été généré.'], 500);
+            }
+
+            $pdfContent = file_get_contents($filePath);
+            $base64 = base64_encode($pdfContent);
+
+            return response()->json([
+                'rapports' => $rapports,
+                'base64'   => $base64,
+                'url' => $filePath,
+                'filename' => $fileName,
+            ], 200);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'error' => 'Erreur de validation',
+                'details' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'Une erreur est survenue',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+
+
 
 
 

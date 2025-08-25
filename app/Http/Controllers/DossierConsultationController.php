@@ -67,7 +67,8 @@ class DossierConsultationController extends Controller
             });
         }
 
-        $dossiers = $query->latest()->paginate($perPage, ['*'], 'page', $page);
+        $dossiers = $query->latest()
+            ->paginate($perPage, ['*'], 'page', $page);
 
         return response()->json([
             'data' => $dossiers->items(),

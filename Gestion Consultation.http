@@ -18,6 +18,12 @@
 #GET http://127.0.0.1:8000/api/assureurs/export-assureurs
 
 #GET http://127.0.0.1:8000/api/assureurs/list
-GET http://localhost:8000/api/ops_tbl_enquetes/export
+#GET http://localhost:8000/api/ops_tbl_enquetes/export
 
 #GET http://localhost:8000/api/ops_tbl_motif_consultations/search-and-export?limit=10&page=1&search=MOTF-684028CD71202
+
+#GET http://localhost:8000/api/statistics/rendez_vous-statistics
+#GET http://localhost:8000/api/statistics/clients-statistics
+GET http://localhost:8000/api/statistics/factures-statistiques
+
+

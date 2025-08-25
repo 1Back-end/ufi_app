@@ -81,6 +81,9 @@ use App\Http\Controllers\ClasseMaladieController;
 use App\Http\Controllers\GroupeMaladieController;
 use App\Http\Controllers\MaladieController;
 use App\Http\Controllers\MaladieTypeDiagnosticController;
+use App\Http\Controllers\StatistiqueController;
+use App\Http\Controllers\RapportActeController;
+use App\Http\Controllers\ExamensActesController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['activity'])->group(function () {
@@ -130,6 +133,7 @@ Route::middleware(['activity'])->group(function () {
         // Actes
         Route::apiResource('actes', ActeController::class)->except(['show']);
         Route::patch('/actes/{acte}/activate', [ActeController::class, 'changeStatus']);
+        Route::post('/actes/import', [ActeController::class, 'import']);
 
         // Prestations
         Route::get('prestations/types', [PrestationController::class, 'typePrestation']);
@@ -156,6 +160,8 @@ Route::middleware(['activity'])->group(function () {
             Route::get('/export', 'export');
             Route::get('/searchandexport', 'searchAndExport');
             Route::get('/get_by_id/{id}', 'show');
+            Route::post('/import',  'import');
+            Route::post('/import_medecin',  'import_medecin');
 
             // routes/api.php
         });
@@ -216,6 +222,8 @@ Route::middleware(['activity'])->group(function () {
             Route::get('/get_data',  'listIdName');
             Route::get('/{id}/quotation-code',  'getQuotationCode');
             Route::get('/{id}/hospitalisations', 'getHospitalisations');
+            Route::post('/import',  'import');
+
         });
         Route::controller(FournisseurController::class)->prefix('fournisseurs')->group(function () {
             Route::get('/list', 'index');
@@ -339,6 +347,11 @@ Route::middleware(['activity'])->group(function () {
             Route::get('/export',  'export');
             Route::get('/get_by_id/{id}', 'show');
             Route::get('/client/{client_id}',  'HistoriqueRendezVous');
+            Route::get('/rapport',  'PrintRapport');
+            Route::get('/stats_by_consultants', 'rapportResume');
+
+
+
         });
 
         Route::controller(ConfigTblSousCategorieAntecedentController::class)->prefix('config_sous_categories_antecedents')->group(function () {
@@ -453,6 +466,8 @@ Route::middleware(['activity'])->group(function () {
             Route::put('/edit/{id}', 'update');
             Route::delete('/delete/{id}', 'destroy');
             Route::get('/client/{client_id}/', 'HistoriqueOrdonnancesClient');
+            Route::get('/print_ordonnances/{rapport_consultation_id}/',  'printFromRapport');
+
         });
         Route::controller(DiagnosticController::class)->prefix('diagnostics')->group(function () {
             Route::get('/list', 'index');
@@ -527,7 +542,8 @@ Route::middleware(['activity'])->group(function () {
             Route::get('/get_by_id/{id}', 'show');
             Route::put('/edit/{id}', 'update');
             Route::delete('/delete/{id}', 'destroy');
-            Route::get('/client/{client_id}',  'getHistoriqueActesClient');
+            Route::get('/actes-client/{client_id}',  'getHistoriqueActesClient');
+            Route::get('/client/{client_id}', 'PrintRapport');
         });
         Route::controller(ClasseMaladieController::class)->prefix('classe_maladie')->group(function () {
             Route::get('/list', 'index');
@@ -536,6 +552,8 @@ Route::middleware(['activity'])->group(function () {
             Route::put('/edit/{id}', 'update');
             Route::delete('/delete/{id}', 'destroy');
             Route::patch('/{id}/status', 'updateStatus');
+            Route::post('/import',  'import');
+
         });
         Route::controller(GroupeMaladieController::class)->prefix('groupe_maladie')->group(function () {
             Route::get('/list', 'index');
@@ -544,6 +562,7 @@ Route::middleware(['activity'])->group(function () {
             Route::put('/edit/{id}', 'update');
             Route::delete('/delete/{id}', 'destroy');
             Route::patch('/{id}/status', 'updateStatus');
+            Route::post('/import',  'import');
 
         });
         Route::controller(MaladieController::class)->prefix('maladie')->group(function () {
@@ -553,6 +572,7 @@ Route::middleware(['activity'])->group(function () {
             Route::put('/edit/{id}', 'update');
             Route::delete('/delete/{id}', 'destroy');
             Route::patch('/{id}/status', 'updateStatus');
+            Route::post('/import',  'import');
         });
         Route::controller(MaladieTypeDiagnosticController::class)->prefix('maladie_diagnostics')->group(function () {
             Route::get('/list', 'index');
@@ -560,6 +580,17 @@ Route::middleware(['activity'])->group(function () {
             Route::get('/get_by_id/{id}', 'show');
             Route::put('/edit/{id}', 'update');
             Route::delete('/delete/{id}', 'destroy');
+        });
+        Route::controller(StatistiqueController::class)->prefix('statistics')->group(function () {
+            Route::get('/rendez_vous-statistics', 'statistiquesAujourdHui');
+            Route::get('/clients-statistics', 'clientsJourParType');
+            Route::get('/factures-statistics', 'getAllFacture');
+        });
+        Route::controller(RapportActeController::class)->prefix('rapport_acte')->group(function () {
+            Route::post('/create', 'store');
+        });
+        Route::controller(ExamensActesController::class)->prefix('examen_actes')->group(function () {
+            Route::post('/create', 'store');
         });
 
         // Setting management

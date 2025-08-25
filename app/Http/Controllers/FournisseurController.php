@@ -171,7 +171,7 @@ class FournisseurController extends Controller
             });
         }
 
-        $fournisseurs = $query->get();  // Utilise get() pour obtenir tous les résultats correspondants
+        $fournisseurs = $query->get();
 
         return response()->json([
             'data' => $fournisseurs,

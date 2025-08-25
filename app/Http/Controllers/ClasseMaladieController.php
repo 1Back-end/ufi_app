@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Imports\ClasseMaladieImport;
 use App\Models\ClasseMaladie;
 use App\Models\ConfigTbl_Categories_enquetes;
 use Illuminate\Http\Request;
+use Maatwebsite\Excel\Facades\Excel;
 
 class ClasseMaladieController extends Controller
 {
@@ -16,7 +18,7 @@ class ClasseMaladieController extends Controller
      */
     public function index(Request $request)
     {
-        $perPage = $request->input('limit', 5);
+        $perPage = $request->input('limit', 25);
         $page = $request->input('page', 1);
 
         $query = ClasseMaladie::where('is_deleted', false)
@@ -66,6 +68,18 @@ class ClasseMaladieController extends Controller
             'message' => 'Classe maladie créée avec succès.',
             'data'    => $classe,
         ], 201);
+    }
+    public function import(Request $request)
+    {
+        $request->validate([
+            'file' => 'required|file|mimes:xlsx,xls,csv'
+        ]);
+
+        Excel::import(new ClasseMaladieImport(), $request->file('file'));
+
+        return response()->json([
+            'message' => 'Importation effectuée avec succès.'
+        ], 200);
     }
 
     /**

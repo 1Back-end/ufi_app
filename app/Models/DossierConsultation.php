@@ -37,6 +37,11 @@ class DossierConsultation extends Model
    {
        return $this->belongsTo(RendezVous::class, 'rendez_vous_id');
    }
+    public function motifsConsultation()
+    {
+        return $this->hasMany(OpsTbl_Motif_consultation::class, 'dossier_consultation_id');
+    }
+
     public function creator()
     {
         return $this->belongsTo(User::class, 'created_by');

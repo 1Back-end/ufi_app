@@ -140,6 +140,12 @@ return [
             'url' => env('APP_URL') . '/export-infirmieres',
             'visibility' => 'public',
         ],
+        'rapportsclients' => [
+            'driver' => 'local',
+            'root' => public_path('rapport-clients'),
+            'url' => env('APP_URL') . '/rapport-clients',
+            'visibility' => 'public',
+        ],
 
 
 

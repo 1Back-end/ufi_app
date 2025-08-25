@@ -2,11 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\BilanActeRendezVous;
 use App\Models\Client;
+use App\Models\OpsTblRapportConsultation;
 use App\Models\Ordonnance;
 use App\Models\OrdonnanceProduit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class OrdonnanceController extends Controller
 {
@@ -97,11 +100,48 @@ class OrdonnanceController extends Controller
                 ]);
             }
 
+            $rapport = optional($ordonnance->rapportConsultation);
+            $client = optional($rapport->dossierConsultation->rendezVous->client);
+            $consultant = optional($rapport->dossierConsultation->rendezVous->consultant);
+
+            // Préparer les données pour le PDF
+            $data = [
+                'ordonnance' => $ordonnance->load('produits'),
+                'consultant' => $consultant->nomcomplet,
+                'patient' => $client->nomcomplet_client ?? '...........................',
+                'date_aujourdhui' => now()->format('d/m/Y'),
+            ];
+
+            $fileName = 'ordonnance-' . now()->format('YmdHis') . '.pdf';
+            $folderPath = 'storage/ordonnances';
+            $filePath = $folderPath . '/' . $fileName;
+
+            if (!file_exists($folderPath)) {
+                mkdir($folderPath, 0755, true);
+            }
+
+            // Génération du PDF avec format A5 et marges élargies
+            save_browser_shot_pdf(
+                view: 'pdfs.ordonnances.ordonnance',
+                data: ['data' => $data],
+                folderPath: $folderPath,
+                path: $filePath,
+                margins: [15, 10, 15, 10],
+                format: 'A5',
+                direction: 'portrait'
+            );
+
             DB::commit();
 
+            $pdfContent = file_get_contents($filePath);
+            $base64 = base64_encode($pdfContent);
+
             return response()->json([
-                'message' => 'Ordonnance et produits enregistrés avec succès',
-                'data' => $ordonnance->load('produits')
+                'message' => 'Ordonnance enregistrée avec succès.',
+                'data' => $ordonnance->load('produits'),
+                'base64' => $base64,
+                'url' => asset($filePath),
+                'filename' => $fileName,
             ], 201);
 
         } catch (\Exception $e) {
@@ -112,6 +152,76 @@ class OrdonnanceController extends Controller
             ], 500);
         }
     }
+
+
+
+    public function printFromRapport(Request $request,int $rapport_consultation_id)
+    {
+        DB::beginTransaction();
+
+        try {
+            // Récupère le rapport avec ordonnance
+            $rapport = OpsTblRapportConsultation::with(['ordonnance.produits', 'dossierConsultation.rendezVous.client'])
+                ->findOrFail($rapport_consultation_id);
+
+            $ordonnance = $rapport->ordonnance;
+
+            if (!$ordonnance) {
+                return response()->json(['message' => 'Aucune ordonnance associée.'], 404);
+            }
+
+            $client = $rapport->dossierConsultation->rendezVous->client ?? null;
+
+            $data = [
+                'ordonnance' => $ordonnance,
+                'produits' => $ordonnance->produits,
+                'client' => $client,
+            ];
+
+            $fileName   = 'ordonnance-client-' . $ordonnance->id . '-' . now()->format('YmdHis') . '.pdf';
+            $folderPath = 'storage/ordonnances';
+            $filePath   = $folderPath . '/' . $fileName;
+
+            if (!file_exists($folderPath)) {
+                mkdir($folderPath, 0755, true);
+            }
+
+            save_browser_shot_pdf(
+                view: 'pdfs.ordonnances.ordonnance',
+                data: $data,
+                folderPath: $folderPath,
+                path: $filePath,
+                margins: [15, 10, 15, 10]
+            );
+
+            DB::commit();
+
+            if (!file_exists($filePath)) {
+                return response()->json(['message' => 'Le fichier PDF n\'a pas été généré.'], 500);
+            }
+            $pdfContent = file_get_contents($filePath);
+            $base64 = base64_encode($pdfContent);
+
+            return response()->json([
+                'ordonnance' => $ordonnance,
+                'base64'   => $base64,
+            ], 200);
+
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            Log::error('Erreur génération PDF ordonnance via rapport : ' . $e->getMessage());
+
+            return response()->json([
+                'message' => 'Erreur lors de la génération.',
+                'error' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
+        }
+    }
+
+
+
+
+
     /**
      * Display a listing of the resource.
      * @permission OrdonnanceController::update
