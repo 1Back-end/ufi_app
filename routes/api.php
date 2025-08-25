@@ -3,7 +3,6 @@
 use App\Http\Controllers\ActeController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\AnalysisTechniqueController;
-use App\Http\Controllers\CategoryElementResultController;
 use App\Http\Controllers\CatPredefinedListController;
 use App\Http\Controllers\CentreController;
 use App\Http\Controllers\ClientController;
@@ -41,6 +40,7 @@ use App\Http\Controllers\FournisseurController;
 use App\Http\Controllers\PriseEnChargeController;
 use App\Http\Controllers\TypePrelevementController;
 use App\Http\Controllers\TypeResultController;
+use App\Http\Controllers\UploadExistingDataController;
 use App\Http\Controllers\VoixTransmissionController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\UniteProduitController;
@@ -223,7 +223,6 @@ Route::middleware(['activity'])->group(function () {
             Route::get('/{id}/quotation-code',  'getQuotationCode');
             Route::get('/{id}/hospitalisations', 'getHospitalisations');
             Route::post('/import',  'import');
-
         });
         Route::controller(FournisseurController::class)->prefix('fournisseurs')->group(function () {
             Route::get('/list', 'index');
@@ -349,9 +348,6 @@ Route::middleware(['activity'])->group(function () {
             Route::get('/client/{client_id}',  'HistoriqueRendezVous');
             Route::get('/rapport',  'PrintRapport');
             Route::get('/stats_by_consultants', 'rapportResume');
-
-
-
         });
 
         Route::controller(ConfigTblSousCategorieAntecedentController::class)->prefix('config_sous_categories_antecedents')->group(function () {
@@ -467,7 +463,6 @@ Route::middleware(['activity'])->group(function () {
             Route::delete('/delete/{id}', 'destroy');
             Route::get('/client/{client_id}/', 'HistoriqueOrdonnancesClient');
             Route::get('/print_ordonnances/{rapport_consultation_id}/',  'printFromRapport');
-
         });
         Route::controller(DiagnosticController::class)->prefix('diagnostics')->group(function () {
             Route::get('/list', 'index');
@@ -553,7 +548,6 @@ Route::middleware(['activity'])->group(function () {
             Route::delete('/delete/{id}', 'destroy');
             Route::patch('/{id}/status', 'updateStatus');
             Route::post('/import',  'import');
-
         });
         Route::controller(GroupeMaladieController::class)->prefix('groupe_maladie')->group(function () {
             Route::get('/list', 'index');
@@ -563,7 +557,6 @@ Route::middleware(['activity'])->group(function () {
             Route::delete('/delete/{id}', 'destroy');
             Route::patch('/{id}/status', 'updateStatus');
             Route::post('/import',  'import');
-
         });
         Route::controller(MaladieController::class)->prefix('maladie')->group(function () {
             Route::get('/list', 'index');
@@ -622,7 +615,6 @@ Route::middleware(['activity'])->group(function () {
         Route::apiResource('type-prelevements', TypePrelevementController::class);
 
         // Gestion des catégories éléments de résultat
-        Route::apiResource('category-element-results', CategoryElementResultController::class);
 
         // Gestion des élements de résultat
         Route::apiResource('element-results', ElementResultController::class);
@@ -654,7 +646,7 @@ Route::middleware(['activity'])->group(function () {
         Route::delete('/prelevements/{prestation}/{examen}/cancel', [ExamenController::class, 'cancelPrelevement']);
 
         // Gestion Element Paillasse
-        Route::apiResource('element-paillasses', ElementPaillasseController::class);
+        Route::apiResource('element-paillasses', ElementPaillasseController::class)->only(['index', 'destroy']);
 
         // Gestion Result
         Route::post('/prestations/examens/status', [ResultController::class, 'status']);
@@ -666,5 +658,8 @@ Route::middleware(['activity'])->group(function () {
 
         // Change Status Prestation For Examen
         Route::post('/change-status-print', [PrestationController::class, 'statusExamen']);
+
+        // Upload existing data
+        Route::post('/upload-data', UploadExistingDataController::class);
     });
 });

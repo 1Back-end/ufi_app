@@ -11,6 +11,7 @@ class ResultRequest extends FormRequest
         return [
             'data' => ['required', 'array'],
             'data.*.prestation_id' => ['required', 'exists:prestations,id'],
+            'data.*.show' => ['boolean'],
             'data.*.results.*.element_paillasse_id' => ['required', 'exists:element_paillasses,id'],
             'data.*.results.*.groupe_population_id' => ['nullable', 'exists:groupe_populations,id'],
             'data.*.results.*.result_machine' => ['nullable'],

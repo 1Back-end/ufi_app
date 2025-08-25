@@ -6,6 +6,7 @@ use App\Http\Requests\CatPredefinedListRequest;
 use App\Models\CatPredefinedList;
 use App\Models\PredefinedList;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -19,7 +20,16 @@ class CatPredefinedListController extends Controller
      */
     public function index()
     {
-        return response()->json(CatPredefinedList::with('predefinedLists')->get());
+        return response()->json(
+            CatPredefinedList::with('predefinedLists')
+                ->when(request('search'), function ($query) {
+                    return $query->where('name', 'like', '%' . request('search') . '%');
+                })
+                ->paginate(
+                    perPage: request('per_page', 25),
+                    page: request('page', 1)
+                )
+        );
     }
 
     /**
@@ -60,6 +70,7 @@ class CatPredefinedListController extends Controller
                 foreach ($request->input('predefined_lists') as $predefined_list) {
                     PredefinedList::create([
                         'name' => $predefined_list['name'],
+                        'show' => $predefined_list['show'],
                         'slug' => str()->slug($predefined_list['name']),
                         'cat_predefined_list_id' => $cat->id,
                     ]);
@@ -94,14 +105,17 @@ class CatPredefinedListController extends Controller
         try {
             $catPredefinedList->update($request->validated());
 
-            $catPredefinedList->predefinedLists()->delete();
+            $ids = Arr::pluck($request->input('predefined_lists'), 'id');
+            $catPredefinedList->predefinedLists()->whereNotIn('predefined_lists.id', $ids)->delete();
             if (request('predefined_lists')) {
                 foreach ($request->input('predefined_lists') as $predefined_list) {
                     PredefinedList::updateOrCreate([
-                        'slug' => str()->slug($predefined_list['name']),
+                        'id' => str()->slug($predefined_list['id']),
                     ], [
                         'name' => $predefined_list['name'],
+                        'slug' => str()->slug($predefined_list['name']),
                         'cat_predefined_list_id' => $catPredefinedList->id,
+                        'show' => $predefined_list['show'],
                     ]);
                 }
             }

@@ -12,6 +12,7 @@ class PredefinedListRequest extends FormRequest
             'name' => ['required'],
             'slug' => ['required'],
             'cat_predefined_list_id' => ['required', 'exists:cat_predefined_lists'],
+            'show' => ['required', 'boolean'],
         ];
     }
 
@@ -22,6 +23,7 @@ class PredefinedListRequest extends FormRequest
             'slug.required' => 'Le slug est obligatoire.',
             'cat_predefined_list_id.required' => 'La catégorie est obligatoire.',
             'cat_predefined_list_id.exists' => 'La catégorie n\'existe pas.',
+            'show.required' => 'Le champ "Afficher" est obligatoire.',
         ];
     }
 }

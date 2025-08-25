@@ -27,7 +27,17 @@ class ExamenController extends Controller
     public function index()
     {
         return response()->json(
-            Examen::with(['paillasse', 'subFamilyExam', 'typePrelevement', 'tubePrelevement', 'kbPrelevement', 'techniqueAnalysis', 'elementPaillasses', 'elementPaillasses.group_populations'])
+            Examen::with([
+                'paillasse',
+                'subFamilyExam',
+                'typePrelevement',
+                'tubePrelevement',
+                'kbPrelevement',
+                'techniqueAnalysis',
+                'elementPaillasses',
+                'elementPaillasses.typeResult',
+                'elementPaillasses.group_populations'
+            ])
                 ->when(request('search'), function ($query) {
                     $query->where('name', 'like', '%' . request('search') . '%')
                         ->orWhere('name1', 'like', '%' . request('search') . '%')
@@ -101,7 +111,17 @@ class ExamenController extends Controller
      */
     public function show(Examen $examen)
     {
-        return $examen->load(['paillasse', 'subFamilyExam', 'typePrelevement', 'tubePrelevement', 'kbPrelevement', 'techniqueAnalysis', 'elementPaillasses', 'elementPaillasses.group_populations']);
+        return $examen->load([
+            'paillasse',
+            'subFamilyExam',
+            'typePrelevement',
+            'tubePrelevement',
+            'kbPrelevement',
+            'techniqueAnalysis',
+            'elementPaillasses',
+            'elementPaillasses.group_populations',
+            'elementPaillasses.typeResult',
+        ]);
     }
 
     /**

@@ -16,18 +16,26 @@ class ElementPaillasse extends Model
         'name',
         'unit',
         'numero_order',
-        'category_element_result_id',
+        'cat_predefined_list_id',
+        'element_paillasses_id',
         'type_result_id',
         'examen_id',
         'indent',
+        'num',
+        'predefined_list_id',
         'created_by',
         'updated_by'
     ];
 
-    public function categoryElementResult(): BelongsTo
-    {
-        return $this->belongsTo(CategoryElementResult::class, 'category_element_result_id');
-    }
+    protected $with = [
+        'catPredefinedList',
+        'catPredefinedList.predefinedLists',
+        'predefinedList',
+        'parent',
+        'parent.catPredefinedList',
+        'parent.catPredefinedList.predefinedLists',
+        'parent.typeResult',
+    ];
 
     public function typeResult(): BelongsTo
     {
@@ -52,12 +60,32 @@ class ElementPaillasse extends Model
     public function group_populations(): BelongsToMany
     {
         return $this->belongsToMany(GroupePopulation::class, 'normal_value', 'element_paillasse_id', 'groupe_population_id')
-            ->withPivot(['value', 'value_max', 'sign'])
+            ->withPivot(['id', 'value', 'value_max', 'sign'])
             ->withTimestamps();
     }
 
     public function results(): HasMany
     {
         return $this->hasMany(Result::class, 'element_paillasse_id');
+    }
+
+    public function catPredefinedList(): BelongsTo
+    {
+        return $this->belongsTo(CatPredefinedList::class, 'cat_predefined_list_id');
+    }
+
+    public function predefinedList()
+    {
+        return $this->belongsTo(PredefinedList::class, 'predefined_list_id');
+    }
+
+    public function parent(): BelongsTo
+    {
+        return $this->belongsTo(ElementPaillasse::class, 'element_paillasses_id');
+    }
+
+    public function children(): HasMany
+    {
+        return $this->hasMany(ElementPaillasse::class, 'element_paillasses_id');
     }
 }

@@ -99,54 +99,46 @@ class Prestation extends Model
     {
         return Attribute::make(
             get: function () {
+                if (! $this->examens()->count()) return -1;
+
+                $elt = 0;
+                $this->examens->each(function (Examen $examen) use (&$elt) {
+                    $elt += $examen->elementPaillasses()->whereNull('element_paillasses_id')->count();
+                });
+
                 if ($this->examens()->wherePivotNull('prelevements')->count() == $this->examens()->count()) {
-                    return 0;
-                    // return "Aucun prélèvement";
-                }
-
-                if (
-                    $this->examens()->wherePivotNull('status_examen')->count() == $this->examens()->count()
-                    && $this->examens()->wherePivotNotNull('prelevements')->count() == $this->examens()->count()
-                ) {
-                    return 1;
-                    // return "En attente de résultats";
-                }
-
-                if (
+                    return 0; // return "Aucun prélèvement";
+                } elseif (
                     $this->examens()->wherePivotNull('status_examen')->count() == $this->examens()->count()
                     && $this->examens()->wherePivotNull('prelevements')->count() > 0
                 ) {
-                    return 2;
-                    // return "En cours de prélèvement";
+                    return 1; // return "En cours de prélèvement";
+                } elseif (
+                    $this->examens()->wherePivotNull('status_examen')->count() == $this->examens()->count()
+                    && $this->examens()->wherePivotNotNull('prelevements')->count() == $this->examens()->count()
+                ) {
+                    return 2; // return "En attente de résultats";
+                } elseif ($this->results()->count() >= $elt && $this->examens()->wherePivot('status_examen', StateExamen::PENDING->value)->count()) {
+                    return 3; // return "Résultat en attente de validation";
+                } elseif ($this->results()->count() >= $elt && $this->examens()->wherePivot('status_examen', StateExamen::VALIDATED->value)->count()) {
+                    return 4; // return "Résultat validé";
+                } elseif ($this->results()->count() >= $elt && $this->examens()->wherePivot('status_examen', StateExamen::PRINTED->value)->count()) {
+                    return 5; // return "Résultat déjà imprimé";
+                } elseif ($this->results()->count() >= $elt && $this->examens()->wherePivot('status_examen', StateExamen::DELIVERED->value)->count()) {
+                    return 6; // return "Résultat distribué";
+                } elseif ($this->results()->count() < $elt && $this->examens()->wherePivot('status_examen', StateExamen::PENDING->value)->count()) {
+                    return 7; // return "Résultat partiel en attente de validation"
+                } elseif ($this->results()->count() < $elt && $this->examens()->wherePivot('status_examen', StateExamen::VALIDATED->value)->count()) {
+                    return 8; // return "Résultat partiel validé";
+                } elseif ($this->results()->count() < $elt && $this->examens()->wherePivot('status_examen', StateExamen::PRINTED->value)->count()) {
+                    return 9; // return "Résultat partiel imprimé";
+                } elseif ($this->results()->count() < $elt && $this->examens()->wherePivot('status_examen', StateExamen::DELIVERED->value)->count()) {
+                    return 10; // return "Résultat partiel distribué";
+                } elseif ($this->results()->count() >= $elt && $this->examens()->wherePivot('status_examen', StateExamen::CREATED->value)->count()) {
+                    return 11; // return "Résultat invalidé";
                 }
 
-                if ($this->examens()->wherePivot('status_examen', StateExamen::CREATED->value)->count() > 0) {
-                    return 3;
-                    // return "Résultat partiel";
-                }
-
-                if ($this->examens()->wherePivot('status_examen', StateExamen::PENDING->value)->count() > 0) {
-                    return 4;
-                    // return "Résultat en attente de validation";
-                }
-
-                if ($this->examens()->wherePivot('status_examen', StateExamen::VALIDATED->value)->count() > 0) {
-                    return 5;
-                    // return "Résultat validé";
-                }
-
-                if ($this->examens()->wherePivot('status_examen', StateExamen::PRINTED->value)->count() > 0) {
-                    return 6;
-                    // return "Résultat déjà imprimé";
-                }
-
-                if ($this->examens()->wherePivot('status_examen', StateExamen::DELIVERED->value)->count() > 0) {
-                    return 7;
-                    // return "Résultat distribué";
-                }
-
-                return 8;
-                // return "Résultat";
+                return -1;
             },
         );
     }

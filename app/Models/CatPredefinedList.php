@@ -12,6 +12,10 @@ class CatPredefinedList extends Model
         'slug',
     ];
 
+    protected $with = [
+        'predefinedLists'
+    ];
+
     public function predefinedLists(): HasMany|CatPredefinedList
     {
         return $this->hasMany(PredefinedList::class, 'cat_predefined_list_id');

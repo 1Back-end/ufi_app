@@ -6,6 +6,7 @@ use App\Enums\InputType;
 use App\Http\Requests\TypeResultRequest;
 use App\Models\CatPredefinedList;
 use App\Models\TypeResult;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
 
@@ -20,7 +21,12 @@ class TypeResultController extends Controller
     public function index()
     {
         return response()->json([
-            'types' => TypeResult::with("catPredefinedList")->get(),
+            'types' => TypeResult::when(request('search'), function (Builder $query) {
+                $query->where('name', 'like', '%' . request('search') . '%');
+            })->paginate(
+                perPage: request('per_page', 25),
+                page: request('page', 1),
+            ),
             'cat_predefined_lists' => CatPredefinedList::all()
         ]);
     }

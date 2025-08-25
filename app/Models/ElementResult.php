@@ -14,7 +14,6 @@ class ElementResult extends Model
     protected $fillable = [
         'code',
         'name',
-        'category_element_result_id',
         'created_by',
         'updated_by',
     ];
@@ -27,10 +26,5 @@ class ElementResult extends Model
     public function updatedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'updated_by');
-    }
-
-    public function categoryElementResult(): BelongsTo
-    {
-        return $this->belongsTo(CategoryElementResult::class);
     }
 }

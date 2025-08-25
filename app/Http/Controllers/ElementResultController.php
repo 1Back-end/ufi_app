@@ -16,7 +16,7 @@ class ElementResultController extends Controller
      */
     public function index()
     {
-        return response()->json(ElementResult::with(['categoryElementResult'])->get());
+        return response()->json(ElementResult::with([])->get());
     }
 
     /**
