@@ -63,7 +63,7 @@ class UploadExistingElementPaillasse implements ToCollection, withHeadingRow
                             'slug' => str($valeur  .'-'. $item['num'])->slug()->upper(),
                         ], [
                             'slug' => str($valeur  .'-'. $item['num'])->slug()->upper(),
-                            'name' => $valeur,
+                            'name' => Str::endsWith('*', $valeur) ? Str::replace('*', '', $valeur) : $valeur,
                             'cat_predefined_list_id' => $cat->id,
                         ]);
                     }
