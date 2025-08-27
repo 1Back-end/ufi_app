@@ -141,8 +141,9 @@ class UploadExistingExamen implements ToArray, withHeadingRow
                                 'slug' => str($valeur .'-'. $item['nom_ex'])->slug()->upper(),
                             ], [
                                 'slug' => str($valeur .'-'. $item['nom_ex'])->slug()->upper(),
-                                'name' => $valeur,
+                                'name' => Str::endsWith('*', $valeur) ? Str::replace('*', '', $valeur) : $valeurs,
                                 'cat_predefined_list_id' => $cat->id,
+                                'show' => !Str::endsWith('*', $valeur)
                             ]);
                         }
                     }

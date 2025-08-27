@@ -20,8 +20,6 @@ class PescripteursImport implements ToCollection, WithHeadings
 {
     public function collection(Collection $rows)
     {
-        ini_set('max_execution_time', 300);
-
         $authId = auth()->id();
         $faker = Faker::create();
 
