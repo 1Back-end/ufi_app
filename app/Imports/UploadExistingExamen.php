@@ -137,8 +137,6 @@ class UploadExistingExamen implements ToArray, withHeadingRow
 
                     foreach ($valeurs as $valeur) {
                         if (trim($valeur)) {
-                            dump(Str::endsWith('*', $valeur) ? Str::replace('*', '', $valeur) : $valeur);
-
                             PredefinedList::updateOrCreate([
                                 'slug' => str($valeur .'-'. $item['nom_ex'])->slug()->upper(),
                             ], [
