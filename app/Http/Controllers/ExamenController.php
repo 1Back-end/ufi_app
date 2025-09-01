@@ -68,13 +68,13 @@ class ExamenController extends Controller
         try {
             $examen = Examen::create($request->validated());
 
-            foreach ($request->input('technique_analysis') as $item) {
+            foreach ($request->input('technique_analysis', []) as $item) {
                 $examen->techniqueAnalysis()->attach($item['id'], [
                     'type' => $item['default'],
                 ]);
             }
 
-            foreach ($request->input('elements') as $item) {
+            foreach ($request->input('elements', []) as $item) {
                 $element = $examen->elementPaillasses()->create($item);
 
                 foreach ($item['normal_values'] as $normal_value) {
@@ -142,13 +142,13 @@ class ExamenController extends Controller
             $examen->update($request->validated());
 
             $examen->techniqueAnalysis()->detach();
-            foreach ($request->input('technique_analysis') as $item) {
+            foreach ($request->input('technique_analysis', []) as $item) {
                 $examen->techniqueAnalysis()->attach($item['id'], [
                     'type' => $item['default'],
                 ]);
             }
 
-            foreach ($request->input('elements') as $item) {
+            foreach ($request->input('elements', []) as $item) {
                 $element = ElementPaillasse::find($item['id']);
 
                 if (!$element) {
