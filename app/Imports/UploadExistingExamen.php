@@ -172,7 +172,9 @@ class UploadExistingExamen implements ToArray, withHeadingRow
                     ]);
                 }
 
-                $element = $examen->elementPaillasses()->create([
+                $element = $examen->elementPaillasses()->updateOrCreate([
+                    'name' => $item['nom_ex']
+                ], [
                     'name' => $item['nom_ex'],
                     'unit' => $item['unitex'],
                     'numero_order' => $item['num'] && $item['num'] != 'NULL' ? $item['num'] : 1,

@@ -19,9 +19,9 @@ class ConventionAssocieController extends Controller
     {
         return response()->json([
             'conventions' => ConventionAssocie::with([
-                'client:id,nomcomplet_client',
-                'createdBy:id,nom_utilisateur',
-                'updatedBy:id,nom_utilisateur'
+                'client',
+                'createdBy',
+                'updatedBy'
             ])
             ->latest()
             ->when(request('convention'), function (Builder $query) {

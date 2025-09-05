@@ -340,7 +340,7 @@ if (! function_exists('save_facture')) {
             ->latest()->first();
         $sequence =  $latestFacture ? $latestFacture->sequence + 1 : 1;
 
-        Log::info($amount_prelevement);
+        // Log::info($amount_prelevement);
 
         $facture = $prestation->factures()->where('type', $type)->first();
         if (! $facture) {
