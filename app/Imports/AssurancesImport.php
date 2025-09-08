@@ -37,17 +37,17 @@ class AssurancesImport implements ToCollection
                 continue; // Ignore si la quotation n'existe pas
             }
 
-            // Crée ou met à jour l'assureur dans la base
-            Assureur::updateOrCreate(
-                [
-                    'email' => $Email_assur,
-                    'tel' => $Contact_assur,
-                    'tel1' => $Tel_assur,
-                    'ref' => $ref_assur,
-                    'Reg_com' => $Reg_com_assur,
-                    'num_com' => $num_contrib_assur,
-                ],
-                [
+            $assureur = Assureur::where('ref', $ref_assur)
+                ->where('email', $Email_assur)
+                ->where('tel', $Contact_assur)
+                ->where('tel1', $Tel_assur)
+                ->where('Reg_com', $Reg_com_assur)
+                ->where('num_com', $num_contrib_assur)
+                ->first();
+
+            
+            if ($assureur) {
+                $assureur->update([
                     'ref' => $ref_assur,
                     'nom' => $nom_assur,
                     'email' => $Email_assur,
@@ -64,8 +64,30 @@ class AssurancesImport implements ToCollection
                     'code_type' => 'Principale',
                     'created_by' => User::first()->id,
                     'updated_by' => User::first()->id,
-                ]
-            );
+                ]);
+            }
+             else {
+                Assureur::create(
+                    [
+                        'ref' => $ref_assur,
+                        'nom' => $nom_assur,
+                        'email' => $Email_assur,
+                        'nom_abrege' => $nom_assur,
+                        'adresse' => $adresse_assur,
+                        'tel' => $Contact_assur,
+                        'tel1' => $Tel_assur,
+                        'code_quotation' => $code_quot->id,
+                        'code_centre' => $code_centre->id,
+                        'Reg_com' => $Reg_com_assur,
+                        'num_com' => $num_contrib_assur,
+                        'bp' => $bp_assur,
+                        'fax' => $fax_assur,
+                        'code_type' => 'Principale',
+                        'created_by' => User::first()->id,
+                        'updated_by' => User::first()->id,
+                    ]
+                );
+             }
         }
     }
 
