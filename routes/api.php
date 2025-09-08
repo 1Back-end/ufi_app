@@ -500,6 +500,8 @@ Route::middleware(['activity'])->group(function () {
             Route::delete('/delete/{id}', 'destroy');
             Route::patch('/{id}/status', 'updateStatus');
             Route::get('/export',  'export');
+            Route::post('/import',  'import');
+
         });
         Route::controller(OpsTblMiseEnObservationHospitalisationController::class)->prefix('ops_tbl_mise_en_observation_hospitalisations')->group(function () {
             Route::get('/list', 'index');

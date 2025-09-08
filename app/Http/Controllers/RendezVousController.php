@@ -32,30 +32,41 @@ class RendezVousController extends Controller
                 'consultant:id,nomcomplet',
                 'createdBy:id,email',
                 'updatedBy:id,email',
-                'prestation:id,type',
-                'parent:id,code,dateheure_rdv' // ← ici
+                'prestation',
+                'parent:id,code,dateheure_rdv'
             ]);
-
 
         // Filtrage sur le(s) état(s)
         if ($request->has('etat')) {
-            // On récupère les états passés en query, séparés par des virgules
             $etats = explode(',', $request->input('etat'));
             $query->whereIn('etat', $etats);
         } else {
-            // Par défaut, ces états seulement
             $query->whereIn('etat', ['Actif', 'Inactif', 'No show', 'En cours de consultation']);
         }
 
+        // Filtre sur type de rendez-vous (si tu as un champ type dans rendez_vous)
         if ($request->filled('type')) {
             $query->where('type', $request->input('type'));
         }
 
+        // Filtre sur client
         if ($request->filled('client_id')) {
             $query->where('client_id', $request->input('client_id'));
         }
 
-        // 🔍 Recherche globale
+        // Filtre sur prestation_id
+        if ($request->filled('prestation_id')) {
+            $query->where('prestation_id', $request->input('prestation_id'));
+        }
+
+        // Filtre sur type de prestation
+        if ($request->filled('prestation_type')) {
+            $query->whereHas('prestation', function ($q) use ($request) {
+                $q->where('type', $request->input('prestation_type'));
+            });
+        }
+
+        // 🔎 Recherche globale
         if ($search = $request->input('search')) {
             $query->where(function ($q) use ($search) {
                 $q->where('nombre_jour_validite', 'like', "%{$search}%")
@@ -69,7 +80,6 @@ class RendezVousController extends Controller
                             ->orWhere('tel', 'like', "%{$search}%")
                             ->orWhere('tel2_cli', 'like', "%{$search}%")
                             ->orWhere('id', 'like', "%{$search}%");
-
                     })
                     ->orWhereHas('consultant', function ($subQ) use ($search) {
                         $subQ->where('nomcomplet', 'like', "%{$search}%")
@@ -93,6 +103,8 @@ class RendezVousController extends Controller
             'total' => $rendez_vous->total(),
         ]);
     }
+
+
 
 
     /**
