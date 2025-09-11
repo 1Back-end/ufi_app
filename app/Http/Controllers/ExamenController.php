@@ -10,6 +10,7 @@ use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response as ResponseAlias;
@@ -148,6 +149,11 @@ class ExamenController extends Controller
                 ]);
             }
 
+            $elementPaillasse = $examen->elementPaillasses()->pluck('id')->toArray();
+            $eltPaillasseIds = Arr::pluck($request->input('elements', []), 'id');
+            $eltPaillasseDiff = array_diff($elementPaillasse, $eltPaillasseIds);
+            ElementPaillasse::whereIn('id', $eltPaillasseDiff)->delete();
+
             foreach ($request->input('elements', []) as $item) {
                 $element = ElementPaillasse::find($item['id']);
 
@@ -166,9 +172,11 @@ class ExamenController extends Controller
                     ]);
                 }
             }
-        } catch (Exception $e) {
+        }
+        catch (Exception $e) {
             DB::rollBack();
             Log::error($e->getMessage());
+            Log::error($e->getLine());
             return response()->json([
                 'message' => "Erreur lors de l'ajout de l'examen",
                 'error' => $e->getMessage(),

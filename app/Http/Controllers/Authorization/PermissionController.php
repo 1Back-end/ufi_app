@@ -31,7 +31,12 @@ class PermissionController extends Controller
                 'createdBy:id,nom_utilisateur',
                 'updatedBy:id,nom_utilisateur',
                 'menu:id,libelle',
-            ])->paginate(perPage: $perPage, page: $page);
+            ])
+            ->when($request->input('search'), function ($query, $search) {
+                $query->where('name', 'like', "%{$search}%")
+                      ->orWhere('description', 'like', "%{$search}%");
+            })
+            ->paginate(perPage: $perPage, page: $page);
         } else {
             $permissions = Permission::with([
                 'roles:id,name',
