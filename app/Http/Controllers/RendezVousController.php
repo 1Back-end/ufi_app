@@ -68,8 +68,7 @@ class RendezVousController extends Controller
                     ->orWhere('code', 'like', "%{$search}%")
                     ->orWhere('id', 'like', "%{$search}%")
                     ->orWhereHas('client', fn($sub) => $sub->where('nomcomplet_client','like',"%{$search}%"))
-                    ->orWhereHas('consultant', fn($sub) => $sub->where('nomcomplet','like',"%{$search}%"))
-                    ->orWhereHas('prestation', fn($sub) => $sub->where('name','like',"%{$search}%"));
+                    ->orWhereHas('consultant', fn($sub) => $sub->where('nomcomplet','like',"%{$search}%"));
             });
         }
 
@@ -82,7 +81,7 @@ class RendezVousController extends Controller
                 $rendezVous->getCollection()->filter(fn($item) =>
                     isset($item->prestation) &&
                     isset($item->prestation->actes) && // ici ton relation Prestation->actes
-                    in_array($request->acte_type, $item->prestation->actes->pluck('id')->toArray())
+                    in_array($request->acte_type, $item->prestation->actes->pluck('type_acte_id')->toArray())
                 )->values()
             );
         }
