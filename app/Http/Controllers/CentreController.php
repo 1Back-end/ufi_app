@@ -13,6 +13,9 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\Response;
 
+/**
+ * @permission_category Gestion des centres
+ */
 class CentreController extends Controller
 {
     /**

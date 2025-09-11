@@ -8,6 +8,10 @@ use App\Models\User;
 use App\Models\Consultant;
 use function Pest\Laravel\json;
 
+/**
+ * @permission_category Gestion des spécialités des consultants
+ */
+
 class SpecialiteController extends Controller
 {
     /**

@@ -6,13 +6,13 @@ use App\Models\Product;
 use App\Models\UniteProduit;
 use Illuminate\Http\Request;
 
+/**
+ * @permission_category Gestion des unités de produits
+ */
+
 class UniteProduitController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     * @permission UniteProduitController::index
-     * @permission_desc Afficher l'id et le nom des produits
-     */
+
     public function listIdName()
     {
         $unityProducts = UniteProduit::select('id', 'name')

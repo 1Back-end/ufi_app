@@ -6,6 +6,11 @@ use Illuminate\Http\Request;
 use App\Models\Service_Hopital;
 use App\Models\User;
 use App\Models\Consultant;
+
+
+/**
+ * @permission_category Gestion des services hospitaliers
+ */
 class ServiceHopitalController extends Controller
 {
     /**

@@ -6,6 +6,10 @@ use App\Http\Requests\AnalysisTechniqueRequest;
 use App\Models\AnalysisTechnique;
 use Illuminate\Http\JsonResponse;
 
+
+/**
+ * @permission_category Gestion des techniques d'analyse
+ */
 class AnalysisTechniqueController extends Controller
 {
     /**

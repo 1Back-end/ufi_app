@@ -6,13 +6,12 @@ use App\Models\TypeSoins;
 use Illuminate\Http\Request;
 use Sabberworm\CSS\Rule\Rule;
 
+/**
+ * @permission_category Gestion des types de soins
+ */
+
 class TypeSoinsController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     * @permission TypeSoinsController::listIdName
-     * @permission_desc Afficher l'id et le nom des types de soins
-     */
 
     public function listIdName(){
         $data = TypeSoins::select('id','name')->where('is_deleted',false)->get();
@@ -27,17 +26,26 @@ class TypeSoinsController extends Controller
      */
     public function index(Request $request)
     {
-        $perPage = $request->input('limit', 5);  // Par défaut, 10 éléments par page
-        $page = $request->input('page', 1);  // Page courante
-        $type_soins = TypeSoins::where('is_deleted',false)->paginate($perPage);
+        $perPage = $request->input('limit', 5);  // Par défaut 5 éléments par page
+        $page = $request->input('page', 1);      // Page courante
+        $search = $request->input('search');     // Mot clé recherche
+
+        $type_soins = TypeSoins::where('is_deleted', false)
+            ->when($search, function ($query) use ($search) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('name', 'like', "%$search%")
+                        ->orWhere('description', 'like', "%$search%"); // si tu as une colonne description
+                });
+            })
+            ->latest()
+            ->paginate(perPage: $perPage, page: $page);
+
         return response()->json([
             'data' => $type_soins->items(),
-            'current_page' => $type_soins->currentPage(),  // Page courante
-            'last_page' => $type_soins->lastPage(),  // Dernière page
-            'total' => $type_soins->total(),  // Nombre total d'éléments
+            'current_page' => $type_soins->currentPage(),
+            'last_page' => $type_soins->lastPage(),
+            'total' => $type_soins->total(),
         ]);
-
-        //
     }
 
     /**

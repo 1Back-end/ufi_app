@@ -5,6 +5,9 @@ namespace App\Http\Controllers;
 use App\Models\ConfigTblCategorieVisite;
 use Illuminate\Http\Request;
 
+/**
+ * @permission_category Gestion des catégories de visites
+ */
 class ConfigTblCategorieVisiteController extends Controller
 {
     /**

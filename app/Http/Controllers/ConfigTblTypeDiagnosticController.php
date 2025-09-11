@@ -5,6 +5,9 @@ namespace App\Http\Controllers;
 use App\Models\ConfigTbl_Type_Diagnostic;
 use Illuminate\Http\Request;
 
+/**
+ * @permission_category Gestion des Types de diagnostics
+ */
 class ConfigTblTypeDiagnosticController extends Controller
 {
     /**

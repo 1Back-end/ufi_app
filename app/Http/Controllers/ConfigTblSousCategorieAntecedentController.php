@@ -7,6 +7,9 @@ use App\Models\ConfigTblSousCategorieAntecedent;
 use Illuminate\Http\Request;
 use App\Models\User;
 
+/**
+ * @permission_category Gestion des sous catégories antécédants
+ */
 class ConfigTblSousCategorieAntecedentController extends Controller
 {
     /**
@@ -16,28 +19,30 @@ class ConfigTblSousCategorieAntecedentController extends Controller
      */
     public function index(Request $request)
     {
-        $perPage = $request->input('limit', 5);  // Par défaut, 10 éléments par page
-        $page = $request->input('page', 1);  // Page courante
+        $perPage = $request->input('limit', 5);  // Par défaut, 5 éléments par page
+        $page = $request->input('page', 1);      // Page courante
+        $search = $request->input('search');     // Mot-clé de recherche
 
-        $antecedents= ConfigTblSousCategorieAntecedent::where('is_deleted', false)
-            ->with(['creator:id,login','updater:id,login'])
-            ->when($request->input('search'), function ($query) use ($request) {
-                $search = $request->input('search');
-                $query->where('name', 'like', '%' . $search . '%')
-                    ->orWhere('description', 'like', '%' . $search . '%')
-                    ->orWhere('id', 'like', '%' . $search . '%');
+        $antecedents = ConfigTblSousCategorieAntecedent::with(['creator:id,login','updater:id,login'])
+            ->where('is_deleted', false)
+            ->when($search, function ($query) use ($search) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('name', 'like', '%' . $search . '%')
+                        ->orWhere('description', 'like', '%' . $search . '%')
+                        ->orWhere('id', 'like', '%' . $search . '%');
+                });
             })
-            ->latest()->paginate(perPage: $perPage, page: $page);
+            ->latest()
+            ->paginate(perPage: $perPage, page: $page);
 
         return response()->json([
             'data' => $antecedents->items(),
-            'current_page' => $antecedents->currentPage(),  // Page courante
-            'last_page' => $antecedents->lastPage(),  // Dernière page
-            'total' => $antecedents->total(),  // Nombre total d'éléments
+            'current_page' => $antecedents->currentPage(),
+            'last_page' => $antecedents->lastPage(),
+            'total' => $antecedents->total(),
         ]);
-
-        //
     }
+
 
 
     /**

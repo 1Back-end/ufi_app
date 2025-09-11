@@ -5,6 +5,10 @@ namespace App\Http\Controllers;
 use App\Models\ElementPaillasse;
 use Illuminate\Http\JsonResponse;
 
+
+/**
+ * @permission_category Gestion des éléments de paillasse d'examen
+ */
 class ElementPaillasseController extends Controller
 {
     /**

@@ -7,6 +7,10 @@ use App\Models\ConfigSousCategorieDiagnostic;
 use App\Models\ConfigTblMaladieDiagnostic;
 use Illuminate\Http\Request;
 
+
+/**
+ * @permission_category Gestion des catégories de diagnostics
+ */
 class CategorieDiagnosticController extends Controller
 {
 

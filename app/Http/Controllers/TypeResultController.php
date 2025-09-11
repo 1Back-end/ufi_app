@@ -10,6 +10,11 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
 
+/**
+ * @permission_category Gestion des types de résultat.
+ */
+
+
 class TypeResultController extends Controller
 {
     /**

@@ -5,6 +5,10 @@ namespace App\Http\Controllers;
 use App\Models\ConfigTblMaladieDiagnostic;
 use Illuminate\Http\Request;
 
+
+/**
+ * @permission_category Gestion des maladies de diagnostics
+ */
 class ConfigTblMaladieDiagnosticController extends Controller
 {
     /**

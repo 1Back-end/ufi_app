@@ -7,6 +7,9 @@ use Illuminate\Http\Request;
 use Maatwebsite\Excel\Facades\Excel;
 
 
+/**
+ * @permission_category Gestion des Maladies.
+ */
 class MaladieController extends Controller
 {
     /**

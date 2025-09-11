@@ -7,6 +7,9 @@ use Illuminate\Http\Request;
 use App\Models\Hopital;
 use App\Models\User;
 
+/**
+ * @permission_category Gestion des hôpitaux
+ */
 class HopitalController extends Controller
 {
     /**

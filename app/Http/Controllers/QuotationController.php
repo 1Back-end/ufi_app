@@ -6,6 +6,9 @@ use App\Models\Assureur;
 use Illuminate\Http\Request;
 use App\Models\Quotation;
 
+/**
+ * @permission_category Gestion des cotations
+ */
 class QuotationController extends Controller
 {
 

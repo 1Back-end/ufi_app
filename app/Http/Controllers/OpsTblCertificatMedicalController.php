@@ -8,6 +8,9 @@ use App\Models\Ordonnance;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
+/**
+ * @permission_category Gestion des certificats médicaux
+ */
 class OpsTblCertificatMedicalController extends Controller
 {
     /**

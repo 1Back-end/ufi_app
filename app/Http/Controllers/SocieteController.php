@@ -9,6 +9,9 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
+/**
+ * @permission_category Gestion des sociétés
+ */
 class SocieteController extends Controller
 {
     /**
@@ -42,7 +45,8 @@ class SocieteController extends Controller
     public function store(SocieteRequest $request)
     {
 //        $auth = auth()->user();
-        $auth = User::first();
+        // $auth = User::first();
+        $auth = auth()->user();
         $societe = Societe::create([
             'nom_soc_cli' => $request->nom_soc_cli,
             'tel_soc_cli' => $request->tel_soc_cli,
@@ -69,8 +73,8 @@ class SocieteController extends Controller
      */
     public function update(SocieteRequest $request, Societe $societe)
     {
-        $auth = User::first();
-//        $auth = auth()->user();
+        // $auth = User::first();
+        $auth = auth()->user();
 
         $data = array_merge($request->all(), ['update_by' => $auth->id]);
 

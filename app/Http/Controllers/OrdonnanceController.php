@@ -11,6 +11,9 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
+/**
+ * @permission_category Gestion des ordonnances
+ */
 class OrdonnanceController extends Controller
 {
     public function index()

@@ -6,6 +6,10 @@ use App\Models\CategorieAntecedent;
 use App\Models\OpsTblAntecedent;
 use Illuminate\Http\Request;
 
+
+/**
+ * @permission_category Gestion des antécédants.
+ */
 class OpsTblAntecedentController extends Controller
 {
     /**

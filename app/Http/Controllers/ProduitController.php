@@ -5,11 +5,18 @@ namespace App\Http\Controllers;
 use App\Exports\AssureurExport;
 use App\Exports\ProductsExport;
 use App\Exports\ProductsExportSearch;
+use App\Imports\MaladieImport;
+use App\Imports\ProductsImport;
+use App\Imports\ProductsOtherImport;
 use Illuminate\Http\Request;
 use App\Models\Product;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
 use Maatwebsite\Excel\Facades\Excel;
+
+/**
+ * @permission_category Gestion des produits
+ */
 
 class ProduitController extends Controller
 {
@@ -405,5 +412,38 @@ class ProduitController extends Controller
             ], 500);
         }
     }
+
+    public function import(Request $request)
+    {
+
+        $request->validate([
+            'file' => 'required|file|mimes:xlsx,xls,csv',
+        ]);
+
+        try {
+            Excel::import(new ProductsImport(), $request->file('file'));
+            return response()->json(['message' => 'Importation réussie.']);
+        } catch (\Throwable $e) {
+            return response()->json(['message' => 'Erreur : ' . $e->getMessage()], 500);
+        }
+    }
+
+
+
+    public function import_others_products(Request $request)
+    {
+
+        $request->validate([
+            'file' => 'required|file|mimes:xlsx,xls,csv',
+        ]);
+
+        try {
+            Excel::import(new ProductsOtherImport(), $request->file('file'));
+            return response()->json(['message' => 'Importation réussie.']);
+        } catch (\Throwable $e) {
+            return response()->json(['message' => 'Erreur : ' . $e->getMessage()], 500);
+        }
+    }
+
 
 }

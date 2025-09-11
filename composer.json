@@ -39,7 +39,8 @@
         },
         "files": [
             "app/Helpers/client-helpers.php",
-            "app/Helpers/function-helpers.php"
+            "app/Helpers/function-helpers.php",
+            "app/Helpers/RomanNumberHelper.php"
         ]
     },
     "autoload-dev": {

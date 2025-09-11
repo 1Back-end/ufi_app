@@ -8,6 +8,11 @@ use App\Models\GroupeMaladie;
 use Illuminate\Http\Request;
 use Maatwebsite\Excel\Facades\Excel;
 
+
+/**
+ * @permission_category Gestion des classes de maladies
+ */
+
 class GroupeMaladieController extends Controller
 {
     /**

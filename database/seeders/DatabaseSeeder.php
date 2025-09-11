@@ -39,17 +39,10 @@ class DatabaseSeeder extends Seeder
         $this->call([
             InitBDForAllDataSeeder::class,
             TypeconsultationSeeder::class,
-            GroupProductSeeder::class,
-            CategorySeeder::class,
-            UniteProduitSeeder::class,
-            QuotationSeeder::class,
             OpsTblHospitalisationSeeder::class,
 
 //            CentresTableSeeder::class,
-            HopitalsTableSeeder::class,
-            SpecialitesTableSeeder::class,
-            TitresTableSeeder::class,
-            ServiceHopitalsTableSeeder::class,
+
             SexesSeeder::class,
             PrefixSeeder::class,
             StatusFamilialeSeeder::class,

@@ -441,3 +441,5 @@ if (! function_exists('save_browser_shot_pdf')) {
         $browserShot->save($path);
     }
 }
+
+

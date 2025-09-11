@@ -10,6 +10,10 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response;
 
+/**
+ * @permission_category Gestion des sexes
+ */
+
 class SexeController extends Controller
 {
     /**

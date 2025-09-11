@@ -134,6 +134,7 @@ Route::middleware(['activity'])->group(function () {
         Route::apiResource('actes', ActeController::class)->except(['show']);
         Route::patch('/actes/{acte}/activate', [ActeController::class, 'changeStatus']);
         Route::post('/actes/import', [ActeController::class, 'import']);
+        Route::get('/actes/print_rapports', [ActeController::class, 'PrintRapportActes']);
 
         // Prestations
         Route::get('prestations/types', [PrestationController::class, 'typePrestation']);
@@ -299,6 +300,8 @@ Route::middleware(['activity'])->group(function () {
             Route::get('/search', 'search');
             Route::get('/export',  'export');
             Route::get('/search-and-export', 'searchAndExport');
+            Route::post('/import',  'import');
+            Route::post('/import_others_products',  'import_others_products');
         });
         Route::controller(ConsultationController::class)->prefix('consultations')->group(function () {
             route::get('/list', 'index');
@@ -497,6 +500,8 @@ Route::middleware(['activity'])->group(function () {
             Route::delete('/delete/{id}', 'destroy');
             Route::patch('/{id}/status', 'updateStatus');
             Route::get('/export',  'export');
+            Route::post('/import',  'import');
+
         });
         Route::controller(OpsTblMiseEnObservationHospitalisationController::class)->prefix('ops_tbl_mise_en_observation_hospitalisations')->group(function () {
             Route::get('/list', 'index');

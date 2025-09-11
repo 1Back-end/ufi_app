@@ -14,6 +14,10 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Maatwebsite\Excel\Facades\Excel;
 
+/**
+ * @permission_category Gestion des rendez vous
+ */
+
 class RendezVousController extends Controller
 {
     /**
@@ -23,8 +27,8 @@ class RendezVousController extends Controller
      */
     public function index(Request $request)
     {
-        $perPage = $request->input('limit', 25);
-        $page = $request->input('page', 1);
+        $perPage = $request->integer('limit', 25);
+        $page    = $request->integer('page', 1);
 
         $query = RendezVous::where('is_deleted', false)
             ->with([
@@ -32,67 +36,68 @@ class RendezVousController extends Controller
                 'consultant:id,nomcomplet',
                 'createdBy:id,email',
                 'updatedBy:id,email',
-                'prestation:id,type',
-                'parent:id,code,dateheure_rdv' // ← ici
+                'prestation',
+                'parent:id,code,dateheure_rdv',
             ]);
 
-
-        // Filtrage sur le(s) état(s)
-        if ($request->has('etat')) {
-            // On récupère les états passés en query, séparés par des virgules
-            $etats = explode(',', $request->input('etat'));
+        /** ────── Filtre état ────── */
+        if ($request->filled('etat')) {
+            $etats = explode(',', $request->etat);
             $query->whereIn('etat', $etats);
         } else {
-            // Par défaut, ces états seulement
             $query->whereIn('etat', ['Actif', 'Inactif', 'No show', 'En cours de consultation']);
         }
 
-        if ($request->filled('type')) {
-            $query->where('type', $request->input('type'));
+        /** ────── Autres filtres simples ────── */
+        if ($request->filled('type')) $query->where('type', $request->type);
+        if ($request->filled('client_id')) $query->where('client_id', $request->client_id);
+        if ($request->filled('prestation_id')) $query->where('prestation_id', $request->prestation_id);
+
+        /** ────── Filtre par type de prestation ────── */
+        if ($request->filled('prestation_type')) {
+            $query->whereHas('prestation', function ($q) use ($request) {
+                $q->where('type', $request->prestation_type);
+            });
         }
 
-        if ($request->filled('client_id')) {
-            $query->where('client_id', $request->input('client_id'));
-        }
-
-        // 🔍 Recherche globale
-        if ($search = $request->input('search')) {
+        /** ────── Recherche globale ────── */
+        if ($search = trim($request->search)) {
             $query->where(function ($q) use ($search) {
                 $q->where('nombre_jour_validite', 'like', "%{$search}%")
                     ->orWhere('type', 'like', "%{$search}%")
                     ->orWhere('code', 'like', "%{$search}%")
                     ->orWhere('id', 'like', "%{$search}%")
-                    ->orWhereHas('client', function ($subQ) use ($search) {
-                        $subQ->where('nomcomplet_client', 'like', "%{$search}%")
-                            ->orWhere('prenom', 'like', "%{$search}%")
-                            ->orWhere('email', 'like', "%{$search}%")
-                            ->orWhere('tel', 'like', "%{$search}%")
-                            ->orWhere('tel2_cli', 'like', "%{$search}%")
-                            ->orWhere('id', 'like', "%{$search}%");
-
-                    })
-                    ->orWhereHas('consultant', function ($subQ) use ($search) {
-                        $subQ->where('nomcomplet', 'like', "%{$search}%")
-                            ->orWhere('email', 'like', "%{$search}%")
-                            ->orWhere('tel', 'like', "%{$search}%")
-                            ->orWhere('tel1', 'like', "%{$search}%")
-                            ->orWhere('ref', 'like', "%{$search}%")
-                            ->orWhere('type', 'like', "%{$search}%")
-                            ->orWhere('id', 'like', "%{$search}%");
-                    });
+                    ->orWhereHas('client', fn($sub) => $sub->where('nomcomplet_client','like',"%{$search}%"))
+                    ->orWhereHas('consultant', fn($sub) => $sub->where('nomcomplet','like',"%{$search}%"));
             });
         }
 
-        $rendez_vous = $query->latest()
-            ->paginate($perPage, ['*'], 'page', $page);
+        /** ────── Pagination ────── */
+        $rendezVous = $query->latest()->paginate($perPage, ['*'], 'page', $page);
+
+        /** ────── Filtrage Actes côté PHP si nécessaire ────── */
+        if ($request->prestation_type == 1 && $request->filled('acte_type')) {
+            $rendezVous->setCollection(
+                $rendezVous->getCollection()->filter(fn($item) =>
+                    isset($item->prestation) &&
+                    isset($item->prestation->actes) && // ici ton relation Prestation->actes
+                    in_array($request->acte_type, $item->prestation->actes->pluck('type_acte_id')->toArray())
+                )->values()
+            );
+        }
 
         return response()->json([
-            'data' => $rendez_vous->items(),
-            'current_page' => $rendez_vous->currentPage(),
-            'last_page' => $rendez_vous->lastPage(),
-            'total' => $rendez_vous->total(),
+            'data'         => $rendezVous->items(),
+            'current_page' => $rendezVous->currentPage(),
+            'last_page'    => $rendezVous->lastPage(),
+            'total'        => $rendezVous->total(),
         ]);
     }
+
+
+
+
+
 
 
     /**

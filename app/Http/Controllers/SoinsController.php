@@ -8,6 +8,11 @@ use App\Models\Soins;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
+
+/**
+ * @permission_category Gestion des soins
+ */
+
 class SoinsController extends Controller
 {
     /**
@@ -17,26 +22,33 @@ class SoinsController extends Controller
      */
     public function index(Request $request)
     {
-        $perPage = $request->input('limit', 10);  // Par défaut, 10 éléments par page
-        $page = $request->input('page', 1);  // Page courante
+        $perPage = $request->input('limit', 10);
+        $page = $request->input('page', 1);
         $search = $request->input('search');
 
-        $soins = Soins::with(['type_soins:id,name'])
+        $soins = Soins::with(['type_soins'])
             ->where('is_deleted', false)
             ->when($search, function ($query) use ($search) {
-                $query->where('name', 'like', "%$search%");
+                $query->where(function ($q) use ($search) {
+                    $q->where('name', 'like', "%$search%")
+                        ->orWhere('description', 'like', "%$search%")
+                        ->orWhereHas('type_soins', function ($q2) use ($search) {
+                            $q2->where('name', 'like', "%$search%");
+                        });
+                });
             })
             ->latest()
             ->paginate(perPage: $perPage, page: $page);
 
         return response()->json([
             'data' => $soins->items(),
-            'current_page' => $soins->currentPage(),  // Page courante
-            'last_page' => $soins->lastPage(),  // Dernière page
-            'total' => $soins->total(),  // Nombre total d'éléments
+            'current_page' => $soins->currentPage(),
+            'last_page' => $soins->lastPage(),
+            'total' => $soins->total(),
         ]);
-        //
     }
+
+
 
     /**
      * Show the form for creating a new resource.

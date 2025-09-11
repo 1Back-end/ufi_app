@@ -6,6 +6,10 @@ use App\Http\Requests\SubFamilyExamRequest;
 use App\Models\SubFamilyExam;
 use Illuminate\Http\JsonResponse;
 
+/**
+ * @permission_category Gestion des sous familles d'examen
+ */
+
 class SubFamilyExamController extends Controller
 {
     /**

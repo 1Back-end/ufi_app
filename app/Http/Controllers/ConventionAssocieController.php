@@ -7,6 +7,9 @@ use App\Models\ConventionAssocie;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 
+/**
+ * @permission_category Gestion des conventions
+ */
 class ConventionAssocieController extends Controller
 {
     /**

@@ -6,6 +6,9 @@ use App\Models\GroupProduct;
 use App\Models\Product;
 use Illuminate\Http\Request;
 
+/**
+ * @permission_category Gestion des groupes de produits
+ */
 class GroupProduitController extends Controller
 {
 

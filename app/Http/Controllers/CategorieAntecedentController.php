@@ -9,6 +9,9 @@ use App\Models\Product;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
+/**
+ * @permission_category Gestion des catégories d'antécédants
+ */
 class CategorieAntecedentController extends Controller
 {
     /**

@@ -6,6 +6,10 @@ use App\Models\ExamenActes;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
+
+/**
+ * @permission_category Gestion des examens au rapport de consultation d'un client
+ */
 class ExamensActesController extends Controller
 {
     /**

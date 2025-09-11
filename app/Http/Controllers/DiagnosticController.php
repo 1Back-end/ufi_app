@@ -6,6 +6,9 @@ use App\Models\Client;
 use App\Models\Diagnostic;
 use Illuminate\Http\Request;
 
+/**
+ * @permission_category Gestion des diagnostics
+ */
 class DiagnosticController extends Controller
 {
 

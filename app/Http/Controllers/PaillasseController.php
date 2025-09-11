@@ -5,6 +5,10 @@ namespace App\Http\Controllers;
 use App\Http\Requests\PaillasseRequest;
 use App\Models\Paillasse;
 
+
+/**
+ * @permission_category Gestion des paillasses
+ */
 class PaillasseController extends Controller
 {
     /**

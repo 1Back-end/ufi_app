@@ -6,6 +6,9 @@ use App\Http\Requests\FamilyExamRequest;
 use App\Models\FamilyExam;
 use Illuminate\Http\JsonResponse;
 
+/**
+ * @permission_category Gestion des des familles d'examen
+ */
 class FamilyExamController extends Controller
 {
     /**

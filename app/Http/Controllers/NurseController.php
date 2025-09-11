@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Exports\ExamenPhysiqueExport;
 use App\Exports\NurseExport;
+use App\Imports\NursesImport;
 use App\Models\Nurse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -11,6 +12,10 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Maatwebsite\Excel\Facades\Excel;
 
+
+/**
+ * @permission_category Gestion des infirmières.
+ */
 class NurseController extends Controller
 {
     /**
@@ -193,6 +198,21 @@ class NurseController extends Controller
             "url" => Storage::disk('infirmieres')->url($fileName)
         ]);
 
+    }
+
+    public function import(Request $request)
+    {
+
+        $request->validate([
+            'file' => 'required|file|mimes:xlsx,xls,csv',
+        ]);
+
+        try {
+            Excel::import(new NursesImport(), $request->file('file'));
+            return response()->json(['message' => 'Importation réussie.']);
+        } catch (\Throwable $e) {
+            return response()->json(['message' => 'Erreur : ' . $e->getMessage()], 500);
+        }
     }
 
 

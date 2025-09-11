@@ -6,6 +6,10 @@ use App\Models\ConfigTbl_Categories_enquetes;
 use App\Models\ConfigTblCategoriesExamenPhysique;
 use Illuminate\Http\Request;
 
+/**
+ * @permission_category Gestion des catégories d'enquetes
+ */
+
 class ConfigTblCategoriesEnquetesController extends Controller
 {
     /**

@@ -15,6 +15,10 @@ use Illuminate\Support\Facades\Storage;
 use Maatwebsite\Excel\Facades\Excel;
 use Symfony\Component\HttpFoundation\Response;
 
+/**
+ * @permission_category Gestion des dossiers de consultations
+ */
+
 class DossierConsultationController extends Controller
 {
 

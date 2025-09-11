@@ -6,6 +6,9 @@ use App\Http\Requests\TechniqueExamRequest;
 use App\Models\TechniqueExam;
 use Illuminate\Http\JsonResponse;
 
+/**
+ * @permission_category Gestion des analyses techniques
+ */
 class TechniqueExamController extends Controller
 {
     /**

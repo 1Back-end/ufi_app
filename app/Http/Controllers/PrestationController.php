@@ -43,6 +43,11 @@ use Spatie\Browsershot\Exceptions\CouldNotTakeBrowsershot;
 use Symfony\Component\HttpFoundation\Response;
 use Throwable;
 
+
+/**
+ * @permission_category Gestion des prestations
+ */
+
 class PrestationController extends Controller
 {
     public function typePrestation()

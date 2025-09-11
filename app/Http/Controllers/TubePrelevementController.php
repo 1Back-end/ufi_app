@@ -6,6 +6,10 @@ use App\Http\Requests\TubePrelevementRequest;
 use App\Models\TubePrelevement;
 use Illuminate\Http\JsonResponse;
 
+/**
+ * @permission_category Gestion des tubes de prélèvements
+ */
+
 class TubePrelevementController extends Controller
 {
     /**

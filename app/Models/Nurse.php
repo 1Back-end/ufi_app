@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Nurse extends Model
 {
-    use HasFactory,UpdatingUser, CreateDefaultUser;
+    use HasFactory;
 
     protected $fillable = [
         'nom_complet',

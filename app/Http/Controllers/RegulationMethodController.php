@@ -6,6 +6,9 @@ use App\Http\Requests\RegulationMethodRequest;
 use App\Models\RegulationMethod;
 use Illuminate\Http\JsonResponse;
 
+/**
+ * @permission_category Gestion des modes de règlements
+ */
 class RegulationMethodController extends Controller
 {
     /**
