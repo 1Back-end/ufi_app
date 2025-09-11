@@ -14,6 +14,10 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
 use Maatwebsite\Excel\Facades\Excel;
 
+
+/**
+ * @permission_category Gestion des prises en charges
+ */
 class PriseEnChargeController extends Controller
 {
     /**

@@ -6,6 +6,9 @@ use App\Models\ConfigTbl_Categories_enquetes;
 use App\Models\ConfigTblTypeVisite;
 use Illuminate\Http\Request;
 
+/**
+ * @permission_category Gestion des types de visites
+ */
 class ConfigTblTypeVisiteController extends Controller
 {
 

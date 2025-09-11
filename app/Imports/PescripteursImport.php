@@ -20,46 +20,68 @@ class PescripteursImport implements ToCollection, WithHeadings
 {
     public function collection(Collection $rows)
     {
-
         $authId = auth()->id();
         $faker = Faker::create();
 
         // Ignore la ligne d'en-tête
         $rows->shift();
 
+        // Tableau pour vérifier les doublons dans le fichier
+        $existing = [];
+
         foreach ($rows as $index => $row) {
 
             $nom_presc = trim((string) ($row[0] ?? ''));
-            if (empty($nom_presc)) continue;
+            $prenom_presc = $nom_presc;
 
-            $tel_presc = trim((string) ($row[1] ?? $faker->phoneNumber()));
+            // Convertir "NULL" en vide
+            $nom_presc = strtoupper($nom_presc) === 'NULL' ? '' : $nom_presc;
+            $email_presc = trim((string) ($row[5] ?? ''));
+
+            $email_presc = strtoupper($email_presc) === 'NULL' || empty($email_presc)
+                ? 'noemail_'.$index.'@example.com'
+                : $email_presc;
+
+            $tel_presc = trim((string) ($row[1] ?? ''));
+            $tel_presc = strtoupper($tel_presc) === 'NULL' || empty($tel_presc)
+                ? $faker->phoneNumber()
+                : $tel_presc;
+
+            // Ignorer les lignes si nom ou email vide
+            if (empty($nom_presc) || empty($email_presc)) continue;
+
+            $key = strtolower($nom_presc.'_'.$prenom_presc);
+
+            // Ignorer si doublon dans le fichier
+            if (in_array($key, $existing)) continue;
+            $existing[] = $key;
+
+
             $titre_presc = trim((string) ($row[2] ?? 'RAS'));
             $specialite_nom = trim((string) ($row[3] ?? 'RAS'));
             $service_nom = trim((string) ($row[4] ?? 'RAS'));
-            $email_presc = trim((string) ($row[5] ?? 'noemail_'.$index.'@example.com'));
 
             // Création ou récupération des références
-            $titre = Titre::firstOrCreate(['nom_titre' => $titre_presc], [
-                'abbreviation_titre' => $titre_presc,
-                'created_by' => $authId,
-                'updated_by' => $authId
-            ]);
+            $titre = Titre::firstOrCreate(
+                ['nom_titre' => $titre_presc],
+                ['abbreviation_titre' => $titre_presc, 'created_by' => $authId, 'updated_by' => $authId]
+            );
 
-            $specialite = Specialite::firstOrCreate(['nom_specialite' => $specialite_nom], [
-                'created_by' => $authId,
-                'updated_by' => $authId
-            ]);
+            $specialite = Specialite::firstOrCreate(
+                ['nom_specialite' => $specialite_nom],
+                ['created_by' => $authId, 'updated_by' => $authId]
+            );
 
-            $service_hopital = Service_Hopital::firstOrCreate(['nom_service_hopi' => $service_nom], [
-                'created_by' => $authId,
-                'updated_by' => $authId
-            ]);
+            $service_hopital = Service_Hopital::firstOrCreate(
+                ['nom_service_hopi' => $service_nom],
+                ['created_by' => $authId, 'updated_by' => $authId]
+            );
 
-            $hopital = Hopital::first(); // si tu as plusieurs hopitaux, il faut déterminer lequel utiliser pour chaque ligne
+            $hopital = Hopital::first();
 
-            // Si email existe déjà, génère un email temporaire pour éviter conflit
-            if (Consultant::where('email', $email_presc)->exists()) {
-                $email_presc = 'dup_'.$index.'_'.$faker->unique()->safeEmail();
+            // Vérifier doublon dans la base avant création
+            if (Consultant::where('nom', $nom_presc)->where('prenom', $prenom_presc)->exists()) {
+                continue;
             }
 
             // Création du consultant
@@ -69,16 +91,18 @@ class PescripteursImport implements ToCollection, WithHeadings
                 'code_specialite' => $specialite->id,
                 'code_titre' => $titre->id,
                 'nom' => $nom_presc,
-                'prenom' => $nom_presc,
+                'prenom' => $prenom_presc,
                 'nomcomplet' => $titre_presc.' '.$nom_presc,
                 'tel' => $tel_presc,
                 'email' => $email_presc,
-                'type' => 'Interne',
+                'type' => 'Externe',
                 'created_by' => $authId,
                 'updated_by' => $authId,
             ]);
         }
     }
+
+
 
     public function headings(): array
     {

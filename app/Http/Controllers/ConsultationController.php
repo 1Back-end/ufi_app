@@ -8,6 +8,10 @@ use App\Models\Consultation;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+
+/**
+ * @permission_category Gestion des consultations
+ */
 class ConsultationController extends Controller
 {
     /**

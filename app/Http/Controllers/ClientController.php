@@ -33,6 +33,10 @@ use PhpOffice\PhpSpreadsheet\Exception;
 use Symfony\Component\HttpFoundation\Response;
 use Throwable;
 
+
+/**
+ * @permission_category Gestion des clients
+ */
 class ClientController extends Controller
 {
     /**

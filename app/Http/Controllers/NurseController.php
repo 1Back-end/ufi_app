@@ -12,6 +12,10 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Maatwebsite\Excel\Facades\Excel;
 
+
+/**
+ * @permission_category Gestion des infirmières.
+ */
 class NurseController extends Controller
 {
     /**

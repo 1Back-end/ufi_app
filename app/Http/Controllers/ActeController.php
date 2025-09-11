@@ -9,8 +9,13 @@ use App\Models\Acte;
 use App\Models\TypeActe;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Maatwebsite\Excel\Facades\Excel;
 
+
+/**
+ * @permission_category Gestion des actes
+ */
 class ActeController extends Controller
 {
     /**
@@ -104,5 +109,82 @@ class ActeController extends Controller
         return response()->json([
             'message' => __("Status mis à jour")
         ],202);
+    }
+
+
+
+    /**
+     * @param Acte $acte
+     * @param Request $request
+     * @return JsonResponse
+     *
+     * @permission ActeController::PrintRapportActes
+     * @permission_desc Imprimer la liste des tarifications des actes
+     */
+    public function PrintRapportActes()
+    {
+        DB::beginTransaction();
+
+        try {
+            // Récupérer tous les types avec leurs actes
+            $types = TypeActe::with(['actes' => function ($query) {
+                $query->where('state', true)->orderBy('name');
+            }])
+                ->orderBy('name')
+                ->get();
+
+            // Préparer les données pour la vue
+            $data = [
+                'title' => 'Tarifaire des actes',
+                'types' => $types,
+            ];
+
+
+            // Nom du fichier et dossier
+            $fileName   = 'rapport-actes-' . now()->format('YmdHis') . '.pdf';
+            $folderPath = "storage/rapport-actes";
+            $filePath   = $folderPath . '/' . $fileName;
+
+            // Création dossier si nécessaire
+            if (!file_exists($folderPath)) {
+                mkdir($folderPath, 0755, true);
+            }
+
+            // Génération PDF
+            save_browser_shot_pdf(
+                view: 'pdfs.rapport-actes.rapports-actes', // Vue que tu crées pour l'affichage
+                data: $data,
+                folderPath: $folderPath,
+                path: $filePath,
+                margins: [10, 10, 10, 10],
+                format: 'A4',
+                direction: 'portrait'
+            );
+
+            DB::commit();
+
+
+            $pdfContent = file_get_contents($filePath);
+            $base64 = base64_encode($pdfContent);
+
+            return response()->json([
+                'base64'   => $base64,
+                'url'      => $filePath,
+                'filename' => $fileName,
+            ], 200);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            DB::rollBack();
+            return response()->json([
+                'error' => 'Erreur de validation',
+                'details' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'error' => 'Une erreur est survenue',
+                'message' => $e->getMessage()
+            ], 500);
+        }
     }
 }

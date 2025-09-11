@@ -6,6 +6,10 @@ use App\Models\Client;
 use App\Models\OpsTblMiseEnObservationHospitalisation;
 use Illuminate\Http\Request;
 
+
+/**
+ * @permission_category Gestion des mises en observation
+ */
 class OpsTblMiseEnObservationHospitalisationController extends Controller
 {
     /**

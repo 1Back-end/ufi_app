@@ -23,7 +23,9 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rules\Enum;
 use Maatwebsite\Excel\Facades\Excel;
 use Symfony\Component\HttpFoundation\Response;
-
+/**
+ * @permission_category Gestion des consultants
+ */
 class ConsultantController extends Controller
 {
 

@@ -9,6 +9,10 @@ use App\Models\Prescripteur;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
+
+/**
+ * @permission_category Gestion des referres médicaux
+ */
 class OpsTblReferreMedicalController extends Controller
 {
     /**

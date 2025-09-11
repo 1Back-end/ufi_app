@@ -6,6 +6,11 @@ use App\Http\Requests\TypeResultRequest;
 use App\Models\TypeResult;
 use Illuminate\Http\JsonResponse;
 
+/**
+ * @permission_category Gestion des types de résultat.
+ */
+
+
 class TypeResultController extends Controller
 {
     /**

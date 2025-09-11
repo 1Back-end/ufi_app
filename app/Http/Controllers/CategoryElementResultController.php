@@ -6,6 +6,9 @@ use App\Http\Requests\CategoryElementResultRequest;
 use App\Models\CategoryElementResult;
 use Illuminate\Http\JsonResponse;
 
+/**
+ * @permission_category Gestion des catégories d'éléments de résultat
+ */
 class CategoryElementResultController extends Controller
 {
     /**

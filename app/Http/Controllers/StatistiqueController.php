@@ -12,6 +12,10 @@ use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
+/**
+ * @permission_category Gestion des statistiques
+ */
+
 class StatistiqueController extends Controller
 {
     /**

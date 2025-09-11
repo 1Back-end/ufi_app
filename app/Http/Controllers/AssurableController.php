@@ -11,6 +11,10 @@ use App\Models\Soins;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
+/**
+ * @permission_category Gestion des prix uniques d’un assureur pour différents éléments dans le système
+ */
+
 class AssurableController extends Controller
 {
     /**

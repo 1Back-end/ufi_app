@@ -9,6 +9,9 @@ use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
 
+/**
+ * @permission_category Gestion des types de document
+ */
 class TypeDocumentController extends Controller
 {
     /**

@@ -8,6 +8,12 @@ use App\Models\GroupePopulation;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Response;
 
+
+
+/**
+ * @permission_category Gestion des groupes de population.
+ */
+
 class GroupePopulationController extends Controller
 {
     /**

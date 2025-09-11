@@ -259,4 +259,11 @@ class Prestation extends Model
     {
         return $this->hasMany(RendezVous::class, 'prestation_id');
     }
+
+    public function typeActe()
+    {
+        return $this->belongsTo(TypeActe::class, 'type_acte_id', 'id');
+
+    }
+
 }

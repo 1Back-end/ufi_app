@@ -6,6 +6,10 @@ use App\Models\RapportActe;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
+/**
+ * @permission_category Gestion du rapport des actes
+ */
+
 class RapportActeController extends Controller
 {
     /**

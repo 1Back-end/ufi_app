@@ -6,6 +6,9 @@ use App\Models\Consultation;
 use App\Models\Typeconsultation;
 use Illuminate\Http\Request;
 
+/**
+ * @permission_category Gestion des types consultations
+ */
 class TypeconsultationController extends Controller
 {
     /**
@@ -30,21 +33,27 @@ class TypeconsultationController extends Controller
      */
     public function index(Request $request)
     {
-        $perPage = $request->input('limit', 5);  // Par défaut, 10 éléments par page
-        $page = $request->input('page', 1);  // Page courante
+        $perPage = $request->input('limit', 5);  // Nombre d'éléments par page
+        $page = $request->input('page', 1);      // Page courante
+        $search = $request->input('search');     // Mot-clé de recherche
 
-        // Récupérer les assureurs avec pagination
         $type_consultations = Typeconsultation::where('is_deleted', false)
-            ->paginate($perPage);
+            ->when($search, function ($query) use ($search) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('name', 'like', "%$search%")
+                        ->orWhere('id', $search);  // Recherche par ID exact
+                });
+            })
+            ->paginate(perPage: $perPage, page: $page);
 
         return response()->json([
             'data' => $type_consultations->items(),
-            'current_page' => $type_consultations->currentPage(),  // Page courante
-            'last_page' => $type_consultations->lastPage(),  // Dernière page
-            'total' => $type_consultations->total(),  // Nombre total d'éléments
+            'current_page' => $type_consultations->currentPage(),
+            'last_page' => $type_consultations->lastPage(),
+            'total' => $type_consultations->total(),
         ]);
-        //
     }
+
 
     /**
      * Show the form for creating a new resource.

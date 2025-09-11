@@ -10,6 +10,9 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
+/**
+ * @permission_category Gestion des hospitalisations
+ */
 class OpsTblHospitalisationController extends Controller
 {
     /**

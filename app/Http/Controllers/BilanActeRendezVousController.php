@@ -17,6 +17,11 @@ use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Carbon;
 use Spatie\Browsershot\Exceptions\CouldNotTakeBrowsershot;
+/**
+ * @permission_category Gestion du bilan des actes
+ */
+
+
 class BilanActeRendezVousController extends Controller
 {
     public function index(){

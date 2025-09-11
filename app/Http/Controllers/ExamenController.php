@@ -13,6 +13,10 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response as ResponseAlias;
 
+
+/**
+ * @permission_category Gestion des examens
+ */
 class ExamenController extends Controller
 {
     /**

@@ -4,6 +4,10 @@ namespace App\Http\Controllers;
 use App\Models\OpsTblRapportConsultation;
 use Illuminate\Http\Request;
 
+
+/**
+ * @permission_category Gestion des rapports de consultations
+ */
 class OpsTblRapportConsultationController extends Controller
 {
     /**

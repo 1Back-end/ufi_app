@@ -11,6 +11,10 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
 use Maatwebsite\Excel\Facades\Excel;
 
+
+/**
+ * @permission_category Gestion des examens physiques
+ */
 class ExamenPhysiqueController extends Controller
 {
 

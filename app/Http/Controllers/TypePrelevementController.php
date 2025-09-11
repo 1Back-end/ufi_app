@@ -6,6 +6,10 @@ use App\Http\Requests\TypePrelevementRequest;
 use App\Models\TypePrelevement;
 use Illuminate\Http\JsonResponse;
 
+/**
+ * @permission_category Gestion des types de prélèvements
+ */
+
 class TypePrelevementController extends Controller
 {
     /**

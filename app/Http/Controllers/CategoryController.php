@@ -7,6 +7,10 @@ use App\Models\Product;
 use Illuminate\Http\Request;
 
 use App\Models\Category;
+
+/**
+ * @permission_category Gestion des catégorie des produits
+ */
 class CategoryController extends Controller
 {
     /**

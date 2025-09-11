@@ -5,6 +5,10 @@ namespace App\Http\Controllers;
 use App\Models\ConfigSousCategorieDiagnostic;
 use Illuminate\Http\Request;
 
+
+/**
+ * @permission_category Gestion des catégories de diagnostics
+ */
 class ConfigSousCategorieDiagnosticController extends Controller
 {
     /**

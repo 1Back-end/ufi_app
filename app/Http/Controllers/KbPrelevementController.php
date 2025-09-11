@@ -6,6 +6,9 @@ use App\Http\Requests\KbPrelevementRequest;
 use App\Models\KbPrelevement;
 use Illuminate\Http\JsonResponse;
 
+/**
+ * @permission_category Gestion des prélèvements.
+ */
 class KbPrelevementController extends Controller
 {
     /**

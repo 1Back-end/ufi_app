@@ -7,6 +7,9 @@ use App\Models\TypeActe;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
+/**
+ * @permission_category Gestion des types d'actes
+ */
 class TypeActeController extends Controller
 {
     /**

@@ -7,6 +7,10 @@ use Illuminate\Http\Request;
 use App\Models\VoixTransmissions;
 use App\Models\User;
 
+/**
+ * @permission_category Gestion voix d'administrations des produits
+ */
+
 class VoixTransmissionController extends Controller
 {
     public function listIdName()

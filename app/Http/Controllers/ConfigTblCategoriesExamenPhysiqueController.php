@@ -6,6 +6,9 @@ use App\Models\ConfigTblCategoriesExamenPhysique;
 use App\Models\ConfigTblSousCategorieAntecedent;
 use Illuminate\Http\Request;
 
+/**
+ * @permission_category Gestion des catégories d'examen physique
+ */
 class ConfigTblCategoriesExamenPhysiqueController extends Controller
 {
     /**

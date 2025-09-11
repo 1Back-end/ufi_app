@@ -6,6 +6,9 @@ use App\Http\Requests\ElementResultRequest;
 use App\Models\ElementResult;
 use Illuminate\Http\JsonResponse;
 
+/**
+ * @permission_category Gestion des éléments de resultat
+ */
 class ElementResultController extends Controller
 {
     /**

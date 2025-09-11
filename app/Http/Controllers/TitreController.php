@@ -8,6 +8,10 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use App\Models\Titre;
 
+/**
+ * @permission_category Gestion des titres de consultants
+ */
+
 class TitreController extends Controller
 {
     /**

@@ -8,6 +8,9 @@ use App\Models\ConfigTbl_Categories_enquetes;
 use Illuminate\Http\Request;
 use Maatwebsite\Excel\Facades\Excel;
 
+/**
+ * @permission_category Gestion des classes maladies
+ */
 class ClasseMaladieController extends Controller
 {
 
@@ -29,7 +32,6 @@ class ClasseMaladieController extends Controller
             $search = $request->input('search');
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%$search%")
-                    ->orWhere('description', 'like', "%$search%")
                     ->orWhere('id', 'like', "%$search%");
             });
         }

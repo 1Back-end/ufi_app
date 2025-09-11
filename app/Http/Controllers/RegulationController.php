@@ -27,6 +27,10 @@ use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Enum;
 use Symfony\Component\HttpFoundation\Response;
 
+
+/**
+ * @permission_category Gestion des regulations
+ */
 class RegulationController extends Controller
 {
 

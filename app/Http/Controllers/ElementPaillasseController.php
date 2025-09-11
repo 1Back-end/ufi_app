@@ -9,6 +9,10 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
+
+/**
+ * @permission_category Gestion des éléments de paillasse d'examen
+ */
 class ElementPaillasseController extends Controller
 {
     /**

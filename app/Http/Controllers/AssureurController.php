@@ -16,7 +16,11 @@ use Maatwebsite\Excel\Facades\Excel; // Utilisation de la façade Excel
 use Illuminate\Support\Carbon;
 use Symfony\Component\HttpFoundation\Response;
 
+/**
+ * @permission_category Gestion des Assureurs
+ */
 class AssureurController extends Controller
+
 {
     public function listIdName()
     {
