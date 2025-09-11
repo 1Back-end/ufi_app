@@ -64,6 +64,7 @@ class PrestationController extends Controller
             'updatedBy:id,nom_utilisateur',
             'payableBy',
             'client',
+            'client.sexe',
             'consultant:id,nomcomplet,code_specialite',
             'consultant.code_specialite:id,nom_specialite',
             'priseCharge',
