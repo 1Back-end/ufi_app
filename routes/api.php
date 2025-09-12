@@ -85,6 +85,7 @@ use App\Http\Controllers\StatistiqueController;
 use App\Http\Controllers\RapportActeController;
 use App\Http\Controllers\ExamensActesController;
 use App\Imports\ImportConfigASC;
+use App\Imports\ImportPredefinedList;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -676,6 +677,17 @@ Route::middleware(['activity'])->group(function () {
             ]);
 
             Excel::import(new ImportConfigASC(), $request->file('file'));
+
+            return response()->json(['message' => 'Data imported successfully.']);
+        });
+
+        // Import Predefined Liste
+        Route::post('/import-predefined-list', function (Request $request) {
+            $request->validate([
+                'file' => 'required|file|mimes:csv,xlsx,xls',
+            ]);
+
+            Excel::import(new ImportPredefinedList(), $request->file('file'));
 
             return response()->json(['message' => 'Data imported successfully.']);
         });
