@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\ExamenRequest;
 use App\Models\ElementPaillasse;
 use App\Models\Examen;
+use App\Models\FamilyExam;
 use App\Models\Prestation;
 use Exception;
 use Illuminate\Http\JsonResponse;
@@ -372,4 +373,81 @@ class ExamenController extends Controller
             ])
         ], ResponseAlias::HTTP_OK);
     }
+
+
+
+    /**
+     * @param Prestation $prestation
+     * @param Examen $examen
+     * @param Request $request
+     * @return JsonResponse
+     *
+     * @permission ExamenController::PrintTarifaireActes
+     * @permission_desc Imprimer le tarifaire des examens
+     */
+    public function PrintTarifaireActes()
+    {
+        DB::beginTransaction();
+
+        try {
+            // Récupération des familles et de leurs examens triés
+            $familles_examens = FamilyExam::with(['examens' => function ($query) {
+                $query->orderBy('name')
+                    ->with(['typePrelevement', 'tubePrelevement']);
+            }])->orderBy('name')->get();
+
+            $familles_examens = $familles_examens->filter(fn($famille) => $famille->examens->count() > 0);
+
+            $data = [
+                'title' => 'Tarifaire des examens',
+                'familles_examens' => $familles_examens,
+            ];
+
+
+            // Nom du fichier et dossier
+            $fileName   = 'tarifaires-examens-' . now()->format('YmdHis') . '.pdf';
+            $folderPath = "storage/tarifaires-examens";
+            $filePath   = $folderPath . '/' . $fileName;
+
+            // Création du dossier si nécessaire
+            if (!file_exists($folderPath)) {
+                mkdir($folderPath, 0755, true);
+            }
+
+            // Génération du PDF
+            save_browser_shot_pdf(
+                view: 'pdfs.tarifaires-examens.tarifaires-examens', // Vue Blade
+                data: $data,
+                folderPath: $folderPath,
+                path: $filePath,
+                margins: [10, 10, 10, 10],
+                format: 'A4',
+            );
+
+            // Vérifier si le PDF a été généré
+            if (!file_exists($filePath)) {
+                DB::rollBack();
+                return response()->json(['error' => 'Le fichier PDF n\'a pas été généré.'], 500);
+            }
+
+            DB::commit();
+
+            $pdfContent = file_get_contents($filePath);
+            $base64 = base64_encode($pdfContent);
+
+            return response()->json([
+                'base64'   => $base64,
+                'url'      => $filePath,
+                'filename' => $fileName,
+            ], 200);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'error' => 'Une erreur est survenue',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
 }

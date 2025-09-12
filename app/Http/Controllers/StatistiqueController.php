@@ -7,6 +7,7 @@ use App\Enums\TypeClient;
 use App\Enums\TypePrestation;
 use App\Models\Client;
 use App\Models\Facture;
+use App\Models\Prestation;
 use App\Models\RendezVous;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -25,31 +26,58 @@ class StatistiqueController extends Controller
      */
     public function clientsJourParType()
     {
-        $today = Carbon::today();
-
-        $response = [];
+        $today     = Carbon::today();
+        $yesterday = Carbon::yesterday();
+        $response  = [];
 
         foreach (TypeClient::cases() as $type) {
             $typeValue = $type->value;
 
-            // Nouveaux clients aujourd'hui par type
-            $nouveaux = Client::whereDate('created_at', $today)
-                ->where('type_cli', $typeValue)
+            // Clients facturés aujourd'hui avec régulation validée
+            $nouveaux = Prestation::whereHas('factures', function ($q) use ($today) {
+                $q->whereDate('date_fact', $today)
+                    ->whereHas('regulations', function ($r) use ($today) {
+                        $r->whereDate('created_at', $today)
+                            ->where('state', 1);
+                    });
+            })
+                ->whereHas('client', function ($q) use ($typeValue) {
+                    $q->where('type_cli', $typeValue);
+                })
+                ->with('client')
+                ->get()
+                ->pluck('client.id')
+                ->unique()
                 ->count();
 
-            // Anciens clients ayant eu une activité aujourd'hui par type
-            $anciens = Client::whereDate('created_at', '<', $today)
-                ->where('type_cli', $typeValue)
+            // Clients facturés hier avec régulation validée
+            $anciens = Prestation::whereHas('factures', function ($q) use ($yesterday) {
+                $q->whereDate('date_fact', $yesterday)
+                    ->whereHas('regulations', function ($r) use ($yesterday) {
+                        $r->whereDate('created_at', $yesterday)
+                            ->where('state', 1);
+                    });
+            })
+                ->whereHas('client', function ($q) use ($typeValue) {
+                    $q->where('type_cli', $typeValue);
+                })
+                ->with('client')
+                ->get()
+                ->pluck('client.id')
+                ->unique()
                 ->count();
 
             $response[$typeValue] = [
                 'nouveaux' => $nouveaux,
-                'anciens' => $anciens,
+                'anciens'  => $anciens,
             ];
         }
 
         return response()->json($response);
     }
+
+
+
 
 
     /**

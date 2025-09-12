@@ -14,9 +14,8 @@
         body {
             font-size: 13px;
             font-family: "Rubik", sans-serif;
-            margin: 10px 20px;
+            margin: 10px;
         }
-
         .page-break {
             page-break-before: always;
         }
@@ -26,6 +25,8 @@
             left: 0;
             right: 0;
             height: 40px;
+            font-size: 12px;
+            color: #666;
             border-top: 1px solid #ddd;
             text-align: center;
             padding-top: 5px;
@@ -33,14 +34,15 @@
         .page-number:before {
             content: "Page " counter(page);
         }
+        /* Pour que la numérotation fonctionne */
         @page {
-            margin: 15mm 20mm 15mm 20mm;
+            margin: 15mm 10mm 20mm 10mm;
             counter-increment: page;
         }
     </style>
 </head>
 <body>
-<div class="container mt-3 pb-3">
+<div class="col-lg-12 col-sm-12 p-0">
     <div class="mb-2 d-flex justify-content-between align-items-center">
         <div class="mb-0 mx-2">
             <img src="{{ public_path('certificats/logo.png') }}" class="img-fluid" width="150" height="150">
@@ -95,13 +97,6 @@
     <p class="text-start mt-4" style="font-size: 10px; color: #00b050">
         Votre santé est notre priorité
     </p>
-    <div class="footer text-center">
-        <small  style="font-size: 8px;color: #00b050">
-            Médecine générale – Médecine interne – Cardiologie – Dermatologie – Diabétologie – Endocrinologie – Gériatrie – <br>
-            Neurologie – Pneumologie – Rhumatologie – Gynécologie – Consultations prénatales – Médecine du Travail – ORL – Urologie <br>
-            – Neuropsychologie – Diététique et Nutrition – Imagerie médicale - Kinésithérapie
-        </small>
-    </div>
 </div>
 
 

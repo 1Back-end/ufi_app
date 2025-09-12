@@ -4,6 +4,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
 class Typeconsultation extends Model
 {
     use HasFactory;
@@ -23,6 +25,10 @@ class Typeconsultation extends Model
     public function updater()
     {
         return $this->belongsTo(User::class, 'updated_by');
+    }
+    public function consultations(): HasMany
+    {
+        return $this->hasMany(Consultation::class, 'typeconsultation_id');
     }
     //
 }

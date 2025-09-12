@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Assurable;
 use App\Models\Assureur;
 use App\Models\Consultation;
+use App\Models\Typeconsultation;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -227,6 +228,79 @@ class ConsultationController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'error' => 'Une erreur est survenue lors de la suppression.',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+
+
+    /**
+     * Display a listing of the resource.
+     * @permission ConsultationController::Tarifications_Consultations
+     * @permission_desc Imprimer la tarification des consultations
+     */
+    public function Tarifications_Consultations()
+    {
+        DB::beginTransaction();
+
+        try {
+            // Charger les types de consultation avec leurs consultations actives
+            $types = TypeConsultation::with(['consultations' => function ($query) {
+                $query->where('is_deleted', false)->orderBy('name');
+            }])
+                ->orderBy('name')
+                ->get();
+
+            // Filtrer uniquement les types ayant au moins une consultation
+            $types = $types->filter(fn($type) => $type->consultations->count() > 0);
+
+            // Préparer les données
+            $data = [
+                'title' => 'Tarifaire des consultations',
+                'types' => $types,
+            ];
+
+            // Chemin du PDF
+            $fileName   = 'tarifaire-consultations-' . now()->format('YmdHis') . '.pdf';
+            $folderPath = "storage/tarifaire-consultations";
+            $filePath   = $folderPath . '/' . $fileName;
+
+            if (!file_exists($folderPath)) {
+                mkdir($folderPath, 0755, true);
+            }
+
+            // Générer le PDF
+            save_browser_shot_pdf(
+                view: 'pdfs.tarif-consultations.tarif-consultations',
+                data: $data,
+                folderPath: $folderPath,
+                path: $filePath,
+                margins: [10, 10, 10, 10],
+                format: 'A4',
+            );
+
+            if (!file_exists($filePath)) {
+                DB::rollBack();
+                return response()->json(['error' => 'Le fichier PDF n\'a pas été généré.'], 500);
+            }
+
+            DB::commit();
+
+            // Encodage Base64
+            $pdfContent = file_get_contents($filePath);
+            $base64 = base64_encode($pdfContent);
+
+            return response()->json([
+                'base64'   => $base64,
+                'url'      => $filePath,
+                'filename' => $fileName,
+            ], 200);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'error' => 'Une erreur est survenue',
                 'message' => $e->getMessage()
             ], 500);
         }

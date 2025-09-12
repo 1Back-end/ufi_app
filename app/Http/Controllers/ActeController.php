@@ -158,7 +158,6 @@ class ActeController extends Controller
                 path: $filePath,
                 margins: [10, 10, 10, 10],
                 format: 'A4',
-                direction: 'portrait'
             );
 
             DB::commit();

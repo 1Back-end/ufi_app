@@ -310,6 +310,7 @@ Route::middleware(['activity'])->group(function () {
             Route::put('/edit/{id}', 'update');
             Route::delete('/delete/{id}', 'destroy');
             Route::put('update_status/{id}/status/{status}', 'updateStatus');
+            Route::get('/print_rapports', 'Tarifications_Consultations');
         });
         Route::controller(TypeSoinsController::class)->prefix('type_soins')->group(function () {
             route::get('/list', 'index');
@@ -326,6 +327,7 @@ Route::middleware(['activity'])->group(function () {
             Route::put('/edit/{id}', 'update');
             Route::delete('/delete/{id}', 'destroy');
             Route::put('update_status/{id}/status/{status}', 'updateStatus');
+            Route::get('/print_rapports', 'Tarfication_Soins');
         });
         Route::controller(OpsTblHospitalisationController::class)->prefix('hospitalisations')->group(function () {
             Route::get('/list', 'index');
@@ -335,6 +337,7 @@ Route::middleware(['activity'])->group(function () {
             Route::put('/edit/{id}', 'update');
             Route::put('update_status/{id}/status/{status}', 'updateStatus');
             Route::get('/{id}/pu',  'getPuByHospitalisationId');
+            Route::get('/print_rapports', 'getTarifaireHospitalisations');
         });
         Route::controller(AssurableController::class)->prefix('assurables')->group(function () {
             Route::post('/', 'store');
@@ -544,6 +547,7 @@ Route::middleware(['activity'])->group(function () {
             Route::delete('/delete/{id}', 'destroy');
             Route::get('/actes-client/{client_id}',  'getHistoriqueActesClient');
             Route::get('/client/{client_id}', 'PrintRapport');
+            Route::get('/bilan/{id}/rapport',  'showRapport');
         });
         Route::controller(ClasseMaladieController::class)->prefix('classe_maladie')->group(function () {
             Route::get('/list', 'index');
@@ -643,7 +647,9 @@ Route::middleware(['activity'])->group(function () {
         Route::apiResource('groupe-populations', GroupePopulationController::class);
 
         // Gestion des Examen
+        Route::get('/examens/print_rapports', [ExamenController::class, 'PrintTarifaireActes']);
         Route::apiResource('examens', ExamenController::class);
+
 
         // Prélèvements
         Route::post('/prelevements/{examen}/{prestation}', [ExamenController::class, 'prelevement']);

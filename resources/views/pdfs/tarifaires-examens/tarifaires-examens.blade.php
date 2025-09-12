@@ -80,33 +80,38 @@
 
     <p class="text-end small">Date d'impression : {{ $today }}</p>
 
-    @foreach($types as $index => $type)
-        @if($type->actes->count()) {{-- Affiche uniquement si le type a des actes --}}
-        <h6 class="mt-4 mb-xxl-3 text-center text-uppercase">
-            <strong>{{ roman_number($index + 1) }}. {{ $type->name }}</strong>
-        </h6>
 
-        <table class="table text-center table-bordered table-striped">
-            <thead>
+    @foreach($familles_examens as $familleIndex => $famille)
+    <h6 class="mt-4 mb-xxl-3 text-center text-uppercase">
+        <strong>{{ roman_number($familleIndex + 1) }}. {{ $famille->name }}</strong>
+    </h6>
+
+    <table class="table text-center table-bordered table-striped">
+        <thead>
+        <tr>
+            <th>N°</th>
+            <th>Examen</th>
+            <th>B</th>
+            <th>B1</th>
+            <th>PU</th>
+            <th>Type prélèvement</th>
+            <th>Tube prélèvement</th>
+        </tr>
+        </thead>
+        <tbody>
+        @foreach($famille->examens as $index => $examen)
             <tr>
-                <th>N°</th>
-                <th>Libellé</th>
-                <th>B</th>
-                <th>Prix</th>
+                <td>{{ $index + 1 }}</td>
+                <td>{{ $examen->name }}</td>
+                <td>{{ $examen->b }}</td>
+                <td>{{ $examen->b1 }}</td>
+                <td>{{ number_format($examen->price, 0, ',', ' ') }} FCFA</td>
+                <td>{{ $examen->typePrelevement?->name ?? '-' }}</td>
+                <td>{{ $examen->tubePrelevement?->name ?? '-' }}</td>
             </tr>
-            </thead>
-            <tbody>
-            @foreach($type->actes as $num => $acte)
-                <tr>
-                    <td>{{ $num + 1 }}</td>
-                    <td>{{ $acte->name }}</td>
-                    <td>{{ $acte->b }}</td>
-                    <td>{{ number_format($acte->pu, 0, ',', ' ') }} FCFA</td>
-                </tr>
-            @endforeach
-            </tbody>
-        </table>
-        @endif
+        @endforeach
+        </tbody>
+    </table>
     @endforeach
 </div>
 
@@ -117,6 +122,5 @@
         – Neuropsychologie – Diététique et Nutrition – Imagerie médicale - Kinésithérapie
     </small>
 </div>
-
 </body>
 </html>

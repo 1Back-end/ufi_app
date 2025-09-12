@@ -34,4 +34,16 @@ class FamilyExam extends Model
     {
         return $this->hasOne(SubFamilyExam::class, 'family_exam_id');
     }
+
+    public function examens()
+    {
+        return $this->hasManyThrough(
+            Examen::class,
+            SubFamilyExam::class,
+            'family_exam_id',
+            'sub_family_exam_id',
+            'id',
+            'id'
+        );
+    }
 }

@@ -86,36 +86,95 @@ class BilanActeRendezVousController extends Controller
     {
         $auth = auth()->user();
 
-        $request->validate([
-            'rendez_vous_id'       => 'required|exists:rendez_vouses,id',
-            'prestation_id'        => 'required|exists:prestations,id',
-            'consultant_id'        => 'required|exists:consultants,id',
-            'technique_analyse_id' => 'required|exists:analysis_techniques,id',
-            'resume'               => 'nullable|string',
-            'conclusion'           => 'nullable|string',
-        ]);
+        try {
+            $request->validate([
+                'rendez_vous_id'       => 'required|exists:rendez_vouses,id',
+                'prestation_id'        => 'required|exists:prestations,id',
+                'consultant_id'        => 'required|exists:consultants,id',
+                'technique_analyse_id' => 'required|exists:analysis_techniques,id',
+                'resume'               => 'nullable|string',
+                'conclusion'           => 'nullable|string',
+            ]);
 
-        // Création du bilan avec les nouveaux champs
-        $bilan = BilanActeRendezVous::create([
-            'rendez_vous_id'       => $request->rendez_vous_id,
-            'prestation_id'        => $request->prestation_id,
-            'consultant_id'        => $request->consultant_id,
-            'technique_analyse_id' => $request->technique_analyse_id,
-            'resume'               => $request->resume,
-            'conclusion'           => $request->conclusion,
-            'created_by'           => $auth->id,
-            'updated_by'           => $auth->id,
-        ]);
+            DB::beginTransaction();
 
-        // Mise à jour de l’état du rendez‑vous à “Clos”
-        RendezVous::where('id', $request->rendez_vous_id)
-            ->update(['etat' => 'Clos']);
+            // Création du bilan
+            $bilan = BilanActeRendezVous::create([
+                'rendez_vous_id'       => $request->rendez_vous_id,
+                'prestation_id'        => $request->prestation_id,
+                'consultant_id'        => $request->consultant_id,
+                'technique_analyse_id' => $request->technique_analyse_id,
+                'resume'               => $request->resume,
+                'conclusion'           => $request->conclusion,
+                'created_by'           => $auth->id,
+                'updated_by'           => $auth->id,
+            ]);
 
-        return response()->json([
-            'message' => 'Bilan enregistré et rendez‑vous clôturé avec succès.',
-            'data'    => $bilan,
-        ], 201);
+            // Mise à jour du rendez-vous
+            $rendezVous = RendezVous::find($request->rendez_vous_id);
+            $rendezVous->update(['etat' => 'Clos']);
+
+            // Préparer les données pour le PDF
+            $client_id = $rendezVous->client_id;
+            $data = [
+                'bilan' => $bilan,
+                'rendezVous' => $rendezVous,
+                // Ajoute ici toutes les infos nécessaires pour ton PDF
+            ];
+
+            // Chemin du fichier PDF
+            $fileName   = 'rapport-client-prestations-actes' . $client_id . '-' . now()->format('YmdHis') . '.pdf';
+            $folderPath = 'storage/rapport-clients'; // chemin absolu
+            $filePath   = $folderPath . '/' . $fileName;
+
+            if (!file_exists($folderPath)) {
+                mkdir($folderPath, 0755, true);
+            }
+
+            // Génération du PDF
+            save_browser_shot_pdf(
+                view: 'pdfs.rapport-clients.rapport-client-prestations-actes',
+                data: [
+                    'rapport' => $bilan,   // <-- ici on passe le bilan comme rapport
+                    'rendezVous' => $rendezVous, // si nécessaire
+                ],
+                folderPath: $folderPath,
+                path: $filePath,
+                margins: [10, 10, 10, 10]
+            );
+
+            DB::commit();
+
+            if (!file_exists($filePath)) {
+                return response()->json(['message' => 'Le fichier PDF n\'a pas été généré.'], 500);
+            }
+
+            $pdfContent = file_get_contents($filePath);
+            $base64 = base64_encode($pdfContent);
+
+            return response()->json([
+                'message'  => 'Bilan enregistré et rendez‑vous clôturé avec succès.',
+                'data'     => $bilan,
+                'base64'   => $base64,
+                'url'      => $filePath,
+                'filename' => $fileName,
+            ], 201);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'error'   => 'Erreur de validation',
+                'details' => $e->errors()
+            ], 422);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'error'   => 'Une erreur est survenue',
+                'message' => $e->getMessage()
+            ], 500);
+        }
     }
+
 
 
     /**
@@ -248,6 +307,71 @@ class BilanActeRendezVousController extends Controller
             ], 500);
         }
     }
+
+
+
+    /**
+     * Display a listing of the resource.
+     * @permission BilanActeRendezVousController::showRapport
+     * @permission_desc Imprimer le rapport d'un acte en particulier
+     */
+    public function showRapport($id)
+    {
+        try {
+            // Récupération du bilan avec relations
+            $bilan = BilanActeRendezVous::with([
+                'rendezVous.client.sexe',
+                'rendezVous.consultant',
+                'prestation.actes',
+                'techniqueAnalyse'
+            ])->findOrFail($id);
+
+            // Préparer le chemin du PDF
+            $client_id  = $bilan->rendez_vous_id;
+            $fileName   = 'rapport-client-prestations-actes-details-' . $client_id . '-' . now()->format('YmdHis') . '.pdf';
+            $folderPath = 'storage/rapport-clients';
+            $filePath   = $folderPath . '/' . $fileName;
+
+            if (!file_exists($folderPath)) {
+                mkdir($folderPath, 0755, true);
+            }
+
+            // Générer le PDF
+            save_browser_shot_pdf(
+                view: 'pdfs.rapport-clients.rapport-client-prestations-actes-details',
+                data: [
+                    'rapport' => $bilan // <-- on passe le bilan à la vue
+                ],
+                folderPath: $folderPath,
+                path: $filePath,
+                margins: [10, 10, 10, 10]
+            );
+
+            if (!file_exists($filePath)) {
+                return response()->json(['message' => 'Le fichier PDF n\'a pas été généré.'], 500);
+            }
+
+            // Lecture du PDF et encodage en base64
+            $pdfContent = file_get_contents($filePath);
+            $base64 = base64_encode($pdfContent);
+
+            return response()->json([
+                'message'  => 'Rapport généré avec succès.',
+                'data'     => $bilan,
+                'base64'   => $base64,
+                'url'      => $filePath,
+                'filename' => $fileName,
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'error'   => 'Une erreur est survenue',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+
 
 
 

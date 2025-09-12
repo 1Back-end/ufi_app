@@ -304,14 +304,14 @@ class FournisseurController extends Controller
             return response()->json(['message' => 'Fournisseur introuvable ou déjà supprimé'], 404);
         }
 
-        // Vérifier s'il est utilisé dans la table products
-        $isUsed = Product::where('fournisseurs_id', $id)->exists();
-
-        if ($isUsed) {
-            return response()->json([
-                'message' => 'Impossible de supprimer : ce fournisseur est utilisé dans des produits.'
-            ], 400);
-        }
+//        // Vérifier s'il est utilisé dans la table products
+//        $isUsed = Product::where('fournisseur_id', $id)->exists();
+//
+//        if ($isUsed) {
+//            return response()->json([
+//                'message' => 'Impossible de supprimer : ce fournisseur est utilisé dans des produits.'
+//            ], 400);
+//        }
 
         try {
             // Soft delete : on marque comme supprimé
