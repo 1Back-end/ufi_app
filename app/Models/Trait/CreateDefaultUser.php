@@ -18,7 +18,9 @@ trait CreateDefaultUser
             $username = Str::random(8);
 
             // Création d’un user par défaut
-            $user = User::create([
+            $user = User::firstOrCreate([
+                'email' => $model->email,
+            ], [
                 'login' => $username,
                 'email' => $model->email,
                 'nom_utilisateur' => $username,

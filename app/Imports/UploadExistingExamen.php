@@ -90,7 +90,8 @@ class UploadExistingExamen implements ToArray, withHeadingRow
             // Create Examen
             $examen = Examen::updateOrCreate([
                 'code' => $codeExamen,
-            ], [
+            ],
+            [
                 'code' => $codeExamen,
                 'name' => $item['nom_ex'],
                 'price' => $item['prix_unitaire'],
@@ -160,10 +161,10 @@ class UploadExistingExamen implements ToArray, withHeadingRow
                     if ($type == 'commentaire') $input = 'comment';
 
                     $typeResult = TypeResult::updateOrCreate([
-                        'code' => str($item['type_result']  .'-'. $item['num'])->slug()->upper(),
+                        'code' => count($valeurs) > 0 ? 'LISTE' : str($item['type_result'])->slug()->upper(),
                     ], [
-                        'code' => str($item['type_result']  .'-'. $item['num'])->slug()->upper(),
-                        'name' => $item['type_result'] . '-' . $item['nom_ex'],
+                        'code' => count($valeurs) > 0 ? 'LISTE' : str($item['type_result'])->slug()->upper(),
+                        'name' => count($valeurs) > 0 ? 'Liste' : $item['type_result'],
                         'accept_saisi_user' => true,
                         'afficher_result' => true,
                         'type' =>  count($valeurs) > 0
