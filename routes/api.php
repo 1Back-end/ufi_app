@@ -84,6 +84,7 @@ use App\Http\Controllers\MaladieTypeDiagnosticController;
 use App\Http\Controllers\StatistiqueController;
 use App\Http\Controllers\RapportActeController;
 use App\Http\Controllers\ExamensActesController;
+use App\Imports\ImportAssociateClient;
 use App\Imports\ImportConfigASC;
 use App\Imports\ImportPredefinedList;
 use Illuminate\Http\Request;
@@ -688,6 +689,17 @@ Route::middleware(['activity'])->group(function () {
             ]);
 
             Excel::import(new ImportPredefinedList(), $request->file('file'));
+
+            return response()->json(['message' => 'Data imported successfully.']);
+        });
+
+        // Import des clients Associés
+        Route::post('/import-associate-client', function (Request $request) {
+            $request->validate([
+                'file' => 'required|file|mimes:csv,xlsx,xls',
+            ]);
+
+            Excel::import(new ImportAssociateClient(), $request->file('file'));
 
             return response()->json(['message' => 'Data imported successfully.']);
         });

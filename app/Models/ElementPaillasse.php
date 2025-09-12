@@ -24,6 +24,7 @@ class ElementPaillasse extends Model
         'indent',
         'num',
         'predefined_list_id',
+        'hide_label',
         'created_by',
         'updated_by'
     ];

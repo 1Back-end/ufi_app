@@ -32,6 +32,7 @@ class ExamenRequest extends FormRequest
             'technique_analysis.*.default' => ['nullable', 'boolean'],
             'elements' => ['required', 'array'],
             'elements.*.name' => ['required'],
+            'elements.*.hide_label' => ['boolean'],
             'elements.*.type_result_id' => ['required', 'exists:type_results,id'],
             'elements.*.cat_predefined_list_id' => ['nullable', 'exists:cat_predefined_lists,id'],
             'elements.*.numero_order' => ['required', 'integer'],
