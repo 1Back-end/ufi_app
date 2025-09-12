@@ -48,7 +48,10 @@ class ExamenController extends Controller
                         ->orWhere('name1', 'like', '%' . request('search') . '%')
                         ->orWhere('name2', 'like', '%' . request('search') . '%')
                         ->orWhere('name3', 'like', '%' . request('search') . '%')
-                        ->orWhere('name4', 'like', '%' . request('search') . '%');
+                        ->orWhere('name4', 'like', '%' . request('search') . '%')
+                        ->orWhereHas('paillasse', function ($query) {
+                            $query->whereLike('name', '%' . request('search') . '%');
+                        });
                 })
                 ->paginate(
                     perPage: request('per_page', 25),
