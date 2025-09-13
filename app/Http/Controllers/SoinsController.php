@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\Assurable;
 use App\Models\Assureur;
 use App\Models\Soins;
+use App\Models\TypeActe;
+use App\Models\TypeSoins;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -239,4 +241,86 @@ class SoinsController extends Controller
             ], 500);
         }
     }
+
+
+
+    /**
+     * Display a listing of the resource.
+     * @permission SoinsController::Tarfication_Soins
+     * @permission_desc Imprimer la tarification des soins
+     */
+    public function Tarfication_Soins()
+    {
+        DB::beginTransaction();
+
+        try {
+            // Récupération des types de soins avec leurs soins actifs triés
+            $types = TypeSoins::with(['soins' => function ($query) {
+                $query->where('is_deleted', false) // seulement les soins actifs
+                ->orderBy('name');
+            }])
+                ->orderBy('name')
+                ->get();
+
+            $types = $types->filter(fn($type) => $type->soins->count() > 0);
+
+            // Préparer les données pour la vue
+            $data = [
+                'title' => 'Tarifaire des soins',
+                'types' => $types,
+            ];
+
+            // Nom du fichier et dossier
+            $fileName   = 'rapport-soins-' . now()->format('YmdHis') . '.pdf';
+            $folderPath = "storage/rapport-soins"; // utiliser storage_path pour plus de sécurité
+            $filePath   = $folderPath . '/' . $fileName;
+
+            // Création du dossier si nécessaire
+            if (!file_exists($folderPath)) {
+                mkdir($folderPath, 0755, true);
+            }
+
+            // Génération PDF
+            save_browser_shot_pdf(
+                view: 'pdfs.rapport-soins.rapports-soins', // Vue Blade
+                data: $data,
+                folderPath: $folderPath,
+                path: $filePath,
+                margins: [10, 10, 10, 10],
+                format: 'A4',
+            );
+
+            // Vérifier si le PDF a bien été généré
+            if (!file_exists($filePath)) {
+                DB::rollBack();
+                return response()->json(['error' => 'Le fichier PDF n\'a pas été généré.'], 500);
+            }
+
+            DB::commit();
+
+            // Lecture et encodage du fichier PDF
+            $pdfContent = file_get_contents($filePath);
+            $base64 = base64_encode($pdfContent);
+
+            return response()->json([
+                'base64'   => $base64,
+                'url'      => $filePath,
+                'filename' => $fileName,
+            ], 200);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            DB::rollBack();
+            return response()->json([
+                'error' => 'Erreur de validation',
+                'details' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'error' => 'Une erreur est survenue',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
 }

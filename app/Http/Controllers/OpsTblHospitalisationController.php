@@ -181,5 +181,73 @@ class OpsTblHospitalisationController extends Controller
     }
 
 
+    /**
+     * Display a listing of the resource.
+     * @permission OpsTblHospitalisationController::getTarifaireHospitalisations
+     * @permission_desc Imprimer la tarifications des hospitalisations
+     */
+
+    public function getTarifaireHospitalisations()
+    {
+        DB::beginTransaction();
+
+        try {
+
+            $hospitalisations = OpsTblHospitalisation::where('is_deleted', false)
+                ->orderBy('name')
+                ->get(['name', 'pu', 'pu_default', 'description']);
+
+
+            $data = [
+                'title'            => 'Tarifaire des hospitalisations',
+                'hospitalisations' => $hospitalisations,
+            ];
+
+
+            $fileName   = 'tarifaire-hospitalisations-' . now()->format('YmdHis') . '.pdf';
+            $folderPath = "storage/tarifaire-hospitalisations";
+            $filePath   = $folderPath . '/' . $fileName;
+
+
+            if (!file_exists($folderPath)) {
+                mkdir($folderPath, 0755, true);
+            }
+
+            save_browser_shot_pdf(
+                view: 'pdfs.tarif-hospitalisations.tarif-hospitalisations',
+                data: $data,
+                folderPath: $folderPath,
+                path: $filePath,
+                margins: [10, 10, 10, 10],
+                format: 'A4'
+            );
+
+            if (!file_exists($filePath)) {
+                DB::rollBack();
+                return response()->json(['error' => 'Le fichier PDF n\'a pas été généré.'], 500);
+            }
+
+            DB::commit();
+
+            $pdfContent = file_get_contents($filePath);
+            $base64 = base64_encode($pdfContent);
+
+            return response()->json([
+                'base64'   => $base64,
+                'url'      => $filePath,
+                'filename' => $fileName,
+            ], 200);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'error'   => 'Une erreur est survenue',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+
+
     //
 }

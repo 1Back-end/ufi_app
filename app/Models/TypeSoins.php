@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 class TypeSoins extends Model
 {
     use HasFactory;
@@ -24,5 +25,8 @@ class TypeSoins extends Model
     {
         return $this->belongsTo(User::class, 'updated_by');
     }
-    //
+    public function soins(): HasMany
+    {
+        return $this->hasMany(Soins::class, 'type_soin_id');
+    }
 }

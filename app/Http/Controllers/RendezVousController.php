@@ -60,6 +60,17 @@ class RendezVousController extends Controller
             });
         }
 
+        if ($request->filled('created_at') && $request->filled('dateheure_rdv')) {
+            $query->where(function($q) use ($request) {
+                $q->whereDate('created_at', $request->created_at)
+                    ->orWhereDate('dateheure_rdv', $request->dateheure_rdv);
+            });
+        } else {
+            if ($request->filled('created_at')) $query->whereDate('created_at', $request->created_at);
+            if ($request->filled('dateheure_rdv')) $query->whereDate('dateheure_rdv', $request->dateheure_rdv);
+        }
+
+
         /** ────── Recherche globale ────── */
         if ($search = trim($request->search)) {
             $query->where(function ($q) use ($search) {
@@ -317,7 +328,7 @@ class RendezVousController extends Controller
     /**
      * Display a listing of the resource.
      * @permission RendezVousController::store
-     * @permission_desc Créer des rendez-vous
+     * @permission_desc Reprogrammer un rendez-vous
      */
     public function store(Request $request)
     {

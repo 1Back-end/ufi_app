@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>Tarifaire des actes</title>
+    <title>Tarifaire des soins</title>
 
     <style>
         {!! $bootstrap !!}
@@ -70,7 +70,7 @@
 
     <!-- Titre -->
     <div class="mb-lg-3 mt-5 text-center">
-        <h5 class="text-uppercase text-center" style="color: #00b050;font-size: 25px;">Tarifaire des actes</h5>
+        <h5 class="text-uppercase text-center" style="color: #00b050;font-size: 25px;">Tarifaire des soins</h5>
     </div>
 
     @php
@@ -80,32 +80,32 @@
 
     <p class="text-end small">Date d'impression : {{ $today }}</p>
 
-    @foreach($types as $index => $type)
-        @if($type->actes->count()) {{-- Affiche uniquement si le type a des actes --}}
-        <h6 class="mt-4 mb-xxl-3 text-center text-uppercase">
-            <strong>{{ roman_number($index + 1) }}. {{ $type->name }}</strong>
-        </h6>
+    @foreach($types as $typeIndex => $type)
+        @if($type->soins->count())
+            <h6 class="mt-4 mb-xxl-3 text-center text-uppercase">
+                <strong>{{ roman_number($typeIndex + 1) }}. {{ $type->name }}</strong>
+            </h6>
 
-        <table class="table text-center table-bordered table-striped">
-            <thead>
-            <tr>
-                <th>N°</th>
-                <th>Libellé</th>
-                <th>B</th>
-                <th>Prix</th>
-            </tr>
-            </thead>
-            <tbody>
-            @foreach($type->actes as $num => $acte)
+            <table class="table text-center table-bordered table-striped">
+                <thead>
                 <tr>
-                    <td>{{ $num + 1 }}</td>
-                    <td>{{ $acte->name }}</td>
-                    <td>{{ $acte->b }}</td>
-                    <td>{{ number_format($acte->pu, 0, ',', ' ') }} FCFA</td>
+                    <th>N°</th>
+                    <th>Soin</th>
+                    <th>PU Assuré</th>
+                    <th>PU Client</th>
                 </tr>
-            @endforeach
-            </tbody>
-        </table>
+                </thead>
+                <tbody>
+                @foreach($type->soins as $index => $soin)
+                    <tr>
+                        <td>{{ $index + 1 }}</td>
+                        <td>{{ $soin->name }}</td>
+                        <td>{{ number_format($soin->pu, 0, ',', ' ') }} FCFA</td>
+                        <td>{{ number_format($soin->pu_default, 0, ',', ' ') }} FCFA</td>
+                    </tr>
+                @endforeach
+                </tbody>
+            </table>
         @endif
     @endforeach
 </div>
@@ -117,6 +117,5 @@
         – Neuropsychologie – Diététique et Nutrition – Imagerie médicale - Kinésithérapie
     </small>
 </div>
-
 </body>
 </html>
