@@ -54,6 +54,9 @@ class ExamenController extends Controller
                             $query->whereLike('name', '%' . request('search') . '%');
                         });
                 })
+                ->when(request('not_count_elt_paillasse'), function($query) {
+                    $query->whereDoesntHave('elementPaillasses');
+                })
                 ->paginate(
                     perPage: request('per_page', 25),
                     page: request('page', 1)
