@@ -208,6 +208,7 @@ class ExamenController extends Controller
      */
     public function destroy(Examen $examen)
     {
+        $examen->elementPaillasses()->delete();
         $examen->delete();
 
         return response()->json();
