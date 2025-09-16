@@ -11,6 +11,7 @@ use App\Imports\ProductsOtherImport;
 use Illuminate\Http\Request;
 use App\Models\Product;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Maatwebsite\Excel\Facades\Excel;
 
@@ -443,6 +444,53 @@ class ProduitController extends Controller
         } catch (\Throwable $e) {
             return response()->json(['message' => 'Erreur : ' . $e->getMessage()], 500);
         }
+    }
+
+    public function  Tarification_Products()
+    {
+
+        $products = Product::with(["categories", "fournisseurs"])->where("is_deleted", false)->orderBy("name")->get();
+
+
+        $data = [
+            'products' => $products,
+        ];
+
+        $fileName   = 'tarifaire-products-' . now()->format('YmdHis') . '.pdf';
+        $folderPath = "storage/tarifaire-products";
+        $filePath   = $folderPath . '/' . $fileName;
+
+
+        if (!file_exists($folderPath)) {
+            mkdir($folderPath, 0755, true);
+        }
+
+        save_browser_shot_pdf(
+            view: 'pdfs.tarifaire-products.tarifaire-products',
+            data: $data,
+            folderPath: $folderPath,
+            path: $filePath,
+            margins: [10, 10, 10, 10],
+            format: 'A4'
+        );
+
+        if (!file_exists($filePath)) {
+            DB::rollBack();
+            return response()->json(['error' => 'Le fichier PDF n\'a pas été généré.'], 500);
+        }
+
+        DB::commit();
+
+        $pdfContent = file_get_contents($filePath);
+        $base64 = base64_encode($pdfContent);
+
+        return response()->json([
+            'base64'   => $base64,
+            'url'      => $filePath,
+            'filename' => $fileName,
+        ], 200);
+
+
     }
 
 

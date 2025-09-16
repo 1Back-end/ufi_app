@@ -91,17 +91,17 @@
             <tr>
                 <th>N°</th>
                 <th>Libellé</th>
-                <th>B</th>
                 <th>Prix</th>
+                <th>B</th>
             </tr>
             </thead>
             <tbody>
             @foreach($type->actes as $num => $acte)
                 <tr>
-                    <td>{{ $num + 1 }}</td>
+                    <td>{{ $acte->id }}</td>
                     <td>{{ $acte->name }}</td>
-                    <td>{{ $acte->b }}</td>
                     <td>{{ number_format($acte->pu, 0, ',', ' ') }} FCFA</td>
+                    <td>{{ $acte->b }}</td>
                 </tr>
             @endforeach
             </tbody>

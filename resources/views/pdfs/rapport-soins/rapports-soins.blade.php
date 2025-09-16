@@ -91,14 +91,14 @@
                 <tr>
                     <th>N°</th>
                     <th>Soin</th>
-                    <th>PU Assuré</th>
                     <th>PU Client</th>
+                    <th>PU Assuré</th>
                 </tr>
                 </thead>
                 <tbody>
                 @foreach($type->soins as $index => $soin)
                     <tr>
-                        <td>{{ $index + 1 }}</td>
+                        <td>{{ $soin->id }}</td>
                         <td>{{ $soin->name }}</td>
                         <td>{{ number_format($soin->pu, 0, ',', ' ') }} FCFA</td>
                         <td>{{ number_format($soin->pu_default, 0, ',', ' ') }} FCFA</td>

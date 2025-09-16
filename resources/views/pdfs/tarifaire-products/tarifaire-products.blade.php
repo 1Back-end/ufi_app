@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>Tarifaire des hospitalisations</title>
+    <title>Tarifaire des produicts</title>
 
     <style>
         {!! $bootstrap !!}
@@ -62,7 +62,7 @@
     <!-- Titre -->
     <div class="mb-lg-3 mt-5 text-center">
         <h5 class="text-uppercase" style="color: #00b050; font-size: 25px;">
-            Tarifaire des hospitalisations
+            Tarifaire des produits
         </h5>
     </div>
 
@@ -77,19 +77,22 @@
         <thead>
         <tr>
             <th>N°</th>
-            <th>Hospitalisation</th>
-            <th>PU Client</th>
-            <th>PU Assuré</th>
+            <th>Produit</th>
+            <th>Prix</th>
+            <th>Catégorie(s)</th>
+            <th>Fournisseur(s)</th>
 
         </tr>
         </thead>
         <tbody>
-        @forelse($hospitalisations as $index => $hosp)
+        @forelse($products as $index => $prod)
             <tr>
-                <td>{{ $hosp->id }}</td>
-                <td>{{ $hosp->name }}</td>
-                <td>{{ number_format($hosp->pu, 0, ',', ' ') }} FCFA</td>
-                <td>{{ number_format($hosp->pu_default, 0, ',', ' ') }} FCFA</td>
+                <td>{{ $pro->id }}</td>
+                <td>{{ $pro->name }}</td>
+                <td>{{ number_format($pro->price, 0, ',', ' ') }} FCFA</td>
+                <td>{{ $pro->categorie->name }}</td>
+                <td>{{ $pro->categorie->name }}</td>
+
             </tr>
         @empty
             <tr>
