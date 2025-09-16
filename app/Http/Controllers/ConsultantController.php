@@ -9,6 +9,7 @@ use App\Imports\ClasseMaladieImport;
 use App\Imports\MedecinImport;
 use App\Imports\PescripteursImport;
 use App\Models\Centre;
+use App\Models\ConsultantDisponibilite;
 use App\Models\Consultation;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -19,6 +20,7 @@ use App\Enums\StatusConsultEnum;
 use App\Enums\TelWhatsAppEnum;
 use App\Enums\TypeConsultEnum;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rules\Enum;
 use Maatwebsite\Excel\Facades\Excel;
@@ -224,6 +226,8 @@ class ConsultantController extends Controller
     public function store(Request $request)
     {
         $auth = auth()->user();
+
+        // Validation du consultant
         $data = $request->validate([
             'code_hopi' => 'required|exists:hopitals,id',
             'code_service_hopi' => 'required|exists:service__hopitals,id',
@@ -236,49 +240,40 @@ class ConsultantController extends Controller
             'email' => 'required|email|unique:consultants,email',
             'type' => ['required', new Enum(TypeConsultEnum::class)],
             'TelWhatsApp' => 'nullable|in:Oui,Non',
+            'jours' => 'required|array',
         ], [
-            'code_hopi.required' => 'Le champ hôpital est obligatoire.',
-            'code_hopi.exists' => 'L\'hôpital sélectionné est invalide.',
-
-            'code_service_hopi.required' => 'Le champ service est obligatoire.',
-            'code_service_hopi.exists' => 'Le service sélectionné est invalide.',
-
-            'code_specialite.required' => 'Le champ spécialité est obligatoire.',
-            'code_specialite.exists' => 'La spécialité sélectionnée est invalide.',
-
-            'code_titre.required' => 'Le champ titre est obligatoire.',
-            'code_titre.exists' => 'Le titre sélectionné est invalide.',
-
-            'nom.required' => 'Le nom est obligatoire.',
-            'prenom.required' => 'Le prénom est obligatoire.',
-
-            'tel.required' => 'Le numéro de téléphone principal est obligatoire.',
-            'tel.unique' => 'Ce numéro de téléphone est déjà utilisé.',
-
-            'tel1.unique' => 'Le numéro secondaire est déjà utilisé.',
-
-            'email.required' => 'L\'adresse email est obligatoire.',
-            'email.email' => 'L\'adresse email n\'est pas valide.',
-            'email.unique' => 'Cette adresse email est déjà utilisée.',
-
-            'type.required' => 'Le type de consultant est obligatoire.',
-            'TelWhatsApp.in' => 'Le champ WhatsApp doit être Oui ou Non.'
+            'jours.required' => 'Veuillez fournir au moins un jour de disponibilité.',
         ]);
-        $titre = Titre::find($data['code_titre']);
-        // Générer le nom complet du consultant
-        $data['nomcomplet'] = $titre->nom_titre . ' ' . $data['nom'] . ' ' . $data['prenom'];
 
-        // Générer une référence unique
+
+        $titre = Titre::find($data['code_titre']);
+        $data['nomcomplet'] = $titre->nom_titre . ' ' . $data['nom'] . ' ' . $data['prenom'];
         $data['ref'] = 'C' . now()->format('ymdHis') . mt_rand(10, 99);
         $data['created_by'] = $auth->id;
+
+        // Création du consultant
         $consultant = Consultant::create($data);
 
-        // Retourner la réponse JSON avec l'objet consultant créé
+        // Enregistrement des disponibilités
+        foreach ($request->jours as $jour => $heures) {
+            foreach ($heures as $heure) {
+                ConsultantDisponibilite::create([
+                    'consultant_id' => $consultant->id,
+                    'jour' => $jour,
+                    'heure' => $heure,
+                    'created_by' => $auth->id,
+                    'updated_by' => $auth->id,
+
+                ]);
+            }
+        }
+
         return response()->json([
-            'message' => 'Consultant créé avec succès',
-            'consultant' => $consultant
+            'message' => 'Consultant et disponibilités enregistrés avec succès.',
+            'consultant' => $consultant->load('disponibilites'),
         ], 201);
     }
+
     public function import(Request $request)
     {
         $request->validate([
@@ -316,11 +311,12 @@ class ConsultantController extends Controller
     {
         $consultant = Consultant::find($id);
         if (!$consultant) {
-            return response()->json(['message' => 'Consultant non trouvé'], 404);
+            return response()->json(['message' => '❌ Consultant introuvable.'], 404);
         }
+
         $auth = auth()->user();
 
-        // Validation des données
+        // ✅ Validation avec messages personnalisés
         $validated = $request->validate([
             'code_hopi' => 'sometimes|exists:hopitals,id',
             'code_service_hopi' => 'sometimes|exists:service__hopitals,id',
@@ -328,46 +324,64 @@ class ConsultantController extends Controller
             'code_titre' => 'sometimes|exists:titres,id',
             'nom' => 'sometimes|string',
             'prenom' => 'sometimes|string',
-            'tel' => 'sometimes|string',
-            'tel1' => 'nullable|string',
+            'tel' => 'sometimes|string|unique:consultants,tel,' . $id,
+            'tel1' => 'nullable|string|unique:consultants,tel1,' . $id,
             'email' => 'sometimes|email|unique:consultants,email,' . $id,
             'type' => ['sometimes', new Enum(TypeConsultEnum::class)],
             'TelWhatsApp' => ['sometimes', new Enum(TelWhatsAppEnum::class)],
+            'jours' => 'nullable|array'
         ], [
-            'code_hopi.exists' => 'Le code de l’hôpital est invalide.',
-            'code_service_hopi.exists' => 'Le code du service hospitalier est invalide.',
-            'code_specialite.exists' => 'Le code de spécialité est invalide.',
-            'code_titre.exists' => 'Le code du titre est invalide.',
-            'nom.string' => 'Le nom doit être une chaîne de caractères.',
-            'prenom.string' => 'Le prénom doit être une chaîne de caractères.',
-            'tel.string' => 'Le numéro de téléphone doit être une chaîne de caractères.',
-            'tel1.string' => 'Le numéro secondaire doit être une chaîne de caractères.',
-            'email.email' => 'L’adresse email n’est pas valide.',
-            'email.unique' => 'Cette adresse email est déjà utilisée par un autre consultant.',
-            'type.enum' => 'Le type de consultant sélectionné est invalide.',
-            'TelWhatsApp.enum' => 'Le numéro WhatsApp sélectionné est invalide.',
+            'code_hopi.exists' => '⚠️ L’hôpital sélectionné est invalide.',
+            'code_service_hopi.exists' => '⚠️ Le service hospitalier sélectionné est invalide.',
+            'code_specialite.exists' => '⚠️ La spécialité sélectionnée est invalide.',
+            'code_titre.exists' => '⚠️ Le titre sélectionné est invalide.',
+            'nom.string' => '⚠️ Le nom doit être une chaîne de caractères.',
+            'prenom.string' => '⚠️ Le prénom doit être une chaîne de caractères.',
+            'tel.unique' => '⚠️ Ce numéro de téléphone est déjà utilisé par un autre consultant.',
+            'tel1.unique' => '⚠️ Le numéro secondaire est déjà utilisé.',
+            'email.email' => '⚠️ L’adresse email n’est pas valide.',
+            'email.unique' => '⚠️ Cette adresse email est déjà utilisée par un autre consultant.',
+            'type.enum' => '⚠️ Le type de consultant sélectionné est invalide.',
+            'TelWhatsApp.enum' => '⚠️ Le numéro WhatsApp sélectionné est invalide.'
         ]);
-        $validated['update_by'] =  $auth->id;
-        // Vérification si un titre est présent dans la requête
-        if ($request->has('code_titre') || $request->has('nom') || $request->has('prenom')) {
-            // Récupérer le titre à partir de l'ID dans la requête ou utiliser celui du consultant existant
+
+        $validated['updated_by'] = $auth->id;
+
+        // ✅ Mettre à jour le nom complet si titre, nom ou prénom changent
+        if ($request->hasAny(['code_titre', 'nom', 'prenom'])) {
             $titre = Titre::find($request->code_titre ?? $consultant->code_titre);
             $titreNom = $titre ? $titre->nom_titre : '';
-
-            // Construire le nom complet avec titre, nom et prénom
-            $validated['nomcomplet'] = trim("$titreNom " .
+            $validated['nomcomplet'] = trim(
+                $titreNom . ' ' .
                 ($request->nom ?? $consultant->nom) . ' ' .
                 ($request->prenom ?? $consultant->prenom)
             );
         }
-        // Mise à jour des données du consultant
-        $consultant->update($validated);
 
-        // Retourner la réponse avec le consultant mis à jour
+        DB::transaction(function () use ($consultant, $validated, $request) {
+            // Mise à jour du consultant
+            $consultant->update($validated);
+
+            if ($request->has('jours')) {
+                ConsultantDisponibilite::where('consultant_id', $consultant->id)->delete();
+
+                foreach ($request->jours as $jour => $heures) {
+                    foreach ($heures as $heure) {
+                        ConsultantDisponibilite::create([
+                            'consultant_id' => $consultant->id,
+                            'jour' => $jour,
+                            'heure' => $heure,
+                            'created_by' => auth()->id(),
+                        ]);
+                    }
+                }
+            }
+        });
+
         return response()->json([
-            'message' => 'Consultant mise à jour avec succès',
+            'message' => 'Consultant mis à jour avec succès.',
             'consultant' => $consultant
-        ], 201);
+        ], 200);
     }
 
     /**

@@ -70,7 +70,7 @@
 
     <!-- Titre -->
     <div class="mb-lg-3 mt-5 text-center">
-        <h5 class="text-uppercase text-center" style="color: #00b050;font-size: 25px;">Tarifaire des actes</h5>
+        <h5 class="text-uppercase text-center" style="color: #00b050;font-size: 25px;">Tarifaire des examens laboratoire</h5>
     </div>
 
     @php
@@ -91,9 +91,9 @@
         <tr>
             <th>N°</th>
             <th>Examen</th>
+            <th>PU</th>
             <th>B</th>
             <th>B1</th>
-            <th>PU</th>
             <th>Type prélèvement</th>
             <th>Tube prélèvement</th>
         </tr>
@@ -101,11 +101,11 @@
         <tbody>
         @foreach($famille->examens as $index => $examen)
             <tr>
-                <td>{{ $index + 1 }}</td>
+                <td>{{ $examen->id }}</td>
                 <td>{{ $examen->name }}</td>
+                <td>{{ number_format($examen->price, 0, ',', ' ') }} FCFA</td>
                 <td>{{ $examen->b }}</td>
                 <td>{{ $examen->b1 }}</td>
-                <td>{{ number_format($examen->price, 0, ',', ' ') }} FCFA</td>
                 <td>{{ $examen->typePrelevement?->name ?? '-' }}</td>
                 <td>{{ $examen->tubePrelevement?->name ?? '-' }}</td>
             </tr>

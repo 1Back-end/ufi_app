@@ -140,6 +140,11 @@ class Consultant extends Model
         return true;
     }
 
+    public function disponibilites()
+    {
+        return $this->hasMany(ConsultantDisponibilite::class);
+    }
+
 
 
 
