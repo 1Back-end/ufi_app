@@ -42,7 +42,8 @@ class ConsultantController extends Controller
             ->with([
                 'code_hopi',
                 'code_specialite',
-                'code_titre','centre'
+                'code_titre','centre',
+                'disponibilites'
             ])
             ->when($request->input('search'), function ($query) use ($request) {
                 $search = $request->input('search');
@@ -106,10 +107,11 @@ class ConsultantController extends Controller
     {
         $consultant = Consultant::where('is_deleted', false)
             ->with([
-                'code_hopi:id,nom_hopi',
-                'code_specialite:id,nom_specialite',
-                'code_titre:id,nom_titre',
-                'code_service_hopi:id,nom_service_hopi',
+                'code_hopi',
+                'code_specialite',
+                'code_titre',
+                'code_service_hopi',
+                'disponibilites'
             ])
             ->findOrFail($id);
         return response()->json($consultant);
@@ -225,54 +227,71 @@ class ConsultantController extends Controller
      */
     public function store(Request $request)
     {
-        $auth = auth()->user();
+        try {
+            $auth = auth()->user();
 
-        // Validation du consultant
-        $data = $request->validate([
-            'code_hopi' => 'required|exists:hopitals,id',
-            'code_service_hopi' => 'required|exists:service__hopitals,id',
-            'code_specialite' => 'required|exists:specialites,id',
-            'code_titre' => 'required|exists:titres,id',
-            'nom' => 'required|string',
-            'prenom' => 'required|string',
-            'tel' => 'required|string|unique:consultants,tel',
-            'tel1' => 'nullable|string|unique:consultants,tel1',
-            'email' => 'required|email|unique:consultants,email',
-            'type' => ['required', new Enum(TypeConsultEnum::class)],
-            'TelWhatsApp' => 'nullable|in:Oui,Non',
-            'jours' => 'required|array',
-        ], [
-            'jours.required' => 'Veuillez fournir au moins un jour de disponibilité.',
-        ]);
+            // Validation du consultant
+            $data = $request->validate([
+                'code_hopi' => 'required|exists:hopitals,id',
+                'code_service_hopi' => 'required|exists:service__hopitals,id',
+                'code_specialite' => 'required|exists:specialites,id',
+                'code_titre' => 'required|exists:titres,id',
+                'nom' => 'required|string',
+                'prenom' => 'required|string',
+                'tel' => 'required|string|unique:consultants,tel',
+                'tel1' => 'nullable|string|unique:consultants,tel1',
+                'email' => 'required|email|unique:consultants,email',
+                'type' => ['required', new Enum(TypeConsultEnum::class)],
+                'TelWhatsApp' => 'nullable|in:Oui,Non',
+                'jours' => 'nullable|array', // nullable car seulement pour interne
+            ], [
+                'jours.required' => 'Veuillez fournir au moins un jour de disponibilité.',
+            ]);
 
+            // Construction du nom complet et référence
+            $titre = Titre::find($data['code_titre']);
+            $data['nomcomplet'] = $titre->nom_titre . ' ' . $data['nom'] . ' ' . $data['prenom'];
+            $data['ref'] = 'C' . now()->format('ymdHis') . mt_rand(10, 99);
+            $data['created_by'] = $auth->id;
 
-        $titre = Titre::find($data['code_titre']);
-        $data['nomcomplet'] = $titre->nom_titre . ' ' . $data['nom'] . ' ' . $data['prenom'];
-        $data['ref'] = 'C' . now()->format('ymdHis') . mt_rand(10, 99);
-        $data['created_by'] = $auth->id;
+            // Création du consultant
+            $consultant = Consultant::create($data);
 
-        // Création du consultant
-        $consultant = Consultant::create($data);
-
-        // Enregistrement des disponibilités
-        foreach ($request->jours as $jour => $heures) {
-            foreach ($heures as $heure) {
-                ConsultantDisponibilite::create([
-                    'consultant_id' => $consultant->id,
-                    'jour' => $jour,
-                    'heure' => $heure,
-                    'created_by' => $auth->id,
-                    'updated_by' => $auth->id,
-
-                ]);
+            // ✅ Enregistrement des disponibilités seulement si le consultant est interne
+            if ($data['type'] === 'Interne' && !empty($request->jours)) {
+                foreach ($request->jours as $jour => $heures) {
+                    foreach ($heures as $heure) {
+                        ConsultantDisponibilite::create([
+                            'consultant_id' => $consultant->id,
+                            'jour' => $jour,
+                            'heure' => $heure,
+                            'created_by' => $auth->id,
+                            'updated_by' => $auth->id,
+                        ]);
+                    }
+                }
             }
-        }
 
-        return response()->json([
-            'message' => 'Consultant et disponibilités enregistrés avec succès.',
-            'consultant' => $consultant->load('disponibilites'),
-        ], 201);
+            return response()->json([
+                'message' => 'Consultant et disponibilités enregistrés avec succès.',
+                'consultant' => $consultant->load('disponibilites'),
+            ], 201);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'message' => 'Erreur de validation des données.',
+                'errors' => $e->errors(),
+            ], 422);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Une erreur est survenue lors de l’enregistrement.',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
     }
+
+
 
     public function import(Request $request)
     {
@@ -307,82 +326,94 @@ class ConsultantController extends Controller
      * @permission ConsultantController::update
      * @permission_desc Modifier un consultant
      */
-    public function update(Request $request, string $id)
+    public function update(Request $request, $id)
     {
-        $consultant = Consultant::find($id);
-        if (!$consultant) {
-            return response()->json(['message' => '❌ Consultant introuvable.'], 404);
-        }
+        try {
+            $auth = auth()->user();
 
-        $auth = auth()->user();
+            // Récupérer le consultant
+            $consultant = Consultant::findOrFail($id);
 
-        // ✅ Validation avec messages personnalisés
-        $validated = $request->validate([
-            'code_hopi' => 'sometimes|exists:hopitals,id',
-            'code_service_hopi' => 'sometimes|exists:service__hopitals,id',
-            'code_specialite' => 'sometimes|exists:specialites,id',
-            'code_titre' => 'sometimes|exists:titres,id',
-            'nom' => 'sometimes|string',
-            'prenom' => 'sometimes|string',
-            'tel' => 'sometimes|string|unique:consultants,tel,' . $id,
-            'tel1' => 'nullable|string|unique:consultants,tel1,' . $id,
-            'email' => 'sometimes|email|unique:consultants,email,' . $id,
-            'type' => ['sometimes', new Enum(TypeConsultEnum::class)],
-            'TelWhatsApp' => ['sometimes', new Enum(TelWhatsAppEnum::class)],
-            'jours' => 'nullable|array'
-        ], [
-            'code_hopi.exists' => '⚠️ L’hôpital sélectionné est invalide.',
-            'code_service_hopi.exists' => '⚠️ Le service hospitalier sélectionné est invalide.',
-            'code_specialite.exists' => '⚠️ La spécialité sélectionnée est invalide.',
-            'code_titre.exists' => '⚠️ Le titre sélectionné est invalide.',
-            'nom.string' => '⚠️ Le nom doit être une chaîne de caractères.',
-            'prenom.string' => '⚠️ Le prénom doit être une chaîne de caractères.',
-            'tel.unique' => '⚠️ Ce numéro de téléphone est déjà utilisé par un autre consultant.',
-            'tel1.unique' => '⚠️ Le numéro secondaire est déjà utilisé.',
-            'email.email' => '⚠️ L’adresse email n’est pas valide.',
-            'email.unique' => '⚠️ Cette adresse email est déjà utilisée par un autre consultant.',
-            'type.enum' => '⚠️ Le type de consultant sélectionné est invalide.',
-            'TelWhatsApp.enum' => '⚠️ Le numéro WhatsApp sélectionné est invalide.'
-        ]);
+            // Validation des données
+            $data = $request->validate([
+                'code_hopi' => 'required|exists:hopitals,id',
+                'code_service_hopi' => 'required|exists:service__hopitals,id',
+                'code_specialite' => 'required|exists:specialites,id',
+                'code_titre' => 'required|exists:titres,id',
+                'nom' => 'required|string',
+                'prenom' => 'required|string',
+                'tel' => 'required|string|unique:consultants,tel,' . $consultant->id,
+                'tel1' => 'nullable|string|unique:consultants,tel1,' . $consultant->id,
+                'email' => 'required|email|unique:consultants,email,' . $consultant->id,
+                'type' => ['required', new Enum(TypeConsultEnum::class)],
+                'TelWhatsApp' => 'nullable|in:Oui,Non',
+                'jours' => 'nullable|array',
+            ], [
+                'code_hopi.required' => 'Veuillez sélectionner un hôpital.',
+                'code_service_hopi.required' => 'Veuillez sélectionner un service hospitalier.',
+                'code_specialite.required' => 'Veuillez sélectionner une spécialité.',
+                'code_titre.required' => 'Veuillez sélectionner un titre.',
+                'nom.required' => 'Le nom du consultant est requis.',
+                'prenom.required' => 'Le prénom du consultant est requis.',
+                'tel.required' => 'Le numéro principal est obligatoire.',
+                'tel.unique' => 'Ce numéro est déjà utilisé par un autre consultant.',
+                'email.required' => 'L’adresse e-mail est obligatoire.',
+                'email.unique' => 'Cette adresse e-mail est déjà utilisée.',
+                'jours.required' => 'Veuillez indiquer au moins un jour de disponibilité pour un consultant interne.',
+            ]);
 
-        $validated['updated_by'] = $auth->id;
+            // Mettre à jour le nom complet
+            $titre = Titre::find($data['code_titre']);
+            $data['nomcomplet'] = $titre->nom_titre . ' ' . $data['nom'] . ' ' . $data['prenom'];
+            $data['updated_by'] = $auth->id;
 
-        // ✅ Mettre à jour le nom complet si titre, nom ou prénom changent
-        if ($request->hasAny(['code_titre', 'nom', 'prenom'])) {
-            $titre = Titre::find($request->code_titre ?? $consultant->code_titre);
-            $titreNom = $titre ? $titre->nom_titre : '';
-            $validated['nomcomplet'] = trim(
-                $titreNom . ' ' .
-                ($request->nom ?? $consultant->nom) . ' ' .
-                ($request->prenom ?? $consultant->prenom)
-            );
-        }
-
-        DB::transaction(function () use ($consultant, $validated, $request) {
             // Mise à jour du consultant
-            $consultant->update($validated);
+            $consultant->update($data);
 
-            if ($request->has('jours')) {
+            // Mise à jour des disponibilités
+            if ($data['type'] === 'Interne') {
+                // Supprimer les anciennes disponibilités
                 ConsultantDisponibilite::where('consultant_id', $consultant->id)->delete();
 
-                foreach ($request->jours as $jour => $heures) {
-                    foreach ($heures as $heure) {
-                        ConsultantDisponibilite::create([
-                            'consultant_id' => $consultant->id,
-                            'jour' => $jour,
-                            'heure' => $heure,
-                            'created_by' => auth()->id(),
-                        ]);
+                // Créer les nouvelles disponibilités
+                if (!empty($request->jours)) {
+                    foreach ($request->jours as $jour => $heures) {
+                        foreach ($heures as $heure) {
+                            ConsultantDisponibilite::create([
+                                'consultant_id' => $consultant->id,
+                                'jour' => $jour,
+                                'heure' => $heure,
+                                'created_by' => $auth->id,
+                                'updated_by' => $auth->id,
+                            ]);
+                        }
                     }
                 }
+            } else {
+                // Si le consultant devient externe, supprimer toutes les disponibilités
+                ConsultantDisponibilite::where('consultant_id', $consultant->id)->delete();
             }
-        });
 
-        return response()->json([
-            'message' => 'Consultant mis à jour avec succès.',
-            'consultant' => $consultant
-        ], 200);
+            return response()->json([
+                'message' => 'Le profil du consultant a été mis à jour avec succès !',
+                'consultant' => $consultant->load('disponibilites'),
+            ], 200);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'message' => 'Erreur de validation des informations fournies.',
+                'errors' => $e->errors(),
+            ], 422);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Une erreur inattendue est survenue lors de la mise à jour du consultant.',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
     }
+
+
 
     /**
      * Display a listing of the resource.
