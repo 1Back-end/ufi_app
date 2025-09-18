@@ -146,6 +146,7 @@ class ConsultationController extends Controller
                     return $query->where('name', $request->name);
                 })->ignore($id), // Ignore l'enregistrement actuel
             ],
+            'pu_default' => 'required|integer',
             'name' => [
                 'required',
                 'string',

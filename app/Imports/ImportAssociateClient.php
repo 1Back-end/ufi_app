@@ -38,7 +38,9 @@ class ImportAssociateClient implements ToModel, WithHeadingRow
             'position' => 0
         ]);
 
-        $client = Client::create([
+        $client = Client::updateOrCreate([
+            'ref_cli' => $row['ref_cli']
+        ], [
             'societe_id' => $societe?->id,
             'prefix_id' => $prefix->id,
             'nomcomplet_client' => $row['nom_cli'],
@@ -52,10 +54,12 @@ class ImportAssociateClient implements ToModel, WithHeadingRow
             'client_anonyme_cli' => false
         ]);
 
-        ConventionAssocie::create([
+        ConventionAssocie::updateOrCreate([
+            'client_id' => $client->id
+        ],[
             'client_id' => $client->id,
             'date' => now(),
-            'amount_max' => 25000000,
+            'amount_max' => 2500000,
             'start_date' => now(),
             'end_date' => now()->endOfYear(),
         ]);
