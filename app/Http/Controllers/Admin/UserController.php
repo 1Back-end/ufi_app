@@ -30,25 +30,30 @@ class UserController extends Controller
                 $query->whereIn('id', $request->input('roles'));
             });
         })
-            ->when($request->input('permissions'), function (Builder $query) use ($request) {
-                $query->whereHas('permissions', function (Builder $query) use ($request) {
-                    $query->whereIn('id', $request->input('permissions'));
-                });
-            })
-            ->with([
-                'client:id,nomcomplet_client',
-                'roles:id,name',
-                'createdBy:id,nom_utilisateur',
-                'updatedBy:id,nom_utilisateur',
-                'centres:id,name',
-                'permissions:id,name',
-            ])
-            ->whereNot('login', 'SYSTEM')
-            ->latest()
-            ->paginate(
-                perPage: $request->input('per_page', 25),
-                page: $request->input('page', 1)
-            );
+        ->when($request->input('permissions'), function (Builder $query) use ($request) {
+            $query->whereHas('permissions', function (Builder $query) use ($request) {
+                $query->whereIn('id', $request->input('permissions'));
+            });
+        })
+        ->when($request->input('search'), function (Builder $query) use ($request) {
+            $query->whereLike('login', '%' . $request->input('search') . '%')
+                ->orWhereLike('email', '%' . $request->input('search') . '%')
+                ->orWhereLike('nom_utilisateur', '%' . $request->input('search') . '%');
+        })
+        ->with([
+            'client',
+            'roles:id,name',
+            'createdBy',
+            'updatedBy',
+            'centres:id,name',
+            'permissions:id,name',
+        ])
+        ->whereNot('login', 'SYSTEM')
+        ->latest()
+        ->paginate(
+            perPage: $request->input('per_page', 25),
+            page: $request->input('page', 1)
+        );
 
 
         return response()->json([
