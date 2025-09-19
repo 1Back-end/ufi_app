@@ -154,6 +154,7 @@ class SoinsController extends Controller
                 'pu' => 'required|numeric',
                 'name' => 'required|string',
                 'status' => 'nullable|string|in:Actif,Inactif',
+                'pu_default' => 'required|integer',
             ]);
 
             $soins = Soins::where('is_deleted', false)->findOrFail($id);
