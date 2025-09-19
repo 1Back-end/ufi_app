@@ -38,6 +38,9 @@ class PrestationRequest extends FormRequest
             'actes.*.remise' => ['min:0', 'numeric', 'min:0', 'max:100'],
             'actes.*.quantity' => ['integer', 'required_if:type,' . TypePrestation::ACTES->value, 'min:1'],
             'actes.*.date_rdv' => ['required_if:type,' . TypePrestation::ACTES->value,],
+            'actes.*.pu' => ['required_if:type,' . TypePrestation::ACTES->value],
+            'actes.*.b' => ['required_if:type,' . TypePrestation::ACTES->value],
+            'actes.*.k_modulateur' => ['required_if:type,' . TypePrestation::ACTES->value],
             // Soins
             'soins' => ['nullable', 'array', 'required_if:type,' . TypePrestation::SOINS->value,],
             'soins.*.id' => ['integer', 'required_if:type,' . TypePrestation::SOINS->value, 'exists:soins,id'],
@@ -45,28 +48,34 @@ class PrestationRequest extends FormRequest
             'soins.*.nbr_days' => ['integer', 'required_if:type,' . TypePrestation::SOINS->value, 'min:1'],
             'soins.*.type_salle' => ['required_if:type,' . TypePrestation::SOINS->value, new Enum(TypeSalle::class)],
             'soins.*.honoraire' => ['integer', 'required_if:type,' . TypePrestation::SOINS->value,],
+            'soins.*.pu' => ['required_if:type,' . TypePrestation::SOINS->value,],
             // Consultations
             'consultations' => ['nullable', 'array', 'required_if:type,' . TypePrestation::CONSULTATIONS->value],
             'consultations.*.id' => ['integer', 'required_if:type,' . TypePrestation::CONSULTATIONS->value, 'exists:consultations,id'],
             'consultations.*.remise' => ['min:0', 'numeric', 'max:100'],
             'consultations.*.quantity' => ['integer', 'required_if:type,' . TypePrestation::CONSULTATIONS->value, 'min:1'],
             'consultations.*.date_rdv' => ['required_if:type,' . TypePrestation::CONSULTATIONS->value, 'date'],
+            'consultations.*.pu' => ['required_if:type,' . TypePrestation::CONSULTATIONS->value],
             // Hospitalisation
             'hospitalisations' => ['nullable', 'array', 'required_if:type,' . TypePrestation::HOSPITALISATION->value],
             'hospitalisations.*.id' => ['integer', 'required_if:type,' . TypePrestation::HOSPITALISATION->value, 'exists:ops_tbl_hospitalisation,id'],
             'hospitalisations.*.remise' => ['min:0', 'numeric', 'max:100'],
             'hospitalisations.*.quantity' => ['integer', 'required_if:type,' . TypePrestation::HOSPITALISATION->value, 'min:1'],
             'hospitalisations.*.date_rdv' => ['required_if:type,' . TypePrestation::HOSPITALISATION->value, 'date'],
+            'hospitalisations.*.pu' => ['required_if:type,' . TypePrestation::HOSPITALISATION->value],
             // Products
             'products' => ['nullable', 'array', 'required_if:type,' . TypePrestation::PRODUITS->value],
             'products*.id' => ['integer', 'required_if:type,' . TypePrestation::PRODUITS->value, 'exists:prodcuts,id'],
             'products*.remise' => ['min:0', 'numeric', 'max:100'],
             'products*.quantity' => ['integer', 'required_if:type,' . TypePrestation::PRODUITS->value, 'min:1'],
+            'products*.price' => ['required_if:type,' . TypePrestation::PRODUITS->value, 'min:1'],
             // Examens
             'examens' => ['nullable', 'array', 'required_if:type,' . TypePrestation::LABORATOIR->value],
             'examens.*.id' => ['integer', 'required_if:type,' . TypePrestation::LABORATOIR->value, 'exists:examens,id'],
             'examens.*.remise' => ['min:0', 'numeric', 'max:100'],
             'examens.*.quantity' => ['integer', 'required_if:type,' . TypePrestation::LABORATOIR->value, 'min:1'],
+            'examens.*.price' => ['required_if:type,' . TypePrestation::LABORATOIR->value, 'min:1'],
+            'examens.*.b' => ['integer', 'required_if:type,' . TypePrestation::LABORATOIR->value, 'min:1'],
         ];
     }
 

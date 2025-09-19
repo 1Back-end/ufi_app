@@ -531,14 +531,9 @@ class PrestationController extends Controller
                 }
 
                 foreach ($request->post('actes') as $item) {
-                    $acte = Acte::find($item['id']);
-
-                    $b = $acte->b;
-                    $kModulateur = $acte->k_modulateur;
-                    if ($prestation->priseCharge && $actePc = $prestation->priseCharge->assureur->actes()->find($acte->id)) {
-                        $b = $actePc->pivot->b;
-                        $kModulateur = $actePc->pivot->k_modulateur;
-                    }
+                    $pu = $item['pu'];
+                    $b = $item['b'];
+                    $kModulateur = $item['k_modulateur'];
 
                     $prestation->actes()->attach($item['id'], [
                         'remise' => $item['remise'],
@@ -547,7 +542,7 @@ class PrestationController extends Controller
                         'date_rdv_end' => Carbon::createFromTimeString($item['date_rdv'])->addMinutes((int)$prestationDuration),
                         'b' => $b,
                         'k_modulateur' => $kModulateur,
-                        'pu' => $prestation->priseCharge ? $b * $kModulateur : $acte->pu
+                        'pu' => $prestation->priseCharge ? $b * $kModulateur : $pu
                     ]);
 
                     $this->createRdv($prestation, $request->input('consultant_id'), $request->input('client_id'), $item['date_rdv']);
@@ -559,15 +554,7 @@ class PrestationController extends Controller
                 }
 
                 foreach ($request->post('soins') as $item) {
-                    $soin = Soins::find($item['id']);
-                    $pu = $soin->pu;
-                    if ($prestation->priseCharge) {
-                        if ($soinPc = $prestation->priseCharge->assureur->soins()->find($soin->id)) {
-                            $pu = $soinPc->pivot->pu;
-                        } else {
-                            $pu = $soin->pu_default;
-                        }
-                    }
+                    $pu = $item['pu'];
 
                     $prestation->soins()->attach($item['id'], [
                         'remise' => $item['remise'],
@@ -584,15 +571,7 @@ class PrestationController extends Controller
                 }
 
                 foreach ($request->post('consultations') as $item) {
-                    $consultation = Consultation::find($item['id']);
-                    $pu = $consultation->pu;
-                    if ($prestation->priseCharge) {
-                        if ($consultationPC = $prestation->priseCharge->assureur->consultations()->find($consultation->id)) {
-                            $pu = $consultationPC->pivot->pu;
-                        } else {
-                            $pu = $consultation->pu_default;
-                        }
-                    }
+                    $pu = $item['pu'];
 
                     $prestation->consultations()->attach($item['id'], [
                         'date_rdv' => $item['date_rdv'],
@@ -611,15 +590,7 @@ class PrestationController extends Controller
                 }
 
                 foreach ($request->post('hospitalisations') as $item) {
-                    $hospitalisation = OpsTblHospitalisation::find($item['id']);
-                    $pu = $hospitalisation->pu;
-                    if ($prestation->priseCharge) {
-                        if ($hospitalisationPC = $prestation->priseCharge->assureur->hospitalisations()->find($hospitalisation->id)) {
-                            $pu = $hospitalisationPC->pivot->pu;
-                        } else {
-                            $pu = $hospitalisation->pu_default;
-                        }
-                    }
+                    $pu = $item['pu'];
 
                     $prestation->hospitalisations()->attach($item['id'], [
                         'date_rdv' => $item['date_rdv'],
@@ -638,21 +609,17 @@ class PrestationController extends Controller
                 }
 
                 foreach ($request->input('examens') as $item) {
-                    $examen = Examen::find($item['id']);
-                    $pu = $examen->price;
+                    $pu = $item['price'];
+                    $b = $item['b'];
                     if ($prestation->priseCharge) {
-                        if ($examenPC = $prestation->priseCharge->assureur->examens()->find($examen->id)) {
-                            $pu = $examenPC->pivot->b * $prestation->priseCharge->quotation->taux;
-                        } else {
-                            $pu = ($prestation->priseCharge && $prestation->priseCharge->assureur->BM ? $examen->b1 : $examen->b) * $prestation->priseCharge->quotation->taux;
-                        }
+                        $pu = $b * $prestation->priseCharge->quotation->taux;
                     }
 
                     $prestation->examens()->attach($item['id'], [
                         'remise' => $item['remise'],
                         'quantity' => $item['quantity'],
                         'pu' =>  $pu,
-                        'b' => $prestation->priseCharge && $prestation->priseCharge->assureur->BM ? $examen->b1 : $examen->b,
+                        'b' => $b,
                     ]);
                 }
                 break;
@@ -662,8 +629,7 @@ class PrestationController extends Controller
                 }
 
                 foreach ($request->post('products') as $item) {
-                    $product = Product::find($item['id']);
-                    $pu = $product->price;
+                    $pu = $item['price'];
 
                     $prestation->products()->attach($item['id'], [
                         'remise' => $item['remise'],
@@ -703,19 +669,10 @@ class PrestationController extends Controller
 
         if (isset($requestData['actes']) && $requestData['actes']) {
             foreach ($request->input('actes') as $acteData) {
+                $pu = $acteData['pu'];
                 if ($priseCharge) {
-                    if ($acte = $priseCharge->assureur->actes()->find($acteData['id'])) {
-                        $pu = $acte->pivot->b * $acte->pivot->k_modulateur;
-                    } else {
-                        $acte = Acte::find($acteData['id']);
-                        $pu = $acte->b * $acte->k_modulateur;
-                    }
-
                     $amount_acte_pc = ($acteData['quantity'] * $pu * $priseCharge->taux_pc) / 100;
                     $amount_pc += $amount_acte_pc;
-                } else {
-                    $acte = Acte::find($acteData['id']);
-                    $pu = $acte->pu;
                 }
 
                 $amount_acte_remise = ($acteData['quantity'] * $pu * $acteData['remise']) / 100;
@@ -727,19 +684,10 @@ class PrestationController extends Controller
 
         if (isset($requestData['soins']) && $requestData['soins']) {
             foreach ($request->input('soins') as $soinData) {
+                $pu = $soinData['pu'];
                 if ($priseCharge) {
-                    if ($soins = $priseCharge->assureur->soins()->find($soinData['id'])) {
-                        $pu = $soins->pivot->pu;
-                    } else {
-                        $soin = Soins::find($soinData['id']);
-                        $pu = $soin->pu_default;
-                    }
-
                     $amount_soin_pc = ($soinData['nbr_days'] * $pu * $priseCharge->taux_pc) / 100;
                     $amount_pc += $amount_soin_pc;
-                } else {
-                    $soin = Soins::find($soinData['id']);
-                    $pu = $soin->pu;
                 }
 
                 $amount_soin_remise = ($soinData['nbr_days'] * $pu * $soinData['remise']) / 100;
@@ -751,19 +699,10 @@ class PrestationController extends Controller
 
         if (isset($requestData['consultations']) && $requestData['consultations']) {
             foreach ($request->input('consultations') as $consultationData) {
+                $pu = $consultationData['pu'];
                 if ($priseCharge) {
-                    if ($consultation = $priseCharge->assureur->consultations()->find($consultationData['id'])) {
-                        $pu = $consultation->pivot->pu;
-                    } else {
-                        $consultation = Consultation::find($consultationData['id']);
-                        $pu = $consultation->pu_default;
-                    }
-
                     $amount_consultation_pc = ($consultationData['quantity'] * $pu * $priseCharge->taux_pc) / 100;
                     $amount_pc += $amount_consultation_pc;
-                } else {
-                    $consultation = Consultation::find($consultationData['id']);
-                    $pu = $consultation->pu;
                 }
 
                 $amount_consultation_remise = ($consultationData['quantity'] * $pu * $consultationData['remise']) / 100;
@@ -775,19 +714,10 @@ class PrestationController extends Controller
 
         if (isset($requestData['hospitalisations']) && $requestData['hospitalisations']) {
             foreach ($request->input('hospitalisations') as $hospitalisationData) {
+                $pu = $hospitalisationData['pu'];
                 if ($priseCharge) {
-                    if ($hospitalisation = $priseCharge->assureur->hospitalisations()->find($hospitalisationData['id'])) {
-                        $pu = $hospitalisation->pivot->pu;
-                    } else {
-                        $hospitalisation = OpsTblHospitalisation::find($hospitalisationData['id']);
-                        $pu = $hospitalisation->pu_default;
-                    }
-
                     $amount_examen_pc = ($hospitalisationData['quantity'] * $pu * $priseCharge->taux_pc) / 100;
                     $amount_pc += $amount_examen_pc;
-                } else {
-                    $hospitalisation = OpsTblHospitalisation::find($hospitalisationData['id']);
-                    $pu = $hospitalisation->pu;
                 }
 
                 $amount_examen_remise = ($hospitalisationData['quantity'] * $pu * $hospitalisationData['remise']) / 100;
@@ -799,8 +729,7 @@ class PrestationController extends Controller
 
         if (isset($requestData['products']) && $requestData['products']) {
             foreach ($request->input('products') as $productData) {
-                $product = Product::find($productData['id']);
-                $pu = $product->price;
+                $pu = $productData['price'];
 
                 $amount_product_remise = ($productData['quantity'] * $pu * $productData['remise']) / 100;
                 $amount_remise += $amount_product_remise;
@@ -811,19 +740,12 @@ class PrestationController extends Controller
 
         if (isset($requestData['examens']) && $requestData['examens']) {
             foreach ($request->input('examens') as $examenData) {
+                $pu = $examenData['price'];
                 if ($priseCharge) {
-                    if ($examen = $priseCharge->assureur->examens()->find($examenData['id'])) {
-                        $pu = $examen->pivot->b * $priseCharge->quotation->taux;
-                    } else {
-                        $examen = Examen::find($examenData['id']);
-                        $pu = $examen->b * $priseCharge->quotation->taux;
-                    }
+                    $pu = $examenData['b'] * $priseCharge->quotation->taux;
 
                     $amount_examen_pc = ($examenData['quantity'] * $pu * $priseCharge->taux_pc) / 100;
                     $amount_pc += $amount_examen_pc;
-                } else {
-                    $examen = Examen::find($examenData['id']);
-                    $pu = $examen->price;
                 }
 
                 $amount_examen_remise = ($examenData['quantity'] * $pu * $examenData['remise']) / 100;

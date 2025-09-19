@@ -170,16 +170,11 @@ if (! function_exists('calculate_amount_facture')) {
         switch ($prestation->type) {
             case TypePrestation::ACTES:
                 foreach ($prestation->actes as $acte) {
-                    $pu = $acte->pu;
+                    $pu = $acte->pivot->pu;
 
                     $amount_acte_pc = 0;
                     if ($prestation->priseCharge) {
-                        if ($prestation->priseCharge->assureur->actes()->find($acte->id)) {
-                            $actePc = $prestation->priseCharge->assureur->actes()->find($acte->id);
-                            $pu = $actePc->pivot->b * $actePc->pivot->k_modulateur;
-                        } else {
-                            $pu = $acte->b * $acte->k_modulateur;
-                        }
+                        $pu = $acte->pivot->b * $acte->pivot->k_modulateur;
 
                         $amount_acte_pc = ($acte->pivot->quantity * $pu * $prestation->priseCharge->taux_pc) / 100;
                         $amount_pc += $amount_acte_pc;
@@ -194,16 +189,9 @@ if (! function_exists('calculate_amount_facture')) {
                 break;
             case TypePrestation::SOINS:
                 foreach ($prestation->soins as $soin) {
-                    $pu = $soin->pu;
+                    $pu = $soin->pivot->pu;
                     $amount_soin_pc = 0;
                     if ($prestation->priseCharge) {
-                        if ($prestation->priseCharge->assureur->soins()->find($soin->id)) {
-                            $soinPc = $prestation->priseCharge->assureur->soins()->find($soin->id);
-                            $pu = $soinPc->pivot->pu;
-                        } else {
-                            $pu = $soin->pu_default;
-                        }
-
                         $amount_soin_pc = ($soin->pivot->nbr_days * $pu * $prestation->priseCharge->taux_pc) / 100;
                         $amount_pc += $amount_soin_pc;
                     }
@@ -217,16 +205,9 @@ if (! function_exists('calculate_amount_facture')) {
                 break;
             case TypePrestation::CONSULTATIONS:
                 foreach ($prestation->consultations as $consultation) {
-                    $pu = $consultation->pu;
+                    $pu = $consultation->pivot->pu;
                     $amount_consultation_pc = 0;
                     if ($prestation->priseCharge) {
-                        if ($prestation->priseCharge->assureur->consultations()->find($consultation->id)) {
-                            $consultationPc = $prestation->priseCharge->assureur->consultations()->find($consultation->id);
-                            $pu = $consultationPc->pivot->pu;
-                        } else {
-                            $pu = $consultation->pu_default;
-                        }
-
                         $amount_consultation_pc = ($consultation->pivot->quantity * $pu * $prestation->priseCharge->taux_pc) / 100;
                         $amount_pc += $amount_consultation_pc;
                     }
@@ -240,7 +221,7 @@ if (! function_exists('calculate_amount_facture')) {
                 break;
             case TypePrestation::PRODUITS:
                 foreach ($prestation->products as $product) {
-                    $pu = $product->price;
+                    $pu = $product->pivot->pu;
                     $amount_product_pc = 0;
 
                     $amount_product_remise = ($product->pivot->quantity * $pu * $product->pivot->remise) / 100;
@@ -254,15 +235,10 @@ if (! function_exists('calculate_amount_facture')) {
 
                 $kbprelevementIds = [];
                 foreach ($prestation->examens as $examen) {
-                    $pu = $examen->price;
+                    $pu = $examen->pivot->pu;
                     $amount_examen_pc = 0;
                     if ($prestation->priseCharge) {
-                        if ($prestation->priseCharge->assureur->examens()->find($examen->id)) {
-                            $examenPc = $prestation->priseCharge->assureur->examens()->find($examen->id);
-                            $pu = $examenPc->pivot->b * $prestation->priseCharge->quotation->taux;
-                        } else {
-                            $pu = ($prestation->priseCharge && $prestation->priseCharge->assureur->BM ? $examen->b1 : $examen->b) * $prestation->priseCharge->quotation->taux;
-                        }
+                        $pu = $examen->pivot->b * $prestation->priseCharge->quotation->taux;
 
                         $amount_examen_pc = ($examen->pivot->quantity * $pu * $prestation->priseCharge->taux_pc) / 100;
                         $amount_pc += $amount_examen_pc;
@@ -294,16 +270,9 @@ if (! function_exists('calculate_amount_facture')) {
                 break;
             case TypePrestation::HOSPITALISATION:
                 foreach ($prestation->hospitalisations as $hospitalisation) {
-                    $pu = $hospitalisation->pu;
+                    $pu = $hospitalisation->pivot->pu;
                     $amount_hospitalisation_pc = 0;
                     if ($prestation->priseCharge) {
-                        if ($prestation->priseCharge->assureur->hospitalisations()->find($hospitalisation->id)) {
-                            $hospitalisationPc = $prestation->priseCharge->assureur->hospitalisations()->find($hospitalisation->id);
-                            $pu = $hospitalisationPc->pivot->pu;
-                        } else {
-                            $pu = $hospitalisation->pu_default;
-                        }
-
                         $amount_hospitalisation_pc = ($hospitalisation->pivot->quantity * $pu * $prestation->priseCharge->taux_pc) / 100;
                         $amount_pc += $amount_hospitalisation_pc;
                     }
@@ -377,7 +346,9 @@ if (! function_exists('save_facture')) {
                 ->whereColumn('amount', '<=', 'amount_max')
                 ->first();
 
-            $convention->increment('amount', $facture->amount_client);
+            $convention->update([
+                'amount' => $convention->amount + $facture->amount_client
+            ]);
         }
 
         return $facture;
