@@ -45,7 +45,7 @@ class RendezVousController extends Controller
             $etats = explode(',', $request->etat);
             $query->whereIn('etat', $etats);
         } else {
-            $query->whereIn('etat', ['Actif', 'Inactif', 'No show', 'En cours de consultation']);
+            $query->whereIn('etat', ['Actif', 'Inactif', 'No show', 'Prises pour consultation','En cours de consultation']);
         }
 
         /** ────── Autres filtres simples ────── */

@@ -15,7 +15,7 @@ class RendezVous extends Model
     use HasFactory, UpdatingUser;
 
     protected $table = 'rendez_vouses';
-    protected $appends = ['past','nombre_jours'];
+    protected $appends = ['nombre_jours'];
 
 
     protected $fillable = [
@@ -111,22 +111,27 @@ class RendezVous extends Model
         return $query->where('is_deleted', false);
     }
 
-    public function getPastAttribute(): bool
+    public function getNombreJoursAttribute(): bool
     {
-        $date = optional($this->dateheure_rdv)->copy();
-
-        if (is_null($date)) {
-            return false; // ou true selon ta logique métier
+        if (!$this->dateheure_rdv) {
+            return false;
         }
 
-        return now()->greaterThan($date->addDays($this->nombre_jour_validite));
+        // On ajoute 1 jour à la date du rendez-vous
+        $rdvPlusUnJour = $this->dateheure_rdv->copy()->addDay();
+
+        // Retourne true si la date + 1 jour est dans le futur, false sinon
+        return Carbon::now()->lessThanOrEqualTo($rdvPlusUnJour);
     }
 
 
-    public function getNombreJoursAttribute(): ?int
-    {
-        return (int) ceil($this->duration / 60);
-    }
+
+//    public function getNombreJoursAttribute(): ?int
+//    {
+//        return (int) ceil($this->duration / 60);
+//    }
+
+
     public function facture()
     {
         return $this->hasMany(Facture::class, 'prestation_id', 'prestation_id');

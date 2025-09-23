@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\ExamenActes;
+use App\Models\OpsTblRapportConsultation;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -61,7 +62,7 @@ class ExamensActesController extends Controller
             }
         }
 
-        // Cas "Non" : examens libres avec name et description
+        // Cas "Non" : examens libres
         if ($request->type === 'Non' && $request->examens_libres) {
             foreach ($request->examens_libres as $examenLibre) {
                 ExamenActes::create([
@@ -75,11 +76,23 @@ class ExamensActesController extends Controller
             }
         }
 
+        if ($request->rapport_consultation_id) {
+            $rapport = OpsTblRapportConsultation::find($request->rapport_consultation_id);
+
+            if ($rapport && $rapport->dossierConsultation && $rapport->dossierConsultation->rendezVous) {
+                $rendezVous = $rapport->dossierConsultation->rendezVous;
+                $rendezVous->etat = 'Clos';
+                $rendezVous->updated_by = $auth->id ?? null;
+                $rendezVous->save();
+            }
+        }
+
         return response()->json([
             'success' => true,
             'message' => 'Enregistrement effectué avec succès',
         ]);
     }
+
 
 
     /**
