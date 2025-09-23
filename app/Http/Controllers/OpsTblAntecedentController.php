@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\CategorieAntecedent;
 use App\Models\OpsTblAntecedent;
+use App\Models\RendezVous;
 use Illuminate\Http\Request;
 
 
@@ -67,6 +68,7 @@ class OpsTblAntecedentController extends Controller
             'souscategorie_antecedent_id.exists' => 'La sous-catégorie sélectionnée est invalide.',
             'description.string' => 'La description doit être une chaîne de caractères.',
         ];
+
 
         $validated = $request->validate([
             'client_id' => 'required|exists:clients,id',

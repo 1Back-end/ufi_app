@@ -167,6 +167,7 @@ Route::middleware(['activity'])->group(function () {
             Route::get('/get_by_id/{id}', 'show');
             Route::post('/import', 'import');
             Route::post('/import_medecin', 'import_medecin');
+            Route::get('/planning_patient', 'PlanningConsultant');
 
             // routes/api.php
         });

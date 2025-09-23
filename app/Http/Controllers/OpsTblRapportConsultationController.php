@@ -1,7 +1,9 @@
 <?php
 
 namespace App\Http\Controllers;
+use App\Models\DossierConsultation;
 use App\Models\OpsTblRapportConsultation;
+use App\Models\RendezVous;
 use Illuminate\Http\Request;
 
 
@@ -30,16 +32,29 @@ class OpsTblRapportConsultationController extends Controller
                 'dossierConsultation.rendezVous.consultant:id,id,nomcomplet,ref',
             ]);
 
-        // Recherche globale
+
         if ($request->filled('search')) {
             $search = $request->input('search');
 
             $query->where(function ($q) use ($search) {
+
                 $q->where('code', 'like', "%$search%")
                     ->orWhere('conclusion', 'like', "%$search%")
                     ->orWhere('recommandations', 'like', "%$search%")
+
+
                     ->orWhereHas('dossierConsultation', function ($q2) use ($search) {
-                        $q2->where('code', 'like', "%$search%"); // ou selon la colonne affichable
+                        $q2->where('code', 'like', "%$search%");
+                    })
+
+                    ->orWhereHas('dossierConsultation.rendezVous.client', function ($q3) use ($search) {
+                        $q3->where('nomcomplet_client', 'like', "%$search%")
+                            ->orWhere('ref_cli', 'like', "%$search%");
+                    })
+
+                    ->orWhereHas('dossierConsultation.rendezVous.consultant', function ($q4) use ($search) {
+                        $q4->where('nomcomplet', 'like', "%$search%")
+                            ->orWhere('ref', 'like', "%$search%");
                     });
             });
         }
@@ -53,6 +68,7 @@ class OpsTblRapportConsultationController extends Controller
             'total' => $results->total(),
         ]);
     }
+
 
 
     /**
@@ -94,6 +110,7 @@ class OpsTblRapportConsultationController extends Controller
     public function store(Request $request)
     {
         $auth = auth()->user();
+
         $request->validate([
             'resume' => 'required|string',
             'conclusion' => 'nullable|string',
@@ -101,6 +118,7 @@ class OpsTblRapportConsultationController extends Controller
             'dossier_consultation_id' => 'required|exists:dossier_consultations,id',
         ]);
 
+        // Création du rapport
         $rapport = OpsTblRapportConsultation::create([
             'resume' => $request->resume,
             'conclusion' => $request->conclusion,
@@ -109,11 +127,19 @@ class OpsTblRapportConsultationController extends Controller
             'created_by' => $auth->id
         ]);
 
+        $dossier = DossierConsultation::find($request->dossier_consultation_id);
+
+        if ($dossier && $dossier->rendez_vous_id) {
+            RendezVous::where('id', $dossier->rendez_vous_id)
+                ->update(['etat' => 'En cours de consultation']);
+        }
+
         return response()->json([
             'message' => 'Rapport de consultation enregistré avec succès.',
             'data' => $rapport
         ], 201);
     }
+
 
     /**
      * Display a listing of the resource.

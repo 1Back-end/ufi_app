@@ -31,8 +31,8 @@ class DossierConsultationController extends Controller
 
     public function index(Request $request)
     {
-        $perPage = $request->input('limit', 25); // Par défaut 5 éléments par page
-        $page = $request->input('page', 1);     // Page courante
+        $perPage = $request->input('limit', 25);
+        $page = $request->input('page', 1);
 
         $query = DossierConsultation::where('is_deleted', false)
             ->with([
@@ -44,21 +44,22 @@ class DossierConsultationController extends Controller
                 'medias'
             ]);
 
-        // Filtrage par client_id
+        // Filtrage direct
         if ($request->filled('client_id')) {
-            $query->whereHas('rendezVous', function ($q) use ($request) {
-                $q->where('client_id', $request->input('client_id'));
-            });
+            $query->whereHas('rendezVous', fn($q) =>
+            $q->where('client_id', $request->client_id)
+            );
         }
         if ($request->filled('consultant_id')) {
-            $query->whereHas('rendezVous', function ($q) use ($request) {
-                $q->where('consultant_id', $request->input('consultant_id'));
-            });
+            $query->whereHas('rendezVous', fn($q) =>
+            $q->where('consultant_id', $request->consultant_id)
+            );
         }
 
-        // Recherche globale
+        // 🔎 Recherche globale (incluant client et consultant)
         if ($request->filled('search')) {
             $search = $request->input('search');
+
             $query->where(function ($q) use ($search) {
                 $q->where('poids', 'like', "%$search%")
                     ->orWhere('tension', 'like', "%$search%")
@@ -67,12 +68,27 @@ class DossierConsultationController extends Controller
                     ->orWhere('temperature', 'like', "%$search%")
                     ->orWhere('frequence_cardiaque', 'like', "%$search%")
                     ->orWhere('saturation', 'like', "%$search%")
-                    ->orWhere('autres_parametres', 'like', "%$search%");
+                    ->orWhere('autres_parametres', 'like', "%$search%")
+
+                    // Recherche dans les clients
+                    ->orWhereHas('rendezVous.client', function ($q2) use ($search) {
+                        $q2->where('nomcomplet_client', 'like', "%$search%")
+                            ->orWhere('ref_cli', 'like', "%$search%");
+                    })
+
+                    // Recherche dans les consultants
+                    ->orWhereHas('rendezVous.consultant', function ($q3) use ($search) {
+                        $q3->where('nomcomplet', 'like', "%$search%")
+                            ->orWhere('ref', 'like', "%$search%");
+                    })
+
+                    ->orWhereHas('rendezVous', function ($q3) use ($search) {
+                        $q3->where('code', 'like', "%$search%");
+                    });
             });
         }
 
-        $dossiers = $query->latest()
-            ->paginate($perPage, ['*'], 'page', $page);
+        $dossiers = $query->latest()->paginate($perPage, ['*'], 'page', $page);
 
         return response()->json([
             'data' => $dossiers->items(),
@@ -81,6 +97,7 @@ class DossierConsultationController extends Controller
             'total' => $dossiers->total(),
         ]);
     }
+
 
 
     /**
@@ -134,7 +151,7 @@ class DossierConsultationController extends Controller
             'rendez_vous_id'      => 'required|exists:rendez_vouses,id',
             'poids'               => 'required|string',
             'tension'             => 'required|string',
-            'taille'              => 'required|string',
+            'taille'              => 'nullable|string',
             'saturation'          => 'required|string',
             'autres_parametres'   => 'nullable|string',
             'temperature'         => 'nullable|string',
@@ -160,7 +177,7 @@ class DossierConsultationController extends Controller
 
             // Mise à jour du rendez‑vous
             RendezVous::where('id', $data['rendez_vous_id'])
-                ->update(['etat' => 'En cours de consultation']);
+                ->update(['etat' => 'Prises pour consultation']);
 
             // Upload du fichier facultatif
             if ($request->hasFile('fichier_associe')) {

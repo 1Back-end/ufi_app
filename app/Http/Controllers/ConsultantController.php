@@ -36,38 +36,75 @@ class ConsultantController extends Controller
      * @permission_desc Afficher la liste des consultants
      */
     public function index(Request $request){
-        $perPage = $request->input('limit', 10);  // Par défaut, 10 éléments par page
-        $page = $request->input('page', 1);  // Page courante
-        $consultanst = Consultant::where('is_deleted', false)
-            ->with([
-                'code_hopi',
-                'code_specialite',
-                'code_titre','centre',
-                'disponibilites'
-            ])
+        $perPage = $request->input('limit', 25);
+        $page = $request->input('page', 1);
+
+        $consultants = Consultant::with([
+            'code_hopi',
+            'code_specialite',
+            'code_titre',
+            'disponibilites',
+            'user'
+        ])
+            ->where('is_deleted', false)
             ->when($request->input('search'), function ($query) use ($request) {
                 $search = $request->input('search');
-                $query->where('ref', 'like', '%' . $search . '%')
-                    ->orWhere('nom', 'like', '%' . $search . '%')
-                    ->orWhere('prenom', 'like', '%' . $search . '%')
-                    ->orWhere('nomcomplet', 'like', '%' . $search . '%')
-                    ->orWhere('tel', 'like', '%' . $search . '%')
-                    ->orWhere('tel1', 'like', '%' . $search . '%')
-                    ->orWhere('email', 'like', '%' . $search . '%')
-                    ->orWhere('type', 'like', '%' . $search . '%')
-                    ->orWhere('status', 'like', '%' . $search . '%')
-                    ->orWhere('id', 'like', '%' . $search . '%');
+
+                $query->where(function($q) use ($search) {
+                    // Champs du consultant
+                    $q->where('ref', 'like', "%$search%")
+                        ->orWhere('nom', 'like', "%$search%")
+                        ->orWhere('prenom', 'like', "%$search%")
+                        ->orWhere('nomcomplet', 'like', "%$search%")
+                        ->orWhere('tel', 'like', "%$search%")
+                        ->orWhere('tel1', 'like', "%$search%")
+                        ->orWhere('email', 'like', "%$search%")
+                        ->orWhere('type', 'like', "%$search%")
+                        ->orWhere('status', 'like', "%$search%")
+                        ->orWhere('id', 'like', "%$search%");
+
+                    // Recherche dans code_specialite
+                    $q->orWhereHas('code_specialite', function($qq) use ($search) {
+                        $qq->where('nom_specialite', 'like', "%$search%")
+                            ->orWhere('id', 'like', "%$search%");
+                    });
+
+                    // Recherche dans code_titre
+                    $q->orWhereHas('code_titre', function($qq) use ($search) {
+                        $qq->where('nom_titre', 'like', "%$search%")
+                            ->orWhere('abbreviation_titre', 'like', "%$search%")
+                            ->orWhere('id', 'like', "%$search%");
+                    });
+
+                    // Recherche dans code_hopi
+                    $q->orWhereHas('code_hopi', function($qq) use ($search) {
+                        $qq->where('nom_hopi', 'like', "%$search%")
+                            ->orWhere('id', 'like', "%$search%")
+                            ->orWhere('Abbreviation_hopi', 'like', "%$search%")
+                            ->orWhere('addresse_hopi', 'like', "%$search%");
+
+                    });
+
+                    // Recherche dans user
+                    $q->orWhereHas('user', function($qq) use ($search) {
+                        $qq->where('login', 'like', "%$search%")
+                            ->orWhere('email', 'like', "%$search%")
+                            ->orWhere('nom_utilisateur', 'like', "%$search%")
+                            ->orWhere('prenom', 'like', "%$search%");
+                    });
+                });
             })
             ->latest()
             ->paginate(perPage: $perPage, page: $page);
 
         return response()->json([
-            'data' => $consultanst->items(),
-            'current_page' => $consultanst->currentPage(),  // Page courante
-            'last_page' => $consultanst->lastPage(),  // Dernière page
-            'total' => $consultanst->total(),  // Nombre total d'éléments
+            'data' => $consultants->items(),
+            'current_page' => $consultants->currentPage(),
+            'last_page' => $consultants->lastPage(),
+            'total' => $consultants->total(),
         ]);
     }
+
 
     /**
      * @permission ConsultantController::updateStatus
@@ -230,7 +267,6 @@ class ConsultantController extends Controller
         try {
             $auth = auth()->user();
 
-            // Validation du consultant
             $data = $request->validate([
                 'code_hopi' => 'required|exists:hopitals,id',
                 'code_service_hopi' => 'required|exists:service__hopitals,id',
@@ -243,35 +279,50 @@ class ConsultantController extends Controller
                 'email' => 'required|email|unique:consultants,email',
                 'type' => ['required', new Enum(TypeConsultEnum::class)],
                 'TelWhatsApp' => 'nullable|in:Oui,Non',
-                'jours' => 'nullable|array', // nullable car seulement pour interne
-            ], [
-                'jours.required' => 'Veuillez fournir au moins un jour de disponibilité.',
+                'jours' => 'nullable|array',
             ]);
 
-            // Construction du nom complet et référence
+
             $titre = Titre::find($data['code_titre']);
             $data['nomcomplet'] = $titre->nom_titre . ' ' . $data['nom'] . ' ' . $data['prenom'];
             $data['ref'] = 'C' . now()->format('ymdHis') . mt_rand(10, 99);
             $data['created_by'] = $auth->id;
 
-            // Création du consultant
+            // ✅ Création du consultant
             $consultant = Consultant::create($data);
 
-            // ✅ Enregistrement des disponibilités seulement si le consultant est interne
             if ($data['type'] === 'Interne' && !empty($request->jours)) {
-                foreach ($request->jours as $jour => $heures) {
-                    foreach ($heures as $heure) {
+                // Mapping des jours en entier
+                $joursMap = [
+                    'Lundi' => 1,
+                    'Mardi' => 2,
+                    'Mercredi' => 3,
+                    'Jeudi' => 4,
+                    'Vendredi' => 5,
+                    'Samedi' => 6,
+                    'Dimanche' => 7,
+                ];
+
+                foreach ($request->jours as $jourNom => $plages) {
+                    $jourInt = $joursMap[$jourNom] ?? null;
+                    if (!$jourInt) continue; // Ignore si jour inconnu
+
+                    foreach ($plages as $plage) {
+                        if (!isset($plage['heure_debut'], $plage['heure_fin'])) {
+                            continue; // Ignore les plages incomplètes
+                        }
+
                         ConsultantDisponibilite::create([
                             'consultant_id' => $consultant->id,
-                            'jour' => $jour,
-                            'heure' => $heure,
+                            'jour' => $jourInt,
+                            'heure_debut' => $plage['heure_debut'],
+                            'heure_fin' => $plage['heure_fin'],
                             'created_by' => $auth->id,
                             'updated_by' => $auth->id,
                         ]);
                     }
                 }
             }
-
             return response()->json([
                 'message' => 'Consultant et disponibilités enregistrés avec succès.',
                 'consultant' => $consultant->load('disponibilites'),
@@ -290,6 +341,7 @@ class ConsultantController extends Controller
             ], 500);
         }
     }
+
 
 
 
@@ -348,18 +400,6 @@ class ConsultantController extends Controller
                 'type' => ['required', new Enum(TypeConsultEnum::class)],
                 'TelWhatsApp' => 'nullable|in:Oui,Non',
                 'jours' => 'nullable|array',
-            ], [
-                'code_hopi.required' => 'Veuillez sélectionner un hôpital.',
-                'code_service_hopi.required' => 'Veuillez sélectionner un service hospitalier.',
-                'code_specialite.required' => 'Veuillez sélectionner une spécialité.',
-                'code_titre.required' => 'Veuillez sélectionner un titre.',
-                'nom.required' => 'Le nom du consultant est requis.',
-                'prenom.required' => 'Le prénom du consultant est requis.',
-                'tel.required' => 'Le numéro principal est obligatoire.',
-                'tel.unique' => 'Ce numéro est déjà utilisé par un autre consultant.',
-                'email.required' => 'L’adresse e-mail est obligatoire.',
-                'email.unique' => 'Cette adresse e-mail est déjà utilisée.',
-                'jours.required' => 'Veuillez indiquer au moins un jour de disponibilité pour un consultant interne.',
             ]);
 
             // Mettre à jour le nom complet
@@ -370,19 +410,37 @@ class ConsultantController extends Controller
             // Mise à jour du consultant
             $consultant->update($data);
 
+            // Mapping des jours en entier
+            $joursMap = [
+                'Lundi' => 1,
+                'Mardi' => 2,
+                'Mercredi' => 3,
+                'Jeudi' => 4,
+                'Vendredi' => 5,
+                'Samedi' => 6,
+                'Dimanche' => 7,
+            ];
+
             // Mise à jour des disponibilités
             if ($data['type'] === 'Interne') {
                 // Supprimer les anciennes disponibilités
                 ConsultantDisponibilite::where('consultant_id', $consultant->id)->delete();
 
-                // Créer les nouvelles disponibilités
                 if (!empty($request->jours)) {
-                    foreach ($request->jours as $jour => $heures) {
-                        foreach ($heures as $heure) {
+                    foreach ($request->jours as $jourNom => $plages) {
+                        $jourInt = $joursMap[$jourNom] ?? null;
+                        if (!$jourInt) continue;
+
+                        foreach ($plages as $plage) {
+                            if (!isset($plage['heure_debut'], $plage['heure_fin'])) {
+                                continue;
+                            }
+
                             ConsultantDisponibilite::create([
                                 'consultant_id' => $consultant->id,
-                                'jour' => $jour,
-                                'heure' => $heure,
+                                'jour' => $jourInt,
+                                'heure_debut' => $plage['heure_debut'],
+                                'heure_fin' => $plage['heure_fin'],
                                 'created_by' => $auth->id,
                                 'updated_by' => $auth->id,
                             ]);
@@ -415,6 +473,8 @@ class ConsultantController extends Controller
 
 
 
+
+
     /**
      * Display a listing of the resource.
      * @permission ConsultantController::destroy
@@ -432,4 +492,66 @@ class ConsultantController extends Controller
         return response()->json(['message' => 'Consultant supprimé'], 200);
         //
     }
+
+
+    public function PlanningConsultant()
+    {
+        try {
+            DB::beginTransaction();
+
+            $consultants = Consultant::where('is_deleted', false)
+                ->with([
+                    'disponibilites'
+                ])
+                ->orderBy('created_at', 'desc')
+                ->get();
+
+            $data = [
+                'consultants' => $consultants,
+            ];
+
+            // Chemin du fichier PDF
+            $fileName   = 'planning-consultants-' . now()->format('YmdHis') . '.pdf';
+            $folderPath = 'storage/planning-consultants'; // chemin absolu
+            $filePath   = $folderPath . '/' . $fileName;
+
+            if (!file_exists($folderPath)) {
+                mkdir($folderPath, 0755, true);
+            }
+
+            // Génération du PDF
+            save_browser_shot_pdf(
+                view: 'pdfs.planning-consultants.planning-consultants',
+                data: ['consultants' => $consultants], // clair et simple
+                folderPath: $folderPath,
+                path: $filePath,
+                margins: [10, 10, 10, 10]
+            );
+
+            DB::commit();
+
+            if (!file_exists($filePath)) {
+                return response()->json(['message' => 'Le fichier PDF n\'a pas été généré.'], 500);
+            }
+
+            $pdfContent = file_get_contents($filePath);
+            $base64 = base64_encode($pdfContent);
+
+            return response()->json([
+                'message'  => 'Planning téléchargé avec succès.',
+                'data'     => $data,
+                'base64'   => $base64,
+                'url'      => $filePath,
+                'filename' => $fileName,
+            ], 201);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'message' => 'Erreur lors de la génération du planning.',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
 }
