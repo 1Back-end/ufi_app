@@ -119,8 +119,12 @@
                     @endphp
 
                     @foreach($disposGrouped as $jour => $creneaux)
-                        <strong>{{ $jour }} :</strong>
-                        {{ implode(' , ', $creneaux) }}<br>
+                        <div class="mb-2 text-center">
+                            <strong>{{ $jour }}</strong><br>
+                            @foreach($creneaux as $creneau)
+                                <span class="d-block">{{ $creneau }}</span>
+                            @endforeach
+                        </div>
                     @endforeach
                 </td>
             </tr>
