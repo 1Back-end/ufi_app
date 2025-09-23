@@ -657,7 +657,7 @@ Route::middleware(['activity'])->group(function () {
 
         // Prélèvements
         Route::post('/prelevements/{examen}/{prestation}', [ExamenController::class, 'prelevement']);
-        Route::post('/prelevements/{prestation}', [ExamenController::class, 'prelevementAll']);
+        Route::post('/prelevements', [ExamenController::class, 'prelevementAll']);
         Route::delete('/prelevements/{prestation}/{examen}/cancel', [ExamenController::class, 'cancelPrelevement']);
 
         // Gestion Element Paillasse
