@@ -142,8 +142,10 @@ class PrestationController extends Controller
         })->when($request->input('created_at'), function (Builder $query) use ($request) {
             $query->whereDate('created_at', $request->input('created_at'));
         })->when($request->input('prelevement'), function (Builder $query) use ($request) {
-            $query->doesntHave('results')
-                ->where('type', TypePrestation::LABORATOIR->value);
+            $query->whereHas('prestationables', function ($query) {
+                $query->whereNull('prestationables.prelevements');
+            })
+            ->where('type', TypePrestation::LABORATOIR->value);
         })->when($request->input('results'), function (Builder $query) use ($request) {
             $query->whereHas('prestationables', function ($query) use ($request) {
                 $query->when($request->input("result_status"), function (Builder $query) use ($request) {

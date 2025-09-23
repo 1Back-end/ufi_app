@@ -15,6 +15,10 @@ class Prestationable extends Model
         'amount_regulate', 'pu', 'b', 'k_modulateur', 'prelevements', 'status_examen',
     ];
 
+    protected $casts = [
+        'prelevements' => 'array',
+    ];
+
     public function prestation(): BelongsTo
     {
         return $this->belongsTo(Prestation::class, 'prestation_id');
