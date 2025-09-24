@@ -335,7 +335,7 @@ class PrestationController extends Controller
 
             $data = $request->validated();
 
-            Log::info('DATA:', $request->all());
+            // Log::info('DATA:', $request->all());
 
             // Si le montant de la remise + la prise en charge est supérieur au montant de la prestation alors cette prestation passe en état encours
             $data = $this->getDataForPriseEnCharge($request, $data);
@@ -358,7 +358,7 @@ class PrestationController extends Controller
             $prestation->update($data);
             $this->attachElementWithPrestation($request, $prestation, true);
 
-            if ($data['regulated'] == 2) {
+            if ($prestation->factures()->count()) {
                 save_facture($prestation, $prestation->centre->id, 2);
             }
 
