@@ -117,11 +117,11 @@ class RendezVous extends Model
             return false;
         }
 
-        // On ajoute 1 jour à la date du rendez-vous
-        $rdvPlusUnJour = $this->dateheure_rdv->copy()->addDay();
+        // On ajoute 14 jours à la date du rendez-vous
+        $rdvPlusQuatorzeJours = $this->dateheure_rdv->copy()->addDays(14);
 
-        // Retourne true si la date + 1 jour est dans le futur, false sinon
-        return Carbon::now()->lessThanOrEqualTo($rdvPlusUnJour);
+        // Retourne true si la date + 14 jours est dans le futur, false sinon
+        return Carbon::now()->lessThanOrEqualTo($rdvPlusQuatorzeJours);
     }
 
 
