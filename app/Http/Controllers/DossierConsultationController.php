@@ -62,7 +62,8 @@ class DossierConsultationController extends Controller
 
             $query->where(function ($q) use ($search) {
                 $q->where('poids', 'like', "%$search%")
-                    ->orWhere('tension', 'like', "%$search%")
+                    ->orWhere('tension_arterielle_bd', 'like', "%$search%")
+                    ->orWhere('tension_arterielle_bg', 'like', "%$search%")
                     ->orWhere('code', 'like', "%$search%")
                     ->orWhere('taille', 'like', "%$search%")
                     ->orWhere('temperature', 'like', "%$search%")
@@ -150,7 +151,8 @@ class DossierConsultationController extends Controller
         $data = $request->validate([
             'rendez_vous_id'      => 'required|exists:rendez_vouses,id',
             'poids'               => 'required|string',
-            'tension'             => 'required|string',
+            'tension_arterielle_bd' => 'nullable|string',
+            'tension_arterielle_bg' => 'nullable|string',
             'taille'              => 'nullable|string',
             'saturation'          => 'required|string',
             'autres_parametres'   => 'nullable|string',
@@ -235,8 +237,9 @@ class DossierConsultationController extends Controller
 
             $data = $request->validate([
                 'poids' => 'required|string',
-                'tension' => 'required|string',
-                'taille' => 'required|string',
+                'tension_arterielle_bd' => 'nullable|string',
+                'tension_arterielle_bg' => 'nullable|string',
+                'taille' => 'nullable|string',
                 'saturation' => 'required|string',
                 'autres_parametres' => 'nullable|string',
                 'temperature' => 'nullable|string',
