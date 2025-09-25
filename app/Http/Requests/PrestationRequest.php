@@ -75,7 +75,7 @@ class PrestationRequest extends FormRequest
             'examens.*.remise' => ['min:0', 'numeric', 'max:100'],
             'examens.*.quantity' => ['integer', 'required_if:type,' . TypePrestation::LABORATOIR->value, 'min:1'],
             'examens.*.price' => ['required_if:type,' . TypePrestation::LABORATOIR->value, 'min:1'],
-            'examens.*.b' => ['integer', 'required_if:type,' . TypePrestation::LABORATOIR->value, 'min:1'],
+            'examens.*.b' => ['required_if:type,' . TypePrestation::LABORATOIR->value, 'min:1'],
         ];
     }
 

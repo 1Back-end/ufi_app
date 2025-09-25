@@ -320,7 +320,7 @@ class Prestation extends Model
     public function examens(): MorphToMany
     {
         return $this->morphedByMany(Examen::class, 'prestationable')
-            ->withPivot(['amount_regulate', 'remise', 'quantity', 'pu', 'prelevements', 'status_examen'])
+            ->withPivot(['amount_regulate', 'remise', 'quantity', 'pu', 'b', 'prelevements', 'status_examen'])
             ->using(PrelevementsPivot::class)
             ->withTimestamps();
     }
