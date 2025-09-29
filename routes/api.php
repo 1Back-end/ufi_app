@@ -666,6 +666,8 @@ Route::middleware(['activity'])->group(function () {
 
         // Gestion Result
         Route::post('/prestations/examens/status', [ResultController::class, 'status']);
+        Route::post('/prestations/examens/validate', [ResultController::class, 'validate']);
+        Route::post('/prestations/examens/cancel', [ResultController::class, 'cancel']);
         Route::apiResource('results', ResultController::class)->only(['store', 'index']);
 
         // Gestion des catégories de listes prédéfinies

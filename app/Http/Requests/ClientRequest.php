@@ -52,7 +52,7 @@ class ClientRequest extends FormRequest
             'renseign_clini_cli' => ['nullable'],
             'assure_pa_cli' => ['boolean'],
             'afficher_ap' => ['boolean'],
-            'nom_assure_principale_cli' => ['required_if:assure_pa_cli,false', 'nullable', 'exists:clients,nomcomplet_client'],
+            'nom_assure_principale_cli' => ['required_if:assure_pa_cli,false', 'nullable'],
             'document_number_cli' => ['nullable'],
             'nom_conjoint_cli' => ['nullable'],
             'prenom_conjoint_cli' => ['nullable'],

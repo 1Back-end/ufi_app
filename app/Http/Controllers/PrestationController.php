@@ -70,6 +70,7 @@ class PrestationController extends Controller
             'payableBy',
             'client',
             'client.sexe',
+            'client.societe',
             'consultant:id,nomcomplet,code_specialite',
             'consultant.code_specialite:id,nom_specialite',
             'priseCharge',

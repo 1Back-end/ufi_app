@@ -120,6 +120,76 @@ class ResultController extends Controller
     }
 
     /**
+     * @param ResultRequest $request
+     * @return JsonResponse
+     *
+     * @permission ResultsController::validate
+     * @permission_desc Valider le resultat des examens
+     */
+    public function validate(Request $request)
+    {
+        $request->validate([
+            'data' => ['required', 'array'],
+            'data.*.prestation_id' => ['required', 'integer', 'exists:prestations,id'],
+            'data.*.examen_ids' => ['required', 'array'],
+            'data.*.examen_ids.*' => ['required', 'integer', 'exists:examens,id'],
+        ]);
+
+        foreach ($request->data as $data) {
+            $prestation = Prestation::find($data['prestation_id']);
+
+            foreach ($data['examen_ids'] as $examen_id) {
+                $prestationable = Prestationable::where('prestation_id', $prestation->id)
+                    ->where('prestationable_type', Examen::class)
+                    ->where('prestationable_id', $examen_id)
+                    ->first();
+                $prestationable->update([
+                    'status_examen' => "validated"
+                ]);
+            }
+        }
+
+        return response()->json([
+            "message" => __("Le resultat a été valider avec succès !")
+        ], 202);
+    }
+
+    /**
+     * @param ResultRequest $request
+     * @return JsonResponse
+     *
+     * @permission ResultsController::cancel
+     * @permission_desc Annuler la validation du resultat des examens
+     */
+    public function cancel(Request $request)
+    {
+        $request->validate([
+            'data' => ['required', 'array'],
+            'data.*.prestation_id' => ['required', 'integer', 'exists:prestations,id'],
+            'data.*.examen_ids' => ['required', 'array'],
+            'data.*.examen_ids.*' => ['required', 'integer', 'exists:examens,id'],
+        ]);
+
+        foreach ($request->data as $data) {
+            $prestation = Prestation::find($data['prestation_id']);
+
+            foreach ($data['examen_ids'] as $examen_id) {
+                $prestationable = Prestationable::where('prestation_id', $prestation->id)
+                    ->where('prestationable_type', Examen::class)
+                    ->where('prestationable_id', $examen_id)
+                    ->first();
+                $prestationable->update([
+                    'status_examen' => "pending"
+                ]);
+            }
+        }
+
+        return response()->json([
+            "message" => __("Le resultat a été annuler avec succès !")
+        ], 202);
+    }
+
+    /**
      * Summary of destroy
      * @param Result $result
      * @return JsonResponse
