@@ -83,7 +83,7 @@
             <div class="">
                 BP: {{ $centre->postal_code }} {{ $centre->town }} -
                 Tél. {{ $centre->tel }} {{ $centre->tel2 ? '/' . $centre->tel2 : '' }}
-                / Fax: {{ $centre->fax }}
+                / Fax: {{ $centre->fax ?? '' }}
             </div>
 
             <div class="">
@@ -97,7 +97,7 @@
         </div>
     </header>
 
-    <hr class="my-3 border border-1 col-12 opacity-100 border-black" >
+    <hr class="my-3 border border-1 col-12 opacity-75 border-black" >
 
     @yield('content')
 

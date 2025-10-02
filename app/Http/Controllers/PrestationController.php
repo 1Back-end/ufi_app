@@ -940,8 +940,131 @@ class PrestationController extends Controller
             ]);
         });
 
+        // Si le status est printed, alors créer le document d'impressions de résultats
+        $base64 = null;
+        if ($request->input('status') === 'printed') {
+            DB::beginTransaction();
+            try {
+                $prestation = Prestation::with([
+                    'createdBy:id,nom_utilisateur',
+                    'updatedBy:id,nom_utilisateur',
+                    'payableBy',
+                    'client',
+                    'client.sexe',
+                    'client.societe',
+                    'consultant:id,nomcomplet,code_specialite',
+                    'consultant.code_specialite:id,nom_specialite',
+                    'priseCharge',
+                    'priseCharge.assureur',
+                    'priseCharge.quotation',
+                    'actes',
+                    'soins',
+                    'consultations',
+                    'hospitalisations',
+                    'products',
+                    'examens',
+                    'examens.kbPrelevement',
+                    'examens.typePrelevement',
+                    'examens.paillasse',
+                    'examens.subFamilyExam',
+                    'examens.subFamilyExam.familyExam',
+                    'examens.elementPaillasses',
+                    'examens.elementPaillasses.group_populations',
+                    'examens.elementPaillasses.typeResult',
+                    'examens.elementPaillasses.catPredefinedList',
+                    'examens.elementPaillasses.parent',
+                    'examens.elementPaillasses.children',
+                    'centre',
+                    'factures',
+                    'factures.regulations',
+                    'factures.regulations.regulationMethod',
+                    'results',
+                    'results.elementPaillasse',
+                    'results.elementPaillasse.examen',
+                    'results.elementPaillasse.group_populations',
+                    'results.groupePopulation',
+                ])
+                    ->where('id', $request->prestation_ids)
+                    ->first();
+                $results = $prestation->results;
+                $facture = $prestation->factures()->where('type', 2)->first();
+
+                $anteriorityResult = [];
+                $prestations = Prestation::where('client_id', $prestation->client_id)->get();
+                foreach ($prestations as $prest) {
+                    foreach ($prest->examens as $examen) {
+                        foreach ($examen->elementPaillasses as $elementPaillasse) {
+                            $result = Result::query()->with([
+                                'elementPaillasse',
+                                'elementPaillasse.typeResult'
+                            ])
+                                ->where('created_at', '<', $prestation->created_at)
+                                ->where('element_paillasse_id', $elementPaillasse->id)
+                                ->whereNotIn('prestation_id', [$prestation->id])
+                                ->whereHas('prestation', function ($query) use ($prestation) {
+                                    $query->where('client_id', request()->input('client_id'));
+                                })
+                                ->latest()
+                                ->first();
+
+                            if ($result) {
+                                $anteriorityResult[] = [
+                                    'prestation_id' => $result->prestation_id,
+                                    'element_paillasse_id' => $elementPaillasse->id,
+                                    'result' => $result,
+                                ];
+                            }
+                        }
+                    }
+                }
+
+                $centre = $prestation->centre;
+                $media = $centre->medias()->where('name', 'logo')->first();
+
+                $folderPath = "storage/";
+                $fileName = "RESULT_" . $centre->reference .'_'. now()->format("d_m_Y_H_i_s") .'_'. $prestation->client->ref_cli .'_'. $prestation->id . '.pdf';
+                $path = "$folderPath/$fileName";
+                $footer = 'pdfs.results.footer';
+
+                $data = [
+                    'print_date' => now()->format('d/m/Y'),
+                    'date_saisie' => $results->first()->created_at->format('d/m/Y'),
+                    'prestation' => $prestation,
+                    'results' => $results,
+                    'facture' => $facture,
+                    'preleve_date' => Carbon::parse($prestation->last_prelevement['preleve_date'])->format('d/m/Y H:i'),
+                    'logo' => $media ? 'storage/' . $media->path . '/' . $media->filename : '',
+                    'centre' => $centre,
+                    'anteriorities' => $anteriorityResult,
+                    'filename' => $fileName
+                ];
+
+                save_browser_shot_pdf(
+                    view: 'pdfs.results.body',
+                    data: $data,
+                    folderPath: $folderPath,
+                    path: $path,
+                    footer: $footer,
+                    margins: [15, 10, 15, 10]
+                );
+            }
+            catch (CouldNotTakeBrowsershot|Throwable $e) {
+                DB::rollBack();
+                Log::error($e->getMessage());
+
+                return \response()->json([
+                    'message' => __("Un erreur inattendue est survenu.")
+                ], 400);
+            }
+            DB::commit();
+
+            $pdfContent = file_get_contents($path);
+            $base64 = base64_encode($pdfContent);
+        }
+
         return response()->json([
-            'message' => __("L'état des examens a bien été mis à jour.")
+            'message' => __("L'état des examens a bien été mis à jour."),
+            'base64' => $base64
         ]);
     }
 

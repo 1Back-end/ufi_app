@@ -4,9 +4,12 @@ use App\Enums\StateFacture;
 use App\Enums\TypePrestation;
 use App\Models\Acte;
 use App\Models\Centre;
+use App\Models\ElementPaillasse;
+use App\Models\Examen;
 use App\Models\Facture;
 use App\Models\Media;
 use App\Models\Prestation;
+use App\Models\Result;
 use App\Models\Soins;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
@@ -410,6 +413,60 @@ if (! function_exists('save_browser_shot_pdf')) {
         }
 
         $browserShot->save($path);
+    }
+}
+
+if (! function_exists('showResultExamen')) {
+    /**
+     * @param Prestation $prestation
+     * @param Examen $examen
+     * @return Result | null
+     */
+    function showResultExamen(Prestation $prestation, Examen $examen): Result | null
+    {
+        $result = null;
+
+        foreach ($prestation->results as $result) {
+            if ($result->elementPaillasse->name == $examen->name || $result->elementPaillasse->name == 'Résultat' || $result->elementPaillasse->name == 'Resultat') {
+                return $result;
+            }
+        }
+
+        return $result;
+    }
+}
+
+if (! function_exists('showResult')) {
+    /**
+     * @param Prestation $prestation
+     * @param ElementPaillasse $elementPaillasse
+     * @param Examen $examen
+     * @return boolean
+     */
+    function showResult (Prestation $prestation, ElementPaillasse $elementPaillasse, Examen $examen): bool {
+        $result = $prestation->results()->where('element_paillasse_id', $elementPaillasse->id)->first();
+        if (!$result) {
+            return false;
+        }
+
+        return !!$result->result_client && $result->show && $elementPaillasse->name != $examen->name && $elementPaillasse->name != 'Résultat' && $elementPaillasse->name != 'Resultat';
+    }
+}
+
+if (! function_exists('showExamHasResult')) {
+    /**
+     * @param Prestation $prestation
+     * @param Examen $examen
+     * @return boolean
+     */
+    function showExamHasResult(Prestation $prestation, Examen $examen): bool {
+        foreach ($examen->elementPaillasses as $elementPaillasse) {
+            if (in_array($elementPaillasse->id, $prestation->results()->pluck('element_paillasse_id')->toArray())) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }
 
