@@ -291,9 +291,9 @@ class PrestationController extends Controller
     {
         return response()->json([
             'prestation' => $prestation->load([
-                'payableBy:id,nomcomplet_client',
+                'payableBy',
                 'client',
-                'consultant:id,nomcomplet',
+                'consultant',
                 'priseCharge',
                 'priseCharge.assureur',
                 'priseCharge.quotation',
@@ -940,7 +940,7 @@ class PrestationController extends Controller
         });
 
         // Si le status est printed, alors créer le document d'impressions de résultats
-        $base64 = null;
+        $path = null;
         if ($request->input('status') === 'printed') {
             DB::beginTransaction();
             try {
@@ -1020,7 +1020,7 @@ class PrestationController extends Controller
                 $centre = $prestation->centre;
                 $media = $centre->medias()->where('name', 'logo')->first();
 
-                $folderPath = "storage/";
+                $folderPath = "storage/results";
                 $fileName = "RESULT_" . $centre->reference . '_' . now()->format("d_m_Y_H_i_s") . '_' . $prestation->client->ref_cli . '_' . $prestation->id . '.pdf';
                 $path = "$folderPath/$fileName";
                 $footer = 'pdfs.results.footer';
@@ -1055,14 +1055,11 @@ class PrestationController extends Controller
                 ], 400);
             }
             DB::commit();
-
-            $pdfContent = file_get_contents($path);
-            $base64 = base64_encode($pdfContent);
         }
 
         return response()->json([
             'message' => __("L'état des examens a bien été mis à jour."),
-            'base64' => $base64
+            'url' => $path ? config('app.url') . '/' . $path : null
         ]);
     }
 

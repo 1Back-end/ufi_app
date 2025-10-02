@@ -111,6 +111,13 @@ class ResultController extends Controller
                 $prestationable->update([
                     'status_examen' => $data['status']
                 ]);
+
+                if ($data['status'] === StateExamen::CREATED->value) {
+                    $eltIds = Examen::find($examen_id)->elementPaillasses()->pluck('id')->toArray();
+                    Result::where('prestation_id', $prestation->id)
+                        ->whereIn('element_paillasse_id', $eltIds)
+                        ->forceDelete();
+                }
             }
         }
 
@@ -182,7 +189,7 @@ class ResultController extends Controller
                     'status_examen' => "pending"
                 ]);
 
-                // Supprimer le résultat 
+                // Supprimer le résultat
                 $examen = Examen::find($examen_id);
                 if (!$examen) {
                     continue;

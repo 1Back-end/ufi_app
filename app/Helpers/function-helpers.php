@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\StateExamen;
 use App\Enums\StateFacture;
 use App\Enums\TypePrestation;
 use App\Models\Acte;
@@ -462,6 +463,10 @@ if (!function_exists('showExamHasResult')) {
      */
     function showExamHasResult(Prestation $prestation, Examen $examen): bool
     {
+        if (! in_array($examen->pivot->status_examen, StateExamen::validated())) {
+            return false;
+        }
+
         foreach ($examen->elementPaillasses as $elementPaillasse) {
             if (in_array($elementPaillasse->id, $prestation->results()->pluck('element_paillasse_id')->toArray())) {
                 return true;

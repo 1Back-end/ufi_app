@@ -23,4 +23,13 @@ enum StateExamen: string
             default => NULL,
         };
     }
+
+    public static function validated(): array
+    {
+        return [
+            self::VALIDATED->value,
+            self::PRINTED->value,
+            self::DELIVERED->value,
+        ];
+    }
 }

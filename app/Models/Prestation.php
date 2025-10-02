@@ -117,7 +117,7 @@ class Prestation extends Model
                 } elseif (
                     $this->examens()->wherePivotNull('status_examen')->count() == $this->examens()->count()
                     && $this->examens()->wherePivotNotNull('prelevements')->count() == $this->examens()->count()
-                    || ($this->examens()->count() && !$this->results()->count() && $this->examens()->wherePivot('status_examen', StateExamen::PENDING->value)->count())
+                    || ($this->examens()->count() && !$this->results()->count() && ($this->examens()->wherePivot('status_examen', StateExamen::PENDING->value)->count() || $this->examens()->wherePivot('status_examen', StateExamen::CREATED->value)->count()))
                 ) {
                     return 2; // return "En attente de résultats";
                 } elseif ($this->results()->count() >= $elt && $this->examens()->wherePivot('status_examen', StateExamen::PENDING->value)->count()) {
