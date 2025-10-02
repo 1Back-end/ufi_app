@@ -47,7 +47,6 @@ use Throwable;
 /**
  * @permission_category Gestion des prestations
  */
-
 class PrestationController extends Controller
 {
     public function typePrestation()
@@ -146,7 +145,7 @@ class PrestationController extends Controller
             $query->whereHas('prestationables', function ($query) {
                 $query->whereNull('prestationables.prelevements');
             })
-            ->where('type', TypePrestation::LABORATOIR->value);
+                ->where('type', TypePrestation::LABORATOIR->value);
         })->when($request->input('results'), function (Builder $query) use ($request) {
             $query->whereHas('prestationables', function ($query) use ($request) {
                 $query->when($request->input("result_status"), function (Builder $query) use ($request) {
@@ -478,7 +477,7 @@ class PrestationController extends Controller
             page: $request->input('page', 1)
         );
 
-        if (! $latestPrestations->items()) {
+        if (!$latestPrestations->items()) {
             $prestations = Prestation::filterInProgress(
                 startDate: $request->input('start_date'),
                 endDate: $request->input('end_date'),
@@ -581,7 +580,7 @@ class PrestationController extends Controller
                         'remise' => $item['remise'],
                         'quantity' => $item['quantity'],
                         'date_rdv_end' => Carbon::createFromTimeString($item['date_rdv'])->addMinutes((int)$prestationDuration),
-                        'pu' =>  $pu
+                        'pu' => $pu
                     ]);
 
                     $this->createRdv($prestation, $request->input('consultant_id'), $request->input('client_id'), $item['date_rdv']);
@@ -600,7 +599,7 @@ class PrestationController extends Controller
                         'remise' => $item['remise'],
                         'quantity' => $item['quantity'],
                         'date_rdv_end' => Carbon::createFromTimeString($item['date_rdv'])->addMinutes((int)$prestationDuration),
-                        'pu' =>  $pu
+                        'pu' => $pu
                     ]);
 
                     $this->createRdv($prestation, $request->input('consultant_id'), $request->input('client_id'), $item['date_rdv']);
@@ -621,7 +620,7 @@ class PrestationController extends Controller
                     $prestation->examens()->attach($item['id'], [
                         'remise' => $item['remise'],
                         'quantity' => $item['quantity'],
-                        'pu' =>  $pu,
+                        'pu' => $pu,
                         'b' => $b,
                     ]);
                 }
@@ -637,7 +636,7 @@ class PrestationController extends Controller
                     $prestation->products()->attach($item['id'], [
                         'remise' => $item['remise'],
                         'quantity' => $item['quantity'],
-                        'pu' =>  $pu
+                        'pu' => $pu
                     ]);
                 }
                 break;
@@ -803,7 +802,7 @@ class PrestationController extends Controller
 
         $startDate = Carbon::createFromTimeString($request->input("start_date"));
         $endDate = Carbon::createFromTimeString($request->input("end_date"));
-        $fileName = $ref . '-' . $startDate->format('d-m-Y')  . '-' . $endDate->format('d-m-Y') . '.pdf';
+        $fileName = $ref . '-' . $startDate->format('d-m-Y') . '-' . $endDate->format('d-m-Y') . '.pdf';
 
         $mediaFacture = Media::where('filename', $fileName)->first();
 
@@ -847,7 +846,7 @@ class PrestationController extends Controller
                     footer: $footer,
                     margins: [15, 10, 15, 10]
                 );
-            } catch (CouldNotTakeBrowsershot | Throwable $e) {
+            } catch (CouldNotTakeBrowsershot|Throwable $e) {
                 Log::error($e->getMessage());
 
                 return \response()->json([
@@ -870,7 +869,7 @@ class PrestationController extends Controller
 
             if ($request->input('client')) {
                 $facture = $client->factures()->create([
-                    'start_date' =>  $request->input('start_date'),
+                    'start_date' => $request->input('start_date'),
                     'end_date' => $request->input('end_date'),
                     'code' => $code,
                     'amount' => $totalAmount,
@@ -878,7 +877,7 @@ class PrestationController extends Controller
                 ]);
             } else {
                 $facture = $assurance->factures()->create([
-                    'start_date' =>  $request->input('start_date'),
+                    'start_date' => $request->input('start_date'),
                     'end_date' => $request->input('end_date'),
                     'code' => $code,
                     'amount' => $totalAmount,
@@ -1022,7 +1021,7 @@ class PrestationController extends Controller
                 $media = $centre->medias()->where('name', 'logo')->first();
 
                 $folderPath = "storage/";
-                $fileName = "RESULT_" . $centre->reference .'_'. now()->format("d_m_Y_H_i_s") .'_'. $prestation->client->ref_cli .'_'. $prestation->id . '.pdf';
+                $fileName = "RESULT_" . $centre->reference . '_' . now()->format("d_m_Y_H_i_s") . '_' . $prestation->client->ref_cli . '_' . $prestation->id . '.pdf';
                 $path = "$folderPath/$fileName";
                 $footer = 'pdfs.results.footer';
 
@@ -1045,10 +1044,9 @@ class PrestationController extends Controller
                     folderPath: $folderPath,
                     path: $path,
                     footer: $footer,
-                    margins: [15, 10, 15, 10]
+                    margins: [0, 5, 10, 5]
                 );
-            }
-            catch (CouldNotTakeBrowsershot|Throwable $e) {
+            } catch (CouldNotTakeBrowsershot|Throwable $e) {
                 DB::rollBack();
                 Log::error($e->getMessage());
 

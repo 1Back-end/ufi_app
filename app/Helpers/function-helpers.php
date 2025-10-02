@@ -15,13 +15,14 @@ use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Spatie\Browsershot\Browsershot;
 use Spatie\Browsershot\Exceptions\CouldNotTakeBrowsershot;
 
-if (! function_exists('upload_media')) {
+if (!function_exists('upload_media')) {
     /**
      * Enregistré un média dans le disk spécifié et dans la table médias
      *
@@ -68,7 +69,7 @@ if (! function_exists('upload_media')) {
     }
 }
 
-if (! function_exists('delete_media')) {
+if (!function_exists('delete_media')) {
     /**
      * Supprimer le fichier dans le disk ou dans la table média
      *
@@ -84,7 +85,7 @@ if (! function_exists('delete_media')) {
     }
 }
 
-if (! function_exists('load_permissions')) {
+if (!function_exists('load_permissions')) {
     /**
      * Retourne toutes les permissions d’un utilisateur
      *
@@ -156,7 +157,7 @@ if (! function_exists('load_permissions')) {
     }
 }
 
-if (! function_exists('calculate_amount_facture')) {
+if (!function_exists('calculate_amount_facture')) {
     /**
      * @param Prestation $prestation
      * @return array
@@ -250,7 +251,7 @@ if (! function_exists('calculate_amount_facture')) {
                     $amount_examen_remise = ($examen->pivot->quantity * $pu * $examen->pivot->remise) / 100;
                     $amount_remise += $amount_examen_remise;
 
-                    if (! in_array($examen->kb_prelevement_id, $kbprelevementIds) && $prestation->apply_prelevement) {
+                    if (!in_array($examen->kb_prelevement_id, $kbprelevementIds) && $prestation->apply_prelevement) {
                         $amount += $examen->kbPrelevement->amount;
                         $amount_prelevement += $examen->kbPrelevement->amount;
                         $kbprelevementIds[] = $examen->kb_prelevement_id;
@@ -294,7 +295,7 @@ if (! function_exists('calculate_amount_facture')) {
     }
 }
 
-if (! function_exists('save_facture')) {
+if (!function_exists('save_facture')) {
     /**
      * @param Prestation $prestation
      * @param int $centre_id
@@ -310,12 +311,12 @@ if (! function_exists('save_facture')) {
             ->where('centre_id', $centre_id)
             ->whereYear('created_at', now()->year)
             ->latest()->first();
-        $sequence =  $latestFacture ? $latestFacture->sequence + 1 : 1;
+        $sequence = $latestFacture ? $latestFacture->sequence + 1 : 1;
 
         // Log::info($amount_prelevement);
 
         $facture = $prestation->factures()->where('type', $type)->first();
-        if (! $facture) {
+        if (!$facture) {
             $state = $prestation->payable_by || $amount_client <= 0 ? StateFacture::IN_PROGRESS->value : StateFacture::CREATE->value;
 
             $facture = Facture::create([
@@ -358,7 +359,7 @@ if (! function_exists('save_facture')) {
     }
 }
 
-if (! function_exists('save_browser_shot_pdf')) {
+if (!function_exists('save_browser_shot_pdf')) {
     /**
      * @param string $view
      * @param array $data
@@ -395,7 +396,6 @@ if (! function_exists('save_browser_shot_pdf')) {
         }
 
 
-
         if ($header) {
             $browserShot->showBrowserHeaderAndFooter()
                 ->hideFooter()
@@ -416,18 +416,18 @@ if (! function_exists('save_browser_shot_pdf')) {
     }
 }
 
-if (! function_exists('showResultExamen')) {
+if (!function_exists('showResultExamen')) {
     /**
      * @param Prestation $prestation
      * @param Examen $examen
      * @return Result | null
      */
-    function showResultExamen(Prestation $prestation, Examen $examen): Result | null
+    function showResultExamen(Prestation $prestation, Examen $examen): Result|null
     {
         $result = null;
 
         foreach ($prestation->results as $result) {
-            if ($result->elementPaillasse->name == $examen->name || $result->elementPaillasse->name == 'Résultat' || $result->elementPaillasse->name == 'Resultat') {
+            if (($result->elementPaillasse->name == $examen->name || $result->elementPaillasse->name == 'Résultat' || $result->elementPaillasse->name == 'Resultat') && $result->elementPaillasse->examen_id === $examen->id) {
                 return $result;
             }
         }
@@ -436,14 +436,15 @@ if (! function_exists('showResultExamen')) {
     }
 }
 
-if (! function_exists('showResult')) {
+if (!function_exists('showResult')) {
     /**
      * @param Prestation $prestation
      * @param ElementPaillasse $elementPaillasse
      * @param Examen $examen
      * @return boolean
      */
-    function showResult (Prestation $prestation, ElementPaillasse $elementPaillasse, Examen $examen): bool {
+    function showResult(Prestation $prestation, ElementPaillasse $elementPaillasse, Examen $examen): bool
+    {
         $result = $prestation->results()->where('element_paillasse_id', $elementPaillasse->id)->first();
         if (!$result) {
             return false;
@@ -453,17 +454,34 @@ if (! function_exists('showResult')) {
     }
 }
 
-if (! function_exists('showExamHasResult')) {
+if (!function_exists('showExamHasResult')) {
     /**
      * @param Prestation $prestation
      * @param Examen $examen
      * @return boolean
      */
-    function showExamHasResult(Prestation $prestation, Examen $examen): bool {
+    function showExamHasResult(Prestation $prestation, Examen $examen): bool
+    {
         foreach ($examen->elementPaillasses as $elementPaillasse) {
             if (in_array($elementPaillasse->id, $prestation->results()->pluck('element_paillasse_id')->toArray())) {
                 return true;
             }
+        }
+
+        return false;
+    }
+}
+
+if (!function_exists('showPaillasseHasResult')) {
+    /**
+     * @param Prestation $prestation
+     * @param Collection<Examen> $examens
+     * @return boolean
+     */
+    function showPaillasseHasResult(Prestation $prestation, Collection $examens): bool
+    {
+        foreach ($examens as $examen) {
+            return showExamHasResult($prestation, $examen);
         }
 
         return false;

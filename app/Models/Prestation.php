@@ -117,6 +117,7 @@ class Prestation extends Model
                 } elseif (
                     $this->examens()->wherePivotNull('status_examen')->count() == $this->examens()->count()
                     && $this->examens()->wherePivotNotNull('prelevements')->count() == $this->examens()->count()
+                    || ($this->examens()->count() && !$this->results()->count() && $this->examens()->wherePivot('status_examen', StateExamen::PENDING->value)->count())
                 ) {
                     return 2; // return "En attente de résultats";
                 } elseif ($this->results()->count() >= $elt && $this->examens()->wherePivot('status_examen', StateExamen::PENDING->value)->count()) {
@@ -127,7 +128,7 @@ class Prestation extends Model
                     return 5; // return "Résultat déjà imprimé";
                 } elseif ($this->results()->count() >= $elt && $this->examens()->wherePivot('status_examen', StateExamen::DELIVERED->value)->count()) {
                     return 6; // return "Résultat distribué";
-                } elseif ($this->results()->count() < $elt && $this->examens()->wherePivot('status_examen', StateExamen::PENDING->value)->count() && !$this->examens()->wherePivot('status_examen', StateExamen::VALIDATED->value)->count()) {
+                } elseif ($this->results()->count() && $this->results()->count() < $elt && $this->examens()->wherePivot('status_examen', StateExamen::PENDING->value)->count() && !$this->examens()->wherePivot('status_examen', StateExamen::VALIDATED->value)->count()) {
                     return 7; // return "Résultat partiel en attente de validation"
                 } elseif ($this->results()->count() < $elt && $this->examens()->wherePivot('status_examen', StateExamen::VALIDATED->value)->count()) {
                     return 8; // return "Résultat partiel validé";
@@ -234,7 +235,11 @@ class Prestation extends Model
             get: function () {
                 $facture = $this->factures()->where('factures.type', 2)->first();
                 if ($facture) {
-                    return $facture->amount_client && !$this->payable_by && $facture->regulations()->where('regulations.state', StatusRegulation::ACTIVE->value)->count() == 0;
+                    if ($this->payable_by || $this->priseCharge) {
+                        return $facture->created_at->addMinutes(30)->lt(now());
+                    }
+
+                    return $facture->amount_client && $facture->regulations()->where('regulations.state', StatusRegulation::ACTIVE->value)->count() == 0;
                 }
 
                 return true;

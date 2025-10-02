@@ -181,6 +181,18 @@ class ResultController extends Controller
                 $prestationable->update([
                     'status_examen' => "pending"
                 ]);
+
+                // Supprimer le résultat 
+                $examen = Examen::find($examen_id);
+                if (!$examen) {
+                    continue;
+                }
+
+                foreach ($examen->elementPaillasses as $elementPaillasse) {
+                    Result::where('prestation_id', $prestation->id)
+                        ->where('element_paillasse_id', $elementPaillasse->id)
+                        ->forceDelete();
+                }
             }
         }
 
