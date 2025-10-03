@@ -425,15 +425,13 @@ if (!function_exists('showResultExamen')) {
      */
     function showResultExamen(Prestation $prestation, Examen $examen): Result|null
     {
-        $result = null;
-
         foreach ($prestation->results as $result) {
             if (($result->elementPaillasse->name == $examen->name || $result->elementPaillasse->name == 'Résultat' || $result->elementPaillasse->name == 'Resultat') && $result->elementPaillasse->examen_id === $examen->id) {
                 return $result;
             }
         }
 
-        return $result;
+        return null;
     }
 }
 
