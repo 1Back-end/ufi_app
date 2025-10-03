@@ -34,7 +34,7 @@
         }
 
         table tbody {
-            font-size: 2.5mm !important;
+            font-size: 3mm !important;
         }
 
         img {
@@ -222,7 +222,7 @@
                                 @if($elementPaillasse->typeResult->type == 'group')
                                     <tr style="font-family: Arial, serif;">
                                         <td colspan="5" class="border-0" style="*padding-left: 1.2rem; padding-top: 0; padding-bottom: 0; padding-right: 0">
-                                            <p class="fw-bold text-primary" style="margin: 0;">
+                                            <p class="fw-bold" style="margin: 0;">
                                                 {{ $elementPaillasse->name }}
                                             </p>
                                         </td>
