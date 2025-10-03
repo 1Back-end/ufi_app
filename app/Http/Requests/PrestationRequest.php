@@ -28,7 +28,7 @@ class PrestationRequest extends FormRequest
             'client_id' => ['required', 'exists:clients,id'],
             'consultant_id' => [Rule::requiredIf(fn() => TypePrestation::PRODUITS->value != $this->input('type') && TypePrestation::LABORATOIR->value != $this->input('type')), 'nullable', 'exists:consultants,id'],
             'payable_by' => ['nullable', 'exists:clients,id'],
-            'payable_by_file' => [Rule::requiredIf($this->input('payable_by') || $this->input('payable_by_file_update')), 'file'],
+            'payable_by_file' => [Rule::requiredIf($this->input('payable_by') && !$this->input('payable_by_file_url')), 'file'],
             'payable_by_file_update' => ['boolean'],
             'programmation_date' => ['required', 'date'],
             'apply_prelevement' => ["nullable", 'boolean'],
