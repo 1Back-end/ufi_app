@@ -446,6 +446,10 @@ if (!function_exists('showResult')) {
      */
     function showResult(Prestation $prestation, ElementPaillasse $elementPaillasse, Examen $examen): bool
     {
+        if ($elementPaillasse->typeResult->type == 'group' || $elementPaillasse->typeResult->type == 'inline' || $elementPaillasse->typeResult->type == 'comment') {
+            return true;
+        }
+
         $result = $prestation->results()->where('element_paillasse_id', $elementPaillasse->id)->first();
         if (!$result) {
             return false;

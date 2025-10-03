@@ -222,11 +222,9 @@
                                 @if($elementPaillasse->typeResult->type == 'group')
                                     <tr style="font-family: Arial, serif;">
                                         <td colspan="5" class="" style="padding:0;">
-                                            @if($elementPaillasse->hide_label)
-                                                <p class="fw-bold text-primary fs-5" style="margin: 0;">
-                                                    {{ $elementPaillasse->name }}
-                                                </p>
-                                            @endif
+                                            <p class="fw-bold text-primary fs-5" style="margin: 0;">
+                                                {{ $elementPaillasse->name }}
+                                            </p>
                                         </td>
                                     </tr>
                                 @endif
