@@ -215,13 +215,13 @@
                             @if(showResult($prestation, $elementPaillasse, $examen) && $elementPaillasse->typeResult->afficher_result)
                                 @if($elementPaillasse->typeResult->type == 'inline')
                                     <tr>
-                                        <td colspan="5" class="" style=""></td>
+                                        <td colspan="5" class="" style="padding:0;"></td>
                                     </tr>
                                 @endif
 
                                 @if($elementPaillasse->typeResult->type == 'group')
                                     <tr style="font-family: Arial, serif;">
-                                        <td colspan="5" class="" style="">
+                                        <td colspan="5" class="" style="padding:0;">
                                             @if($elementPaillasse->hide_label)
                                                 <p class="fw-bold text-primary fs-5" style="margin: 0;">
                                                     {{ $elementPaillasse->name }}
@@ -233,7 +233,7 @@
 
                                 @if($elementPaillasse->typeResult->type == 'comment')
                                     <tr style="font-family: Arial, serif;">
-                                        <td colspan="5" class="" style="">
+                                        <td colspan="5" class="" style="padding:0;">
                                             <div class="w-50">
                                                 @foreach($prestation->results as $result)
                                                     @if($result->element_paillasse_id == $elementPaillasse->id && $result->prestation_id == $prestation->id)
@@ -273,7 +273,7 @@
                                             @endif
                                         @endforeach
 
-                                        <td class="border-0 text-center" style="">
+                                        <td class="border-0 text-center" style="padding:0;">
                                             @foreach($elementPaillasse->group_populations as $population)
                                                 @if($population->sex_id == $prestation->client->sexe_id && ($population->agemin <= $prestation->client->age * 12 && $population->agemax >= $prestation->client->age * 12))
                                                     @if($population->pivot->sign == '[]')
