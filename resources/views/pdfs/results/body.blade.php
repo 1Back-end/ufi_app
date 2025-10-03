@@ -171,7 +171,7 @@
                     @if(showExamHasResult($prestation, $examen))
                         @if(showResultExamen($prestation, $examen))
                             <tr style="font-family: Arial, serif;">
-                                <td class="border-start-0 border-end-0 border-top-0" style="border-style: dotted;">
+                                <td class="border-start-0 border-end-0 border-top-0 fw-bold" style="border-style: dotted;">
                                     {{ $examen->name }}
                                 </td>
 
@@ -205,7 +205,7 @@
                             </tr>
                         @else
                             <tr>
-                                <td colspan="5" class="border-start-0 border-end-0 border-top-0" style="border-style: dotted;">
+                                <td colspan="5" class="border-start-0 border-end-0 border-top-0 fw-bold" style="border-style: dotted;">
                                     {{ $examen->name }}
                                 </td>
                             </tr>
@@ -221,8 +221,8 @@
 
                                 @if($elementPaillasse->typeResult->type == 'group')
                                     <tr style="font-family: Arial, serif;">
-                                        <td colspan="5" class="" style="padding:0;">
-                                            <p class="fw-bold text-primary fs-5" style="margin: 0;">
+                                        <td colspan="5" class="" style="*padding-left: 1.2rem; padding-top: 0; padding-bottom: 0; padding-right: 0">
+                                            <p class="fw-bold text-primary" style="margin: 0;">
                                                 {{ $elementPaillasse->name }}
                                             </p>
                                         </td>
@@ -231,11 +231,11 @@
 
                                 @if($elementPaillasse->typeResult->type == 'comment')
                                     <tr style="font-family: Arial, serif;">
-                                        <td colspan="5" class="" style="padding:0;">
+                                        <td colspan="5" class="" style="padding-left: {{ ($elementPaillasse->indent == 0 ? 1 : $elementPaillasse->indent * 1.2) * 1.1 }}rem; ">
                                             <div class="w-50">
                                                 @foreach($prestation->results as $result)
                                                     @if($result->element_paillasse_id == $elementPaillasse->id && $result->prestation_id == $prestation->id)
-                                                        <p class="fw-bold text-primary fs-5" style="margin: 0;">
+                                                        <p class="fw-bold text-primary" style="margin: 0;">
                                                             {{ $result->result_machine }}
                                                         </p>
                                                     @endif
