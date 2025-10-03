@@ -147,7 +147,7 @@
         </span>
     </div>
 
-    <table class="table border border-black border-bottom-0" style="border-color: rgb(0, 0, 0, 0.3)">
+    <table class="table border border-black" style="border-color: rgb(0, 0, 0, 0.3)">
         <thead>
             <tr class="">
                 <th style="background-color: #ccc; padding: 2px;" class="text-center  " scope="col">Analyse</th>
@@ -221,7 +221,7 @@
 
                                 @if($elementPaillasse->typeResult->type == 'group')
                                     <tr style="font-family: Arial, serif;">
-                                        <td colspan="5" class="" style="*padding-left: 1.2rem; padding-top: 0; padding-bottom: 0; padding-right: 0">
+                                        <td colspan="5" class="border-0" style="*padding-left: 1.2rem; padding-top: 0; padding-bottom: 0; padding-right: 0">
                                             <p class="fw-bold text-primary" style="margin: 0;">
                                                 {{ $elementPaillasse->name }}
                                             </p>
@@ -231,11 +231,11 @@
 
                                 @if($elementPaillasse->typeResult->type == 'comment')
                                     <tr style="font-family: Arial, serif;">
-                                        <td colspan="5" class="" style="padding-left: {{ ($elementPaillasse->indent == 0 ? 1 : $elementPaillasse->indent * 1.2) * 1.1 }}rem; ">
+                                        <td colspan="5" class="" style="padding-left: {{ ($elementPaillasse->indent == 0 ? 1 : $elementPaillasse->indent * 1.2) * 1.1 }}rem; padding-top: 0; padding-bottom: 0; padding-right: 0">
                                             <div class="w-50">
                                                 @foreach($prestation->results as $result)
                                                     @if($result->element_paillasse_id == $elementPaillasse->id && $result->prestation_id == $prestation->id)
-                                                        <p class="fw-bold text-primary" style="margin: 0;">
+                                                        <p class="fw-bold text-primary" style="padding: 0; margin: 0;">
                                                             {{ $result->result_machine }}
                                                         </p>
                                                     @endif
@@ -247,7 +247,7 @@
 
                                 @if (!($elementPaillasse->typeResult->type == 'group' || $elementPaillasse->typeResult->type == 'inline' || $elementPaillasse->typeResult->type == 'comment'))
                                     <tr style="font-family: Arial, serif;">
-                                        <td class="border-0" style="padding-left: {{ ($elementPaillasse->indent == 0 ? 1 : $elementPaillasse->indent * 1.2) * 1.1 }}rem">
+                                        <td class="border-0" style="padding-left: {{ ($elementPaillasse->indent == 0 ? 1 : $elementPaillasse->indent * 1.2) * 1.1 }}rem; padding-top: 0; padding-bottom: 0; padding-right: 0">
                                             @if(!$elementPaillasse->hide_label)
                                                 <p style="margin: 0;">{{ $elementPaillasse->name }}</p>
                                             @endif
@@ -255,11 +255,11 @@
 
                                         @foreach($prestation->results as $result)
                                             @if($result->element_paillasse_id == $elementPaillasse->id && $result->prestation_id == $prestation->id)
-                                                <td class="border-0" style=";">
+                                                <td class="border-0" style="padding: 0">
                                                     <span class="" style="font-weight: 500">{{ $result->result_client }} {{ $elementPaillasse->unit }}</span>
                                                 </td>
 
-                                                <td class="border-0 text-center" style="; font-family: 'Times New Roman', serif;">
+                                                <td class="border-0 text-center" style="; font-family: 'Times New Roman', serif;" style="padding: 0">
                                                     @foreach($anteriorities as $anteriority)
                                                         @if($anteriority['element_paillasse_id'] == $elementPaillasse->id)
                                                             <div class="fst-italic" style="font-size: 0.8rem">

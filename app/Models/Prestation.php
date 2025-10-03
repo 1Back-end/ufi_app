@@ -104,7 +104,13 @@ class Prestation extends Model
 
                 $elt = 0;
                 $this->examens->each(function (Examen $examen) use (&$elt) {
-                    $elt += $examen->elementPaillasses()->whereNull('element_paillasses_id')->count();
+                    $elt += $examen->elementPaillasses()
+                        ->whereDoesntHave('typeResult', function (Builder $builder) {
+                            $builder->where('type', 'group')
+                                ->orWhere('type', 'comment')
+                                ->orWhere('type', 'inline');
+                        })
+                        ->whereNull('element_paillasses_id')->count();
                 });
 
                 if ($this->examens()->wherePivotNull('prelevements')->count() == $this->examens()->count()) {
