@@ -1044,7 +1044,7 @@ class PrestationController extends Controller
                     folderPath: $folderPath,
                     path: $path,
                     footer: $footer,
-                    margins: [0, 5, 10, 5]
+                    margins: [5, 5, 10, 5]
                 );
             } catch (CouldNotTakeBrowsershot|Throwable $e) {
                 DB::rollBack();
