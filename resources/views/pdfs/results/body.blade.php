@@ -215,7 +215,7 @@
                             @if(showResult($prestation, $elementPaillasse, $examen) && $elementPaillasse->typeResult->afficher_result)
                                 @if($elementPaillasse->typeResult->type == 'inline')
                                     <tr>
-                                        <td colspan="5" class="" style="padding:0;"></td>
+                                        <td colspan="5" class="border border-start-0 border-end-0" style="border-style: dotted;"></td>
                                     </tr>
                                 @endif
 
