@@ -50,7 +50,14 @@ class CentreController extends Controller
 
         DB::beginTransaction();
         try {
-            $centre = Centre::create(array_merge($request->validated(), ['reference' => $ref]));
+            $data = $request->validated();
+            foreach ($data as $key => $datum) {
+                if($datum === 'null'){
+                    $data[$key] = null;
+                }
+            }
+
+            $centre = Centre::create(array_merge($data, ['reference' => $ref]));
 
             // Save Logo
             if ($request->hasFile('logo')) {
@@ -115,7 +122,14 @@ class CentreController extends Controller
     {
         DB::beginTransaction();
         try {
-            $centre->update($request->validated());
+            $data = $request->validated();
+            foreach ($data as $key => $datum) {
+                if ($datum === 'null') {
+                    $data[$key] = null;
+                }
+            }
+
+            $centre->update($data);
 
             // Delete logo if request->logo_delete ist true
             if ($request->input('logo_delete')) {
