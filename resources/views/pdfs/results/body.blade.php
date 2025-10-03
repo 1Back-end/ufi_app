@@ -211,7 +211,7 @@
                             </tr>
                         @endif
 
-                        @foreach($examen->elementPaillasses->sortBy('num') as $index => $elementPaillasse)
+                        @foreach($examen->elementPaillasses->sortBy('numero_order') as $index => $elementPaillasse)
                             @if(showResult($prestation, $elementPaillasse, $examen) && $elementPaillasse->typeResult->afficher_result)
                                 @if($elementPaillasse->typeResult->type == 'inline')
                                     <tr>
