@@ -463,7 +463,7 @@ if (!function_exists('showExamHasResult')) {
      */
     function showExamHasResult(Prestation $prestation, Examen $examen): bool
     {
-        if (! in_array($examen->pivot->status_examen, StateExamen::validated())) {
+        if (! in_array($examen->pivot->status_examen->value, StateExamen::validated())) {
             return false;
         }
 

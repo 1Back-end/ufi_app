@@ -33,29 +33,13 @@
             font-size: 3mm !important;
         }
 
+        table tbody {
+            font-size: 2.5mm !important;
+        }
+
         img {
             width: auto;
             height: auto;
-        }
-
-        .print-wrapper {
-            position: relative;
-            min-height: 100%;
-            padding-bottom: 10mm;
-            box-sizing: border-box;
-        }
-
-        .print-footer {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            height: 10mm;
-            text-align: center;
-            background-color: white;
-            border-top: 1mm solid rgb(15, 187, 105);
-            opacity: .5;
-            font-size: 2.5mm;
         }
     </style>
 
@@ -177,7 +161,7 @@
             @foreach($prestation->examens->groupBy(fn ($examen) => $examen->paillasse->name)->sortBy(fn ($value, $key) => $key) as $paillasse => $examens)
                 @if(showPaillasseHasResult($prestation, $examens))
                     <tr>
-                        <td colspan="5" class="border-start-0 border-top-0 text-uppercase fs-6 text-danger" style="border-style: dotted; padding: 2px; font-family: 'Times New Roman', serif">
+                        <td colspan="5" class="border-start-0 border-top-0 text-uppercase fs-6 text-danger" style="border-style: dotted; font-family: 'Times New Roman', serif">
                             {{ $paillasse }}
                         </td>
                     </tr>
@@ -187,17 +171,17 @@
                     @if(showExamHasResult($prestation, $examen))
                         @if(showResultExamen($prestation, $examen))
                             <tr style="font-family: Arial, serif;">
-                                <td class="border-start-0 border-end-0 border-top-0" style="border-style: dotted; padding: 2px">
+                                <td class="border-start-0 border-end-0 border-top-0" style="border-style: dotted;">
                                     {{ $examen->name }}
                                 </td>
 
-                                <td class="border-start-0 border-end-0 border-top-0" style="border-style: dotted; padding: 2px;">
+                                <td class="border-start-0 border-end-0 border-top-0" style="border-style: dotted;">
                                     <p class="fw-bold" style="margin: 0;">
                                         {{ showResultExamen($prestation, $examen)->result_client }} {{ showResultExamen($prestation, $examen)->elementPaillasse->unit }}
                                     </p>
                                 </td>
 
-                                <td class="border-start-0 border-end-0 border-top-0 text-center" style="border-style: dotted; padding: 2px; font-family: 'Times New Roman', serif;">
+                                <td class="border-start-0 border-end-0 border-top-0 text-center" style="border-style: dotted;; font-family: 'Times New Roman', serif;">
                                     @foreach($anteriorities as $anteriority)
                                         @if($anteriority['element_paillasse_id'] == showResultExamen($prestation, $examen)->elementPaillasse->id)
                                             <div class="fst-italic" style="font-size: 0.8rem">
@@ -207,7 +191,7 @@
                                     @endforeach
                                 </td>
 
-                                <td class="border-start-0 border-end-0 border-top-0 text-center" style="border-style: dotted; padding: 2px">
+                                <td class="border-start-0 border-end-0 border-top-0 text-center" style="border-style: dotted;">
                                     @foreach(showResultExamen($prestation, $examen)->elementPaillasse->group_populations as $population)
                                         @if($population->sex_id == $prestation->client->sexe_id && ($population->agemin <= $prestation->client->age * 12 && $population->agemax >= $prestation->client->age * 12))
                                             @if($population->pivot->sign == '[]')
@@ -221,7 +205,7 @@
                             </tr>
                         @else
                             <tr>
-                                <td colspan="5" class="border-start-0 border-end-0 border-top-0" style="border-style: dotted; padding: 2px">
+                                <td colspan="5" class="border-start-0 border-end-0 border-top-0" style="border-style: dotted;">
                                     {{ $examen->name }}
                                 </td>
                             </tr>
@@ -231,13 +215,13 @@
                             @if(showResult($prestation, $elementPaillasse, $examen) && $elementPaillasse->typeResult->afficher_result)
                                 @if($elementPaillasse->typeResult->type == 'inline')
                                     <tr>
-                                        <td colspan="5" class="" style="padding: 2px"></td>
+                                        <td colspan="5" class="" style=""></td>
                                     </tr>
                                 @endif
 
                                 @if($elementPaillasse->typeResult->type == 'group')
                                     <tr style="font-family: Arial, serif;">
-                                        <td colspan="5" class="" style="padding: 2px">
+                                        <td colspan="5" class="" style="">
                                             @if($elementPaillasse->hide_label)
                                                 <p class="fw-bold text-primary fs-5" style="margin: 0;">
                                                     {{ $elementPaillasse->name }}
@@ -249,7 +233,7 @@
 
                                 @if($elementPaillasse->typeResult->type == 'comment')
                                     <tr style="font-family: Arial, serif;">
-                                        <td colspan="5" class="" style="padding: 2px">
+                                        <td colspan="5" class="" style="">
                                             <div class="w-50">
                                                 @foreach($prestation->results as $result)
                                                     @if($result->element_paillasse_id == $elementPaillasse->id && $result->prestation_id == $prestation->id)
@@ -273,11 +257,11 @@
 
                                         @foreach($prestation->results as $result)
                                             @if($result->element_paillasse_id == $elementPaillasse->id && $result->prestation_id == $prestation->id)
-                                                <td class="border-0" style="padding: 2px;">
+                                                <td class="border-0" style=";">
                                                     <span class="" style="font-weight: 500">{{ $result->result_client }} {{ $elementPaillasse->unit }}</span>
                                                 </td>
 
-                                                <td class="border-0 text-center" style="padding: 2px; font-family: 'Times New Roman', serif;">
+                                                <td class="border-0 text-center" style="; font-family: 'Times New Roman', serif;">
                                                     @foreach($anteriorities as $anteriority)
                                                         @if($anteriority['element_paillasse_id'] == $elementPaillasse->id)
                                                             <div class="fst-italic" style="font-size: 0.8rem">
@@ -289,7 +273,7 @@
                                             @endif
                                         @endforeach
 
-                                        <td class="border-0 text-center" style="padding: 2px">
+                                        <td class="border-0 text-center" style="">
                                             @foreach($elementPaillasse->group_populations as $population)
                                                 @if($population->sex_id == $prestation->client->sexe_id && ($population->agemin <= $prestation->client->age * 12 && $population->agemax >= $prestation->client->age * 12))
                                                     @if($population->pivot->sign == '[]')
