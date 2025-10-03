@@ -363,7 +363,7 @@ class PrestationController extends Controller
             }
 
             // Save File for associate client !
-            if ($data['payable_by'] && $request->file('payable_by_file') && $request->input('payable_by_file_update')) {
+            if ($data['payable_by'] && $request->file('payable_by_file')) {
                 upload_media(
                     model: $prestation,
                     file: $request->file('payable_by_file'),

@@ -236,7 +236,7 @@ class Prestation extends Model
                 $facture = $this->factures()->where('factures.type', 2)->first();
                 if ($facture) {
                     if ($this->payable_by || $this->priseCharge) {
-                        return $facture->created_at->addMinutes(30)->lt(now());
+                        return $facture->created_at->addMinutes(30)->gt(now());
                     }
 
                     return $facture->amount_client && $facture->regulations()->where('regulations.state', StatusRegulation::ACTIVE->value)->count() == 0;
