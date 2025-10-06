@@ -488,7 +488,9 @@ if (!function_exists('showPaillasseHasResult')) {
     function showPaillasseHasResult(Prestation $prestation, Collection $examens): bool
     {
         foreach ($examens as $examen) {
-            return showExamHasResult($prestation, $examen);
+            if(showExamHasResult($prestation, $examen)) {
+                return true;
+            }
         }
 
         return false;

@@ -24,7 +24,7 @@ enum StateExamen: string
         };
     }
 
-    public static function validated(): array
+    public static function validated()
     {
         return [
             self::VALIDATED->value,

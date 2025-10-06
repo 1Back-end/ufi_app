@@ -74,7 +74,7 @@
 
         <div class="">
             Autorisation n° {{ $centre->autorisation }}
-            NUI: {{ $centre->contribuable }}
+            NIU: {{ $centre->contribuable }}
         </div>
     </div>
 </header>
@@ -87,35 +87,35 @@
         <div class="" style="font-family: Arial, serif">
             <table>
                 <tbody>
-                <tr>
-                    <td class="">Dossier patient:</td>
-                    <td class="ps-3 fw-bold">{{ $prestation->client->ref_cli }}</td>
-                </tr>
+                    <tr>
+                        <td class="">Dossier patient:</td>
+                        <td class="ps-3 fw-bold">{{ $prestation->client->ref_cli }}</td>
+                    </tr>
 
-                <tr>
-                    <td class="">Nom du patient:</td>
-                    <td class="ps-3 fw-bold">{{ $prestation->client->nomcomplet_client }}</td>
-                </tr>
+                    <tr>
+                        <td class="">Nom du patient:</td>
+                        <td class="ps-3 fw-bold">{{ $prestation->client->nomcomplet_client }}</td>
+                    </tr>
 
-                <tr>
-                    <td class="">Age du patient:</td>
-                    <td class="ps-3 fw-bold">{{ $prestation->client->age }} ans</td>
-                </tr>
+                    <tr>
+                        <td class="">Age du patient:</td>
+                        <td class="ps-3 fw-bold">{{ $prestation->client->age }} ans</td>
+                    </tr>
 
-                <tr>
-                    <td class="">Prescripteur:</td>
-                    <td class="ps-3 fw-bold">{{ $prestation->consultant?->nomcomplet }}</td>
-                </tr>
+                    <tr>
+                        <td class="">Prescripteur:</td>
+                        <td class="ps-3 fw-bold">{{ $prestation->consultant?->nomcomplet }}</td>
+                    </tr>
 
-                <tr>
-                    <td class="">Date de prélèvement:</td>
-                    <td class="ps-3 fw-bold">{{ $preleve_date }}</td>
-                </tr>
+                    <tr>
+                        <td class="">Date de prélèvement:</td>
+                        <td class="ps-3 fw-bold">{{ $preleve_date }}</td>
+                    </tr>
 
-                <tr>
-                    <td class="">Renseignements cliniques:</td>
-                    <td class="ps-3 fw-bold"></td>
-                </tr>
+                    <tr>
+                        <td class="">Renseignements cliniques:</td>
+                        <td class="ps-3 fw-bold"></td>
+                    </tr>
                 </tbody>
             </table>
         </div>
