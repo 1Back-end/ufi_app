@@ -15,47 +15,148 @@
     <table class="table table-bordered">
         <thead>
             <tr>
-                <th>N° Facture</th>
-                <th>Date facture</th>
-                <th>Mode de règlement</th>
-                <th>Nom patient</th>
-                <th>Montant Total</th>
-                <th>Montant réglé</th>
-                <th>Remise</th>
-                <th>Montant PC</th>
+                @if($rapprochement)
+                    <th>N° Facture</th>
+                    <th>Nom patient</th>
+                    <th>Prescripteur</th>
+                    <th>Elements</th>
+                    <th>Pris en charge</th>
+                    <th>Proforma</th>
+                    <th>PU</th>
+                    <th>Part Pataint</th>
+                    <th>Montant paye patient</th>
+                    <th>Montant pris en charge</th>
+                    <th>Assurance</th>
+                    <th>Creation DT</th>
+                @else
+                    <th>N° Facture</th>
+                    <th>Date facture</th>
+                    <th>Mode de règlement</th>
+                    <th>Nom patient</th>
+                    <th>Montant Total</th>
+                    <th>Montant réglé</th>
+                    <th>Remise</th>
+                    <th>Montant PC</th>
+                @endif
             </tr>
         </thead>
         <tbody>
-            @foreach($prestations as $prestation)
-                <tr>
-                    <td>{{ $prestation->factures[0]->code }}</td>
-                    <td>{{ $prestation->factures[0]->date_fact->format("d/m/Y H:i") }}</td>
-                    <td>
-                        <ul class="list-unstyled">
-                            @foreach($prestation->factures[0]->regulations as $regulation)
-                                @if(! $regulation->particular)
-                                    <li>{{ $regulation->regulationMethod->name }}</li>
-                                @endif
-                            @endforeach
-                        </ul>
-                    </td>
-                    <td>{{ $prestation->client->nomcomplet_client }}</td>
-                    <td>{{ \App\Helpers\FormatPrice::format($prestation->factures[0]->amount) }}</td>
-                    <td>{{ \App\Helpers\FormatPrice::format($prestation->factures[0]->regulations_total_except_particular) }}</td>
-                    <td>{{ \App\Helpers\FormatPrice::format($prestation->factures[0]->amount_remise) }}</td>
-                    <td>{{ \App\Helpers\FormatPrice::format($prestation->factures[0]->amount_pc) }}</td>
-                </tr>
-            @endforeach
+            @if($rapprochement)
+                @foreach($prestations as $prestation)
+                    <tr>
+                        <td>{{ $prestation->factures[0]->code }}</td>
+                        <td>{{ $prestation->client->nomcomplet_client }}</td>
+                        <td>{{ $prestation?->consultant?->nomcomplet }}</td>
+                        <td>
+                            <ul class="">
+                                @foreach($prestation->actes as $acte)
+                                    <li>{{ $acte->name }}</li>
+                                @endforeach
+
+                                @foreach($prestation->soins as $soin)
+                                    <li>{{ $soin->name }}</li>
+                                @endforeach
+
+                                @foreach($prestation->consultations as $consultation)
+                                    <li>{{ $consultation->name }}</li>
+                                @endforeach
+
+                                @foreach($prestation->hospitalisations as $hospitalisation)
+                                    <li>{{ $hospitalisation->name }}</li>
+                                @endforeach
+
+                                @foreach($prestation->products as $product)
+                                    <li>{{ $product->name }}</li>
+                                @endforeach
+
+                                @foreach($prestation->examens as $examen)
+                                    <li>{{ $examen->name }}</li>
+                                @endforeach
+                            </ul>
+                        </td>
+                        <td>
+                            {{ $prestation->priseCharge ? 'OUI' : 'NON' }}
+                        </td>
+                        <td>
+                            FAUX
+                        </td>
+                        <td>
+                            @if($prestation->type->value === 1)
+                                {{ \App\Helpers\FormatPrice::format($prestation->actes->sum('pu')) }}
+                            @endif
+
+                            @if($prestation->type->value === 2)
+                                {{ \App\Helpers\FormatPrice::format($prestation->consultations->sum('pu')) }}
+                            @endif
+
+                            @if($prestation->type->value === 3)
+                                {{ \App\Helpers\FormatPrice::format($prestation->soins->sum('pu')) }}
+                            @endif
+
+                            @if($prestation->type->value === 4)
+                                {{ \App\Helpers\FormatPrice::format($prestation->products->sum('pu')) }}
+                            @endif
+
+                            @if($prestation->type->value === 5)
+                                {{ \App\Helpers\FormatPrice::format($prestation->examens->sum('pu')) }}
+                            @endif
+
+                            @if($prestation->type->value === 6)
+                                {{ \App\Helpers\FormatPrice::format($prestation->hospitalisations->sum('pu')) }}
+                            @endif
+                        </td>
+                        <td>{{ \App\Helpers\FormatPrice::format($prestation->factures[0]->amount_client) }}</td>
+                        <td>{{ \App\Helpers\FormatPrice::format($prestation->factures[0]->regulations_total_except_particular) }}</td>
+                        <td>{{ \App\Helpers\FormatPrice::format($prestation->factures[0]->amount_pc) }}</td>
+                        <td>{{ $prestation->priseCharge?->assureur->nom }}</td>
+                        <td>{{ $prestation->factures[0]->date_fact->format("d/m/Y H:i") }}</td>
+                    </tr>
+                @endforeach
+            @else
+                @foreach($prestations as $prestation)
+                    <tr>
+                        <td>{{ $prestation->factures[0]->code }}</td>
+                        <td>{{ $prestation->factures[0]->date_fact->format("d/m/Y H:i") }}</td>
+                        <td>
+                            <ul class="list-unstyled">
+                                @foreach($prestation->factures[0]->regulations as $regulation)
+                                    @if(! $regulation->particular)
+                                        <li>{{ $regulation->regulationMethod->name }}</li>
+                                    @endif
+                                @endforeach
+                            </ul>
+                        </td>
+                        <td>{{ $prestation->client->nomcomplet_client }}</td>
+                        <td>{{ \App\Helpers\FormatPrice::format($prestation->factures[0]->amount) }}</td>
+                        <td>
+                            <ul class="list-unstyled">
+                                @foreach($prestation->factures[0]->regulations as $regulation)
+                                    @if(! $regulation->particular)
+                                        <li>
+                                            <strong>{{ $regulation->regulationMethod->name }}: </strong> {{ \App\Helpers\FormatPrice::format($regulation->amount) }}
+                                        </li>
+                                    @endif
+                                @endforeach
+                            </ul>
+                            Total: {{ \App\Helpers\FormatPrice::format($prestation->factures[0]->regulations_total_except_particular) }}
+                        </td>
+                        <td>{{ \App\Helpers\FormatPrice::format($prestation->factures[0]->amount_remise) }}</td>
+                        <td>{{ \App\Helpers\FormatPrice::format($prestation->factures[0]->amount_pc) }}</td>
+                    </tr>
+                @endforeach
+            @endif
         </tbody>
-        <tfoot>
-            <tr class="fw-bold">
-                <td colspan="4" class="text-end">Totaux:</td>
-                <td>{{ \App\Helpers\FormatPrice::format($amounts[0]->total) }}</td>
-                <td>{{ \App\Helpers\FormatPrice::format($amountTotalRegulation) }}</td>
-                <td>{{ \App\Helpers\FormatPrice::format($amounts[0]->total_remise) }}</td>
-                <td>{{ \App\Helpers\FormatPrice::format($amounts[0]->total_pc) }}</td>
-            </tr>
-        </tfoot>
+        @if(!$rapprochement)
+            <tfoot>
+                <tr class="fw-bold">
+                    <td colspan="4" class="text-end">Totaux:</td>
+                    <td>{{ \App\Helpers\FormatPrice::format($amounts[0]->total) }}</td>
+                    <td>{{ \App\Helpers\FormatPrice::format($amountTotalRegulation) }}</td>
+                    <td>{{ \App\Helpers\FormatPrice::format($amounts[0]->total_remise) }}</td>
+                    <td>{{ \App\Helpers\FormatPrice::format($amounts[0]->total_pc) }}</td>
+                </tr>
+            </tfoot>
+        @endif
     </table>
 
     <p class="text-end d-flex align-items-center gap-5">

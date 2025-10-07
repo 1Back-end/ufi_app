@@ -134,6 +134,7 @@ class FacturationsController extends Controller
             'start_date' => $startDate,
             'end_date' => $endDate,
             'request' => $request->all(),
+            'rapprochement' => $request->input('rapprochement')
         ];
 
         $folderPath = "storage/daily-caisse";
@@ -148,8 +149,9 @@ class FacturationsController extends Controller
                 data: $data,
                 folderPath: $folderPath,
                 path: $path,
+                direction: $request->input('rapprochement') ? 'landscape' : '',
                 footer: $footer,
-                margins: [15, 10, 15, 10]
+                margins: [5, 5, 10, 5]
             );
 
             $centre->medias()->create([
@@ -226,8 +228,8 @@ class FacturationsController extends Controller
             'prestations.consultations',
             'prestations.hospitalisations',
             'prestations.products',
-            'client:id,nom_cli,prenom_cli,nomcomplet_client,ref_cli,date_naiss_cli',
-            'prestations.priseCharge:id,assureur_id,taux_pc',
+            'client',
+            'prestations.priseCharge',
         ])
         ->whereHas('prestations', function ($query) use ($request, $startDate, $endDate) {
             $query->whereHas('factures', function ($query) use ($request, $startDate, $endDate) {
