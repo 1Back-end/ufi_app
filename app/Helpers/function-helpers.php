@@ -426,7 +426,7 @@ if (!function_exists('showResultExamen')) {
     function showResultExamen(Prestation $prestation, Examen $examen): Result|null
     {
         foreach ($prestation->results as $result) {
-            if (($result->elementPaillasse->name == $examen->name || $result->elementPaillasse->name == 'Résultat' || $result->elementPaillasse->name == 'Resultat') && $result->elementPaillasse->examen_id === $examen->id) {
+            if (($result->elementPaillasse->name == $examen->name || Str::lower($result->elementPaillasse->name) == Str::lower($examen->name) || $result->elementPaillasse->name == 'Résultat' || $result->elementPaillasse->name == 'Resultat') && $result->elementPaillasse->examen_id === $examen->id) {
                 return $result;
             }
         }
@@ -453,7 +453,7 @@ if (!function_exists('showResult')) {
             return false;
         }
 
-        return !!$result->result_client && $result->show && $elementPaillasse->name != $examen->name && $elementPaillasse->name != 'Résultat' && $elementPaillasse->name != 'Resultat';
+        return !!$result->result_client && $result->show && $elementPaillasse->name != $examen->name && Str::lower($result->elementPaillasse->name) != Str::lower($examen->name) && $elementPaillasse->name != 'Résultat' && $elementPaillasse->name != 'Resultat';
     }
 }
 
