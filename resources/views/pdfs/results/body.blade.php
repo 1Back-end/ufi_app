@@ -171,17 +171,17 @@
                     @if(showExamHasResult($prestation, $examen))
                         @if(showResultExamen($prestation, $examen))
                             <tr style="font-family: Arial, serif;">
-                                <td class="border-start-0 border-end-0 border-top-0 fw-bold" style="border-style: dotted;">
+                                <td class="border-start-0 border-end-0 fw-bold" style="border-style: dotted;">
                                     {{ $examen->name }}
                                 </td>
 
-                                <td class="border-start-0 border-end-0 border-top-0" style="border-style: dotted;">
+                                <td class="border-start-0 border-end-0" style="border-style: dotted;">
                                     <p class="fw-bold" style="margin: 0;">
                                         {{ showResultExamen($prestation, $examen)->result_client }} {{ showResultExamen($prestation, $examen)->elementPaillasse->unit }}
                                     </p>
                                 </td>
 
-                                <td class="border-start-0 border-end-0 border-top-0 text-center" style="border-style: dotted;; font-family: 'Times New Roman', serif;">
+                                <td class="border-start-0 border-end-0 text-center" style="border-style: dotted;; font-family: 'Times New Roman', serif;">
                                     @foreach($anteriorities as $anteriority)
                                         @if($anteriority['element_paillasse_id'] == showResultExamen($prestation, $examen)->elementPaillasse->id)
                                             <div class="fst-italic" style="font-size: 0.8rem">
@@ -191,7 +191,7 @@
                                     @endforeach
                                 </td>
 
-                                <td class="border-start-0 border-end-0 border-top-0 text-center" style="border-style: dotted;">
+                                <td class="border-start-0 border-end-0 text-center" style="border-style: dotted;">
                                     @foreach(showResultExamen($prestation, $examen)->elementPaillasse->group_populations as $population)
                                         @if($population->sex_id == $prestation->client->sexe_id && ($population->agemin <= $prestation->client->age * 12 && $population->agemax >= $prestation->client->age * 12))
                                             @if($population->pivot->sign == '[]')
@@ -205,7 +205,7 @@
                             </tr>
                         @else
                             <tr>
-                                <td colspan="5" class="border-start-0 border-end-0 border-top-0 fw-bold" style="border-style: dotted;">
+                                <td colspan="5" class="border-start-0 border-end-0 fw-bold" style="border-style: dotted;">
                                     {{ $examen->name }}
                                 </td>
                             </tr>
