@@ -33,7 +33,6 @@ class SoinsController extends Controller
             ->when($search, function ($query) use ($search) {
                 $query->where(function ($q) use ($search) {
                     $q->where('name', 'like', "%$search%")
-                        ->orWhere('description', 'like', "%$search%")
                         ->orWhereHas('type_soins', function ($q2) use ($search) {
                             $q2->where('name', 'like', "%$search%");
                         });
