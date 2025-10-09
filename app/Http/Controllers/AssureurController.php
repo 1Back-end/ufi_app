@@ -292,17 +292,17 @@ class AssureurController extends Controller
             $data = $request->validate([
                 'nom' => 'required|string',
                 'nom_abrege' => 'nullable|string',
-                'adresse' => 'required|string',
-                'tel' => 'required|string|unique:assureurs,tel,' . $assureur->id,
+                'adresse' => 'nullable|string',
+                'tel' => 'nullable|string|unique:assureurs,tel,' . $assureur->id,
                 'tel1' => 'nullable|string|unique:assureurs,tel1,'. $assureur->id,
                 'code_quotation' => 'required|exists:quotations,id',
-                'Reg_com' => 'required|string|unique:assureurs,Reg_com,' . $assureur->id,
-                'num_com' => 'required|string|unique:assureurs,num_com,' . $assureur->id,
+                'Reg_com' => 'nullable|string|unique:assureurs,Reg_com,' . $assureur->id,
+                'num_com' => 'nullable|string|unique:assureurs,num_com,' . $assureur->id,
                 'bp' => 'nullable|string',
                 'fax' => 'required|string',
                 'code_type' => 'required|string|in:Principale,Auxiliaire',
                 'code_main' => 'nullable|string',
-                'email' => 'required|email|unique:assureurs,email,' . $assureur->id,
+                'email' => 'nullable|email|unique:assureurs,email,' . $assureur->id,
                 'BM' => 'nullable|in:1,0',
             ]);
 
