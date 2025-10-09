@@ -97,8 +97,6 @@
         </div>
     </header>
 
-    <hr class="my-3 border border-1 col-12 opacity-75 border-black" >
-
     @yield('content')
 
 </body>

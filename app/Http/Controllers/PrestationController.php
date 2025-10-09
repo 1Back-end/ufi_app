@@ -144,8 +144,10 @@ class PrestationController extends Controller
         })->when($request->input('prelevement'), function (Builder $query) use ($request) {
             $query->whereHas('prestationables', function ($query) {
                 $query->whereNull('prestationables.prelevements');
-            })
-                ->where('type', TypePrestation::LABORATOIR->value);
+            })->where('type', TypePrestation::LABORATOIR->value)
+                ->whereHas('factures', function ($query) {
+                    $query->where('factures.type', 2);
+                });
         })->when($request->input('results'), function (Builder $query) use ($request) {
             $query->whereHas('prestationables', function ($query) use ($request) {
                 $query->when($request->input("result_status"), function (Builder $query) use ($request) {
@@ -846,7 +848,7 @@ class PrestationController extends Controller
                     footer: $footer,
                     margins: [15, 10, 15, 10]
                 );
-            } catch (CouldNotTakeBrowsershot|Throwable $e) {
+            } catch (CouldNotTakeBrowsershot | Throwable $e) {
                 Log::error($e->getMessage());
 
                 return \response()->json([
@@ -1046,7 +1048,7 @@ class PrestationController extends Controller
                     footer: $footer,
                     margins: [5, 8, 10, 8]
                 );
-            } catch (CouldNotTakeBrowsershot|Throwable $e) {
+            } catch (CouldNotTakeBrowsershot | Throwable $e) {
                 DB::rollBack();
                 Log::error($e->getMessage());
 
