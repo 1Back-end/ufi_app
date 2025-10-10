@@ -35,7 +35,7 @@ class ResultController extends Controller
                 $prestation = Prestation::find($data['prestation_id']);
 
                 foreach ($data['results'] as $result) {
-                    if (empty($result['result_machine'])) {
+                    if (empty($result['result_machine']) && intval($result['result_machine']) !== 0) {
                         continue;
                     }
 
