@@ -75,7 +75,7 @@
 
         #results th:nth-child(4),
         #results td:nth-child(4) {
-            width: 15%;
+            width: 25%;
             /* Valeurs normales */
         }
     </style>
