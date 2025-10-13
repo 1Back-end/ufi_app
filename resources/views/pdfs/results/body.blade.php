@@ -240,7 +240,7 @@
                                     <td class="border border-start-0 border-end-0 border-bottom-0 text-center"
                                         style="border-style: dotted !important; border-color: rgb(0, 0, 0, 0.5) !important;">
                                         @foreach(showResultExamen($prestation, $examen)->elementPaillasse->group_populations as $population)
-                                            @if($population->sex_id == $prestation->client->sexe_id && ($population->agemin <= $prestation->client->age * 12 && $population->agemax >= $prestation->client->age * 12))
+                                            @if($population->sex_id == $prestation->client->sexe_id && ($population->agemin <= $prestation->client->age_month && $population->agemax >= $prestation->client->age_month))
                                                 @if($population->pivot->sign == '[]')
                                                     {{ $population->pivot->value }} - {{ $population->pivot->value_max }}
                                                 @else

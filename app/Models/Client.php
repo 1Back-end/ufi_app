@@ -55,7 +55,7 @@ class Client extends Model
         'religion',
     ];
 
-    protected $appends = ['age', 'validity_card'];
+    protected $appends = ['age', 'validity_card', 'age_month'];
 
     // Le nom doit être caché pour le client annonyme lorsqu’on l’affiche
     protected function nomCli(): Attribute
@@ -135,6 +135,17 @@ class Client extends Model
     {
         return Attribute::make(
             get: fn() => Carbon::parse($this->date_naiss_cli)->age,
+        );
+    }
+
+    protected function ageMnth(): Attribute
+    {
+        return Attribute::make(
+            get: function() {
+                $diff = $this->date_naiss_cli->diffInMonths(now());
+
+                return $diff < 0 ? $diff * -1 : $diff;
+            },
         );
     }
 
