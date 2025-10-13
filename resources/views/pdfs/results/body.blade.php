@@ -151,7 +151,7 @@
         <thead>
             <tr class="">
                 <th style="background-color: #ccc; padding: 2px;" class="text-center  " scope="col">Analyse</th>
-                <th style="background-color: #ccc; padding: 2px;" class=" " scope="col">Résultat</th>
+                <th style="background-color: #ccc; padding: 2px; width: 30%;" class=" " scope="col">Résultat</th>
                 <th style="background-color: #ccc; padding: 2px;" class="text-center " scope="col">Antériorités</th>
                 <th style="background-color: #ccc; padding: 2px;" class="text-center " scope="col">Valeurs normales</th>
             </tr>
