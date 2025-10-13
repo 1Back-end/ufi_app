@@ -138,7 +138,7 @@ class Client extends Model
         );
     }
 
-    protected function ageMnth(): Attribute
+    protected function ageMonth(): Attribute
     {
         return Attribute::make(
             get: function() {
