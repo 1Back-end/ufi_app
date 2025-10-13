@@ -53,7 +53,7 @@
         /* (Vous devrez cibler la 2e colonne de votre tableau) */
         #results th:nth-child(2),
         #results td:nth-child(2) {
-            width: 25%;
+            width: 40%;
             /* Ou une valeur fixe en pixels, par exemple: 150px */
             word-wrap: break-word;
             /* Force le passage à la ligne pour les mots trop longs */
@@ -63,7 +63,7 @@
         /* S'assurer que les autres colonnes ont suffisamment d'espace */
         #results th:nth-child(1),
         #results td:nth-child(1) {
-            width: 30%;
+            width: 25%;
             /* Analyse */
         }
 
@@ -75,7 +75,7 @@
 
         #results th:nth-child(4),
         #results td:nth-child(4) {
-            width: 25%;
+            width: 15%;
             /* Valeurs normales */
         }
     </style>
