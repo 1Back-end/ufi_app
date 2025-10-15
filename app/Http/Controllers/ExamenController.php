@@ -269,7 +269,7 @@ class ExamenController extends Controller
 
             foreach ($data['examens'] as $examen) {
                 $prelevements = $prestation->examens()->find($examen)->pivot->prelevements;
-                
+
                 $prelevement = $prelevements ?? [];
 
                 $prestation->examens()->updateExistingPivot($examen, [
@@ -369,9 +369,12 @@ class ExamenController extends Controller
         try {
             // Récupération des familles et de leurs examens triés
             $familles_examens = FamilyExam::with(['examens' => function ($query) {
+                // Les examens sont juste chargés, tri optionnel par nom
                 $query->orderBy('name')
                     ->with(['typePrelevement', 'tubePrelevement']);
-            }])->orderBy('name')->get();
+            }])
+                ->orderBy('order', 'asc') // ✅ affichage par champ 'order'
+                ->get();
 
             $familles_examens = $familles_examens->filter(fn($famille) => $famille->examens->count() > 0);
 

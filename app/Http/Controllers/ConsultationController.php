@@ -250,7 +250,7 @@ class ConsultationController extends Controller
             $types = TypeConsultation::with(['consultations' => function ($query) {
                 $query->where('is_deleted', false)->orderBy('name');
             }])
-                ->orderBy('name')
+                ->orderBy('order','asc')
                 ->get();
 
             // Filtrer uniquement les types ayant au moins une consultation
