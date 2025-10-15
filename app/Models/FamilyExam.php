@@ -14,6 +14,7 @@ class FamilyExam extends Model
 
     protected $fillable = [
         'code',
+        'order',
         'name',
         'description',
         'created_by',

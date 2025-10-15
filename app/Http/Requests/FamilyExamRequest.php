@@ -11,6 +11,7 @@ class FamilyExamRequest extends FormRequest
     {
         return [
             'code' => ['required', Rule::unique('family_exams', 'code')->ignore($this->route('family_exam'))],
+            'order' => ['integer', 'min:0'],
             'name' => ['required'],
             'description' => ['nullable'],
         ];
