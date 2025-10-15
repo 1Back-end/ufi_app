@@ -57,6 +57,7 @@ class ExamenController extends Controller
                 ->when(request('not_count_elt_paillasse'), function($query) {
                     $query->whereDoesntHave('elementPaillasses');
                 })
+                ->orderBy('name')
                 ->paginate(
                     perPage: request('per_page', 25),
                     page: request('page', 1)
