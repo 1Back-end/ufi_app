@@ -69,7 +69,9 @@ class FacturationsController extends Controller
                 });
             }))
 
-            ->where($this->getClosure($startDate, $endDate, $request))
+            ->when(! $request->input('rapprochement'), function($query) use ($request, $startDate, $endDate) {
+                $query->where($this->getClosure($startDate, $endDate, $request));
+            })
 
             ->get();
 

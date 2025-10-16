@@ -44,33 +44,33 @@
             @if($rapprochement)
                 @foreach($prestations as $prestation)
                     <tr>
-                        <td>{{ $prestation->factures[0]->code }}</td>
+                        <td>{{ $prestation->factures->first() ? $prestation->factures->first()->code : "Facture non crée" }}</td>
                         <td>{{ $prestation->client->nomcomplet_client }}</td>
                         <td>{{ $prestation?->consultant?->nomcomplet }}</td>
                         <td>
-                            <ul class="">
+                            <ul class="list-unstyled">
                                 @foreach($prestation->actes as $acte)
-                                    <li>{{ $acte->name }}</li>
+                                    <li>- {{ $acte->name }}</li>
                                 @endforeach
 
                                 @foreach($prestation->soins as $soin)
-                                    <li>{{ $soin->name }}</li>
+                                    <li>- {{ $soin->name }}</li>
                                 @endforeach
 
                                 @foreach($prestation->consultations as $consultation)
-                                    <li>{{ $consultation->name }}</li>
+                                    <li>- {{ $consultation->name }}</li>
                                 @endforeach
 
                                 @foreach($prestation->hospitalisations as $hospitalisation)
-                                    <li>{{ $hospitalisation->name }}</li>
+                                    <li>- {{ $hospitalisation->name }}</li>
                                 @endforeach
 
                                 @foreach($prestation->products as $product)
-                                    <li>{{ $product->name }}</li>
+                                    <li>- {{ $product->name }}</li>
                                 @endforeach
 
                                 @foreach($prestation->examens as $examen)
-                                    <li>{{ $examen->name }}</li>
+                                    <li>- {{ $examen->name }}</li>
                                 @endforeach
                             </ul>
                         </td>
@@ -105,11 +105,11 @@
                                 {{ \App\Helpers\FormatPrice::format($prestation->hospitalisations->sum('pu')) }}
                             @endif
                         </td>
-                        <td>{{ \App\Helpers\FormatPrice::format($prestation->factures[0]->amount_client) }}</td>
-                        <td>{{ \App\Helpers\FormatPrice::format($prestation->factures[0]->regulations_total_except_particular) }}</td>
-                        <td>{{ \App\Helpers\FormatPrice::format($prestation->factures[0]->amount_pc) }}</td>
+                        <td>{{ \App\Helpers\FormatPrice::format($prestation->factures->first()?->amount_client) }}</td>
+                        <td>{{ \App\Helpers\FormatPrice::format($prestation->factures->first()?->regulations_total_except_particular) }}</td>
+                        <td>{{ \App\Helpers\FormatPrice::format($prestation->factures->first()?->amount_pc) }}</td>
                         <td>{{ $prestation->priseCharge?->assureur->nom }}</td>
-                        <td>{{ $prestation->factures[0]->date_fact->format("d/m/Y H:i") }}</td>
+                        <td>{{ $prestation->factures->first()?->date_fact->format("d/m/Y H:i") }}</td>
                     </tr>
                 @endforeach
             @else
@@ -120,7 +120,7 @@
                         <td style="width: 20%">
                             <ul class="list-unstyled">
                                 @foreach($prestation->factures[0]->regulations as $regulation)
-                                    @if(! $regulation->particular)
+                                    @if(!$regulation->particular)
                                         <li>{{ $regulation->regulationMethod->name }}</li>
                                     @endif
                                 @endforeach
@@ -132,7 +132,7 @@
                             @if ($prestation->factures[0]->regulations->where('particular', false)->count() > 0)
                                 <ul class="list-unstyled">
                                     @foreach($prestation->factures[0]->regulations as $regulation)
-                                        @if(! $regulation->particular)
+                                        @if(!$regulation->particular)
                                             <li>
                                                 <strong>{{ $regulation->regulationMethod->name }}: </strong> {{ \App\Helpers\FormatPrice::format($regulation->amount) }}
                                             </li>
@@ -140,7 +140,7 @@
                                     @endforeach
                                 </ul>
                             @endif
-                            
+
                             <span class="d-flex gap-2">
                                 <span>Total: </span>
 
