@@ -73,6 +73,7 @@ class TypeconsultationController extends Controller
         $auth = auth()->user();
         $data = $request->validate([
             'name' => 'required|string|unique:typeconsultations,name',
+            'order' => 'required|numeric|min:0|unique:typeconsultations,order',
         ]);
         $data['created_by'] = $auth->id;
         $type_consultations = Typeconsultation::create($data);
@@ -121,7 +122,8 @@ class TypeconsultationController extends Controller
 
         // Valider les données reçues
         $data = $request->validate([
-            'name' => 'required|string|unique:typeconsultations,name,' . $id,  // Autoriser la modification du nom, mais éviter la duplication
+            'name' => 'required|string|unique:typeconsultations,name,' . $id,
+            'order' => 'required|numeric|min:0|unique:typeconsultations,order,' . $id,
         ]);
         $data['updated_by'] = $auth->id;
 

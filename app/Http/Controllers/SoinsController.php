@@ -255,11 +255,14 @@ class SoinsController extends Controller
 
         try {
             // Récupération des types de soins avec leurs soins actifs triés
-            $types = TypeSoins::with(['soins' => function ($query) {
-                $query->where('is_deleted', false) // seulement les soins actifs
-                ->orderBy('name');
-            }])
-                ->orderBy('name')
+            $types = TypeSoins::with([
+                'soins' => function ($query) {
+                    $query->where('is_deleted', false)
+                        ->orderBy('name', 'asc');
+                }
+            ])
+                ->where('is_deleted', false)
+                ->orderBy('order', 'asc')
                 ->get();
 
             $types = $types->filter(fn($type) => $type->soins->count() > 0);

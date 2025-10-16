@@ -11,6 +11,7 @@ class Typeconsultation extends Model
     use HasFactory;
     protected $fillable = [
         'name',
+        'order',
         'created_by',
         'updated_by',
     ];

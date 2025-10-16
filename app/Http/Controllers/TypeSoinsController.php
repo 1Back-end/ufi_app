@@ -65,7 +65,8 @@ class TypeSoinsController extends Controller
     {
         $auth = auth()->user();
         $data = $request->validate([
-            'name' => 'required|string|unique:type_soins,name'
+            'name' => 'required|string|unique:type_soins,name',
+            'order' => 'required|integer|unique:type_soins,order',
         ]);
         $data['created_by'] = $auth->id;
         $type_soins = TypeSoins::create($data);
@@ -113,7 +114,8 @@ class TypeSoinsController extends Controller
 
         // Valider les données reçues
         $data = $request->validate([
-            'name' => 'required|string|unique:type_soins,name,' . $id,  // Autoriser la modification du nom, mais éviter la duplication
+            'name' => 'required|string|unique:type_soins,name,' . $id,
+            'order' => 'required|integer|unique:type_soins,order,' . $id,
         ]);
         $data['updated_by'] = $auth->id;
 
