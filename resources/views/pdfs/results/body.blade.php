@@ -132,7 +132,7 @@
 
                         <tr>
                             <td class="">Nom du patient:</td>
-                            <td class="ps-3 fw-bold">{{ $prestation->client->nomcomplet_client }}</td>
+                            <td class="ps-3 fw-bold">{{ $prestation->client->fullname }}</td>
                         </tr>
 
                         <tr>
@@ -142,7 +142,7 @@
 
                         <tr>
                             <td class="">Prescripteur:</td>
-                            <td class="ps-3 fw-bold">{{ $prestation->consultant?->nomcomplet }}</td>
+                            <td class="ps-3 fw-bold">{{ $prestation->consultant?->fullname }}</td>
                         </tr>
 
                         <tr>

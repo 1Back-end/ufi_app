@@ -26,16 +26,22 @@
         }
 
         h1 {
-            font-size: 6mm !important;
+            font-size: 5mm !important;
         }
 
         table {
-            font-size: 3mm !important;
+            font-size: 2.2mm !important;
+            table-layout: fixed;
+            width: 100%;
         }
 
         img {
             width: auto;
             height: auto;
+        }
+
+        table th {
+            background-color: rgba(0, 0, 0, 0.144) !important;
         }
 
         .print-wrapper {
@@ -62,40 +68,40 @@
 
 <body>
     {{-- Header --}}
-    <header class="row">
-        <div class="col-4">
-            @if($logo)
-                <img src="data:image/png;base64,{{ base64_encode(file_get_contents(public_path($logo))) }}" alt="" class="w-50">
-            @endif
+    <header class="d-flex align-items-center size" style="font-family: 'Times New Roman', serif">
+        <div class="w-25">
+            <img src="data:image/png;base64,{{ base64_encode(file_get_contents(public_path($logo))) }}" alt=""
+                class="img-fluid w-50">
         </div>
-
-        <div class="text-center col text-success">
-            <div class="fs-1 text-uppercase">
+    
+        <div class="text-center" style="line-height: 18px">
+            <div class="fs-3 text-uppercase fw-bold">
                 {{ $centre->name }}
             </div>
-
-            <hr class="my-1 border border-success border-1 opacity-75 col-12">
-
+    
             <div class="">
                 - {{ $centre->address }} - {{ $centre->town }}
             </div>
-
+    
             <div class="">
                 BP: {{ $centre->postal_code }} {{ $centre->town }} -
                 Tél. {{ $centre->tel }} {{ $centre->tel2 ? '/' . $centre->tel2 : '' }}
                 / Fax: {{ $centre->fax ?? '' }}
             </div>
-
+    
             <div class="">
                 Email: {{ $centre->email }}
             </div>
-
+    
             <div class="">
                 Autorisation n° {{ $centre->autorisation }}
-                NUI: {{ $centre->contribuable }}
+                NIU: {{ $centre->contribuable }}
             </div>
         </div>
     </header>
+
+    <div class="mt-2 w-100" style="border-top: 1px double rgb(0, 0, 0, 0.75); margin-bottom: 2px"></div>
+    <div class="mb-2 w-100" style="border-top: 1px double rgb(0, 0, 0, 0.75);"></div>
 
     @yield('content')
 

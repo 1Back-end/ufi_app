@@ -63,6 +63,12 @@ class FacturationsController extends Controller
             ->when($request->input('payable_by'), fn($q) => $q->where('prestations.payable_by', $request->input('payable_by')))
             ->when($request->input('prise_charge_id'), fn($q) => $q->where('prestations.prise_charge_id', $request->input('prise_charge_id')))
 
+            ->when($request->input('regulation_method'), fn($q) => $q->whereHas('factures', function ( $query) use ($request) {
+                $query->whereHas('regulations', function ($query) use ($request) {
+                    $query->where('regulation_method_id', $request->input('regulation_method'));
+                });
+            }))
+
             ->where($this->getClosure($startDate, $endDate, $request))
 
             ->get();
@@ -151,7 +157,7 @@ class FacturationsController extends Controller
                 path: $path,
                 direction: $request->input('rapprochement') ? 'landscape' : '',
                 footer: $footer,
-                margins: [5, 5, 10, 5]
+                margins: [5, 8, 10, 8]
             );
 
             $centre->medias()->create([
@@ -307,7 +313,7 @@ class FacturationsController extends Controller
                 folderPath: $folderPath,
                 path: $path,
                 footer: $footer,
-                margins: [15, 10, 15, 10]
+                margins: [5, 8, 10, 8]
             );
 
             $centre->medias()->create([
@@ -448,7 +454,7 @@ class FacturationsController extends Controller
                 folderPath: $folderPath,
                 path: $path,
                 footer: $footer,
-                margins: [15, 10, 15, 10]
+                margins: [5, 8, 10, 8]
             );
 
             $centre->medias()->create([
@@ -539,7 +545,7 @@ class FacturationsController extends Controller
                 folderPath: $folderPath,
                 path: $path,
                 footer: $footer,
-                margins: [15, 10, 15, 10]
+                margins: [5, 8, 10, 8]
             );
 
             $centre->medias()->create([
@@ -632,7 +638,7 @@ class FacturationsController extends Controller
                 folderPath: $folderPath,
                 path: $path,
                 footer: $footer,
-                margins: [15, 10, 15, 10]
+                margins: [5, 8, 10, 8]
             );
 
             $centre->medias()->create([
@@ -719,7 +725,7 @@ class FacturationsController extends Controller
                 folderPath: $folderPath,
                 path: $path,
                 footer: $footer,
-                margins: [15, 10, 15, 10]
+                margins: [5, 8, 10, 8]
             );
 
             $centre->medias()->create([

@@ -55,7 +55,14 @@ class Client extends Model
         'religion',
     ];
 
-    protected $appends = ['age', 'validity_card', 'age_month'];
+    protected $appends = ['age', 'validity_card', 'age_month', 'fullname'];
+
+    protected function fullname(): Attribute
+    {
+        return Attribute::make(
+            get: fn() => trim("{$this->nom_cli} {$this->prenom_cli}"),
+        );
+    }
 
     // Le nom doit être caché pour le client annonyme lorsqu’on l’affiche
     protected function nomCli(): Attribute

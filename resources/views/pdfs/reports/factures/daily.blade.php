@@ -3,7 +3,7 @@
 @section('content')
 
     <h1 class="fs-3 fw-bold text-center text-uppercase">
-        ETATS @if ($start_date->isCurrentDay() && $end_date->isCurrentDay()) journalier @endif DES REGLEMENTS CLIENTS
+        ETAT @if ($start_date->isCurrentDay() && $end_date->isCurrentDay()) journalier @endif DES REGLEMENTS CLIENTS
     </h1>
 
     <p class="fst-italic text-end">Date d'impression: {{ now()->format('d/m/Y H:i') }}</p>
@@ -113,11 +113,11 @@
                     </tr>
                 @endforeach
             @else
-                @foreach($prestations as $prestation)
+                @foreach($prestations->sortBy(fn($value, $key) => $value->factures[0]->date_fact) as $prestation)
                     <tr>
                         <td>{{ $prestation->factures[0]->code }}</td>
                         <td>{{ $prestation->factures[0]->date_fact->format("d/m/Y H:i") }}</td>
-                        <td>
+                        <td style="width: 20%">
                             <ul class="list-unstyled">
                                 @foreach($prestation->factures[0]->regulations as $regulation)
                                     @if(! $regulation->particular)
@@ -126,19 +126,34 @@
                                 @endforeach
                             </ul>
                         </td>
-                        <td>{{ $prestation->client->nomcomplet_client }}</td>
+                        <td style="width: 30%">{{ $prestation->client->nomcomplet_client }}</td>
                         <td>{{ \App\Helpers\FormatPrice::format($prestation->factures[0]->amount) }}</td>
                         <td>
-                            <ul class="list-unstyled">
-                                @foreach($prestation->factures[0]->regulations as $regulation)
-                                    @if(! $regulation->particular)
-                                        <li>
-                                            <strong>{{ $regulation->regulationMethod->name }}: </strong> {{ \App\Helpers\FormatPrice::format($regulation->amount) }}
-                                        </li>
+                            @if ($prestation->factures[0]->regulations->where('particular', false)->count() > 0)
+                                <ul class="list-unstyled">
+                                    @foreach($prestation->factures[0]->regulations as $regulation)
+                                        @if(! $regulation->particular)
+                                            <li>
+                                                <strong>{{ $regulation->regulationMethod->name }}: </strong> {{ \App\Helpers\FormatPrice::format($regulation->amount) }}
+                                            </li>
+                                        @endif
+                                    @endforeach
+                                </ul>
+                            @endif
+                            
+                            <span class="d-flex gap-2">
+                                <span>Total: </span>
+
+                                @if ($prestation->factures[0]->regulations_total_except_particular)
+                                    {{ \App\Helpers\FormatPrice::format($prestation->factures[0]->regulations_total_except_particular) }}
+                                @else
+                                    @if ($prestation->payable_by)
+                                        {{ \App\Helpers\FormatPrice::format($prestation->factures[0]->amount_client) }}
+                                    @else
+                                        0
                                     @endif
-                                @endforeach
-                            </ul>
-                            Total: {{ \App\Helpers\FormatPrice::format($prestation->factures[0]->regulations_total_except_particular) }}
+                                @endif
+                            </span>
                         </td>
                         <td>{{ \App\Helpers\FormatPrice::format($prestation->factures[0]->amount_remise) }}</td>
                         <td>{{ \App\Helpers\FormatPrice::format($prestation->factures[0]->amount_pc) }}</td>
