@@ -119,7 +119,13 @@ class ClientController extends Controller
 
             $centre = Centre::find($dataValidated['site_id']);
 
-            $id = $client->user->centres()->find($centre->id)->pivot->sequence;
+            $lastEntryUserForThisYear = DB::table('user_centre')
+                ->where('centre_id', $centre->id)
+                ->whereYear('created_at', now()->year)
+                ->orderBy('sequence', 'desc')
+                ->first();
+
+            $id = $lastEntryUserForThisYear ? $lastEntryUserForThisYear->sequence + 1 : 1;
 
             $refCli = $centre->reference . now()->year . Str::padLeft($id, 6, 0);
 
