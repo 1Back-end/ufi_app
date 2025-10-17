@@ -142,7 +142,7 @@
 
                         <tr>
                             <td class="">Prescripteur:</td>
-                            <td class="ps-3 fw-bold">{{ $prestation->consultant?->fullname }}</td>
+                            <td class="ps-3 fw-bold">{{ $prestation->consultant?->nomcomplet }}</td>
                         </tr>
 
                         <tr>
