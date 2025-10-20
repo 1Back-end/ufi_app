@@ -71,6 +71,11 @@ class FacturationsController extends Controller
 
             ->when(! $request->input('rapprochement'), function($query) use ($request, $startDate, $endDate) {
                 $query->where($this->getClosure($startDate, $endDate, $request));
+            }, function($query) use($startDate, $endDate) {
+                $query->whereHas('factures', function (Builder $query) use ($startDate, $endDate) {
+                    $query->where('type', 2)
+                        ->whereBetween("date_fact", [$startDate, $endDate]);
+                });
             })
 
             ->get();
