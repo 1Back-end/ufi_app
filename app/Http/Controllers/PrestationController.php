@@ -169,13 +169,14 @@ class PrestationController extends Controller
                 $query->whereIn('status_examen', $request->input("states"));
             })->where('type', TypePrestation::LABORATOIR->value);
         })
-            ->when($request->input('prestation_id'), function (Builder $query) use ($request) {
-                $query->where('id', $request->input('prestation_id'));
-            })
-            ->where('centre_id', $request->header('centre'))->paginate(
-                perPage: $request->input('per_page', 25),
-                page: $request->input('page', 1)
-            );
+        ->when($request->input('prestation_id'), function (Builder $query) use ($request) {
+            $query->where('id', $request->input('prestation_id'));
+        })
+        ->when($request->input('prestation_id'), fn (Builder $builder) => $builder->where('id', $request->input('prestation_id')))
+        ->where('centre_id', $request->header('centre'))->paginate(
+            perPage: $request->input('per_page', 25),
+            page: $request->input('page', 1)
+        );
 
         $anteririorResult = [];
         $prestationIds = $prestations->pluck('id')->toArray();
