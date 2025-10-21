@@ -1034,7 +1034,7 @@ class PrestationController extends Controller
                     'prestation' => $prestation,
                     'results' => $results,
                     'facture' => $facture,
-                    'preleve_date' => Carbon::parse($prestation->last_prelevement['preleve_date'])->format('d/m/Y H:i'),
+                    'preleve_date' => Carbon::parse($prestation->last_prelevement['preleve_date'])->format('d/m/Y'),
                     'logo' => $media ? 'storage/' . $media->path . '/' . $media->filename : '',
                     'centre' => $centre,
                     'anteriorities' => $anteriorityResult,
