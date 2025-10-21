@@ -22,7 +22,7 @@
                     <th>Elements</th>
                     <th>Pris en charge</th>
                     <th>Proforma</th>
-                    <th>PU</th>
+                    <th>Montant total</th>
                     <th>Part Pataint</th>
                     <th>Montant paye patient</th>
                     <th>Montant pris en charge</th>
@@ -81,29 +81,7 @@
                             FAUX
                         </td>
                         <td>
-                            @if($prestation->type->value === 1)
-                                {{ \App\Helpers\FormatPrice::format($prestation->actes->sum('pu')) }}
-                            @endif
-
-                            @if($prestation->type->value === 2)
-                                {{ \App\Helpers\FormatPrice::format($prestation->consultations->sum('pu')) }}
-                            @endif
-
-                            @if($prestation->type->value === 3)
-                                {{ \App\Helpers\FormatPrice::format($prestation->soins->sum('pu')) }}
-                            @endif
-
-                            @if($prestation->type->value === 4)
-                                {{ \App\Helpers\FormatPrice::format($prestation->products->sum('pu')) }}
-                            @endif
-
-                            @if($prestation->type->value === 5)
-                                {{ \App\Helpers\FormatPrice::format($prestation->examens->sum('pu')) }}
-                            @endif
-
-                            @if($prestation->type->value === 6)
-                                {{ \App\Helpers\FormatPrice::format($prestation->hospitalisations->sum('pu')) }}
-                            @endif
+                            {{ \App\Helpers\FormatPrice::format($prestation->factures->first()?->amount) }}
                         </td>
                         <td>{{ \App\Helpers\FormatPrice::format($prestation->factures->first()?->amount_client) }}</td>
                         <td>{{ \App\Helpers\FormatPrice::format($prestation->factures->first()?->regulations_total_except_particular) }}</td>
