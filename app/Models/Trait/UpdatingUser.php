@@ -11,7 +11,7 @@ trait UpdatingUser
     public static function bootUpdatingUser(): void
     {
         static::updating(function ($model) {
-            $authId = auth()->user()->id;
+            $authId = auth()->user()->id ?? User::first()->id;;
             $model->updated_by = $authId;
         });
 

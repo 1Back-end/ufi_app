@@ -27,7 +27,8 @@ class Facture extends Model
         'centre_id',
         'state',
         'contentieux',
-        'amount_prelevement'
+        'amount_prelevement',
+        'amount_prelevement_pc'
     ];
 
     protected function casts(): array
@@ -76,6 +77,14 @@ class Facture extends Model
     }
 
     protected function amountPrelevement(): Attribute
+    {
+        return Attribute::make(
+            get: fn($value, array $attributes) => $value / 100,
+            set: fn($value) => $value * 100,
+        );
+    }
+
+    protected function amountPrelevementPc(): Attribute
     {
         return Attribute::make(
             get: fn($value, array $attributes) => $value / 100,

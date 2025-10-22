@@ -171,6 +171,7 @@ if (!function_exists('calculate_amount_facture')) {
         $amount_remise = 0;
         $amount_client = 0;
         $amount_prelevement = 0;
+        $amount_prelevement_pc = 0;
 
         switch ($prestation->type) {
             case TypePrestation::ACTES:
@@ -237,7 +238,6 @@ if (!function_exists('calculate_amount_facture')) {
                 }
                 break;
             case TypePrestation::LABORATOIR:
-
                 $kbprelevementIds = [];
                 foreach ($prestation->examens as $examen) {
                     $pu = $examen->pivot->pu;
@@ -263,7 +263,6 @@ if (!function_exists('calculate_amount_facture')) {
                 }
 
                 if ($prestation->apply_prelevement) {
-                    $amount_prelevement_pc = 0;
                     if ($prestation->priseCharge) {
                         $amount_prelevement_pc = ($amount_prelevement * $prestation->priseCharge->taux_pc) / 100;
                         $amount_pc += $amount_prelevement_pc;
@@ -292,7 +291,7 @@ if (!function_exists('calculate_amount_facture')) {
         }
 
 
-        return [$amount, $amount_pc, $amount_remise, $amount_client, $amount_prelevement];
+        return [$amount, $amount_pc, $amount_remise, $amount_client, $amount_prelevement, $amount_prelevement_pc];
     }
 }
 
@@ -306,7 +305,7 @@ if (!function_exists('save_facture')) {
      */
     function save_facture(Prestation $prestation, int $centre_id, int $type): Facture
     {
-        [$amount, $amount_pc, $amount_remise, $amount_client, $amount_prelevement] = calculate_amount_facture($prestation);
+        [$amount, $amount_pc, $amount_remise, $amount_client, $amount_prelevement, $amount_prelevement_pc] = calculate_amount_facture($prestation);
 
         $latestFacture = Facture::whereType($type)
             ->where('centre_id', $centre_id)
@@ -328,6 +327,7 @@ if (!function_exists('save_facture')) {
                 'amount_remise' => $amount_remise,
                 'amount_client' => max($amount_client, 0),
                 'amount_prelevement' => $amount_prelevement,
+                'amount_prelevement_pc' => $amount_prelevement_pc,
                 'type' => $type,
                 'sequence' => $sequence,
                 'centre_id' => $centre_id,

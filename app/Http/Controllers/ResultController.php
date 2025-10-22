@@ -51,7 +51,7 @@ class ResultController extends Controller
 
                     if ($element->typeResult->type != InputType::COMMENT->value) {
                         $prestationable->update([
-                            'status_examen' => $prestationable->status_examen == StateExamen::CREATED || empty($result['result_machine'])
+                            'status_examen' =>  empty($result['result_machine'])
                                 ? StateExamen::CREATED
                                 : StateExamen::PENDING
                         ]);
