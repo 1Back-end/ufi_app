@@ -4,6 +4,8 @@ use App\Http\Controllers\LoginController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
+    dd(is_numeric(null));
+
     return ['Laravel' => app()->version()];
 });
 

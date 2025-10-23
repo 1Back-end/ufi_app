@@ -29,13 +29,20 @@ class ResultController extends Controller
      */
     public function store(ResultRequest $request)
     {
+        Log::info($request->all());
         DB::beginTransaction();
         try {
             foreach ($request->data as $data) {
                 $prestation = Prestation::find($data['prestation_id']);
 
                 foreach ($data['results'] as $result) {
-                    if (empty($result['result_machine']) && $result['result_machine'] != 0) {
+                    if (empty($result['result_machine']) && !(is_numeric($result['result_machine']) && $result['result_machine'] == 0)) {
+                        // Delete existing results for empty inputs
+                        Result::where('prestation_id', $prestation->id)
+                            ->where('element_paillasse_id', $result['element_paillasse_id'])
+                            ->where('groupe_population_id', $result['groupe_population_id'])
+                            ->delete();
+
                         continue;
                     }
 
@@ -51,9 +58,7 @@ class ResultController extends Controller
 
                     if ($element->typeResult->type != InputType::COMMENT->value) {
                         $prestationable->update([
-                            'status_examen' =>  empty($result['result_machine'])
-                                ? StateExamen::CREATED
-                                : StateExamen::PENDING
+                            'status_examen' =>  StateExamen::PENDING->value,
                         ]);
                     }
 
