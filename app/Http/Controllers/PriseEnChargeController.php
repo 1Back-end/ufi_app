@@ -66,6 +66,7 @@ class PriseEnChargeController extends Controller
     {
         $perPage = $request->input('limit', 10);
         $page = $request->input('page', 1);
+        $search = $request->input('search'); // mot-clé global
 
         $prise_en_charges = PriseEnCharge::where('is_deleted', false)
             ->with([
@@ -76,7 +77,12 @@ class PriseEnChargeController extends Controller
                 'updater:id,login'
             ])
             ->when($request->input('client'), function ($query) use ($request) {
-                $query->with(['assureur.actes', 'assureur.soins', 'assureur.consultations', 'assureur.hospitalisations'])
+                $query->with([
+                    'assureur.actes',
+                    'assureur.soins',
+                    'assureur.consultations',
+                    'assureur.hospitalisations'
+                ])
                     ->where('client_id', $request->input('client'))
                     ->whereDate('date_debut', '<=', now())
                     ->whereDate('date_fin', '>=', now())
@@ -84,9 +90,33 @@ class PriseEnChargeController extends Controller
                     ->whereUsed(false)
                     ->when($request->input('assureur'), function ($query) use ($request) {
                         $query->whereHas('assureur', function ($query) use ($request) {
-                            $query->where('nom', 'like', '%' . $request->input('assureur') . '%');
+                            $query->where('nom', 'like', '%' . $request->input('assureur') . '%')
+                                ->orWhere('nom_abrege', 'like', '%' . $request->input('assureur') . '%')
+                                ->orWhere('adresse', 'like', '%' . $request->input('assureur') . '%')
+                                ->orWhere('tel1', 'like', '%' . $request->input('assureur') . '%');
                         });
                     });
+            })
+            ->when($search, function ($query, $search) {
+                $query->where(function ($q) use ($search) {
+                    // recherche sur le client
+                    $q->whereHas('client', function ($q2) use ($search) {
+                        $q2->where('prenom_cli', 'like', "%$search%")
+                            ->orWhere('nom_cli', 'like', "%$search%")
+                            ->orWhere('secondprenom_cli', 'like', "%$search%")
+                            ->orWhere('nomcomplet_client', 'like', "%$search%")
+                            ->orWhere('ref_cli', 'like', "%$search%");
+
+                    })
+                        // recherche sur l'assureur
+                        ->orWhereHas('assureur', function ($q2) use ($search) {
+                            $q2->where('nom', 'like', "%$search%")
+                                ->orWhere('nom_abrege', 'like', "%$search%")
+                                ->orWhere('adresse', 'like', "%$search%")
+                                ->orWhere('tel1', 'like', "%$search%")
+                                ->orWhere('code', 'like', "%$search%");
+                        });
+                });
             })
             ->latest()
             ->paginate($perPage, ['*'], 'page', $page);
@@ -96,8 +126,10 @@ class PriseEnChargeController extends Controller
             'current_page' => $prise_en_charges->currentPage(),
             'last_page' => $prise_en_charges->lastPage(),
             'total' => $prise_en_charges->total(),
-        ]); //
+        ]);
     }
+
+
 
     /**
      * Show the form for creating a new resource.
@@ -236,13 +268,13 @@ class PriseEnChargeController extends Controller
                 ->where('is_deleted', false)
                 ->exists();
             // Vérifier si l'ID de la prise en charge existe déjà dans la table prestation
-            $existingPrestation = Prestation::where('prise_charge_id', $id)->first();
-
-            if ($existingPrestation) {
-                return response()->json([
-                    'error' => 'Cette prise en charge est déjà associée à une prestation.'
-                ], 400);
-            }
+//            $existingPrestation = Prestation::where('prise_charge_id', $id)->first();
+//
+//            if ($existingPrestation) {
+//                return response()->json([
+//                    'error' => 'Cette prise en charge est déjà associée à une prestation.'
+//                ], 400);
+//            }
 
 
             $prise_en_charge = PriseEnCharge::where('is_deleted', false)->findOrFail($id);
