@@ -453,7 +453,7 @@ if (!function_exists('showResult')) {
             return false;
         }
 
-        return !!$result->result_client && $result->show && $elementPaillasse->name != $examen->name && Str::lower($result->elementPaillasse->name) != Str::lower($examen->name) && $elementPaillasse->name != 'Résultat' && $elementPaillasse->name != 'Resultat';
+        return !!$result->show && $elementPaillasse->name != $examen->name && Str::lower($result->elementPaillasse->name) != Str::lower($examen->name) && $elementPaillasse->name != 'Résultat' && $elementPaillasse->name != 'Resultat';
     }
 }
 
