@@ -42,9 +42,9 @@
 
 <div class="col-lg-12 col-sm-12 p-0">
 
-    <div class="d-flex justify-content-between align-items-center mb-3" style="gap: 10px;">
+    <div class="mb-2 d-flex justify-content-between align-items-center">
         <!-- Logo -->
-        <div class="flex-shrink-0">
+        <div class="flex-shrink-0 mb-0">
             <img src="{{ public_path('certificats/logo.png') }}" class="img-fluid" width="230" height="230" alt="Logo">
         </div>
 
