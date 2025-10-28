@@ -63,7 +63,7 @@ class PrestationController extends Controller
      */
     public function index(Request $request)
     {
-        $prestations = Prestation::with([
+        $prestationsQuery = Prestation::with([
             'createdBy:id,nom_utilisateur',
             'updatedBy:id,nom_utilisateur',
             'payableBy',
@@ -101,13 +101,17 @@ class PrestationController extends Controller
             'results.elementPaillasse.examen',
             'results.elementPaillasse.group_populations',
             'results.groupePopulation',
-        ])->when($request->input('client_id'), function ($query) use ($request) {
+        ])
+            ->when($request->input('client_id'), function ($query) use ($request) {
             $query->where('client_id', $request->input('client_id'));
-        })->when($request->input('consultant_id'), function ($query) use ($request) {
+        })
+            ->when($request->input('consultant_id'), function ($query) use ($request) {
             $query->where('consultant_id', $request->input('consultant_id'));
-        })->when($request->input('type'), function ($query) use ($request) {
+        })
+            ->when($request->input('type'), function ($query) use ($request) {
             $query->where('type', $request->input('type'));
-        })->when($request->input('mode_paiement'), function ($query) use ($request) {
+        })
+            ->when($request->input('mode_paiement'), function ($query) use ($request) {
             if ($request->input('mode_paiement') == 'client-tiers') {
                 $query->whereNotNull('payable_by');
             }
@@ -119,36 +123,43 @@ class PrestationController extends Controller
             if ($request->input('mode_paiement') == 'lui-meme') {
                 $query->whereNull('payable_by')->whereNull('prise_charge_id');
             }
-        })->when($request->input('programmation_date_start') && $request->input('programmation_date_end'), function (Builder $query) use ($request) {
+        })
+            ->when($request->input('programmation_date_start') && $request->input('programmation_date_end'), function (Builder $query) use ($request) {
             $startDate = $request->input('programmation_date_start');
             $endDate = $request->input('programmation_date_end');
             if ($startDate && $endDate) {
                 $query->whereBetween('programmation_date', [$startDate, $endDate]);
             }
-        })->when($request->input('order'), function (Builder $query) use ($request) {
+        })
+            ->when($request->input('order'), function (Builder $query) use ($request) {
             $query->orderBy($request->input('order')['column'], $request->input('order')['direction']);
         }, function (Builder $query) {
             $query->latest();
-        })->when($request->has('regulated'), function (Builder $query) use ($request) {
+        })
+            ->when($request->has('regulated'), function (Builder $query) use ($request) {
             if (is_array($request->input('regulated'))) {
                 $query->whereIn('regulated', $request->input('regulated'));
             } else {
                 $query->where('regulated', $request->input('regulated'));
             }
-        })->when($request->input('factures_created_at'), function ($query) use ($request) {
+        })
+            ->when($request->input('factures_created_at'), function ($query) use ($request) {
             $query->whereHas('factures', function ($query) use ($request) {
                 $query->whereDate('factures.created_at', $request->input('factures_created_at'));
             });
-        })->when($request->input('created_at'), function (Builder $query) use ($request) {
+        })
+            ->when($request->input('created_at'), function (Builder $query) use ($request) {
             $query->whereDate('created_at', $request->input('created_at'));
-        })->when($request->input('prelevement'), function (Builder $query) use ($request) {
+        })
+            ->when($request->input('prelevement'), function (Builder $query) use ($request) {
             $query->whereHas('prestationables', function ($query) {
                 $query->whereNull('prestationables.prelevements');
             })->where('type', TypePrestation::LABORATOIR->value)
                 ->whereHas('factures', function ($query) {
                     $query->where('factures.type', 2);
                 });
-        })->when($request->input('results'), function (Builder $query) use ($request) {
+        })
+            ->when($request->input('results'), function (Builder $query) use ($request) {
             $query->whereHas('prestationables', function ($query) use ($request) {
                 $query->when($request->input("result_status"), function (Builder $query) use ($request) {
                     $query->whereIn('prestationables.status_examen', is_array($request->input("result_status")) ? $request->input("result_status") : [$request->input("result_status")])
@@ -164,49 +175,55 @@ class PrestationController extends Controller
                         $query->where('paillasse_id', $request->input('paillasse'));
                     });
                 });
-        })->when($request->input('show_results'), function (Builder $query) use ($request) {
+        })
+            ->when($request->input('show_results'), function (Builder $query) use ($request) {
             $query->whereHas('prestationables', function ($query) use ($request) {
                 $query->whereIn('status_examen', $request->input("states"));
             })->where('type', TypePrestation::LABORATOIR->value);
         })
-        ->when($request->input('prestation_id'), function (Builder $query) use ($request) {
-            $query->where('id', $request->input('prestation_id'));
-        })
-        ->when($request->input('prestation_id'), fn (Builder $builder) => $builder->where('id', $request->input('prestation_id')))
-        ->where('centre_id', $request->header('centre'))->paginate(
+            ->when($request->input('prestation_id'), function (Builder $query) use ($request) {
+                $query->where('id', $request->input('prestation_id'));
+            })
+            ->when($request->input('prestation_id'), fn (Builder $builder) => $builder->where('id', $request->input('prestation_id')))
+            ->where('centre_id', $request->header('centre'));
+
+        $prestations = $prestationsQuery->clone()->paginate(
             perPage: $request->input('per_page', 25),
             page: $request->input('page', 1)
         );
 
         $anteririorResult = [];
-        $prestationIds = $prestations->pluck('id')->toArray();
-        foreach ($prestations->items() as $prestation) {
-            foreach ($prestation->examens as $examen) {
-                foreach ($examen->elementPaillasses as $elementPaillasse) {
-                    $result = Result::query()
-                        ->with([
-                            'elementPaillasse',
-                            'elementPaillasse.typeResult'
-                        ])
-                        ->where('created_at', '<', $prestation->created_at)
-                        ->where('element_paillasse_id', $elementPaillasse->id)
-                        ->whereNotIn('prestation_id', $prestationIds)
-                        ->whereHas('prestation', function ($query) use ($prestation) {
-                            $query->where('client_id', request()->input('client_id'));
-                        })
-                        ->latest()
-                        ->first();
+        if ($request->input('show_results')) {
+            $prestationIds = $prestations->pluck('id')->toArray();
+            foreach ($prestations->items() as $prestation) {
+                foreach ($prestation->examens as $examen) {
+                    foreach ($examen->elementPaillasses as $elementPaillasse) {
+                        $result = Result::query()
+                            ->with([
+                                'elementPaillasse',
+                                'elementPaillasse.typeResult'
+                            ])
+                            ->where('created_at', '<', $prestation->created_at)
+                            ->where('element_paillasse_id', $elementPaillasse->id)
+                            ->whereNotIn('prestation_id', $prestationIds)
+                            ->whereHas('prestation', function ($query) use ($prestation) {
+                                $query->where('client_id', request()->input('client_id'));
+                            })
+                            ->latest()
+                            ->first();
 
-                    if ($result) {
-                        $anteririorResult[] = [
-                            'prestation_id' => $result->prestation_id,
-                            'element_paillasse_id' => $elementPaillasse->id,
-                            'result' => $result,
-                        ];
+                        if ($result) {
+                            $anteririorResult[] = [
+                                'prestation_id' => $result->prestation_id,
+                                'element_paillasse_id' => $elementPaillasse->id,
+                                'result' => $result,
+                            ];
+                        }
                     }
                 }
             }
         }
+
 
         return response()->json([
             'prestations' => $prestations,

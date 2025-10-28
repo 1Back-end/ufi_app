@@ -12,7 +12,7 @@
         {{ $centre->name }} Période {{ $start_date->format('d/m/Y') }} au {{ $end_date->format('d/m/Y') }}
     </h2>
 
-    <table class="table table-bordered">
+    <table class="table table-bordered border-black">
         <thead>
             <tr>
                 @if($rapprochement)
@@ -23,7 +23,7 @@
                     <th>Pris en charge</th>
                     <th>Proforma</th>
                     <th>Montant total</th>
-                    <th>Part Pataint</th>
+                    <th>Part patient</th>
                     <th>Montant paye patient</th>
                     <th>Montant pris en charge</th>
                     <th>Assurance</th>
@@ -36,7 +36,7 @@
                     <th>Montant Total</th>
                     <th>Montant réglé</th>
                     <th>Remise</th>
-                    <th>Montant PC</th>
+                    <th>Reste à payer</th>
                 @endif
             </tr>
         </thead>
@@ -95,14 +95,20 @@
                     <tr>
                         <td>{{ $prestation->factures[0]->code }}</td>
                         <td>{{ $prestation->factures[0]->date_fact->format("d/m/Y H:i") }}</td>
-                        <td style="width: 20%">
-                            <ul class="list-unstyled">
-                                @foreach($prestation->factures[0]->regulations as $regulation)
-                                    @if(!$regulation->particular)
-                                        <li>{{ $regulation->regulationMethod->name }}</li>
-                                    @endif
-                                @endforeach
-                            </ul>
+                        <td style="width: 20% !important;">
+                            @if($prestation->factures[0]->regulations()->where('regulations.particular', false)->count())
+                                <ul class="list-unstyled">
+                                    @foreach($prestation->factures[0]->regulations as $regulation)
+                                        @if(!$regulation->particular)
+                                            <li>{{ $regulation->regulationMethod->name }}</li>
+                                        @endif
+                                    @endforeach
+                                </ul>
+                            @endif
+
+                            @if($prestation->payableBy)
+                                {{ $prestation->payableBy->nomcomplet_client }}
+                            @endif
                         </td>
                         <td style="width: 30%">{{ $prestation->client->nomcomplet_client }}</td>
                         <td>{{ \App\Helpers\FormatPrice::format($prestation->factures[0]->amount) }}</td>
@@ -125,7 +131,7 @@
                                 @if ($prestation->factures[0]->regulations_total_except_particular)
                                     {{ \App\Helpers\FormatPrice::format($prestation->factures[0]->regulations_total_except_particular) }}
                                 @else
-                                    @if ($prestation->payable_by)
+                                    @if ($prestation->payable_by && $prestation->factures[0]->state->value === \App\Enums\StateFacture::PAID->value)
                                         {{ \App\Helpers\FormatPrice::format($prestation->factures[0]->amount_client) }}
                                     @else
                                         0
@@ -134,7 +140,7 @@
                             </span>
                         </td>
                         <td>{{ \App\Helpers\FormatPrice::format($prestation->factures[0]->amount_remise) }}</td>
-                        <td>{{ \App\Helpers\FormatPrice::format($prestation->factures[0]->amount_pc) }}</td>
+                        <td>{{ \App\Helpers\FormatPrice::format($prestation->factures[0]->amount_rest) }}</td>
                     </tr>
                 @endforeach
             @endif
@@ -143,14 +149,34 @@
             <tfoot>
                 <tr class="fw-bold">
                     <td colspan="4" class="text-end">Totaux:</td>
-                    <td>{{ \App\Helpers\FormatPrice::format($amounts[0]->total) }}</td>
-                    <td>{{ \App\Helpers\FormatPrice::format($amountTotalRegulation) }}</td>
-                    <td>{{ \App\Helpers\FormatPrice::format($amounts[0]->total_remise) }}</td>
-                    <td>{{ \App\Helpers\FormatPrice::format($amounts[0]->total_pc) }}</td>
+                    <td>{{ \App\Helpers\FormatPrice::format($amounts['total']) }}</td>
+                    <td>
+                        Total: {{ \App\Helpers\FormatPrice::format($amounts['amount_total_regulation']) }}
+                    </td>
+                    <td>{{ \App\Helpers\FormatPrice::format($amounts['total_remise']) }}</td>
+                    <td>{{ \App\Helpers\FormatPrice::format($amounts['amount_rest']) }}</td>
                 </tr>
             </tfoot>
         @endif
     </table>
+
+    @if(!$rapprochement)
+        <h2 class="text-center fw-bold text-uppercase fs-6">Montant des règlements par mode de règlement: </h2>
+        <div class="d-flex gap-4 justify-content-center">
+            @foreach($amounts['amount_per_method'] as $method => $amount)
+                <div class="d-flex justify-content-center">
+                    <div class="d-flex gap-3 align-items-center">
+                        <div class="">
+                            {{ $method }}:
+                        </div>
+                        <div class="fw-bold fs-5">
+                            {{ \App\Helpers\FormatPrice::format($amount) }}
+                        </div>
+                    </div>
+                </div>
+            @endforeach
+        </div>
+    @endif
 
     <p class="text-end d-flex align-items-center gap-5">
         <span></span>

@@ -13,11 +13,11 @@
             </h2>
 
             @php
-    $assurances = [];
+                $assurances = [];
             @endphp
 
             @foreach($priseCharges as $priseCharge)
-                    @if(!in_array($priseCharge->assureur->id, $assurances))
+                    @if(!in_array($priseCharge->assureur->id, $assurances) && $priseCharge->prestations->count())
                         <p class="d-flex flex-column fs-5">
                             <span class=" ">
                                 Assureur: <span class="text-uppercase fw-bold">{{ $priseCharge->assureur->nom }}</span>
@@ -29,7 +29,7 @@
                         </p>
 
                         @php
-                $assurances[] = $priseCharge->assureur->id;
+                            $assurances[] = $priseCharge->assureur->id;
                         @endphp
                     @endif
 

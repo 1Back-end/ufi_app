@@ -41,7 +41,8 @@ class Facture extends Model
 
     protected $appends = [
         'regulations_total',
-        'regulations_total_except_particular'
+        'regulations_total_except_particular',
+        'amount_rest'
     ];
 
     protected function amount(): Attribute
@@ -103,6 +104,23 @@ class Facture extends Model
     {
         return Attribute::make(
             get: fn($value, array $attributes) => $this->regulations()->where('regulations.particular', false)->sum('regulations.amount') / 100,
+        );
+    }
+
+    protected function amountRest(): Attribute
+    {
+        return Attribute::make(
+            get: function () {
+                if ($this->prestation->prise_charge_id && $this->state->value === StateFacture::IN_PROGRESS->value) {
+                    return $this->amount_pc;
+                }
+
+                if ($this->state->value === StateFacture::IN_PROGRESS->value) {
+                    return $this->amount_client - $this->regulations_total_except_particular;
+                }
+
+                return 0;
+            },
         );
     }
 
