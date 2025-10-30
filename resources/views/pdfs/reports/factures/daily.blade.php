@@ -154,7 +154,7 @@
         @if(!$rapprochement)
             <tfoot>
                 <tr class="fw-bold">
-                    <td colspan="4" class="text-end">Totaux:</td>
+                    <td colspan="5" class="text-end">Totaux:</td>
                     <td>{{ \App\Helpers\FormatPrice::format($amounts['total']) }}</td>
                     <td>
                         Total: {{ \App\Helpers\FormatPrice::format($amounts['amount_total_regulation']) }}
