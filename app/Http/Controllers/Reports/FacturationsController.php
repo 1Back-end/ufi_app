@@ -48,7 +48,11 @@ class FacturationsController extends Controller
             ->with([
                 'factures' => fn($q) => $q->where('factures.type', 2),
                 'centre',
-                'factures.regulations',
+                'factures.regulations' => function($query) use ($startDate, $endDate) {
+                    $query->whereBetween('date', [$startDate, $endDate])
+                        ->where('particular', false)
+                        ->where('state', StatusRegulation::ACTIVE->value);
+                },
                 'factures.regulations.regulationMethod',
                 'client',
                 'priseCharge',
