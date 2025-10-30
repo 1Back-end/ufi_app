@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Reports;
 
 use App\Enums\StateFacture;
+use App\Enums\StatusRegulation;
 use App\Enums\TypePrestation;
 use App\Http\Controllers\Controller;
 use App\Models\Acte;
@@ -53,6 +54,13 @@ class FacturationsController extends Controller
                 'priseCharge',
                 'payableBy'
             ])
+            ->whereHas('factures', function ($query) use ($startDate, $endDate) {
+                $query->whereHas('regulation', function ($query) use ($startDate, $endDate) {
+                    $query->whereBetween('date', [$startDate, $endDate])
+                        ->where('particular', false)
+                        ->where('state', StatusRegulation::ACTIVE->value);
+                });
+            })
             ->where('centre_id', $request->header('centre'))
             ->when($request->input('type'), fn($q) => $q->where('prestations.type', $request->input('type')))
             ->when($request->input('client_id'), fn($q) => $q->where('prestations.client_id', $request->input('client_id')))
