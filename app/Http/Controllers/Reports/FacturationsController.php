@@ -651,7 +651,7 @@ class FacturationsController extends Controller
         ]);
     }
 
-        /**
+     /**
      * @param Request $request
      * @return JsonResponse
      *

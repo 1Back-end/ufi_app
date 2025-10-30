@@ -32,6 +32,7 @@
                     <th>N° Facture</th>
                     <th>Date facture</th>
                     <th>Mode de règlement</th>
+                    <th>PC/Associé</th>
                     <th>Nom patient</th>
                     <th>Montant Total</th>
                     <th>Montant réglé</th>
@@ -105,9 +106,14 @@
                                     @endforeach
                                 </ul>
                             @endif
-
+                        </td>
+                        <td>
                             @if($prestation->payableBy)
                                 {{ $prestation->payableBy->nomcomplet_client }}
+                            @endif
+
+                            @if($prestation->priseCharge)
+                                {{ $prestation->priseCharge->assureur->nom }}
                             @endif
                         </td>
                         <td style="width: 30%">{{ $prestation->client->nomcomplet_client }}</td>
