@@ -18,13 +18,14 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
 use Illuminate\Database\Eloquent\Relations\MorphToMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use function Laravel\Prompts\search;
 
 class Prestation extends Model
 {
-    use HasFactory, UpdatingUser;
+    use HasFactory, UpdatingUser, SoftDeletes;
 
     protected $fillable = [
         'prise_charge_id',
