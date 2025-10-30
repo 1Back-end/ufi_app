@@ -58,13 +58,6 @@ class FacturationsController extends Controller
                 'priseCharge',
                 'payableBy'
             ])
-            ->whereHas('factures', function ($query) use ($startDate, $endDate) {
-                $query->whereHas('regulations', function ($query) use ($startDate, $endDate) {
-                    $query->whereBetween('date', [$startDate, $endDate])
-                        ->where('particular', false)
-                        ->where('state', StatusRegulation::ACTIVE->value);
-                });
-            })
             ->where('centre_id', $request->header('centre'))
             ->when($request->input('type'), fn($q) => $q->where('prestations.type', $request->input('type')))
             ->when($request->input('client_id'), fn($q) => $q->where('prestations.client_id', $request->input('client_id')))
@@ -86,6 +79,13 @@ class FacturationsController extends Controller
                 $query->whereHas('factures', function (Builder $query) use ($startDate, $endDate) {
                     $query->where('type', 2)
                         ->whereBetween("date_fact", [$startDate, $endDate]);
+                });
+            })
+            ->orWhereHas('factures', function ($query) use ($startDate, $endDate) {
+                $query->whereHas('regulations', function ($query) use ($startDate, $endDate) {
+                    $query->whereBetween('date', [$startDate, $endDate])
+                        ->where('particular', false)
+                        ->where('state', StatusRegulation::ACTIVE->value);
                 });
             })
             ->get();
