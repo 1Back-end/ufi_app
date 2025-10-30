@@ -129,7 +129,7 @@
                                 <span>Total: </span>
 
                                 @if ($prestation->factures[0]->regulations_total_except_particular)
-                                    {{ \App\Helpers\FormatPrice::format($prestation->factures[0]->regulations_total_except_particular) }}
+                                    {{ \App\Helpers\FormatPrice::format($prestation->factures[0]->regulations->sum('amount')) }}
                                 @else
                                     @if ($prestation->payable_by && $prestation->factures[0]->state->value === \App\Enums\StateFacture::PAID->value)
                                         {{ \App\Helpers\FormatPrice::format($prestation->factures[0]->amount_client) }}
