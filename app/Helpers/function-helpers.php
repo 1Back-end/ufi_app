@@ -450,8 +450,8 @@ if (!function_exists('showResult')) {
                 $lists = $parent->catPredefinedList?->predefinedLists;
                 if ($lists) {
                     $resultTest = $prestation->results()->where('element_paillasse_id', $parent->id)->first();
-                    Log::debug($resultTest);
-                    Log::debug($$lists->where('name', $resultTest->result_client)->first());
+                    Log::debug($resultTest?->result_client);
+                    Log::debug($$lists->where('name', $resultTest->result_client)->first()?->show);
                     return $resultTest && $lists->where('name', $resultTest->result_client)->first()?->show;
                 }
             }
