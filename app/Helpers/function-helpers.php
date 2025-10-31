@@ -445,6 +445,14 @@ if (!function_exists('showResult')) {
     function showResult(Prestation $prestation, ElementPaillasse $elementPaillasse, Examen $examen): bool
     {
         if ($elementPaillasse->typeResult->type == 'group' || $elementPaillasse->typeResult->type == 'inline' || $elementPaillasse->typeResult->type == 'comment') {
+            $parent = $elementPaillasse->parent;
+            if ($parent) {
+                $lists = $parent->catPredefinedList?->predefinedLists;
+                if ($lists) {
+                    $resultTest = $prestation->results()->where('element_paillasse_id', $parent->id)->first();
+                    return $resultTest && $lists->where('name', $resultTest->result_client)->first()?->show;
+                }
+            }
             return true;
         }
 
