@@ -32,6 +32,7 @@
                     <th>N° Facture</th>
                     <th>Date facture</th>
                     <th>Mode de règlement</th>
+                    <th>PC/Associé</th>
                     <th>Nom patient</th>
                     <th>Montant Total</th>
                     <th>Montant réglé</th>
@@ -105,9 +106,14 @@
                                     @endforeach
                                 </ul>
                             @endif
-
+                        </td>
+                        <td>
                             @if($prestation->payableBy)
                                 {{ $prestation->payableBy->nomcomplet_client }}
+                            @endif
+
+                            @if($prestation->priseCharge)
+                                {{ $prestation->priseCharge->assureur->nom }}
                             @endif
                         </td>
                         <td style="width: 30%">{{ $prestation->client->nomcomplet_client }}</td>
@@ -129,7 +135,7 @@
                                 <span>Total: </span>
 
                                 @if ($prestation->factures[0]->regulations_total_except_particular)
-                                    {{ \App\Helpers\FormatPrice::format($prestation->factures[0]->regulations_total_except_particular) }}
+                                    {{ \App\Helpers\FormatPrice::format($prestation->factures[0]->regulations->sum('amount')) }}
                                 @else
                                     @if ($prestation->payable_by && $prestation->factures[0]->state->value === \App\Enums\StateFacture::PAID->value)
                                         {{ \App\Helpers\FormatPrice::format($prestation->factures[0]->amount_client) }}
@@ -148,7 +154,7 @@
         @if(!$rapprochement)
             <tfoot>
                 <tr class="fw-bold">
-                    <td colspan="4" class="text-end">Totaux:</td>
+                    <td colspan="5" class="text-end">Totaux:</td>
                     <td>{{ \App\Helpers\FormatPrice::format($amounts['total']) }}</td>
                     <td>
                         Total: {{ \App\Helpers\FormatPrice::format($amounts['amount_total_regulation']) }}

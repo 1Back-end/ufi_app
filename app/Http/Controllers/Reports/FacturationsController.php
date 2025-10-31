@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Reports;
 
 use App\Enums\StateFacture;
+use App\Enums\StatusRegulation;
 use App\Enums\TypePrestation;
 use App\Http\Controllers\Controller;
 use App\Models\Acte;
@@ -47,7 +48,11 @@ class FacturationsController extends Controller
             ->with([
                 'factures' => fn($q) => $q->where('factures.type', 2),
                 'centre',
-                'factures.regulations',
+                'factures.regulations' => function ($query) use ($startDate, $endDate) {
+                    $query->whereBetween('date', [$startDate, $endDate])
+                        ->where('particular', false)
+                        ->where('state', StatusRegulation::ACTIVE->value);
+                },
                 'factures.regulations.regulationMethod',
                 'client',
                 'priseCharge',
@@ -60,20 +65,27 @@ class FacturationsController extends Controller
             ->when($request->input('payment_mode') && $request->input('payment_mode') == "associate-client", fn($q) => $q->has('payableBy'))
             ->when($request->input('payment_mode') && $request->input('payment_mode') == "pris-en-charge", fn($q) => $q->has('priseCharge'))
             ->when($request->input('payment_mode') && $request->input('payment_mode') == "comptant", fn($q) => $q->whereNull('prestations.prise_charge_id')
-            ->whereNull('prestations.payable_by'))
+                ->whereNull('prestations.payable_by'))
             ->when($request->input('payable_by'), fn($q) => $q->where('prestations.payable_by', $request->input('payable_by')))
             ->when($request->input('prise_charge_id'), fn($q) => $q->where('prestations.prise_charge_id', $request->input('prise_charge_id')))
-            ->when($request->input('regulation_method'), fn($q) => $q->whereHas('factures', function ( $query) use ($request) {
+            ->when($request->input('regulation_method'), fn($q) => $q->whereHas('factures', function ($query) use ($request) {
                 $query->whereHas('regulations', function ($query) use ($request) {
                     $query->where('regulation_method_id', $request->input('regulation_method'));
                 });
             }))
-            ->when(! $request->input('rapprochement'), function($query) use ($request, $startDate, $endDate) {
+            ->when(! $request->input('rapprochement'), function ($query) use ($request, $startDate, $endDate) {
                 $query->where($this->getClosure($startDate, $endDate, $request));
-            }, function($query) use($startDate, $endDate) {
+            }, function ($query) use ($startDate, $endDate) {
                 $query->whereHas('factures', function (Builder $query) use ($startDate, $endDate) {
                     $query->where('type', 2)
                         ->whereBetween("date_fact", [$startDate, $endDate]);
+                });
+            })
+            ->orWhereHas('factures', function ($query) use ($startDate, $endDate) {
+                $query->whereHas('regulations', function ($query) use ($startDate, $endDate) {
+                    $query->whereBetween('date', [$startDate, $endDate])
+                        ->where('particular', false)
+                        ->where('state', StatusRegulation::ACTIVE->value);
                 });
             })
             ->get();
@@ -137,8 +149,7 @@ class FacturationsController extends Controller
                 'mimetype' => 'pdf',
                 'extension' => 'pdf',
             ]);
-        }
-        catch (CouldNotTakeBrowsershot|Throwable $e) {
+        } catch (CouldNotTakeBrowsershot | Throwable $e) {
             DB::rollBack();
             Log::error($e->getMessage());
 
@@ -175,26 +186,26 @@ class FacturationsController extends Controller
             'prestations' => function ($query) use ($request, $startDate, $endDate) {
                 $query->where('centre_id', $request->header('centre'))
                     ->whereHas('factures', function ($query) use ($request, $startDate, $endDate) {
-                    $query->where('factures.type', 2)
-                        ->when($startDate && $endDate, function ($query) use ($request, $startDate, $endDate) {
-                            $query->whereBetween('factures.date_fact', [$startDate, $endDate]);
-                        })
-                        ->where(function ($query) {
-                            $query->where('factures.state', StateFacture::PAID)
-                                ->orWhere(function (Builder $query) {
-                                    $query->where('factures.state', StateFacture::IN_PROGRESS)
-                                        ->where(function (Builder $query) {
-                                           $query->where(function (Builder $query) {
-                                               $query->whereNotNull('prestations.prise_charge_id')
-                                                   ->where('factures.amount_pc', '>', 0);
-                                           })->orWhere(function (Builder $query) {
-                                               $query->whereNull('prestations.prise_charge_id')
-                                                   ->whereNotNull('prestations.payable_by');
-                                           })->orWhereHas('regulations');
-                                        });
-                                });
-                        });
-                });
+                        $query->where('factures.type', 2)
+                            ->when($startDate && $endDate, function ($query) use ($request, $startDate, $endDate) {
+                                $query->whereBetween('factures.date_fact', [$startDate, $endDate]);
+                            })
+                            ->where(function ($query) {
+                                $query->where('factures.state', StateFacture::PAID)
+                                    ->orWhere(function (Builder $query) {
+                                        $query->where('factures.state', StateFacture::IN_PROGRESS)
+                                            ->where(function (Builder $query) {
+                                                $query->where(function (Builder $query) {
+                                                    $query->whereNotNull('prestations.prise_charge_id')
+                                                        ->where('factures.amount_pc', '>', 0);
+                                                })->orWhere(function (Builder $query) {
+                                                    $query->whereNull('prestations.prise_charge_id')
+                                                        ->whereNotNull('prestations.payable_by');
+                                                })->orWhereHas('regulations');
+                                            });
+                                    });
+                            });
+                    });
             },
             'prestations.factures' => function ($query) {
                 $query->where('factures.type', 2);
@@ -207,31 +218,31 @@ class FacturationsController extends Controller
             'client',
             'prestations.priseCharge',
         ])
-        ->whereHas('prestations', function ($query) use ($request, $startDate, $endDate) {
-            $query->whereHas('factures', function ($query) use ($request, $startDate, $endDate) {
-                $query->where('factures.type', 2)
-                    ->when($startDate && $endDate, function ($query) use ($request, $startDate, $endDate) {
-                        $query->whereBetween('factures.date_fact', [$startDate, $endDate]);
-                    })
-                    ->where(function ($query) {
-                        $query->where('factures.state', StateFacture::PAID)
-                            ->orWhere(function (Builder $query) {
-                                $query->where('factures.state', StateFacture::IN_PROGRESS)
-                                    ->where(function (Builder $query) {
-                                        $query->where(function (Builder $query) {
-                                            $query->whereNotNull('prestations.prise_charge_id')
-                                                ->where('factures.amount_pc', '>', 0);
-                                        })->orWhere(function (Builder $query) {
-                                            $query->whereNull('prestations.prise_charge_id')
-                                                ->whereNotNull('prestations.payable_by');
-                                        })->orWhereHas('regulations');
-                                    });
-                            });
-                    });
-            });
-        })
-        ->select('prise_en_charges.*')
-        ->selectSub(function ($query) use ($request, $startDate, $endDate) {
+            ->whereHas('prestations', function ($query) use ($request, $startDate, $endDate) {
+                $query->whereHas('factures', function ($query) use ($request, $startDate, $endDate) {
+                    $query->where('factures.type', 2)
+                        ->when($startDate && $endDate, function ($query) use ($request, $startDate, $endDate) {
+                            $query->whereBetween('factures.date_fact', [$startDate, $endDate]);
+                        })
+                        ->where(function ($query) {
+                            $query->where('factures.state', StateFacture::PAID)
+                                ->orWhere(function (Builder $query) {
+                                    $query->where('factures.state', StateFacture::IN_PROGRESS)
+                                        ->where(function (Builder $query) {
+                                            $query->where(function (Builder $query) {
+                                                $query->whereNotNull('prestations.prise_charge_id')
+                                                    ->where('factures.amount_pc', '>', 0);
+                                            })->orWhere(function (Builder $query) {
+                                                $query->whereNull('prestations.prise_charge_id')
+                                                    ->whereNotNull('prestations.payable_by');
+                                            })->orWhereHas('regulations');
+                                        });
+                                });
+                        });
+                });
+            })
+            ->select('prise_en_charges.*')
+            ->selectSub(function ($query) use ($request, $startDate, $endDate) {
                 $query->from('factures')
                     ->join('prestations', 'prestations.id', '=', 'factures.prestation_id')
                     ->where('factures.type', 2)
@@ -239,7 +250,7 @@ class FacturationsController extends Controller
                         $query->where('factures.state', StateFacture::PAID)
                             ->orWhere(function ($query) {
                                 $query->where('factures.state', StateFacture::IN_PROGRESS)
-                                    ->where(function ( $query) {
+                                    ->where(function ($query) {
                                         $query->where(function ($query) {
                                             $query->whereNotNull('prestations.prise_charge_id')
                                                 ->where('factures.amount_pc', '>', 0);
@@ -251,13 +262,13 @@ class FacturationsController extends Controller
                                                 ->from('regulations')
                                                 ->whereColumn('regulations.facture_id', 'factures.id');
                                         });
-                                });
+                                    });
                             });
                     })
                     ->whereBetween('factures.date_fact', [$startDate, $endDate])
                     ->selectRaw('SUM(factures.amount_pc) / 100');
             }, 'total_amount')
-        ->get();
+            ->get();
 
         $centre = Centre::find($request->header('centre'));
         $media = $centre->medias()->where('name', 'logo')->first();
@@ -294,8 +305,7 @@ class FacturationsController extends Controller
                 'mimetype' => 'pdf',
                 'extension' => 'pdf',
             ]);
-        }
-        catch (CouldNotTakeBrowsershot|Throwable $e) {
+        } catch (CouldNotTakeBrowsershot | Throwable $e) {
             DB::rollBack();
             Log::error($e->getMessage());
 
@@ -358,8 +368,7 @@ class FacturationsController extends Controller
             ->each(function (Prestation $prestation) use ($prestationsPrisCharges, $prestationsNonPrisCharges, &$amountPrisCharges, &$amountNonPrisCharges) {
                 if ($prestation->priseCharge) {
                     $prestationsPrisCharges->push($prestation);
-                }
-                else {
+                } else {
                     $prestationsNonPrisCharges->push($prestation);
                 }
 
@@ -435,8 +444,7 @@ class FacturationsController extends Controller
                 'mimetype' => 'pdf',
                 'extension' => 'pdf',
             ]);
-        }
-        catch (CouldNotTakeBrowsershot|Throwable $e) {
+        } catch (CouldNotTakeBrowsershot | Throwable $e) {
             DB::rollBack();
             Log::error($e->getMessage());
 
@@ -467,7 +475,7 @@ class FacturationsController extends Controller
     {
         $assurances = Assureur::with([
             'priseEnCharges' => function ($query) use ($request) {
-                $query->when($request->input('client_id'), function ($query) use ($request){
+                $query->when($request->input('client_id'), function ($query) use ($request) {
                     $query->whereHas('client', function ($query) use ($request) {
                         $query->where('clients.id', $request->input('client_id'));
                     });
@@ -526,8 +534,7 @@ class FacturationsController extends Controller
                 'mimetype' => 'pdf',
                 'extension' => 'pdf',
             ]);
-        }
-        catch (CouldNotTakeBrowsershot|Throwable $e) {
+        } catch (CouldNotTakeBrowsershot | Throwable $e) {
             DB::rollBack();
             Log::error($e->getMessage());
 
@@ -619,8 +626,7 @@ class FacturationsController extends Controller
                 'mimetype' => 'pdf',
                 'extension' => 'pdf',
             ]);
-        }
-        catch (CouldNotTakeBrowsershot|Throwable $e) {
+        } catch (CouldNotTakeBrowsershot | Throwable $e) {
             DB::rollBack();
             Log::error($e->getMessage());
 
@@ -639,7 +645,7 @@ class FacturationsController extends Controller
         ]);
     }
 
-        /**
+    /**
      * @param Request $request
      * @return JsonResponse
      *
@@ -664,12 +670,7 @@ class FacturationsController extends Controller
             ->where('centre_id', $centre->id)
             ->whereBetween('date_fact', [$startDate, $endDate])
             ->where('state', StateFacture::IN_PROGRESS->value)
-            ->whereHas('prestation', fn ($q) => $q->whereNull('payable_by'))
-            ->whereHas('prestation', fn ($q) => $q->whereHas('priseCharge', fn ($q) => $q->where('taux_pc', '<',  100)))
             ->get()
-            ->filter(function (Facture $facture) {
-                return $facture->regulations->sum('amount') < $facture->amount_client;
-            })
             ->groupBy(function (Facture $facture) {
                 return $facture->date_fact->format('d-m-Y');
             });
@@ -706,8 +707,7 @@ class FacturationsController extends Controller
                 'mimetype' => 'pdf',
                 'extension' => 'pdf',
             ]);
-        }
-        catch (CouldNotTakeBrowsershot|Throwable $e) {
+        } catch (CouldNotTakeBrowsershot | Throwable $e) {
             DB::rollBack();
             Log::error($e->getMessage());
 

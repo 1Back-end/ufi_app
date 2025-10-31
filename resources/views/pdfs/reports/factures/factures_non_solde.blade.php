@@ -84,11 +84,17 @@
 
                 <tr class="mt-2 border-bottom-0">
                     <td colspan="3" class="fs-5 fw-bold text-end border-0"></td>
-                    <td class="border-bottom border-dark" style="background-color: #e1e1e1">{{ FormatPrice::format($amount_fact) }}</td>
-                    <td class="border-bottom border-dark" style="background-color: #e1e1e1">{{ FormatPrice::format($amount_remise_fact) }}</td>
-                    <td class="border-bottom border-dark" style="background-color: #e1e1e1">{{ FormatPrice::format($amount_client_fact) }}</td>
-                    <td class="border-bottom border-dark" style="background-color: #e1e1e1">{{ FormatPrice::format($amount_regulation_fact) }}</td>
-                    <td class="border-bottom border-dark" style="background-color: #e1e1e1">{{ FormatPrice::format($amount_reste_fact) }}</td>
+                    <td class="border-bottom border-dark" style="background-color: #e1e1e1">
+                        {{ FormatPrice::format($amount_fact) }}</td>
+                    <td class="border-bottom border-dark" style="background-color: #e1e1e1">
+                        {{ FormatPrice::format($amount_remise_fact) }}</td>
+                    <td class="border-bottom border-dark" style="background-color: #e1e1e1">
+                        {{ FormatPrice::format($amount_client_fact) }}</td>
+                    <td class="border-bottom border-dark" style="background-color: #e1e1e1">
+                        {{ FormatPrice::format($amount_regulation_fact) }}</td>
+                    <td class="border-bottom border-dark" style="background-color: #e1e1e1">
+                        {{ FormatPrice::format($facture->amount_rest) }}
+                    </td>
                 </tr>
             @endforeach
         </tbody>

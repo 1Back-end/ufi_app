@@ -7,10 +7,11 @@ use App\Models\Trait\UpdatingUser;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Facture extends Model
 {
-    use UpdatingUser;
+    use UpdatingUser, SoftDeletes;
 
     protected $fillable = [
         'code',
