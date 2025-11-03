@@ -21,11 +21,11 @@
                     <th>Prescripteur</th>
                     <th>Elements</th>
                     <th>Pris en charge</th>
-                    <th>Proforma</th>
+                    <th>Societé / Partenaire</th>
                     <th>Montant total</th>
                     <th>Part patient</th>
                     <th>Montant paye patient</th>
-                    <th>Montant pris en charge</th>
+                    <th>Reste à payer</th>
                     <th>Assurance</th>
                     <th>Creation DT</th>
                 @else
@@ -79,14 +79,24 @@
                             {{ $prestation->priseCharge ? 'OUI' : 'NON' }}
                         </td>
                         <td>
-                            FAUX
+                            {{ $prestation->payableBy ? $prestation->payableBy->nomcomplet_client : '' }}
                         </td>
                         <td>
                             {{ \App\Helpers\FormatPrice::format($prestation->factures->first()?->amount) }}
                         </td>
-                        <td>{{ \App\Helpers\FormatPrice::format($prestation->factures->first()?->amount_client) }}</td>
+                        <td>
+                            @if ($prestation->factures[0]->regulations_total_except_particular)
+                                {{ \App\Helpers\FormatPrice::format($prestation->factures[0]->regulations->sum('amount')) }}
+                            @else
+                                @if ($prestation->payable_by && $prestation->factures[0]->state->value === \App\Enums\StateFacture::PAID->value)
+                                    {{ \App\Helpers\FormatPrice::format($prestation->factures[0]->amount_client) }}
+                                @else
+                                    0
+                                @endif
+                            @endif
+                        </td>
                         <td>{{ \App\Helpers\FormatPrice::format($prestation->factures->first()?->regulations_total_except_particular) }}</td>
-                        <td>{{ \App\Helpers\FormatPrice::format($prestation->factures->first()?->amount_pc) }}</td>
+                        <td>{{ \App\Helpers\FormatPrice::format($prestation->factures[0]->amount_rest) }}</td>
                         <td>{{ $prestation->priseCharge?->assureur->nom }}</td>
                         <td>{{ $prestation->factures->first()?->date_fact->format("d/m/Y H:i") }}</td>
                     </tr>
