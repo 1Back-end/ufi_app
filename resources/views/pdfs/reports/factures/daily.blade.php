@@ -17,6 +17,7 @@
             <tr>
                 @if($rapprochement)
                     <th>N° Facture</th>
+                    <th>Creation DT</th>
                     <th>Nom patient</th>
                     <th>Prescripteur</th>
                     <th>Elements</th>
@@ -28,7 +29,6 @@
                     <th>Remise</th>
                     <th>Reste à payer</th>
                     <th>Assurance</th>
-                    <th>Creation DT</th>
                 @else
                     <th>N° Facture</th>
                     <th>Date facture</th>
@@ -47,7 +47,8 @@
                 @foreach($prestations as $prestation)
                     <tr>
                         <td>{{ $prestation->factures->first() ? $prestation->factures->first()->code : "Facture non crée" }}</td>
-                        <td>{{ $prestation->client->nomcomplet_client }}</td>
+                        <td>{{ $prestation->factures->first()?->date_fact->format("d/m/Y H:i") }}</td>
+                        <td>{{ $prestation->client->fullname }}</td>
                         <td>{{ $prestation?->consultant?->nomcomplet }}</td>
                         <td>
                             <ul class="list-unstyled">
@@ -76,7 +77,7 @@
                                 @endforeach
                             </ul>
                         </td>
-                        <td>
+                        <td style="width: 10% !important;">
                             {{ $prestation->priseCharge ? 'OUI' : 'NON' }}
                         </td>
                         <td>
@@ -100,7 +101,6 @@
                         <td>{{ \App\Helpers\FormatPrice::format($prestation->factures[0]->amount_remise) }}</td>
                         <td>{{ \App\Helpers\FormatPrice::format($prestation->factures[0]->amount_rest) }}</td>
                         <td>{{ $prestation->priseCharge?->assureur->nom }}</td>
-                        <td>{{ $prestation->factures->first()?->date_fact->format("d/m/Y H:i") }}</td>
                     </tr>
                 @endforeach
             @else
