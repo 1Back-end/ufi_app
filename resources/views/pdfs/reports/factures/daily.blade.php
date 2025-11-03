@@ -25,6 +25,7 @@
                     <th>Montant total</th>
                     <th>Part patient</th>
                     <th>Montant paye patient</th>
+                    <th>Remise</th>
                     <th>Reste à payer</th>
                     <th>Assurance</th>
                     <th>Creation DT</th>
@@ -96,6 +97,7 @@
                             @endif
                         </td>
                         <td>{{ \App\Helpers\FormatPrice::format($prestation->factures->first()?->regulations_total_except_particular) }}</td>
+                        <td>{{ \App\Helpers\FormatPrice::format($prestation->factures[0]->amount_remise) }}</td>
                         <td>{{ \App\Helpers\FormatPrice::format($prestation->factures[0]->amount_rest) }}</td>
                         <td>{{ $prestation->priseCharge?->assureur->nom }}</td>
                         <td>{{ $prestation->factures->first()?->date_fact->format("d/m/Y H:i") }}</td>
