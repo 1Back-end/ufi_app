@@ -12,18 +12,11 @@ class CentreRequest extends FormRequest
 {
     public function rules(): array
     {
-        if ($this->route('centre')) {
-            $uniqueName = (new Unique('centres', 'name'))->ignore($this->route('centre'));
-            $uniqueShortName = (new Unique('centres', 'short_name'))->ignore($this->route('centre'));
-        } else {
-            $uniqueName = 'unique:centres,name';
-            $uniqueShortName = 'unique:centres,short_name';
-        }
-
         return [
-            'reference' => ['required', 'string', 'max:6', Rule::unique('centres', 'reference')->ignore($this->route('centre')), 'alpha_dash'],
-            'name' => ['required', $uniqueName],
-            'short_name' => ['required', $uniqueShortName],
+            'reference' => ['required', 'string', 'max:6', 'alpha_dash'],
+            'name' => ['required'],
+            'name_alias' => ['required'],
+            'short_name' => ['required'],
             'address' => ['required'],
             'tel' => ['required'],
             'tel2' => ['nullable'],

@@ -32,10 +32,10 @@ class AuthenticatedSessionController extends Controller
         $centre = $user->centres()->select(['centres.id', 'centres.name', 'centres.reference'])->wherePivot('default', true)->first();
 
         if (!$centre && \auth()->user()->hasRole('Super Admin')) {
-            $centres = Centre::select(['centres.id', 'centres.name', 'centres.reference'])->get();
+            $centres = Centre::select(['centres.id', 'centres.name', 'centres.name_alias', 'centres.reference'])->get();
             $centre = $centres->first();
         } else {
-            $centres = $user->centres()->select(['centres.id', 'centres.name', 'centres.reference'])->get();
+            $centres = $user->centres()->select(['centres.id', 'centres.name', 'centres.name_alias', 'centres.reference'])->get();
         }
 
         $permissions = load_permissions($user, $centre);

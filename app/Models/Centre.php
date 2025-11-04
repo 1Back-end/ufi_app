@@ -22,7 +22,8 @@ class Centre extends Model
         'tel', 'tel2', 'contribuable', 'registre_commerce',
         'autorisation', 'town', 'fax', 'email', 'website',
         'created_by', 'updated_by', 'deleted_at', 'horaires', 'postal_code',
-        'active'
+        'active',
+        'name_alias'
     ];
 
     protected $appends = ['logo'];
