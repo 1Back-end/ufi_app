@@ -81,7 +81,7 @@ class FacturationsController extends Controller
                         ->whereBetween("date_fact", [$startDate, $endDate]);
                 });
             })
-            ->orWhereHas('factures', function ($query) use ($startDate, $endDate) {
+            ->whereHas('factures', function ($query) use ($startDate, $endDate) {
                 $query->whereHas('regulations', function ($query) use ($startDate, $endDate) {
                     $query->whereBetween('date', [$startDate, $endDate])
                         ->where('particular', false)
