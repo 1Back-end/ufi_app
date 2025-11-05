@@ -84,7 +84,15 @@
                             {{ $prestation->payableBy ? $prestation->payableBy->nomcomplet_client : '' }}
                         </td>
                         <td>
-                            {{ \App\Helpers\FormatPrice::format($prestation->factures->first()?->amount) }}
+                            @if ($prestation->factures[0]->regulations_total_except_particular)
+                                {{ $prestation->factures[0]->regulations->where('particular', false)->sum('amount') + $prestation->factures[0]->amount_rest }}
+                            @else
+                                @if ($prestation->payable_by && $prestation->factures[0]->state->value === \App\Enums\StateFacture::PAID->value)
+                                    {{ \App\Helpers\FormatPrice::format($prestation->factures[0]->amount_client) }}
+                                @else
+                                    0
+                                @endif
+                            @endif
                         </td>
                         <td>
                             @if ($prestation->factures[0]->regulations_total_except_particular)
@@ -129,7 +137,17 @@
                             @endif
                         </td>
                         <td style="width: 30%">{{ $prestation->client->nomcomplet_client }}</td>
-                        <td>{{ \App\Helpers\FormatPrice::format($prestation->factures[0]->amount) }}</td>
+                        <td>
+                            @if ($prestation->factures[0]->regulations_total_except_particular)
+                                {{ $prestation->factures[0]->regulations->where('particular', false)->sum('amount') + $prestation->factures[0]->amount_rest }}
+                            @else
+                                @if ($prestation->payable_by && $prestation->factures[0]->state->value === \App\Enums\StateFacture::PAID->value)
+                                    {{ \App\Helpers\FormatPrice::format($prestation->factures[0]->amount_client) }}
+                                @else
+                                    0
+                                @endif
+                            @endif
+                        </td>
                         <td>
                             @if ($prestation->factures[0]->regulations->where('particular', false)->count() > 0)
                                 <ul class="list-unstyled">
