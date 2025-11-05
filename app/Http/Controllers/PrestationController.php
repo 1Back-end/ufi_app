@@ -408,6 +408,41 @@ class PrestationController extends Controller
     }
 
     /**
+     * @param PrestationRequest $request
+     * @param Prestation $prestation
+     * @return JsonResponse
+     *
+     * @permission PrestationController::destroy
+     * @permission_desc Supprimer une prestation
+     * @throws \Throwable
+     */
+    public function destroy(Prestation $prestation)
+    {
+        DB::beginTransaction();
+        try {
+            $prestation->delete();
+            foreach ($prestation->factures as $facture) {
+                foreach ($facture->regulations as $regulation) {
+                    $regulation->delete();
+                }
+
+                $facture->delete();
+            }
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'message' => $e->getMessage()
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+        DB::commit();
+
+        return response()->json([
+            'message' => __("Prestation supprimée avec succès !")
+        ]);
+    }
+
+    /**
      * @param Prestation $prestation
      * @param Request $request
      * @return JsonResponse

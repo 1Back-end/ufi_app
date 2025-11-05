@@ -142,7 +142,7 @@ Route::middleware(['activity'])->group(function () {
 
         // Prestations
         Route::get('prestations/types', [PrestationController::class, 'typePrestation']);
-        Route::apiResource('prestations', PrestationController::class)->except(['destroy', 'update']);
+        Route::apiResource('prestations', PrestationController::class)->except(['update']);
         Route::post('prestations/{prestation}', [PrestationController::class, 'update']);
         Route::post('prestations/{prestation}/facture', [PrestationController::class, 'saveFacture']);
         Route::patch('prestations/{prestation}/change-state', [PrestationController::class, 'changeState']);
