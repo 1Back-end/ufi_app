@@ -112,12 +112,8 @@ class Facture extends Model
     {
         return Attribute::make(
             get: function () {
-                if ($this->prestation->prise_charge_id && $this->state->value === StateFacture::IN_PROGRESS->value) {
-                    return $this->amount_pc;
-                }
-
                 if ($this->state->value === StateFacture::IN_PROGRESS->value) {
-                    return $this->amount_client - $this->regulations_total_except_particular;
+                    return $this->amount - $this->amount_remise - $this->regulations_total_except_particular;
                 }
 
                 return 0;

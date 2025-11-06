@@ -241,34 +241,32 @@ class FacturationsController extends Controller
                         });
                 });
             })
-            ->select('prise_en_charges.*')
-            ->selectSub(function ($query) use ($request, $startDate, $endDate) {
-                $query->from('factures')
-                    ->join('prestations', 'prestations.id', '=', 'factures.prestation_id')
-                    ->where('factures.type', 2)
-                    ->where(function ($query) {
-                        $query->where('factures.state', StateFacture::PAID)
-                            ->orWhere(function ($query) {
-                                $query->where('factures.state', StateFacture::IN_PROGRESS)
-                                    ->where(function ($query) {
-                                        $query->where(function ($query) {
-                                            $query->whereNotNull('prestations.prise_charge_id')
-                                                ->where('factures.amount_pc', '>', 0);
-                                        })->orWhere(function ($query) {
-                                            $query->whereNull('prestations.prise_charge_id')
-                                                ->whereNotNull('prestations.payable_by');
-                                        })->orWhereExists(function ($q) {
-                                            $q->select(DB::raw(1))
-                                                ->from('regulations')
-                                                ->whereColumn('regulations.facture_id', 'factures.id');
-                                        });
-                                    });
-                            });
-                    })
-                    ->whereBetween('factures.date_fact', [$startDate, $endDate])
-                    ->selectRaw('SUM(factures.amount_pc) / 100');
-            }, 'total_amount')
             ->get();
+
+        $amounts = $priseCharges->reduce(function ($carry, PriseEnCharge $priseEnCharge) {
+            foreach ($priseEnCharge->prestations as $prestation) {
+                $facture = $prestation->factures->first();
+                $carry['total'] += $prestation->factures->first()->amount;
+                $carry['total_pc'] += $prestation->factures->first()->amount_pc;
+                $carry['amount_rest'] += $prestation->factures->first()->amount_rest;
+                $carry['total_remise'] += $prestation->factures->first()->amount_remise;
+                $carry['amount_total_regulation'] += $prestation->factures->first()->regulations_total_except_particular;
+
+                $regulations = $facture->regulations()->where('regulations.particular', false)->get();
+                if ($regulations->isNotEmpty()) {
+                    $regulations->each(function (Regulation $regulation) use (&$carry) {
+                        if (! isset($carry['amount_per_method'][$regulation->regulationMethod->name])) {
+                            $carry['amount_per_method'][$regulation->regulationMethod->name] = 0;
+                        }
+                        $carry['amount_per_method'][$regulation->regulationMethod->name] += $regulation->amount;
+                    });
+                }
+            }
+
+            return $carry;
+        }, ['total' => 0, 'total_pc' => 0, 'amount_rest' => 0, 'total_remise' => 0, 'amount_total_regulation' => 0, 'amount_per_method' => []]);
+
+        Log::info('Montants des prises en charge', $amounts);
 
         $centre = Centre::find($request->header('centre'));
         $media = $centre->medias()->where('name', 'logo')->first();
@@ -279,6 +277,7 @@ class FacturationsController extends Controller
             'centre' => $centre,
             'start_date' => $startDate,
             'end_date' => $endDate,
+            'amounts' => $amounts,
         ];
 
         $folderPath = "storage/prise-en-charge";
