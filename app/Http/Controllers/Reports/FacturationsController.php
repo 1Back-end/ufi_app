@@ -191,9 +191,9 @@ class FacturationsController extends Controller
                                 $query->whereBetween('factures.date_fact', [$startDate, $endDate]);
                             })
                             ->where(function ($query) {
-                                $query->where('factures.state', StateFacture::PAID)
+                                $query->where('factures.state', StateFacture::PAID->value)
                                     ->orWhere(function (Builder $query) {
-                                        $query->where('factures.state', StateFacture::IN_PROGRESS)
+                                        $query->where('factures.state', StateFacture::IN_PROGRESS->value)
                                             ->where(function (Builder $query) {
                                                 $query->where(function (Builder $query) {
                                                     $query->whereNotNull('prestations.prise_charge_id')
@@ -203,6 +203,11 @@ class FacturationsController extends Controller
                                                         ->whereNotNull('prestations.payable_by');
                                                 })->orWhereHas('regulations');
                                             });
+                                    })
+                                    ->orWhere(function (Builder $query) {
+                                        $query->where('factures.state', StateFacture::CREATE->value)
+                                            ->where('type', 2)
+                                            ->whereNotNull('factures.amount_pc');
                                     });
                             });
                     });
