@@ -84,7 +84,7 @@
                             {{ $prestation->payableBy ? $prestation->payableBy->nomcomplet_client : '' }}
                         </td>
                         <td>
-                            {{ $prestation->factures[0]->amount }}
+                            {{ \App\Helpers\FormatPrice::format($prestation->factures[0]->amount) }}
                         </td>
                         <td>
                             @if ($prestation->factures[0]->regulations_total_except_particular)
@@ -130,7 +130,15 @@
                         </td>
                         <td style="width: 30%">{{ $prestation->client->nomcomplet_client }}</td>
                         <td>
-                            {{ $prestation->factures[0]->amount }}
+                            @if ($prestation->factures[0]->regulations_total_except_particular)
+                                {{ \App\Helpers\FormatPrice::format($prestation->factures[0]->regulations->where('particular', false)->where('state', 1)->sum('amount') + $prestation->factures[0]->amount_rest) }}
+                            @else
+                                @if ($prestation->payable_by && $prestation->factures[0]->state->value === \App\Enums\StateFacture::PAID->value)
+                                    {{ \App\Helpers\FormatPrice::format($prestation->factures[0]->amount_client) }}
+                                @else
+                                    0
+                                @endif
+                            @endif
                         </td>
                         <td>
                             @if ($prestation->factures[0]->regulations->where('particular', false)->count() > 0)
