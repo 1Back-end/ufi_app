@@ -104,7 +104,7 @@ class Facture extends Model
     protected function regulationsTotalExceptParticular(): Attribute
     {
         return Attribute::make(
-            get: fn($value, array $attributes) => $this->regulations()->where('regulations.particular', false)->sum('regulations.amount') / 100,
+            get: fn($value, array $attributes) => $this->regulations()->where('regulations.particular', false)->where('regulations.state', 1)->sum('regulations.amount') / 100,
         );
     }
 
