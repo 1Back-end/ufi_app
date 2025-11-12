@@ -43,65 +43,6 @@ class AssureurController extends Controller
             return response()->json(['message' => 'Erreur : ' . $e->getMessage()], 500);
         }
     }
-
-    /**
-     * Display a listing of the resource.
-     * @permission AssureurController::searchAndExport
-     * @permission_desc Filtrer et exporter les données des assureurs
-     */
-    public function searchAndExport(Request $request)
-    {
-        // Validation du paramètre de recherche
-        $request->validate([
-            'query' => 'nullable|string|max:255',
-        ]);
-
-        // Récupérer la requête de recherche (le texte de recherche)
-        // Récupérer la requête de recherche (le texte de recherche)
-        // Récupérer la requête de recherche
-        $searchQuery = $request->input('query', '');
-
-        // Initialiser la requête pour récupérer les assureurs
-        $query = Assureur::where('is_deleted', false);
-
-        // Si une recherche est effectuée, filtrer les assureurs en fonction des champs spécifiés
-        if ($searchQuery) {
-            $query->where(function ($query) use ($searchQuery) {
-                $query->where('nom', 'like', '%' . $searchQuery . '%')
-                    ->orWhere('nom_abrege', 'like', '%' . $searchQuery . '%')
-                    ->orWhere('adresse', 'like', '%' . $searchQuery . '%')
-                    ->orWhere('tel', 'like', '%' . $searchQuery . '%')
-                    ->orWhere('email', 'like', '%' . $searchQuery . '%');
-            });
-        }
-
-        // Récupérer les assureurs filtrés
-        $assureurs = $query->get();
-
-        // Si aucun assureur n'est trouvé
-        if ($assureurs->isEmpty()) {
-            return response()->json([
-                'message' => 'Aucun assureur trouvé pour cette recherche.',
-                'data' => []
-            ]);
-        }
-
-        // Préparer le nom du fichier d'export
-        $fileName = 'assureurs-recherche-' . Carbon::now()->format('Y-m-d') . '.xlsx';
-
-        // Exporter les assureurs filtrés par la recherche dans un fichier Excel
-        Excel::store(new AssureurSearchExport($assureurs), $fileName, 'exportassureurs');  // Appel de l'export de recherche
-
-        // Retourner la réponse avec le nom du fichier et l'URL de téléchargement
-        return response()->json([
-            "data" => $assureurs,
-            "message" => "Exportation des données de recherche effectuée avec succès",
-            "filename" => $fileName,
-            "url" => Storage::disk('exportassureurs')->url($fileName) // Retourner l'URL du fichier exporté
-        ]);
-    }
-
-
     /**
      * Display a listing of the resource.
      * @permission AssureurController::export
@@ -126,29 +67,42 @@ class AssureurController extends Controller
      */
     public function index(Request $request)
     {
-        $perPage = $request->input('limit', 10);  // Par défaut, 10 éléments par page
+        $perPage = $request->input('limit', 25);  // Par défaut, 10 éléments par page
         $page = $request->input('page', 1);  // Page courante
+        $search = $request->input('search');
 
         // Récupérer les assureurs avec pagination
         $assureurs = Assureur::where('is_deleted', false)
-            ->with(['actes', 'hospitalisations', 'consultations', 'soins'])
-            ->when($request->input('search'), function ($query) use ($request) {
-                $search = $request->input('search');
-                $query->where('nom', 'like', '%' . $search . '%')
-                    ->orWhere('nom_abrege', 'like', '%' . $search . '%')
-                    ->orWhere('adresse', 'like', '%' . $search . '%')
-                    ->orWhere('tel', 'like', '%' . $search . '%')
-                    ->orWhere('id', 'like', '%' . $search . '%')
-                    ->orWhere('email', 'like', '%' . $search . '%');
+            ->with(['actes', 'hospitalisations', 'consultations', 'soins', 'createdBy'])
+            ->where('is_deleted', false)
+            ->when($search, function ($query) use ($search) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('ref', 'like', "%$search%")
+                        ->orWhere('nom', 'like', "%$search%")
+                        ->orWhere('nom_abrege', 'like', "%$search%")
+                        ->orWhere('adresse', 'like', "%$search%")
+                        ->orWhere('tel', 'like', "%$search%")
+                        ->orWhere('tel1', 'like', "%$search%")
+                        ->orWhere('code_quotation', 'like', "%$search%")
+                        ->orWhere('Reg_com', 'like', "%$search%")
+                        ->orWhere('num_com', 'like', "%$search%")
+                        ->orWhere('bp', 'like', "%$search%")
+                        ->orWhere('fax', 'like', "%$search%")
+                        ->orWhere('code_type', 'like', "%$search%")
+                        ->orWhere('code_main', 'like', "%$search%")
+                        ->orWhere('email', 'like', "%$search%")
+                        ->orWhere('status', 'like', "%$search%")
+                        ->orWhere('ref_assur_principal', 'like', "%$search%");
+                });
             })
             ->latest()
             ->paginate(perPage: $perPage, page: $page);
 
         return response()->json([
             'data' => $assureurs->items(),
-            'current_page' => $assureurs->currentPage(),  // Page courante
-            'last_page' => $assureurs->lastPage(),  // Dernière page
-            'total' => $assureurs->total(),  // Nombre total d'éléments
+            'current_page' => $assureurs->currentPage(),
+            'last_page' => $assureurs->lastPage(),
+            'total' => $assureurs->total(),
         ]);
     }
     /**
@@ -158,16 +112,19 @@ class AssureurController extends Controller
      */
     public function show($id)
     {
-        $assureur = Assureur::where('id', $id)->where('is_deleted', false)
-            ->with([
-                'quotation:id,code'
-            ])
+        $assureur = Assureur::with([
+            'quotation:id,code',
+            'assureurPrincipal:ref,nom'
+        ])
+            ->where('id', $id)
+            ->where('is_deleted', false)
             ->first();
+
         if (!$assureur) {
-            return response()->json(['message' => 'Assureur Introuvable'], 404);
-        } else {
-            return response()->json($assureur, 200);
+            return response()->json(['message' => 'Assureur introuvable'], 404);
         }
+
+        return response()->json($assureur);
     }
     /**
      * Display a listing of the resource.
@@ -176,24 +133,7 @@ class AssureurController extends Controller
      */
     public function store(Request $request)
     {
-        // Vérifie si l'utilisateur est authentifié
         $auth = auth()->user();
-        // Vérifie si un ID de centre est envoyé dans le header
-        $centreId = $request->header('centre');
-        if (!$centreId) {
-            return response()->json([
-                'message' => __("Vous devez vous connecter à un centre !")
-            ], Response::HTTP_UNAUTHORIZED);
-        }
-
-        // Recherche du centre
-        $centre = Centre::find($centreId);
-        if (!$centre) {
-            return response()->json([
-                'message' => __("Centre introuvable.")
-            ], Response::HTTP_NOT_FOUND);
-        }
-
 
         try {
             // Valider les données du formulaire
@@ -202,7 +142,7 @@ class AssureurController extends Controller
                 'nom_abrege' => 'nullable|string',
                 'adresse' => 'required|string',
                 'tel' => 'required|string|unique:assureurs,tel',
-                'tel1' => 'nullable',
+                'tel1' => 'nullable|string',
                 'code_quotation' => 'required|exists:quotations,id',
                 'Reg_com' => 'required|string|unique:assureurs,Reg_com',
                 'num_com' => 'required|string|unique:assureurs,num_com',
@@ -214,50 +154,47 @@ class AssureurController extends Controller
                 'BM' => 'nullable|in:1,0',
             ]);
 
-            // Vérifie que si le type est "Principale", alors ref_assur_principal doit être vide
-            if ($data['code_type'] == 'Principale' && isset($data['ref_assur_principal'])) {
-                return response()->json(['message' => 'Un assureur principale ne doit pas avoir de référence d\'assureur principal.'], 400);
+            // Gestion du type Principale
+            if ($data['code_type'] === 'Principale' && isset($data['ref_assur_principal'])) {
+                return response()->json(['message' => 'Un assureur principal ne peut pas avoir de référence à un autre assureur.'], 400);
             }
-            // Si le type est "Auxiliaire", vérifie que le code_main correspond à un assureur principal existant
-            if ($data['code_type'] == 'Auxiliaire') {
-                // Vérifie que le code_main existe et qu'il correspond à un assureur de type "Principale"
-                if (!isset($data['code_main']) || empty($data['code_main'])) {
-                    return response()->json(['message' => 'Le code_main doit être défini pour un assureur auxiliaire.'], 400);
+
+            // Gestion du type Auxiliaire
+            if ($data['code_type'] === 'Auxiliaire') {
+                if (empty($data['code_main'])) {
+                    return response()->json(['message' => 'Le code de l’assureur principal est requis pour un assureur auxiliaire.'], 400);
                 }
 
-                $assureurPrincipal = Assureur::where('ref', $data['code_main'])->where('code_type', 'Principale')->first();
+                $assureurPrincipal = Assureur::where('ref', $data['code_main'])
+                    ->where('code_type', 'Principale')
+                    ->first();
 
                 if (!$assureurPrincipal) {
-                    return response()->json(['message' => 'Le code_main spécifié ne correspond à aucun assureur principal.'], 400);
+                    return response()->json(['message' => 'Assureur principal introuvable pour le code fourni.'], 400);
                 }
 
-                // Maintenant on assigne l'ID de l'assureur principal à ref_assur_principal
                 $data['ref_assur_principal'] = $assureurPrincipal->id;
             }
+
             // Générer un code unique
             $data['ref'] = 'ASS' . now()->format('ymdHis') . mt_rand(10, 99);
             $data['created_by'] = $auth->id;
-            $data['code_centre'] = $centre->id;
 
             // Créer l'assureur
             $assureur = Assureur::create($data);
 
             return response()->json([
-                'message' => 'Assureur créé avec succès',
+                'message' => 'Assureur créé avec succès.',
                 'assureur' => $assureur
             ], 201);
+
         } catch (\Illuminate\Validation\ValidationException $e) {
-            return response()->json([
-                'error' => 'Erreur de validation',
-                'details' => $e->errors()
-            ], 422);
+            return response()->json(['message' => 'Données invalides, veuillez vérifier le formulaire.'], 422);
         } catch (\Exception $e) {
-            return response()->json([
-                'error' => 'Une erreur est survenue',
-                'message' => $e->getMessage()
-            ], 500);
+            return response()->json(['message' => 'Impossible de créer l’assureur pour le moment.'], 500);
         }
     }
+
 
     /**
      * Display a listing of the resource.
@@ -269,22 +206,7 @@ class AssureurController extends Controller
         // Vérifie si l'utilisateur est authentifié
         $auth = auth()->user();
 
-        $centreId = $request->header('centre');
-        if (!$centreId) {
-            return response()->json([
-                'message' => __("Vous devez vous connecter à un centre !")
-            ], Response::HTTP_UNAUTHORIZED);
-        }
 
-        // Recherche du centre
-        $centre = Centre::find($centreId);
-        if (!$centre) {
-            return response()->json([
-                'message' => __("Centre introuvable.")
-            ], Response::HTTP_NOT_FOUND);
-        }
-
-        // Récupère l'assureur à modifier
         $assureur = Assureur::findOrFail($id);
 
         try {
@@ -317,7 +239,7 @@ class AssureurController extends Controller
                 $assureurPrincipal = Assureur::where('ref', $data['code_main'])->where('code_type', 'Principale')->first();
 
                 if (!$assureurPrincipal) {
-                    return response()->json(['message' => 'Le code_main spécifié ne correspond à aucun assureur principal.'], 400);
+                    return response()->json(['message' => 'Le code_main spécifié ne correspond à aucune assureure principale.'], 400);
                 }
 
                 $data['ref_assur_principal'] = $assureurPrincipal->id;
@@ -325,12 +247,12 @@ class AssureurController extends Controller
 
             // Mise à jour des champs
             $data['updated_by'] = $auth->id;
-            $data['code_centre'] = $centre->id;
+
 
             $assureur->update($data);
 
             return response()->json([
-                'message' => 'Assureur mis à jour avec succès',
+                'message' => 'Assurance mis à jour avec succès',
                 'assureur' => $assureur
             ], 200);
         } catch (\Illuminate\Validation\ValidationException $e) {
@@ -345,42 +267,6 @@ class AssureurController extends Controller
             ], 500);
         }
     }
-    /**
-     * Display a listing of the resource.
-     * @permission AssureurController::search
-     * @permission_desc Rechercher des assureurs
-     */
-    public function search(Request $request)
-    {
-        // Validation du paramètre de recherche
-        $request->validate([
-            'query' => 'nullable|string|max:255',
-        ]);
-
-        // Récupérer la requête de recherche
-        $searchQuery = $request->input('query', '');
-
-        $query = Assureur::where('is_deleted', false);
-
-        if ($searchQuery) {
-            $query->where(function ($query) use ($searchQuery) {
-                $query->where('nom', 'like', '%' . $searchQuery . '%')
-                    ->orWhere('nom_abrege', 'like', '%' . $searchQuery . '%')
-                    ->orWhere('adresse', 'like', '%' . $searchQuery . '%')
-                    ->orWhere('tel', 'like', '%' . $searchQuery . '%')
-                    ->orWhere('email', 'like', '%' . $searchQuery . '%');
-            });
-        }
-
-        $assureurs = $query->get();  // Utilise get() pour obtenir tous les résultats correspondants
-
-        return response()->json([
-            'data' => $assureurs,
-        ]);
-    }
-
-
-
 
 
     /**
@@ -388,35 +274,46 @@ class AssureurController extends Controller
      * @permission AssureurController::getAssureursPrincipaux
      * @permission_desc Afficher les references et le nom des assureurs principaux
      */
-    public function getAssureursPrincipaux()
+    public function getAssureursPrincipaux(Request $request)
     {
         try {
-            // Récupérer uniquement les assureurs principaux non supprimés
-            $assureursPrincipaux = Assureur::where('code_type', 'Principale') // 'Principal' au lieu de 'Principale' pour correspondre à la terminologie
-                ->where('is_deleted', false) // Filtrer les assureurs non supprimés
-                ->orderBy('created_at', 'desc') // Optionnel: Trier par date de création décroissante
-                ->get(['nom', 'ref']); // Récupérer uniquement le nom et le code
+            $search = $request->query('search', '');
+            $status = $request->query('status', 'Actif'); // Actif | Inactif | All
 
-            // Vérifier si des assureurs ont été trouvés
-            if ($assureursPrincipaux->isEmpty()) {
-                return response()->json([
-                    'message' => 'Aucun assureur principal trouvé.'
-                ], 404);
+            $query = Assureur::where('code_type', 'Principale')
+                ->where('is_deleted', false);
+
+            // Filtre par status
+            if (strtolower($status) !== 'all') {
+                $query->where('status', $status);
             }
 
-            // Retourner les assureurs trouvés en format JSON
+            // Filtre par recherche
+            if (!empty($search)) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('nom', 'LIKE', "%{$search}%")
+                        ->orWhere('ref', 'LIKE', "%{$search}%");
+                });
+            }
+
+            $assureursPrincipaux = $query
+                ->orderBy('created_at', 'desc')
+                ->get(['nom', 'ref']);
+
             return response()->json([
                 'message' => 'Assureurs principaux récupérés avec succès.',
-                'assureurs' => $assureursPrincipaux
+                'assureurs_principals' => $assureursPrincipaux
             ], 200);
+
         } catch (\Exception $e) {
-            // Gestion des erreurs
+
             return response()->json([
                 'error' => 'Une erreur est survenue lors de la récupération des assureurs principaux.',
                 'message' => $e->getMessage()
             ], 500);
         }
     }
+
     /**
      * Display a listing of the resource.
      * @permission AssureurController::delete

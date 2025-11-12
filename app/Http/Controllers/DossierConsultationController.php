@@ -6,6 +6,7 @@ use App\Exports\ConsultantsExport;
 use App\Exports\DossierConsultationExport;
 use App\Exports\DossierConsultationExportSearch;
 use App\Models\DossierConsultation;
+use App\Models\PatientArchive;
 use App\Models\RendezVous;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -149,42 +150,85 @@ class DossierConsultationController extends Controller
         $auth = auth()->user();
 
         $data = $request->validate([
-            'rendez_vous_id'      => 'required|exists:rendez_vouses,id',
-            'poids'               => 'required|string',
+            'rendez_vous_id'        => 'required|exists:rendez_vouses,id',
+            'poids'                 => 'required|string',
             'tension_arterielle_bd' => 'nullable|string',
             'tension_arterielle_bg' => 'nullable|string',
-            'taille'              => 'nullable|string',
-            'saturation'          => 'required|string',
-            'autres_parametres'   => 'nullable|string',
-            'temperature'         => 'nullable|string',
-            'frequence_cardiaque' => 'nullable|string',
-            'fichier_associe'     => 'nullable|file|max:10240',
+            'taille'                => 'nullable|string',
+            'saturation'            => 'required|string',
+            'autres_parametres'     => 'nullable|string',
+            'temperature'           => 'nullable|string',
+            'frequence_cardiaque'   => 'nullable|string',
+            'fichier_associe'       => 'nullable|file|max:10240',
         ]);
 
         DB::beginTransaction();
         try {
-            // Vérifier qu’aucun dossier n’existe déjà pour ce rendez‑vous
+
+            // Vérifier qu’aucun dossier n’existe déjà pour ce rendez-vous
             $existing = DossierConsultation::where('rendez_vous_id', $data['rendez_vous_id'])->first();
             if ($existing) {
                 return response()->json([
-                    'message' => 'Un dossier est déjà ouvert pour ce rendez‑vous.',
+                    'message' => 'Un dossier est déjà ouvert pour ce rendez-vous.',
                     'data'    => $existing->load('medias'),
                 ], 409);
             }
 
-            // Création du dossier
+            // Récupération du rendez-vous et du patient
+            $rdv = RendezVous::with('client')->findOrFail($data['rendez_vous_id']);
+            $patientId = $rdv->client_id;
+
+            // Création du dossier consultation
             $dossier = DossierConsultation::create(array_merge($data, [
                 'created_by' => $auth->id,
             ]));
 
-            // Mise à jour du rendez‑vous
-            RendezVous::where('id', $data['rendez_vous_id'])
-                ->update(['etat' => 'Prises pour consultation']);
+            // Gestion de l’archive du patient
+            $lastArchive = PatientArchive::where('patient_id', $patientId)
+                ->where('is_deleted', false)
+                ->orderByDesc('number_order')
+                ->first();
+
+            if (!$lastArchive) {
+                // Première consultation → créer première archive avec message en dur
+                PatientArchive::create([
+                    'patient_id'     => $patientId,
+                    'dossier_id'     => $dossier->id,
+                    'number_order'   => 1,
+                    'first_visit_at' => now(),
+                    'last_visit_at'  => now(),
+                    'notes'          => 'Première archive du patient créée avec succès.',
+                    'created_by'     => $auth->id,
+                    'updated_by'     => $auth->id,
+                ]);
+            } else {
+                // Mise à jour de la dernière archive
+                $lastArchive->update([
+                    'last_visit_at' => now(),
+                    'notes'         => 'Archive mise à jour suite à la dernière consultation.',
+                    'updated_by'    => $auth->id,
+                ]);
+
+                // Création d’une nouvelle archive pour la consultation actuelle
+                PatientArchive::create([
+                    'patient_id'     => $patientId,
+                    'dossier_id'     => $dossier->id,
+                    'number_order'   => $lastArchive->number_order + 1,
+                    'first_visit_at' => $lastArchive->first_visit_at,
+                    'last_visit_at'  => now(),
+                    'notes'          => 'Archive mise à jour suite à la dernière consultation.',
+                    'created_by'     => $auth->id,
+                    'updated_by'     => $auth->id,
+                ]);
+            }
+
+            // Mise à jour du rendez-vous
+            $rdv->update(['etat' => 'Prises pour consultation']);
 
             // Upload du fichier facultatif
             if ($request->hasFile('fichier_associe')) {
-                $file     = $request->file('fichier_associe');
-                $path     = $file->store('dossiers', 'public');
+                $file = $request->file('fichier_associe');
+                $path = $file->store('dossiers', 'public');
 
                 $dossier->medias()->create([
                     'name'      => $file->getClientOriginalName(),
@@ -199,20 +243,22 @@ class DossierConsultationController extends Controller
             DB::commit();
 
             return response()->json([
-                'message' => 'Dossier créé avec succès.',
+                'message' => 'Dossier et archive créés avec succès.',
                 'data'    => $dossier->load('medias'),
             ], 201);
 
         } catch (\Throwable $e) {
-
             DB::rollBack();
-            Log::error('Erreur création dossier : ' . $e->getMessage());
+            Log::error('Erreur création dossier : ' . $e->getMessage());
 
             return response()->json([
                 'message' => 'Une erreur est survenue lors de la création du dossier.',
+                'error'   => $e->getMessage(), // pour debug exact
             ], 500);
         }
     }
+
+
 
 
     /**
@@ -223,69 +269,88 @@ class DossierConsultationController extends Controller
 
     public function update(Request $request, $id)
     {
+        DB::beginTransaction();
         try {
             $auth = auth()->user();
 
+            // Récupère le dossier actif
             $dossier = DossierConsultation::where('is_deleted', false)
                 ->findOrFail($id);
 
-            if (!$dossier) {
-                return response()->json([
-                    'message' => 'Dossier non trouvé.'
-                ], 404);
-            }
-
+            // Validation des données
             $data = $request->validate([
-                'poids' => 'required|string',
+                'poids'                 => 'required|string',
                 'tension_arterielle_bd' => 'nullable|string',
                 'tension_arterielle_bg' => 'nullable|string',
-                'taille' => 'nullable|string',
-                'saturation' => 'required|string',
-                'autres_parametres' => 'nullable|string',
-                'temperature' => 'nullable|string',
-                'frequence_cardiaque' => 'nullable|string',
-                'fichier_associe' => 'nullable|file|max:10240',
+                'taille'                => 'nullable|string',
+                'saturation'            => 'required|string',
+                'autres_parametres'     => 'nullable|string',
+                'temperature'           => 'nullable|string',
+                'frequence_cardiaque'   => 'nullable|string',
+                'fichier_associe'       => 'nullable|file|max:10240',
             ]);
 
             $data['updated_by'] = $auth->id;
 
-            // Met à jour les champs du dossier
+            // Mise à jour du dossier
             $dossier->update($data);
 
-            // Gère un nouveau fichier s'il est envoyé
+            // Gestion du fichier facultatif
             if ($request->hasFile('fichier_associe')) {
                 $file = $request->file('fichier_associe');
-                $filename = $file->getClientOriginalName();
                 $path = $file->store('dossiers', 'public');
 
                 $dossier->medias()->create([
-                    'name' => $filename,
-                    'disk' => 'public',
-                    'path' => $path,
-                    'filename' => $filename,
-                    'mimetype' => $file->getMimeType(),
-                    'extension' => $file->getClientOriginalExtension()
+                    'name'      => $file->getClientOriginalName(),
+                    'disk'      => 'public',
+                    'path'      => $path,
+                    'filename'  => $file->hashName(),
+                    'mimetype'  => $file->getMimeType(),
+                    'extension' => $file->getClientOriginalExtension(),
                 ]);
             }
 
+            // Mise à jour de l'archive patient
+            $patientId = $dossier->rendez_vous->client_id ?? null;
+            if ($patientId) {
+                $lastArchive = PatientArchive::where('patient_id', $patientId)
+                    ->where('is_deleted', false)
+                    ->orderByDesc('number_order')
+                    ->first();
+
+                if ($lastArchive) {
+                    // Met à jour uniquement la date de dernière visite
+                    $lastArchive->update([
+                        'last_visit_at' => now(),
+                        'notes'         => 'Archive mise à jour suite à la modification du dossier.',
+                        'updated_by'    => $auth->id,
+                    ]);
+                }
+            }
+
+            DB::commit();
+
             return response()->json([
-                'message' => 'Dossier mis à jour avec succès.',
-                'data' => $dossier->load('medias')
+                'message' => 'Dossier et archive patient mis à jour avec succès.',
+                'data'    => $dossier->load('medias')
             ]);
+
         } catch (\Illuminate\Validation\ValidationException $e) {
-            // Erreur de validation
+            DB::rollBack();
             return response()->json([
                 'message' => 'Erreur de validation',
-                'errors' => $e->errors()
+                'errors'  => $e->errors()
             ], 422);
         } catch (\Exception $e) {
-            // Autres erreurs
+            DB::rollBack();
+            Log::error('Erreur mise à jour dossier : ' . $e->getMessage());
             return response()->json([
                 'message' => 'Une erreur est survenue lors de la mise à jour.',
-                'error' => $e->getMessage()
+                'error'   => $e->getMessage()
             ], 500);
         }
     }
+
 
 
     /**
