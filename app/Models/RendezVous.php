@@ -125,16 +125,13 @@ class RendezVous extends Model
     }
 
 
-
-//    public function getNombreJoursAttribute(): ?int
-//    {
-//        return (int) ceil($this->duration / 60);
-//    }
-
-
     public function facture()
     {
         return $this->hasMany(Facture::class, 'prestation_id', 'prestation_id');
+    }
+    public function patient()
+    {
+        return $this->belongsTo(Client::class, 'patient_id');
     }
 
 

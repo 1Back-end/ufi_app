@@ -87,6 +87,7 @@ use App\Http\Controllers\ExamensActesController;
 use App\Imports\ImportAssociateClient;
 use App\Imports\ImportConfigASC;
 use App\Imports\ImportPredefinedList;
+use App\Http\Controllers\PatientArchiveController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -97,6 +98,8 @@ Route::middleware(['activity'])->group(function () {
     require __DIR__ . '/admin.php';
 
     Route::middleware(['auth:sanctum', 'user.change_password', 'check.permission'])->group(function () {
+
+        Route::apiResource("archives_patients", PatientArchiveController::class);
 
 
         // Gestion des centres
