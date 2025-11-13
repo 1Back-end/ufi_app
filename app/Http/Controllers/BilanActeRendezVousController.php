@@ -24,9 +24,90 @@ use Spatie\Browsershot\Exceptions\CouldNotTakeBrowsershot;
 
 class BilanActeRendezVousController extends Controller
 {
-    public function index(){
+    /**
+     * Display a listing of the resource.
+     * @permission BilanActeRendezVousController::index
+     * @permission_desc Afficher les rapports de rendez vous de types(Actes)
+     */
+    public function index(Request $request)
+    {
+        $perPage = $request->input('limit', 25);
+        $page = $request->input('page', 1);
 
+        $query = BilanActeRendezVous::with([
+            'rendezVous.client',
+            'rendezVous.consultant',
+            'prestation.actes.typeActe',
+            'creator',
+            'updater'
+        ]);
+        if ($request->filled('start_date') && $request->filled('end_date')) {
+            $query->whereBetween('created_at', [$request->start_date, $request->end_date]);
+        }
+
+        // Recherche
+        if ($search = trim($request->input('search'))) {
+            $query->where(function ($q) use ($search) {
+                // Colonnes simples
+                $q->where('medecin_signataire', 'like', "%{$search}%")
+                    ->orWhere('technique_analyse', 'like', "%{$search}%")
+                    ->orWhere('resume', 'like', "%{$search}%")
+                    ->orWhere('conclusion', 'like', "%{$search}%");
+
+                // Recherche dans prestation
+                $q->orWhereHas('prestation', function ($q2) use ($search) {
+                    $q2->where('type', 'like', "%{$search}%")
+                        ->orWhere('regulated', 'like', "%{$search}%")
+                        ->orWhere('apply_prelevement', 'like', "%{$search}%");
+                });
+
+                // Recherche dans rendezVous
+                $q->orWhereHas('rendezVous', function ($q2) use ($search) {
+                    $q2->where('nombre_jour_validite', 'like', "%{$search}%")
+                        ->orWhere('duration', 'like', "%{$search}%")
+                        ->orWhere('code', 'like', "%{$search}%")
+                        ->orWhere('etat_paiement', 'like', "%{$search}%");
+
+                    // Recherche dans client lié
+                    $q2->orWhereHas('client', function ($q3) use ($search) {
+                        $q3->where('ref_cli', 'like', "%{$search}%")
+                            ->orWhere('secondprenom_cli', 'like', "%{$search}%")
+                            ->orWhere('nom_cli', 'like', "%{$search}%")
+                            ->orWhere('nomcomplet_client', 'like', "%{$search}%")
+                            ->orWhere('prenom_cli', 'like', "%{$search}%")
+                            ->orWhere('tel_cli', 'like', "%{$search}%")
+                            ->orWhere('tel2_cli', 'like', "%{$search}%")
+                            ->orWhere('id', 'like', "%{$search}%");
+
+                    });
+
+                    // Recherche dans consultant lié
+                    $q2->orWhereHas('consultant', function ($q3) use ($search) {
+                        $q3->where('ref', 'like', "%{$search}%")
+                            ->orWhere('nom', 'like', "%{$search}%")
+                            ->orWhere('prenom', 'like', "%{$search}%")
+                            ->orWhere('nomcomplet', 'like', "%{$search}%")
+                            ->orWhere('email', 'like', "%{$search}%")
+                            ->orWhere('tel', 'like', "%{$search}%")
+                            ->orWhere('id', 'like', "%{$search}%")
+                            ->orWhere('tel1', 'like', "%{$search}%");
+
+
+                    });
+                });
+            });
+        }
+
+        $data = $query->latest()->paginate($perPage, ['*'], 'page', $page);
+
+        return response()->json([
+            'data'         => $data->items(),
+            'current_page' => $data->currentPage(),
+            'last_page'    => $data->lastPage(),
+            'total'        => $data->total(),
+        ]);
     }
+
 
     /**
      * Display a listing of the resource.
@@ -294,10 +375,11 @@ class BilanActeRendezVousController extends Controller
         try {
             // Récupération du bilan avec relations
             $bilan = BilanActeRendezVous::with([
-                'rendezVous.client.sexe',
+                'rendezVous.client',
                 'rendezVous.consultant',
-                'prestation.actes',
-                'techniqueAnalyse'
+                'prestation.actes.typeActe',
+                'creator',
+                'updater'
             ])->findOrFail($id);
 
             // Préparer le chemin du PDF
