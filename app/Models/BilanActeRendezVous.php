@@ -30,14 +30,7 @@ class BilanActeRendezVous extends Model
     {
         return $this->belongsTo(Prestation::class, 'prestation_id');
     }
-    public function consultant()
-    {
-        return $this->belongsTo(Consultant::class, 'consultant_id');
-    }
-    public function techniqueAnalyse()
-    {
-        return $this->belongsTo(AnalysisTechnique::class, 'technique_analyse_id');
-    }
+
 
     public function creator()
     {

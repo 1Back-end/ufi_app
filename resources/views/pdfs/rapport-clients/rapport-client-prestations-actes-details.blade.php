@@ -9,23 +9,43 @@
     </style>
 
     <style>
-        body {
-            font-size: 13px;
-            font-family: "Rubik", sans-serif;
-            margin: 10px 15px 20px 15px;
+        body,
+        html {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            font-size: 3mm !important;
+            font-family: "Times New Roman", serif;
         }
 
+        .print-wrapper {
+            position: relative;
+            min-height: 100%;
+            padding-bottom: 10mm;
+            box-sizing: border-box;
+        }
 
-        footer {
+        .print-footer {
             position: fixed;
             bottom: 0;
             left: 0;
             right: 0;
-            height: 25px;
-            border-top: 1px solid #ddd;
+            height: 10mm;
             text-align: center;
-            font-size: 10px;
-            padding-top: 5px;
+            background-color: white;
+            border-top: 1mm solid rgb(15, 187, 105);
+            opacity: .5;
+            font-size: 2.5mm;
+        }
+        h1 {
+            font-size: 5mm !important;
+        }
+        header {
+            font-family: 'Helvetica', serif;
+        }
+        img {
+            width: auto;
+            height: auto;
         }
 
         .page-number:before {
@@ -42,52 +62,58 @@
 
 <div class="col-lg-12 col-sm-12 p-0">
 
-    <div class="d-flex justify-content-between align-items-center mb-3" style="gap: 10px;">
-        <!-- Logo -->
-        <div class="flex-shrink-0">
-            <img src="{{ public_path('certificats/logo.png') }}" class="img-fluid" width="230" height="230" alt="Logo">
+
+    <header class="d-flex align-items-center size" style="font-family: 'Times New Roman', serif">
+        <div class="w-25">
+            <img src="{{ public_path('certificats/logo.png') }}" alt=""
+                 class="img-fluid w-50">
         </div>
 
-        <!-- Texte -->
-        <div class="text-center flex-grow-1">
-            <h1 class="text-uppercase fw-bold" style="color: #00b050; font-size: 30px; margin-bottom: 5px;">
+        <div class="text-center" style="line-height: 18px">
+            <div class="fs-3 text-uppercase fw-bold">
                 CENTRE MEDICAL GT
-            </h1>
-            <hr style="width: 80%; border: 1px solid #00b050; margin: 5px auto;">
-            <small style="font-size: 10px; color: #00b050; line-height: 1.5;">
+            </div>
+
+            <div class="">
                 Sis en face du Camp SIC Tsinga – Ouvert de Lundi à Samedi : 7H30 – 18H<br>
                 B.P. 6107 Yaoundé - Tél : +237 653 01 01 / 691 53 42 28 / 691 53 03 21<br>
                 Boulevard du Sultan Njoya 2.351 / Email : cmgttsinga@yahoo.fr<br>
                 Agrément N° 0708/A/MINSANTE/SG/DOSTS du 23 février 2021
-            </small>
+            </div>
+
+
         </div>
+    </header>
+
+    <div class="mt-2 w-100" style="border-top: 1px double rgb(0, 0, 0, 0.75); margin-bottom: 2px"></div>
+    <div class="mb-2 w-100" style="border-top: 1px double rgb(0, 0, 0, 0.75);"></div>
+
+    <div class="mt-3 mb-3">
+        <p class="mb-2"><strong>Noms(s) et Prénom(s) :</strong> {{ $rapport->rendezVous->client->nomcomplet_client ?? 'RAS' }}</p>
+        <div class="mb-2"><strong>Âge :</strong> {{ $rapport->rendezVous->client->age ?? 'RAS' }} ans</div>
+        <div class="mb-2"><strong>Sexe :</strong> {{ $rapport->rendezVous->client->sexe->description_sex ?? 'RAS' }}</div>
+        <div class="mb-2"><strong>Téléphone :</strong> {{ $rapport->rendezVous->client->tel_cli ?? 'RAS' }}</div>
+        <div class="mb-2"><strong>Renseignement(s) clinique(s) :</strong> {{ $rapport->rendezVous->client->renseign_clini_cli ?? 'RAS' }}</div>
+
+        <p class="mb-2">
+            <strong>Médecin Traitant :</strong>
+            {{ $rapport->rendezVous->consultant->nomcomplet ?? 'RAS' }}
+        </p>
+        <p class="mb-2">
+            <strong>Examen demandé :</strong>
+            {{ $rapport->prestation->type_label ?? 'RAS' }}
+        </p>
     </div>
 
-    <p class="mb-2"><strong>Noms(s) et Prénom(s) :</strong> {{ $rapport->rendezVous->client->nomcomplet_client ?? 'RAS' }}</p>
-    <div class="mb-2"><strong>Âge :</strong> {{ $rapport->rendezVous->client->age ?? 'RAS' }} ans</div>
-    <div class="mb-2"><strong>Sexe :</strong> {{ $rapport->rendezVous->client->sexe->description_sex ?? 'RAS' }}</div>
-    <div class="mb-2"><strong>Téléphone :</strong> {{ $rapport->rendezVous->client->tel_cli ?? 'RAS' }}</div>
-    <div class="mb-2"><strong>Renseignement(s) clinique(s) :</strong> {{ $rapport->rendezVous->client->renseign_clini_cli ?? 'RAS' }}</div>
+    <h1 class="fs-3 fw-bold text-center text-uppercase text-decoration-underline">
+        COMPTE RENDU {{ $rapport->prestation->actes->first()?->name ?? 'RAS' }}
+    </h1>
 
-    <p class="mb-2">
-        <strong>Médecin Traitant :</strong>
-        {{ $rapport->rendezVous->consultant->nomcomplet ?? 'RAS' }}
-    </p>
-    <p class="mb-2">
-        <strong>Examen demandé :</strong>
-        {{ $rapport->prestation->type_label ?? 'RAS' }}
-    </p>
+    <p class="fst-italic text-end">Date d'impression: {{ now()->format('d/m/Y H:i') }}</p>
 
-    <fieldset class="mb-lg-3 mt-3 p-2 rounded-0" style="border: 3px solid #00b050;">
-        <h5 class="text-uppercase fs-6 text-center">
-            COMPTE RENDU {{ $rapport->prestation->actes->first()?->name ?? 'RAS' }}
-        </h5>
-    </fieldset>
-
-
-    <p class="mb-lg-3 mt-3">
+    <p class="mb-lg-3 mt-3" style="font-weight: bold;">
         <strong><span class="text-decoration-underline">Technique :</span></strong>
-        {{ optional($rapport->techniqueAnalyse)->name ?? 'RAS' }}
+        {{ $rapport->technique_analyse ?? 'RAS' }}
     </p>
 
     <p class="mb-lg-3 mt-3 text-decoration-underline"><strong>Résultats :</strong></p>
@@ -114,17 +140,12 @@
         <p class="mt-3">
             Ydé, le {{ \Carbon\Carbon::parse($rapport->created_at)->format('d/m/Y H:i:s') }}
         </p>
-        <p class="mt-3">
-            {{ $rapport->consultant->nomcomplet ?? 'RAS' }}
+        <p class="mt-3" style="font-weight: bold;">
+            {{ $rapport->medecin_signataire ?? 'RAS' }}
         </p>
     </div>
-    <div class="footer text-center">
-        <small  style="font-size: 8px;color: #00b050">
-            Médecine générale – Médecine interne – Cardiologie – Dermatologie – Diabétologie – Endocrinologie – Gériatrie – <br>
-            Neurologie – Pneumologie – Rhumatologie – Gynécologie – Consultations prénatales – Médecine du Travail – ORL – Urologie <br>
-            – Neuropsychologie – Diététique et Nutrition – Imagerie médicale - Kinésithérapie
-        </small>
-    </div>
+
+
 </div>
 
 </body>
