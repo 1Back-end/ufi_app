@@ -13,8 +13,8 @@ class BilanActeRendezVous extends Model
     protected $fillable = [
         'rendez_vous_id',
         'prestation_id',
-        'consultant_id',
-        'technique_analyse_id',
+        'medecin_signataire',
+        'technique_analyse',
         'resume',
         'conclusion',
         'created_by',
