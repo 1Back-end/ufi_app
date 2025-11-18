@@ -12,6 +12,7 @@ use App\Models\RendezVous;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 /**
  * @permission_category Gestion des statistiques
@@ -183,6 +184,84 @@ class StatistiqueController extends Controller
         }
     }
 
+
+    /**
+     * Display a listing of the resource.
+     * @permission StatistiqueController::get_client_by_day
+     * @permission_desc Etat des clients journalier
+     */
+    public function get_client_by_day()
+    {
+        try {
+            DB::beginTransaction();
+            $today = Carbon::today();
+
+            // Récupération des clients du jour
+            $clients = Client::with(["societe", "prefix", "statusFamiliale", "typeDocument", "sexe"])
+                ->whereDate('created_at', $today)
+                ->orderBy('nomcomplet_client', 'ASC')
+                ->get();
+
+            if ($clients->isEmpty()) {
+                DB::rollBack();
+                return response()->json(['message' => 'Aucun client trouvé aujourd\'hui.'], 404);
+            }
+
+            $data = [
+                'clients' => $clients,
+                'today' => $today,
+            ];
+
+            // Nom du fichier PDF
+            $fileName   = 'etats-client-' . now()->format('YmdHis') . '.pdf';
+            $folderPath = 'storage/etats-clients';
+            $filePath   = $folderPath . '/' . $fileName;
+
+            // Créer dossier s'il n'existe pas
+            if (!file_exists($folderPath)) {
+                mkdir($folderPath, 0755, true);
+            }
+
+            // Génération du PDF
+            save_browser_shot_pdf(
+                view: 'pdfs.etats-clients.etats-clients',
+                data: $data,
+                folderPath: $folderPath,
+                path: $filePath,
+                margins: [15, 10, 15, 10]
+            );
+
+            DB::commit();
+
+            // Vérifier existence du PDF
+            if (!file_exists($filePath)) {
+                return response()->json(['message' => 'Le fichier PDF n\'a pas été généré.'], 500);
+            }
+
+            // Encodage base64
+            $pdfContent = file_get_contents($filePath);
+            $base64 = base64_encode($pdfContent);
+
+            return response()->json([
+                'clients'  => $clients,
+                'base64'   => $base64,
+                'url'      => $filePath,
+                'filename' => $fileName,
+            ], 200);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'error' => 'Erreur de validation',
+                'details' => $e->errors()
+            ], 422);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'error'   => 'Une erreur est survenue',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
 
 
 

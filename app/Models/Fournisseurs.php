@@ -15,18 +15,23 @@ class Fournisseurs extends Model
         'nom',
         'adresse',
         'tel',
-        'fax',
         'email',
-        'ville',
-        'pays',
-        'state',
+        'status',               // "actif" ou "inactif"
         'is_deleted',
         'created_by',
         'updated_by',
+        'registre_commerce',
+        'nui',
+        'personne_contact_1',
+        'telephone_contact_1',
+        'personne_contact_2',
+        'telephone_contact_2',
+        'directeur_general',
     ];
+
     public function fournisseurs()
     {
-        return $this->belongsToMany(Fournisseur::class, 'product_fournisseur');
+        return $this->belongsToMany(Fournisseurs::class, 'product_fournisseur');
     }
     public function products()
     {
@@ -34,14 +39,14 @@ class Fournisseurs extends Model
     }
 
     // Relations (par exemple, pour 'created_by' et 'updated_by' avec l'utilisateur)
-    public function createdBy()
+    public function creator()
     {
         return $this->belongsTo(User::class, 'created_by');
     }
     // Dans le modèle Fournisseurs
 
 
-    public function updatedBy()
+    public function updator()
     {
         return $this->belongsTo(User::class, 'updated_by');
     }

@@ -19,51 +19,42 @@ use Maatwebsite\Excel\Facades\Excel;
 
 class FournisseurController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     * @permission FournisseurController::listIdName
-     * @permission_desc Afficher l'id et nom des fournisseurs
-     */
-    public function ListIdName()
-    {
-        $fournisseurs = Fournisseurs::select('id', 'nom')
-            ->where('is_deleted', false)
-            ->get();
 
-        return response()->json([
-            'fournisseurs' => $fournisseurs
-        ]);
-    }
     /**
      * Display a listing of the resource.
      * @permission FournisseurController::index
      * @permission_desc Afficher la liste des fournisseurs avec pagination
      */
     public function index(Request $request){
-        $perPage = $request->input('limit', 10);  // Par défaut, 10 éléments par page
+        $perPage = $request->input('limit', 25);  // Par défaut, 10 éléments par page
         $page = $request->input('page', 1);  // Page courante
-        $search = $request->input('search');
 
-        $query = Fournisseurs::where('is_deleted', false);
+        $query = Fournisseurs::with(["creator","updator"])->where('is_deleted',false);
 
-        if ($search) {
+        if ($search = trim($request->input('search'))) {
             $query->where(function ($query) use ($search) {
                 $query->where('email', 'like', "%$search%")
                 ->orWhere('adresse', 'like', '%' . $search . '%')
                     ->orWhere('tel', 'like', '%' . $search . '%')
-                    ->orWhere('email', 'like', '%' . $search . '%');
+                    ->orWhere('nom', 'like', '%' . $search . '%')
+                    ->orWhere('email', 'like', '%' . $search . '%')
+                    ->orWhere('personne_contact_1', 'like', '%' . $search . '%')
+                    ->orWhere('personne_contact_2', 'like', '%' . $search . '%')
+                    ->orWhere('telephone_contact_1', 'like', '%' . $search . '%')
+                    ->orWhere('telephone_contact_2', 'like', '%' . $search . '%')
+                    ->orWhere('directeur_general', 'like', '%' . $search . '%')
+                    ->orWhere('registre_commerce', 'like', '%' . $search . '%')
+                    ->orWhere('nui', 'like', '%' . $search . '%');
             });
         }
 
-// Récupérer les assureurs avec pagination
-        $fournisseurs = Fournisseurs::where('is_deleted', false)
-            ->paginate($perPage);
+        $fournisseurs = $query->latest()->paginate($perPage, ['*'], 'page', $page);
 
         return response()->json([
             'data' => $fournisseurs->items(),
-            'current_page' => $fournisseurs->currentPage(),  // Page courante
-            'last_page' => $fournisseurs->lastPage(),  // Dernière page
-            'total' => $fournisseurs->total(),  // Nombre total d'éléments
+            'current_page' => $fournisseurs->currentPage(),
+            'last_page' => $fournisseurs->lastPage(),
+            'total' => $fournisseurs->total(),
         ]);
     }
     /**
@@ -94,110 +85,25 @@ class FournisseurController extends Controller
             ], 500);
         }
     }
-    /**
-     * Display a listing of the resource.
-     * @permission FournisseurController::searchAndExport
-     * @permission_desc Rechercher et exporter les données des fournisseurs
-     */
-    public function searchAndExport(Request $request)
-    {
-        // Validation du paramètre de recherche
-        $request->validate([
-            'query' => 'nullable|string|max:255',
-        ]);
-
-        $searchQuery = $request->input('query', '');
-
-        // Initialisation de la requête
-        $query = Fournisseurs::where('is_deleted', false);
-
-        // Appliquer les filtres si une requête de recherche est fournie
-        if ($searchQuery) {
-            $query->where(function ($q) use ($searchQuery) {
-                $q->where('nom', 'like', '%' . $searchQuery . '%')
-                    ->orWhere('adresse', 'like', '%' . $searchQuery . '%')
-                    ->orWhere('tel', 'like', '%' . $searchQuery . '%')
-                    ->orWhere('email', 'like', '%' . $searchQuery . '%');
-            });
-        }
-
-        $fournisseurs = $query->get();
-
-        // Vérifier si la collection est vide
-        if ($fournisseurs->isEmpty()) {
-            return response()->json([
-                'message' => 'Aucun fournisseur trouvé pour cette recherche.',
-                'data' => []
-            ], 404);
-        }
-
-        try {
-            // Définir le nom du fichier d'export
-            $fileName = 'fournisseurs-recherche-' . Carbon::now()->format('Y-m-d') . '.xlsx';
-
-            // Exporter les données vers un fichier Excel
-            Excel::store(new FournisseurSearchExport($fournisseurs), $fileName, 'exportfournisseurs');
-
-            return response()->json([
-                'message' => 'Exportation des données effectuée avec succès.',
-                'filename' => $fileName,
-                'url' => Storage::disk('exportfournisseurs')->url($fileName),
-            ], 200);
-        } catch (\Exception $e) {
-            return response()->json([
-                'message' => 'Erreur lors de l\'exportation des données.',
-                'error' => $e->getMessage(),
-            ], 500);
-        }
-    }
-    /**
-     * Display a listing of the resource.
-     * @permission FournisseurController::search
-     * @permission_desc Rechercher un fournisseur
-     */
-    public function search(Request $request)
-    {
-        // Validation du paramètre de recherche
-        $request->validate([
-            'query' => 'nullable|string|max:255',
-        ]);
-
-        // Récupérer la requête de recherche
-        $searchQuery = $request->input('query', '');
-
-        $query = Fournisseurs::where('is_deleted', false);
-
-        if ($searchQuery) {
-            $query->where(function($query) use ($searchQuery) {
-                $query->where('nom', 'like', '%' . $searchQuery . '%')
-                    ->orWhere('adresse', 'like', '%' . $searchQuery . '%')
-                    ->orWhere('tel', 'like', '%' . $searchQuery . '%')
-                    ->orWhere('email', 'like', '%' . $searchQuery . '%');
-            });
-        }
-
-        $fournisseurs = $query->get();
-
-        return response()->json([
-            'data' => $fournisseurs,
-        ]);
-    }
-
 
     /**
      * Display a listing of the resource.
      * @permission FournisseurController::show
      * @permission_desc Afficher les détails d'un fournisseur
      */
-    public function show($id){
-        $fournisseur = Fournisseurs::where('id', $id)->where('is_deleted', false)->first();
-        if(!$fournisseur){
-            return response()->json(['message' => 'Fournisseur not found'], 404);
-        }else{
-            return response()->json($fournisseur,200);
+    public function show($id)
+    {
+        $fournisseur = Fournisseurs::where('id', $id)
+            ->where('is_deleted', false)
+            ->first();
+
+        if (!$fournisseur) {
+            return response()->json(['message' => 'Fournisseur introuvable'], 404);
         }
 
-}
+        return response()->json($fournisseur, 200);
+    }
+
 
     /**
      * Display a listing of the resource.
@@ -207,41 +113,90 @@ class FournisseurController extends Controller
 
     public function store(Request $request)
     {
-        // Authentifier l'utilisateur
-        $auth = auth()->user();
-        if(!$auth){
-            return response()->json(['message' => 'Unauthorized'], 401);
+        try {
+            // Authentifier l'utilisateur
+            $auth = auth()->user();
+            if (!$auth) {
+                return response()->json([
+                    'message' => 'Vous devez être connecté pour effectuer cette action.'
+                ], 401);
+            }
+
+            // Validation des données entrantes avec messages personnalisés
+            $data = $request->validate([
+                'nom' => 'required|string|max:255',
+                'adresse' => 'required|string|max:255',
+                'tel' => 'required|string|unique:fournisseurs|max:20',
+                'email' => 'required|email|unique:fournisseurs|max:255',
+                'status' => 'sometimes|string|in:actif,inactif',
+                'registre_commerce' => 'nullable|string|unique:fournisseurs|max:255',
+                'nui' => 'nullable|string|unique:fournisseurs|max:255',
+                'personne_contact_1' => 'nullable|string|max:255',
+                'telephone_contact_1' => 'nullable|string|unique:fournisseurs|max:20',
+                'personne_contact_2' => 'nullable|string|max:255',
+                'telephone_contact_2' => 'nullable|string|unique:fournisseurs|max:20',
+                'directeur_general' => 'nullable|string|max:255',
+            ], [
+                'nom.required' => 'Le nom du fournisseur est obligatoire.',
+                'nom.string' => 'Le nom doit être une chaîne de caractères.',
+                'nom.max' => 'Le nom ne peut pas dépasser 255 caractères.',
+
+                'adresse.required' => 'L’adresse du fournisseur est obligatoire.',
+                'adresse.string' => 'L’adresse doit être une chaîne de caractères.',
+                'adresse.max' => 'L’adresse ne peut pas dépasser 255 caractères.',
+
+                'tel.required' => 'Le numéro de téléphone est obligatoire.',
+                'tel.string' => 'Le téléphone doit être une chaîne de caractères.',
+                'tel.unique' => 'Ce numéro de téléphone est déjà utilisé.',
+                'tel.max' => 'Le téléphone ne peut pas dépasser 20 caractères.',
+
+                'email.required' => 'L’email est obligatoire.',
+                'email.email' => 'L’email doit être une adresse email valide.',
+                'email.unique' => 'Cet email est déjà utilisé.',
+                'email.max' => 'L’email ne peut pas dépasser 255 caractères.',
+
+                'registre_commerce.unique' => 'Ce registre de commerce est déjà utilisé.',
+                'registre_commerce.max' => 'Le registre de commerce ne peut pas dépasser 255 caractères.',
+
+                'nui.unique' => 'Ce NUI est déjà utilisé.',
+                'nui.max' => 'Le NUI ne peut pas dépasser 255 caractères.',
+
+                'personne_contact_1.max' => 'Le nom de la première personne à contacter ne peut pas dépasser 255 caractères.',
+                'telephone_contact_1.unique' => 'Le téléphone de la première personne est déjà utilisé.',
+                'telephone_contact_1.max' => 'Le téléphone de la première personne à contacter ne peut pas dépasser 20 caractères.',
+
+                'personne_contact_2.max' => 'Le nom de la deuxième personne à contacter ne peut pas dépasser 255 caractères.',
+                'telephone_contact_2.unique' => 'Le téléphone de la deuxième personne est déjà utilisé.',
+                'telephone_contact_2.max' => 'Le téléphone de la deuxième personne à contacter ne peut pas dépasser 20 caractères.',
+
+                'directeur_general.max' => 'Le nom du directeur général ne peut pas dépasser 255 caractères.',
+            ]);
+
+            // Ajouter l'ID de l'utilisateur authentifié
+            $data['created_by'] = $auth->id;
+
+            // Créer le fournisseur
+            $fournisseur = Fournisseurs::create($data);
+
+            return response()->json([
+                'message' => 'Le fournisseur a été créé avec succès !',
+                'fournisseur' => $fournisseur
+            ], 201);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'message' => 'Erreur de validation des données.',
+                'errors' => $e->errors()
+            ], 422);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Une erreur est survenue lors de la création du fournisseur.',
+                'error' => $e->getMessage()
+            ], 500);
         }
-
-        // Validation des données entrantes
-        $data = $request->validate([
-            'nom' => 'required|string|max:255',
-            'adresse' => 'required|string|max:255',
-            'tel' => 'required|string|unique:fournisseurs|max:20',
-            'fax' => 'required|string|max:20',
-            'email' => 'required|email|unique:fournisseurs|max:255',
-            'ville' => 'required|string|max:100',
-            'pays' => 'required|string|max:100',
-            'state' => 'required|string|max:100',
-        ]);
-
-        // Ajouter l'ID de l'utilisateur authentifié
-        $data['created_by'] = $auth->id;
-
-        // Créer un nouveau fournisseur avec les données validées
-        $fournisseur = Fournisseurs::create($data);
-
-        // Retourner la réponse JSON avec un message de succès et les informations du fournisseur créé
-        return response()->json([
-            'message' => 'Fournisseur créé avec succès',
-            'fournisseur' => $fournisseur
-        ], 201); // Code de statut HTTP 201 pour une ressource créée
     }
-    /**
-     * Display a listing of the resource.
-     * @permission FournisseurController::search
-     * @permission_desc Rechercher des fournisseurs
-     */
+
 
     /**
      * Display a listing of the resource.
@@ -252,69 +207,116 @@ class FournisseurController extends Controller
     public function update(Request $request, $id)
     {
         try {
+            // Authentifier l'utilisateur
             $auth = auth()->user();
-
-            $fournisseur = Fournisseurs::where('id', $id)->where('is_deleted', false)->first();
-
-            if (!$fournisseur) {
-                return response()->json(['message' => 'Fournisseur non trouvé'], 404);
+            if (!$auth) {
+                return response()->json([
+                    'message' => 'Vous devez être connecté pour effectuer cette action.'
+                ], 401);
             }
 
+            // Vérifier si le fournisseur existe et n'est pas supprimé
+            $fournisseur = Fournisseurs::where('id', $id)
+                ->where('is_deleted', false)
+                ->first();
+
+            if (!$fournisseur) {
+                return response()->json([
+                    'message' => 'Fournisseur introuvable ou supprimé.'
+                ], 404);
+            }
+
+            // Validation des données entrantes avec messages personnalisés
             $data = $request->validate([
                 'nom' => 'required|string|max:255',
                 'adresse' => 'required|string|max:255',
-                'tel' => 'required|string|max:20|unique:fournisseurs,tel,' . $fournisseur->id,
-                'fax' => 'required|string|max:20',
-                'email' => 'required|email|max:255|unique:fournisseurs,email,' . $fournisseur->id,
-                'ville' => 'required|string|max:100',
-                'pays' => 'required|string|max:100',
-                'state' => 'required|string|max:100',
+                'tel' => 'required|string|max:20|unique:fournisseurs,tel,' . $id,
+                'email' => 'required|email|max:255|unique:fournisseurs,email,' . $id,
+                'status' => 'sometimes|string|in:actif,inactif',
+                'registre_commerce' => 'nullable|string|max:255|unique:fournisseurs,registre_commerce,' . $id,
+                'nui' => 'nullable|string|max:255|unique:fournisseurs,nui,' . $id,
+                'personne_contact_1' => 'nullable|string|max:255',
+                'telephone_contact_1' => 'nullable|string|max:20|unique:fournisseurs,telephone_contact_1,' . $id,
+                'personne_contact_2' => 'nullable|string|max:255',
+                'telephone_contact_2' => 'nullable|string|max:20|unique:fournisseurs,telephone_contact_2,' . $id,
+                'directeur_general' => 'nullable|string|max:255',
+            ], [
+                'nom.required' => 'Le nom du fournisseur est obligatoire.',
+                'nom.string' => 'Le nom doit être une chaîne de caractères.',
+                'nom.max' => 'Le nom ne peut pas dépasser 255 caractères.',
+
+                'adresse.required' => 'L’adresse du fournisseur est obligatoire.',
+                'adresse.string' => 'L’adresse doit être une chaîne de caractères.',
+                'adresse.max' => 'L’adresse ne peut pas dépasser 255 caractères.',
+
+                'tel.required' => 'Le numéro de téléphone est obligatoire.',
+                'tel.string' => 'Le téléphone doit être une chaîne de caractères.',
+                'tel.unique' => 'Ce numéro de téléphone est déjà utilisé.',
+                'tel.max' => 'Le téléphone ne peut pas dépasser 20 caractères.',
+
+                'email.required' => 'L’email est obligatoire.',
+                'email.email' => 'L’email doit être une adresse email valide.',
+                'email.unique' => 'Cet email est déjà utilisé.',
+                'email.max' => 'L’email ne peut pas dépasser 255 caractères.',
+
+                'registre_commerce.unique' => 'Ce registre de commerce est déjà utilisé.',
+                'registre_commerce.max' => 'Le registre de commerce ne peut pas dépasser 255 caractères.',
+
+                'nui.unique' => 'Ce NUI est déjà utilisé.',
+                'nui.max' => 'Le NUI ne peut pas dépasser 255 caractères.',
+
+                'personne_contact_1.max' => 'Le nom de la première personne à contacter ne peut pas dépasser 255 caractères.',
+                'telephone_contact_1.unique' => 'Le téléphone de la première personne est déjà utilisé.',
+                'telephone_contact_1.max' => 'Le téléphone de la première personne à contacter ne peut pas dépasser 20 caractères.',
+
+                'personne_contact_2.max' => 'Le nom de la deuxième personne à contacter ne peut pas dépasser 255 caractères.',
+                'telephone_contact_2.unique' => 'Le téléphone de la deuxième personne est déjà utilisé.',
+                'telephone_contact_2.max' => 'Le téléphone de la deuxième personne à contacter ne peut pas dépasser 20 caractères.',
+
+                'directeur_general.max' => 'Le nom du directeur général ne peut pas dépasser 255 caractères.',
             ]);
 
+            // Ajouter l'ID de l'utilisateur qui met à jour
             $data['updated_by'] = $auth->id;
 
+            // Mettre à jour le fournisseur
             $fournisseur->update($data);
 
             return response()->json([
-                'message' => 'Fournisseur mis à jour avec succès',
+                'message' => 'Le fournisseur a été mis à jour avec succès !',
                 'fournisseur' => $fournisseur
             ], 200);
-        } catch (\Throwable $e) {
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
-                'message' => 'Une erreur est survenue',
-                'error' => $e->getMessage(),
-                'trace' => config('app.debug') ? $e->getTrace() : []
+                'message' => 'Erreur de validation des données.',
+                'errors' => $e->errors()
+            ], 422);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Une erreur est survenue lors de la mise à jour du fournisseur.',
+                'error' => $e->getMessage()
             ], 500);
         }
     }
+
     /**
      * Display a listing of the resource.
-     * @permission FournisseurController::delete
-     * @permission_desc Supprimer un fournisseur
+     * @permission FournisseurController::destroy
+     * @permission_desc Suppressions des fournisseurs
      */
-    public function delete($id)
+    public function destroy($id)
     {
-        // Rechercher le fournisseur non supprimé
         $fournisseur = Fournisseurs::where('id', $id)
             ->where('is_deleted', false)
             ->first();
 
-        // Si non trouvé
         if (!$fournisseur) {
             return response()->json(['message' => 'Fournisseur introuvable ou déjà supprimé'], 404);
         }
 
-//        // Vérifier s'il est utilisé dans la table products
-//        $isUsed = Product::where('fournisseur_id', $id)->exists();
-//
-//        if ($isUsed) {
-//            return response()->json([
-//                'message' => 'Impossible de supprimer : ce fournisseur est utilisé dans des produits.'
-//            ], 400);
-//        }
-
         try {
-            // Soft delete : on marque comme supprimé
             $fournisseur->update(['is_deleted' => true]);
 
             return response()->json([
@@ -322,44 +324,43 @@ class FournisseurController extends Controller
             ], 200);
         } catch (\Exception $e) {
             return response()->json([
-                'error' => 'Une erreur est survenue',
-                'message' => $e->getMessage()
+                'message' => 'Une erreur est survenue lors de la suppression du fournisseur',
+                'error' => $e->getMessage()
             ], 500);
         }
     }
+
     /**
      * Display a listing of the resource.
-     * @permission FournisseurController::updateStatus
-     * @permission_desc Changer le statut  d'un fournisseur
+     * @permission FournisseurController::update_status
+     * @permission_desc Activer/Désactiver un fournisseur
      */
-    public function updateStatus(Request $request, $id, $status)
+    public function update_status(Request $request, $id)
     {
-        // Find the assureur by ID
+        $auth = auth()->user();
         $fournisseur = Fournisseurs::find($id);
-        if (!$fournisseur) {
-            return response()->json(['message' => 'Fournisseur non trouvé'], 404);
+
+        if (!$fournisseur || $fournisseur->is_deleted) {
+            return response()->json(['message' => 'Fournisseur introuvable ou supprimé'], 404);
         }
 
-        // Check if the assureur is deleted
-        if ($fournisseur->is_deleted) {
-            return response()->json(['message' => 'Impossible de mettre à jour un fournisseur supprimé'], 400);
-        }
+        $status = $request->input('status');
 
-        // Validate the status
-        if (!in_array($status, ['Actif', 'Inactif'])) {
+        if (!in_array($status, ['actif', 'inactif'])) {
             return response()->json(['message' => 'Statut invalide'], 400);
         }
 
-        // Update the status
-        $fournisseur->status = $status;  // Ensure the correct field name
+        $fournisseur->status = $status;
+        $fournisseur->updated_by = $auth->id;
         $fournisseur->save();
 
-        // Return the updated assureur
         return response()->json([
             'message' => 'Statut mis à jour avec succès',
-            'assureur' => $fournisseur  // Corrected to $assureur
+            'fournisseur' => $fournisseur
         ], 200);
     }
+
+
 
 
 

@@ -102,6 +102,7 @@ Route::middleware(['activity'])->group(function () {
         Route::apiResource("archives_patients", PatientArchiveController::class);
 
 
+
         // Gestion des centres
         Route::controller(CentreController::class)->prefix('centres')->group(function () {
             Route::get('/', 'index');
@@ -233,19 +234,10 @@ Route::middleware(['activity'])->group(function () {
             Route::get('/{id}/hospitalisations', 'getHospitalisations');
             Route::post('/import', 'import');
         });
-        Route::controller(FournisseurController::class)->prefix('fournisseurs')->group(function () {
-            Route::get('/list', 'index');
-            Route::post('/create', 'store');
-            Route::get('/get_by_id/{id}', 'show');
-            Route::put('/edit/{id}', 'update');
-            Route::delete('/delete/{id}', 'delete');
-            Route::get('/search', 'search');
-            Route::get('/get_data', 'listIdName');
-            Route::get('/export-fournisseurs', 'export');
-            Route::get('/search-and-export', 'searchAndExport');
-            Route::get('/search', 'search');
-            Route::put('update_status/{id}/status/{status}', 'updateStatus');
-        });
+
+        Route::apiResource('fournisseurs',FournisseurController::class);
+        Route::patch('fournisseurs/{id}/status', [FournisseurController::class, 'update_status']);
+
         Route::controller(PriseEnChargeController::class)->prefix('prise_en_charges')->group(function () {
             Route::get('/list', 'index');
             Route::post('/create', 'store');
@@ -595,6 +587,8 @@ Route::middleware(['activity'])->group(function () {
             Route::get('/rendez_vous-statistics', 'statistiquesAujourdHui');
             Route::get('/clients-statistics', 'clientsJourParType');
             Route::get('/factures-statistics', 'getAllFacture');
+            Route::get('/print_data', 'get_data');
+            Route::get('clients_by_day',  'get_client_by_day');
         });
         Route::controller(RapportActeController::class)->prefix('rapport_acte')->group(function () {
             Route::post('/create', 'store');
