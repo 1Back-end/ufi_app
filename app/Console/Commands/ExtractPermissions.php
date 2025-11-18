@@ -2,7 +2,6 @@
 
 namespace App\Console\Commands;
 
-use App\Models\Menu;
 use App\Models\Permission;
 use App\Models\Role;
 use App\Models\User;
@@ -18,51 +17,71 @@ class ExtractPermissions extends Command
     public function handle(): void
     {
         $controllersPath = app_path('Http/Controllers');
-        $permissions = [];
+        $permissionsFromControllers = [];
 
         $userSYSTEM = User::whereLogin('SYSTEM')->first();
 
+        // 1️⃣ Extraire les permissions des controllers
         foreach ($this->getControllers($controllersPath) as $controller) {
-            $this->extractPermissionsFromController($controller, $permissions);
+            $this->extractPermissionsFromController($controller, $permissionsFromControllers);
         }
 
-        $this->info("Controllers and processed functions : ");
-        // Affichage des permissions extraites
-        foreach ($permissions as $controller => $methods) {
-            $this->info("Controller: $controller :");
+        // 2️⃣ Traiter chaque permission extraite
+        foreach ($permissionsFromControllers as $controller => $methods) {
             foreach ($methods as $method => $perm) {
+                if (empty($perm['permission'])) continue;
 
-                if (empty($perm['permission']) && empty($perm['permission_desc'])) {
-                    $this->info("-----No permission for this method: $method");
-                    continue;
-                }
+                $permission = Permission::where('name', $perm['permission'])->first();
 
-                if (Permission::where('name', $perm['permission'])->exists()) {
-                    $this->info("-----Permission exist for this method: $method");
-                    continue;
-                }
-
-                $role = Role::find(1);
-
-                $permission = Permission::create([
-                    'name' => $perm['permission'],
-                    'description' => $perm['permission_desc'],
-                    'system' => true,
-                    'created_by' => $userSYSTEM->id,
-                    'updated_by' => $userSYSTEM->id
-                ]);
-
-                $this->info("-----Permission created for this method: $method");
-
-                if ($role) {
-                    $role->permissions()->syncWithPivotValues([$permission->id], [
+                if ($permission) {
+                    // Mise à jour si nécessaire
+                    if ($permission->description !== $perm['permission_desc']) {
+                        $permission->update([
+                            'description' => $perm['permission_desc'],
+                            'updated_by' => $userSYSTEM->id
+                        ]);
+                        $this->line("✏️  Permission mise à jour: {$perm['permission']} ({$method})");
+                    } else {
+                        $this->line("✅  Permission inchangée: {$perm['permission']} ({$method})");
+                    }
+                } else {
+                    // Création
+                    $permission = Permission::create([
+                        'name' => $perm['permission'],
+                        'description' => $perm['permission_desc'],
+                        'system' => true,
                         'created_by' => $userSYSTEM->id,
                         'updated_by' => $userSYSTEM->id
-                    ], false);
-                    $this->info("-----Permission ajoutée au role : $role->name");
+                    ]);
+                    $this->line("🆕  Nouvelle permission créée: {$perm['permission']} ({$method})");
+
+                    // Associer au rôle admin
+                    $role = Role::find(1);
+                    if ($role) {
+                        $role->permissions()->syncWithPivotValues([$permission->id], [
+                            'created_by' => $userSYSTEM->id,
+                            'updated_by' => $userSYSTEM->id
+                        ], false);
+                        $this->line("🔗  Permission ajoutée au rôle : {$role->name}");
+                    }
                 }
             }
         }
+
+        // 3️⃣ Supprimer les permissions obsolètes
+        $allControllerPermissions = collect($permissionsFromControllers)
+            ->flatMap(fn($methods) => collect($methods)->pluck('permission'))
+            ->filter()
+            ->toArray();
+
+        Permission::where('system', true)
+            ->whereNotIn('name', $allControllerPermissions)
+            ->each(function ($permission) {
+                $permission->delete();
+                $this->line("❌  Permission supprimée: {$permission->name}");
+            });
+
+        $this->info('🎯 Extraction et synchronisation des permissions terminées.');
     }
 
     private function getControllers($directory, $namespace = 'App\\Http\\Controllers'): array
@@ -71,19 +90,15 @@ class ExtractPermissions extends Command
         $files = scandir($directory);
 
         foreach ($files as $file) {
-            if ($file === '.' || $file === '..') {
-                continue;
-            }
+            if ($file === '.' || $file === '..') continue;
 
             $fullPath = $directory . DIRECTORY_SEPARATOR . $file;
 
             if (is_dir($fullPath)) {
-                // Appel récursif pour les sous-dossiers
                 $subNamespace = $namespace . '\\' . $file;
                 $controllers = array_merge($controllers, $this->getControllers($fullPath, $subNamespace));
             } elseif (pathinfo($file, PATHINFO_EXTENSION) === 'php') {
-                $className = $namespace . '\\' . pathinfo($file, PATHINFO_FILENAME);
-                $controllers[] = $className;
+                $controllers[] = $namespace . '\\' . pathinfo($file, PATHINFO_FILENAME);
             }
         }
 
@@ -92,9 +107,7 @@ class ExtractPermissions extends Command
 
     private function extractPermissionsFromController($controller, &$permissions): void
     {
-        if (!class_exists($controller)) {
-            return;
-        }
+        if (!class_exists($controller)) return;
 
         $reflection = new ReflectionClass($controller);
         $methods = $reflection->getMethods(ReflectionMethod::IS_PUBLIC);
@@ -120,7 +133,6 @@ class ExtractPermissions extends Command
         if (preg_match('/' . preg_quote($tag) . '\s+(.+)/', $doc, $matches)) {
             return trim($matches[1]);
         }
-
         return null;
     }
 }
