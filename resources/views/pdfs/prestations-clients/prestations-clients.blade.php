@@ -55,7 +55,9 @@
         @page {
             margin: 15mm 10mm 20mm 10mm;
             counter-increment: page;
+            size: A5;
         }
+
     </style>
 </head>
 <body>
@@ -88,46 +90,72 @@
     <div class="mt-2 w-100" style="border-top: 1px double rgb(0, 0, 0, 0.75); margin-bottom: 2px"></div>
     <div class="mb-2 w-100" style="border-top: 1px double rgb(0, 0, 0, 0.75);"></div>
 
-    <h1 class="fs-3 fw-bold text-center text-uppercase text-decoration-underline">
-      FICHE DES CLIENTS DU {{ \Carbon\Carbon::parse($today)->format('d-m-Y') }}
-    </h1>
-
-    <p class="fst-italic text-end">Date d'impression: {{ now()->format('d/m/Y H:i') }}</p>
 
     <div class="mt-2 w-100">
-        <table class="table table-bordered table-striped text-center">
+        <table class="table table-bordered table-striped text-center" style="font-size: 2.5mm;">
             <thead>
-                <th>ID</th>
-                <th>Réference</th>
-                <th>Nom complet</th>
-                <th>Sexe</th>
-                <th>Statut matrimonial</th>
-                <th>Téléphone</th>
-                <th>Type</th>
-                <th>Date naissance</th>
-                <th>Date création</th>
-                <th>Crée par</th>
+            <th>#</th>
+            <th>Patient</th>
+            <th>Prescripteur</th>
+            <th>Consultations/Actes</th>
+            <th>PC</th>
+            <th>Proforma</th>
+            <th>PU</th>
+            <th>Part patient</th>
+            <th>Montant payé patient</th>
+            <th>Montant prise en charges</th>
+            <th>Assurance</th>
+            <th>Création DT</th>
             </thead>
             <tbody>
-            @foreach ($clients as $client)
+            @foreach ($prestations as $index => $prestation)
                 <tr>
-                    <td>{{ $client->id }}</td>
-                    <td>{{ $client->ref_cli }}</td>
-                    <td>{{ $client->nomcomplet_client }}</td>
-                    <td>{{ $client->sexe->description_sex ?? '-' }}</td>
-                    <td>{{ $client->statusFamiliale->description_statusfam ?? '-' }}</td>
+                    <td>{{ $index + 1 }}</td>
+                    <td>{{ $prestation->client->nomcomplet_client }}</td>
+                    <td>{{ $prestation->consultant->nomcomplet ?? '-' }}</td>
+
                     <td>
-                        {{ $client->tel_cli }} <br>
-                        {{ $client->tel2_cli }}
+                        @php
+                            $actes = $prestation->actes->pluck('name')->toArray();
+                            $consults = $prestation->consultations->pluck('name')->toArray();
+                            $libelle = array_merge($actes, $consults);
+                        @endphp
+                        {{ implode(' + ', $libelle) }}
                     </td>
-                    <td>{{ ucfirst($client->type_cli) }}</td>
-                    <td>{{ \Carbon\Carbon::parse($client->date_naiss_cli)->format('d-m-Y') }}</td>
-                    <td>{{ $client->created_at->format('d/m/Y') }}</td>
+
+                    {{-- Prise en charge --}}
+                    <td>{{ !empty($prestation->priseCharge->nomcomplet) ? 'Oui' : 'Non' }}</td>
+
+                    {{-- Proforma (montant total estimé) --}}
                     <td>
-                        <b> {{ $client->createByCli->nom_utilisateur}}</b>
+                        Faux
                     </td>
+
+                    <td>{{ $prestation->prestationables->pu }}</td>
+
+                    {{-- Part patient --}}
+                    <td>
+                        {{ $prestation->factures->amount_client }}
+                    </td>
+
+                    {{-- Montant payé patient --}}
+                    <td>
+                        {{ $prestation->factures->amount_client }}
+                    </td>
+
+                    {{-- Montant prise en charge --}}
+                    <td>
+                        {{ $prestation->factures->amount_pc }}
+                    </td>
+
+                    {{-- Assurance --}}
+                    <td>{{ $prestation->priseCharge->nom ?? '' }}</td>
+
+                    {{-- Date création --}}
+                    <td>{{ $prestation->created_at->format('d/m/Y H:i') }}</td>
                 </tr>
             @endforeach
+            </tbody>
             </tbody>
         </table>
     </div>

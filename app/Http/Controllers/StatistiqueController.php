@@ -8,6 +8,7 @@ use App\Enums\TypePrestation;
 use App\Models\Client;
 use App\Models\Facture;
 use App\Models\Prestation;
+use App\Models\Regulation;
 use App\Models\RendezVous;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -262,6 +263,81 @@ class StatistiqueController extends Controller
             ], 500);
         }
     }
+
+
+    public function get_reglemenets_by_day()
+    {
+        try {
+            DB::beginTransaction();
+
+            $today = Carbon::today();
+
+            // Récupération des prestations du jour avec relations
+            $prestations = Prestation::with([
+                'factures',
+                'client',
+                'consultant',
+                'priseCharge',
+                'prestationables',
+            ])
+                ->whereDate('created_at', $today)
+                ->orderBy('created_at', 'ASC')
+                ->get();
+
+            if ($prestations->isEmpty()) {
+                DB::rollBack();
+                return response()->json(['message' => 'Aucune prestation trouvée aujourd\'hui.'], 404);
+            }
+
+            $data = [
+                'prestations' => $prestations,
+                'today'       => $today,
+            ];
+
+            // Nom et chemin du PDF
+            $fileName   = 'prestations-clients-' . now()->format('YmdHis') . '.pdf';
+            $folderPath = 'storage/prestations-clients';
+            $filePath   = $folderPath . '/' . $fileName;
+
+            if (!file_exists($folderPath)) {
+                mkdir($folderPath, 0755, true);
+            }
+
+            // Génération du PDF
+            save_browser_shot_pdf(
+                view: 'pdfs.prestations-clients.prestations-clients',
+                data: $data,
+                folderPath: $folderPath,
+                path: $filePath,
+                margins: [15, 10, 15, 10]
+            );
+
+            DB::commit();
+
+            // Vérification du PDF
+            if (!file_exists($filePath)) {
+                return response()->json(['message' => 'Le fichier PDF n\'a pas été généré.'], 500);
+            }
+
+            $pdfContent = file_get_contents($filePath);
+            $base64 = base64_encode($pdfContent);
+
+            return response()->json([
+                'prestations' => $prestations,
+                'base64'      => $base64,
+                'url'         => $filePath,
+                'filename'    => $fileName,
+            ], 200);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'error'   => 'Une erreur est survenue',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
 
 
 
