@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>ETATS JOURNALIERS DES CLIENTS</title>
+    <title>ETATS REGLEMENTS DES CLIENTS</title>
 
     <style>
         {!! $bootstrap !!}
@@ -89,24 +89,27 @@
     <div class="mb-2 w-100" style="border-top: 1px double rgb(0, 0, 0, 0.75);"></div>
 
     <h1 class="fs-3 fw-bold text-center text-uppercase text-decoration-underline">
-      FICHE DES CLIENTS DU {{ \Carbon\Carbon::parse($today)->format('d-m-Y') }}
+       ETATS DES REGLEMENTS CLIENTS {{ \Carbon\Carbon::parse($today)->format('d-m-Y') }}
     </h1>
 
     <p class="fst-italic text-end">Date d'impression: {{ now()->format('d/m/Y H:i') }}</p>
 
+    <h4 class="fs-3 fw-bold text-center text-uppercase text-decoration-underline">
+        ETATS DES REGLEMENTS CLIENTS {{ \Carbon\Carbon::parse($today)->format('d-m-Y') }}
+    </h4>
+
     <div class="mt-2 w-100">
         <table class="table table-bordered table-striped text-center">
             <thead>
-                <th>ID</th>
-                <th>Réference</th>
-                <th>Nom complet</th>
-                <th>Sexe</th>
-                <th>Statut matrimonial</th>
-                <th>Téléphone</th>
-                <th>Type</th>
-                <th>Date naissance</th>
-                <th>Date création</th>
-                <th>Crée par</th>
+            <th>ID</th>
+            <th>Réference</th>
+            <th>Nom complet</th>
+            <th>Sexe</th>
+            <th>Statut matrimonial</th>
+            <th>Téléphone</th>
+            <th>Type</th>
+            <th>Date naissance</th>
+            <th>Date création</th>
             </thead>
             <tbody>
             @foreach ($clients as $client)
@@ -121,11 +124,8 @@
                         {{ $client->tel2_cli }}
                     </td>
                     <td>{{ ucfirst($client->type_cli) }}</td>
-                    <td>{{ \Carbon\Carbon::parse($client->date_naiss_cli)->format('d-m-Y') }}</td>
+                    <td>{{ \Carbon\Carbon::parse($client->date_naiss_cli)->format('Y-m-d') }}</td>
                     <td>{{ $client->created_at->format('d/m/Y') }}</td>
-                    <td>
-                        <b> {{ $client->createByCli->nom_utilisateur}}</b>
-                    </td>
                 </tr>
             @endforeach
             </tbody>

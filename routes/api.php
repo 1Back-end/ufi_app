@@ -589,6 +589,7 @@ Route::middleware(['activity'])->group(function () {
             Route::get('/factures-statistics', 'getAllFacture');
             Route::get('/print_data', 'get_data');
             Route::get('clients_by_day',  'get_client_by_day');
+            Route::get('reglements_by_day',  'get_reglemenets_by_day');
         });
         Route::controller(RapportActeController::class)->prefix('rapport_acte')->group(function () {
             Route::post('/create', 'store');
