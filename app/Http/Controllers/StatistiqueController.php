@@ -277,7 +277,8 @@ class StatistiqueController extends Controller
                 'consultant',
                 'prestationables',
                 'centre'
-            ]);
+            ])
+                ->where('centre_id', $request->header('centre'));
 
             $titreParts = [];
 
@@ -356,7 +357,7 @@ class StatistiqueController extends Controller
             }
 
             // Exécution finale
-            $prestations = $prestations->orderBy('created_at', 'DESC')->get();
+            $prestations = $prestations->orderBy('created_at', 'ASC')->get();
 
             if ($prestations->isEmpty()) {
                 DB::rollBack();

@@ -151,7 +151,7 @@
                 @endphp
                 <tr>
                     <td>{{ $facture ? $facture->code : "Facture non créée" }}</td>
-                    <td>{{ $facture ? $facture->date_fact?->format('d/m/Y H:i') : $prestation->created_at?->format('d/m/Y H:i') }}</td>
+                    <td>{{ $facture ? $facture->date_fact?->format('d/m/Y') : $prestation->created_at?->format('d/m/Y') }}</td>
 
                     @php
                         $modeSelectionne = request('mode_reglement');
@@ -247,9 +247,9 @@
                     <td class="text-center">Montant à payer: {{ \App\Helpers\FormatPrice::format($allFactures->sum('amount_client')) }}</td>
                     <td class="text-center">Montant Encaissé: {{ \App\Helpers\FormatPrice::format($allRegulations->sum('amount')) }}</td>
                     @if(!$modeSelectionne)
-                    <td class="text-center">
-                          Reste à payer: {{ \App\Helpers\FormatPrice::format($allFactures->sum('amount_client') - $allRegulations->sum('amount')) }}
-                    </td>
+                        <td class="text-center">
+                            Reste à payer: {{ \App\Helpers\FormatPrice::format($allFactures->sum('amount_client') - $allRegulations->sum('amount')) }}
+                        </td>
                     @endif
                 </tr>
             </table>
