@@ -9,8 +9,13 @@
     </style>
 
     <style>
-        body,
-        html {
+        @page {
+            size: A4 portrait;
+            margin: 10mm;
+            counter-reset: page;
+        }
+
+        body, html {
             height: 100%;
             margin: 0;
             padding: 0;
@@ -20,9 +25,6 @@
 
         .print-wrapper {
             position: relative;
-            min-height: 100%;
-            padding-bottom: 10mm;
-            box-sizing: border-box;
         }
 
         .print-footer {
@@ -32,135 +34,249 @@
             right: 0;
             height: 10mm;
             text-align: center;
-            background-color: white;
-            border-top: 1mm solid rgb(15, 187, 105);
-            opacity: .5;
-            font-size: 2.5mm;
         }
+
+        .page-number:before {
+            content: "Page " counter(page) " / " counter(pages);
+        }
+
         h1 {
             font-size: 5mm !important;
         }
-        header {
-            font-family: 'Helvetica', serif;
+
+        table {
+            page-break-inside: auto;
+            width: 100%;
         }
+
+        thead {
+            display: table-header-group; /* Garde l'en-tête sur chaque page */
+        }
+
+        tfoot {
+            display: table-footer-group;
+        }
+
+        tr {
+            page-break-inside: avoid;
+            page-break-after: auto;
+        }
+
         img {
             width: auto;
             height: auto;
         }
-
-        .page-number:before {
-            content: "Page " counter(page);
-        }
-
-        @page {
-            margin: 15mm 10mm 20mm 10mm;
-            counter-increment: page;
-            size: A5;
-        }
-
     </style>
+
 </head>
 <body>
 
-<div class="col-lg-12 col-sm-12 p-0">
+<div class="col-lg-12 col-sm-12 p-0 print-wrapper">
 
 
     <header class="d-flex align-items-center size" style="font-family: 'Times New Roman', serif">
         <div class="w-25">
-            <img src="{{ public_path('certificats/logo.png') }}" alt=""
+            <img src="data:image/png;base64,{{ base64_encode(file_get_contents(public_path($logo))) }}" alt=""
                  class="img-fluid w-50">
         </div>
 
         <div class="text-center" style="line-height: 18px">
             <div class="fs-3 text-uppercase fw-bold">
-                CENTRE MEDICAL GT
+                {{ $centre->name }}
             </div>
 
             <div class="">
-                Sis en face du Camp SIC Tsinga – Ouvert de Lundi à Samedi : 7H30 – 18H<br>
-                B.P. 6107 Yaoundé - Tél : +237 653 01 01 / 691 53 42 28 / 691 53 03 21<br>
-                Boulevard du Sultan Njoya 2.351 / Email : cmgttsinga@yahoo.fr<br>
-                Agrément N° 0708/A/MINSANTE/SG/DOSTS du 23 février 2021
+                - {{ $centre->address }} - {{ $centre->town }}
             </div>
 
+            <div class="">
+                BP: {{ $centre->postal_code }} {{ $centre->town }} -
+                Tél. {{ $centre->tel }} {{ $centre->tel2 ? '/' . $centre->tel2 : '' }}
+                / Fax: {{ $centre->fax ?? '' }}
+            </div>
 
+            <div class="">
+                Email: {{ $centre->email }}
+            </div>
+
+            <div class="">
+                Autorisation n° {{ $centre->autorisation }}
+                NIU: {{ $centre->contribuable }}
+            </div>
         </div>
     </header>
+
 
     <div class="mt-2 w-100" style="border-top: 1px double rgb(0, 0, 0, 0.75); margin-bottom: 2px"></div>
     <div class="mb-2 w-100" style="border-top: 1px double rgb(0, 0, 0, 0.75);"></div>
 
 
+    <h1 class="fs-3 fw-bold text-center text-uppercase">
+        ETATS DES REGLEMENTS CLIENTS
+    </h1>
+
+    <p class="fst-italic text-end">Date d'impression: {{ now()->format('d/m/Y H:i') }}</p>
+
+    <h2 class="fw-bold text-center fs-5 text-uppercase">
+        {{ $centre->name }} - {{ $titre }}
+    </h2>
+
+
     <div class="mt-2 w-100">
         <table class="table table-bordered table-striped text-center" style="font-size: 2.5mm;">
             <thead>
-            <th>#</th>
-            <th>Patient</th>
-            <th>Prescripteur</th>
-            <th>Consultations/Actes</th>
-            <th>PC</th>
-            <th>Proforma</th>
-            <th>PU</th>
-            <th>Part patient</th>
-            <th>Montant payé patient</th>
-            <th>Montant prise en charges</th>
-            <th>Assurance</th>
-            <th>Création DT</th>
+            <tr>
+                <th>N° Facture</th>
+                <th>Date facture</th>
+                <th>Mode de règlement</th>
+                <th>PC/Associé</th>
+                <th>Nom patient</th>
+                <th>Montant Total</th>
+                <th>Montant PC</th>
+                <th>Montant Remise</th>
+                <th>Montant à payer</th>
+                <th>Montant Encaissé</th>
+                @php
+                    $modeSelectionne = request('mode_reglement');
+                @endphp
+                @if(!$modeSelectionne)
+                    <th>Reste à payer</th>
+                @endif
+            </tr>
             </thead>
             <tbody>
             @foreach ($prestations as $index => $prestation)
+                @php
+                    $facture = $prestation->factures->first();
+                @endphp
                 <tr>
-                    <td>{{ $index + 1 }}</td>
-                    <td>{{ $prestation->client->nomcomplet_client }}</td>
-                    <td>{{ $prestation->consultant->nomcomplet ?? '-' }}</td>
+                    <td>{{ $facture ? $facture->code : "Facture non créée" }}</td>
+                    <td>{{ $facture ? $facture->date_fact?->format('d/m/Y H:i') : $prestation->created_at?->format('d/m/Y H:i') }}</td>
 
-                    <td>
-                        @php
-                            $actes = $prestation->actes->pluck('name')->toArray();
-                            $consults = $prestation->consultations->pluck('name')->toArray();
-                            $libelle = array_merge($actes, $consults);
-                        @endphp
-                        {{ implode(' + ', $libelle) }}
+                    @php
+                        $modeSelectionne = request('mode_reglement');
+                    @endphp
+
+                    <td style="width: 20% !important;">
+                        @if($facture && $facture->regulations->where('particular', false)->count())
+                            <ul class="list-unstyled">
+                                @foreach($facture->regulations->where('particular', false) as $regulation)
+                                    @if(!$modeSelectionne || $regulation->regulation_method_id == $modeSelectionne)
+                                        <li>
+                                            {{ optional($regulation->regulationMethod)->name }}
+                                        </li>
+                                    @endif
+                                @endforeach
+                            </ul>
+                        @endif
                     </td>
 
-                    {{-- Prise en charge --}}
-                    <td>{{ !empty($prestation->priseCharge->nomcomplet) ? 'Oui' : 'Non' }}</td>
-
-                    {{-- Proforma (montant total estimé) --}}
                     <td>
-                        Faux
+                        @if($prestation->payableBy)
+                            {{ $prestation->payableBy->nomcomplet_client }}
+                        @endif
+
+                        @if($prestation->priseCharge)
+                            {{ optional($prestation->priseCharge->assureur)->nom }}
+                        @endif
                     </td>
 
-                    <td>{{ $prestation->prestationables->pu }}</td>
+                    <td>{{ optional($prestation->client)->nomcomplet_client }}</td>
 
-                    {{-- Part patient --}}
+                    <td>{{ \App\Helpers\FormatPrice::format(optional($facture)->amount) }}</td>
+                    <td>{{ \App\Helpers\FormatPrice::format(optional($facture)->amount_pc) }}</td>
+                    <td>{{ \App\Helpers\FormatPrice::format(optional($facture)->amount_remise) }}</td>
+                    <td>{{ \App\Helpers\FormatPrice::format(optional($facture)->amount_client) }}</td>
+
+                    @php
+                        $totalPaid = $facture ? $facture->regulations->where('particular', false)->sum('amount') : 0;
+                        $restAPayer = optional($facture)->amount_client - $totalPaid;
+                    @endphp
+
+                    @php
+                        $modeSelectionne = request('mode_reglement'); // récupère le mode choisi
+                    @endphp
+
                     <td>
-                        {{ $prestation->factures->amount_client }}
+                        @if($facture && $facture->regulations->where('particular', false)->count())
+                            <ul class="list-unstyled">
+                                @foreach($facture->regulations->where('particular', false) as $regulation)
+                                    @if(!$modeSelectionne || $regulation->regulation_method_id == $modeSelectionne)
+                                        <li>
+                                            <strong>{{ optional($regulation->regulationMethod)->name }}:</strong>
+                                            {{ \App\Helpers\FormatPrice::format($regulation->amount) }}
+                                        </li>
+                                    @endif
+                                @endforeach
+                            </ul>
+                        @endif
                     </td>
 
-                    {{-- Montant payé patient --}}
-                    <td>
-                        {{ $prestation->factures->amount_client }}
-                    </td>
-
-                    {{-- Montant prise en charge --}}
-                    <td>
-                        {{ $prestation->factures->amount_pc }}
-                    </td>
-
-                    {{-- Assurance --}}
-                    <td>{{ $prestation->priseCharge->nom ?? '' }}</td>
-
-                    {{-- Date création --}}
-                    <td>{{ $prestation->created_at->format('d/m/Y H:i') }}</td>
+                    @if(!$modeSelectionne)
+                        <td>{{ \App\Helpers\FormatPrice::format($restAPayer) }}</td>
+                    @endif
                 </tr>
             @endforeach
             </tbody>
-            </tbody>
+            @php
+                $modeSelectionne = request('mode_reglement');
+
+                // Toutes les factures
+                $allFactures = $prestations->flatMap->factures;
+
+                // Filtrer les factures si un mode de règlement est sélectionné
+                if($modeSelectionne) {
+                    $allFactures = $allFactures->filter(function($facture) use ($modeSelectionne) {
+                        return $facture->regulations->contains(fn($r) => !$r->particular && $r->regulation_method_id == $modeSelectionne);
+                    });
+                }
+
+                // Régulations correspondantes
+                $allRegulations = $allFactures->flatMap->regulations
+                    ->where('particular', false)
+                    ->when($modeSelectionne, fn($collection) => $collection->where('regulation_method_id', $modeSelectionne));
+            @endphp
         </table>
+        <div style="page-break-inside: avoid; margin-top: 10px;">
+            <table class="table table-bordered table-striped text-center" style="font-size: 2.5mm;">
+                <tr class="fw-bold">
+                    <td colspan="5" class="text-center">Totaux: </td>
+                    <td class="text-center">Montant Total: {{ \App\Helpers\FormatPrice::format($allFactures->sum('amount')) }}</td>
+                    <td class="text-center">Montant PC: {{ \App\Helpers\FormatPrice::format($allFactures->sum('amount_pc')) }}</td>
+                    <td class="text-center">Montant Remise: {{ \App\Helpers\FormatPrice::format($allFactures->sum('amount_remise')) }}</td>
+                    <td class="text-center">Montant à payer: {{ \App\Helpers\FormatPrice::format($allFactures->sum('amount_client')) }}</td>
+                    <td class="text-center">Montant Encaissé: {{ \App\Helpers\FormatPrice::format($allRegulations->sum('amount')) }}</td>
+                    @if(!$modeSelectionne)
+                    <td class="text-center">
+                          Reste à payer: {{ \App\Helpers\FormatPrice::format($allFactures->sum('amount_client') - $allRegulations->sum('amount')) }}
+                    </td>
+                    @endif
+                </tr>
+            </table>
+        </div>
     </div>
+    <br><br>
+    @php
+        $modeSelectionne = request('mode_reglement'); // récupère le mode choisi
 
+        $reglementsParMode = $prestations->flatMap->factures
+            ->flatMap->regulations
+            ->where('particular', false)
+            // Filtrer si un mode de règlement a été sélectionné
+            ->when($modeSelectionne, fn($collection) => $collection->where('regulation_method_id', $modeSelectionne))
+            ->groupBy(fn($r) => optional($r->regulationMethod)->name)
+            ->map(fn($items) => $items->sum('amount'));
+    @endphp
 
+    <h2 class="text-center fw-bold text-uppercase fs-6">Montant des règlements par mode de règlement:</h2>
+    <div class="d-flex gap-4 justify-content-center">
+        @foreach($reglementsParMode as $mode => $total)
+            <div class="d-flex gap-3 align-items-center">
+                <div>{{ $mode }}:</div>
+                <div class="fw-bold fs-5">{{ \App\Helpers\FormatPrice::format($total) }}</div>
+            </div>
+        @endforeach
+    </div>
 
 
 </div>

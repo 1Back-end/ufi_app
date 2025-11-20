@@ -64,7 +64,7 @@
                                 {{ $acte->name }}
                             </td>
                             <td>{{ \App\Helpers\FormatPrice::format($acte->pivot->pu) }}</td>
-                            <td>{{ $acte->pivot->b }}</td>
+                            <td>{{ intval($acte->pivot->b) }}</td>
                             <td>{{ $priseCharge->taux_pc . '%' }}</td>
                             <td>{{ \App\Helpers\FormatPrice::format(($acte->pivot->pu * $acte->pivot->remise) / 100) }}</td>
                             <td>{{ \App\Helpers\FormatPrice::format(($acte->pivot->pu * $priseCharge->taux_pc) / 100) }}</td>
