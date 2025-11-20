@@ -60,7 +60,14 @@ class Client extends Model
     protected function fullname(): Attribute
     {
         return Attribute::make(
-            get: fn() => trim("{$this->nom_cli} {$this->prenom_cli}"),
+            get: function () {
+
+                // Vérifie si le préfixe contient "epouse" peu importe la casse ou les espaces
+                if ($this->prefix && $this->prefix->prefixe == "Epouse") {
+                    return trim("{$this->nomcomplet_client}");
+                }
+                return trim("{$this->nom_cli} {$this->prenom_cli}");
+            }
         );
     }
 
