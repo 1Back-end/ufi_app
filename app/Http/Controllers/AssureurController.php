@@ -71,7 +71,6 @@ class AssureurController extends Controller
         $page = $request->input('page', 1);  // Page courante
         $search = $request->input('search');
 
-        // Récupérer les assureurs avec pagination
         $assureurs = Assureur::where('is_deleted', false)
             ->with(['actes', 'hospitalisations', 'consultations', 'soins', 'createdBy'])
             ->where('is_deleted', false)
@@ -113,8 +112,8 @@ class AssureurController extends Controller
     public function show($id)
     {
         $assureur = Assureur::with([
-            'quotation:id,code',
-            'assureurPrincipal:ref,nom'
+            'quotation',
+            'assureurPrincipal'
         ])
             ->where('id', $id)
             ->where('is_deleted', false)
@@ -150,8 +149,9 @@ class AssureurController extends Controller
                 'fax' => 'required|string',
                 'code_type' => 'required|string|in:Principale,Auxiliaire',
                 'code_main' => 'nullable|string',
-                'email' => 'required|email|unique:assureurs,email',
+                'email' => 'nullable|email|unique:assureurs,email',
                 'BM' => 'nullable|in:1,0',
+                'taux_retenu' => 'required|numeric|min:0|max:100',
             ]);
 
             // Gestion du type Principale
@@ -189,11 +189,19 @@ class AssureurController extends Controller
             ], 201);
 
         } catch (\Illuminate\Validation\ValidationException $e) {
-            return response()->json(['message' => 'Données invalides, veuillez vérifier le formulaire.'], 422);
+            // Afficher les erreurs exactes
+            return response()->json([
+                'message' => 'Données invalides, veuillez vérifier le formulaire.',
+                'errors' => $e->errors()
+            ], 422);
         } catch (\Exception $e) {
-            return response()->json(['message' => 'Impossible de créer l’assureur pour le moment.'], 500);
+            return response()->json([
+                'message' => 'Impossible de créer l’assureur pour le moment.',
+                'error' => $e->getMessage()
+            ], 500);
         }
     }
+
 
 
     /**
@@ -201,72 +209,75 @@ class AssureurController extends Controller
      * @permission AssureurController::update
      * @permission_desc Modifier les informations des assureurs
      */
-    public function update(Request $request, $id)
+    public function update(Request $request, Assureur $assureur)
     {
-        // Vérifie si l'utilisateur est authentifié
         $auth = auth()->user();
 
-
-        $assureur = Assureur::findOrFail($id);
-
         try {
-            // Valider les données du formulaire
+            // Valider les données
             $data = $request->validate([
                 'nom' => 'required|string',
                 'nom_abrege' => 'nullable|string',
-                'adresse' => 'nullable|string',
-                'tel' => 'nullable|string|unique:assureurs,tel,' . $assureur->id,
-                'tel1' => 'nullable|string|unique:assureurs,tel1,'. $assureur->id,
+                'adresse' => 'required|string',
+                'tel' => 'required|string|unique:assureurs,tel,' . $assureur->id,
+                'tel1' => 'nullable|string',
                 'code_quotation' => 'required|exists:quotations,id',
-                'Reg_com' => 'nullable|string|unique:assureurs,Reg_com,' . $assureur->id,
-                'num_com' => 'nullable|string|unique:assureurs,num_com,' . $assureur->id,
+                'Reg_com' => 'required|string|unique:assureurs,Reg_com,' . $assureur->id,
+                'num_com' => 'required|string|unique:assureurs,num_com,' . $assureur->id,
                 'bp' => 'nullable|string',
                 'fax' => 'required|string',
                 'code_type' => 'required|string|in:Principale,Auxiliaire',
                 'code_main' => 'nullable|string',
                 'email' => 'nullable|email|unique:assureurs,email,' . $assureur->id,
                 'BM' => 'nullable|in:1,0',
+                'taux_retenu' => 'required|numeric|min:0|max:100',
             ]);
 
-            // Gestion de la relation principal/auxiliaire
-            if ($data['code_type'] == 'Principale') {
-                $data['ref_assur_principal'] = null;
-            } elseif ($data['code_type'] == 'Auxiliaire') {
-                if (!isset($data['code_main']) || empty($data['code_main'])) {
-                    return response()->json(['message' => 'Le code_main doit être défini pour un assureur auxiliaire.'], 400);
+            // Gestion du type Principale
+            if ($data['code_type'] === 'Principale' && isset($data['ref_assur_principal'])) {
+                return response()->json(['message' => 'Un assureur principal ne peut pas avoir de référence à un autre assureur.'], 400);
+            }
+
+            // Gestion du type Auxiliaire
+            if ($data['code_type'] === 'Auxiliaire') {
+                if (empty($data['code_main'])) {
+                    return response()->json(['message' => 'Le code de l’assureur principal est requis pour un assureur auxiliaire.'], 400);
                 }
 
-                $assureurPrincipal = Assureur::where('ref', $data['code_main'])->where('code_type', 'Principale')->first();
+                $assureurPrincipal = Assureur::where('ref', $data['code_main'])
+                    ->where('code_type', 'Principale')
+                    ->first();
 
                 if (!$assureurPrincipal) {
-                    return response()->json(['message' => 'Le code_main spécifié ne correspond à aucune assureure principale.'], 400);
+                    return response()->json(['message' => 'Assureur principal introuvable pour le code fourni.'], 400);
                 }
 
                 $data['ref_assur_principal'] = $assureurPrincipal->id;
             }
 
-            // Mise à jour des champs
             $data['updated_by'] = $auth->id;
 
-
+            // Mettre à jour l'assureur
             $assureur->update($data);
 
             return response()->json([
-                'message' => 'Assurance mis à jour avec succès',
+                'message' => 'Assureur mis à jour avec succès.',
                 'assureur' => $assureur
             ], 200);
+
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
-                'error' => 'Erreur de validation',
-                'details' => $e->errors()
+                'message' => 'Données invalides, veuillez vérifier le formulaire.',
+                'errors' => $e->errors()
             ], 422);
         } catch (\Exception $e) {
             return response()->json([
-                'error' => 'Une erreur est survenue',
-                'message' => $e->getMessage()
+                'message' => 'Impossible de mettre à jour l’assureur pour le moment.',
+                'error' => $e->getMessage()
             ], 500);
         }
     }
+
 
 
     /**

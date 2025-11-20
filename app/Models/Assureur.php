@@ -37,7 +37,8 @@ class Assureur extends Model
         'created_by',
         'updated_by',
         'is_deleted',
-        'ref_assur_principal'
+        'ref_assur_principal',
+        'taux_retenu'
     ];
 
 
