@@ -112,7 +112,7 @@
 
 
     <h1 class="fs-3 fw-bold text-center text-uppercase">
-        ETATS DES REGLEMENTS CLIENTS
+        ETATS DES JOURNALIERS CLIENTS
     </h1>
 
     <p class="fst-italic text-end">Date d'impression: {{ now()->format('d/m/Y H:i') }}</p>
@@ -134,13 +134,13 @@
                 <th>Montant Total</th>
                 <th>Montant PC</th>
                 <th>Montant Remise</th>
-                <th>Montant à payer</th>
+                <th>Montant à payer client</th>
                 <th>Montant Encaissé</th>
                 @php
                     $modeSelectionne = request('mode_reglement');
                 @endphp
                 @if(!$modeSelectionne)
-                    <th>Reste à payer</th>
+                    <th>Reste à payer client</th>
                 @endif
             </tr>
             </thead>
@@ -280,6 +280,7 @@
 
 
 </div>
+
 
 </body>
 </html>

@@ -266,6 +266,11 @@ class StatistiqueController extends Controller
     }
 
 
+    /**
+     * Display a listing of the resource.
+     * @permission StatistiqueController::get_reglemenets_by_day
+     * @permission_desc Etat des caisses journaliers
+     */
     public function get_reglemenets_by_day(Request $request)
     {
         try {
@@ -276,7 +281,8 @@ class StatistiqueController extends Controller
                 'client',
                 'consultant',
                 'prestationables',
-                'centre'
+                'centre',
+                'priseCharge'
             ])
                 ->where('centre_id', $request->header('centre'));
 
@@ -313,30 +319,18 @@ class StatistiqueController extends Controller
                 $titreParts[] = "Règlements du " . $start->format('d/m/Y') . " au " . $end->format('d/m/Y');
             }
 
-            // Filtre par assurance
             if ($request->filled('assurance')) {
-                if ($request->assurance === "assure") {
-                    $prestations->whereHas('priseCharge');
-                    $titreParts[] = "Avec prise en charge";
+                if ($request->assurance === "assure" && $request->filled('assurance_id')) {
+                    $prestations->whereHas('priseCharge', function ($q) use ($request) {
+                        $q->where('assureur_id', $request->assurance_id); // Filtrer par l'assurance sélectionnée
+                    });
+                    $assureur = \App\Models\Assureur::find($request->assurance_id);
+                    $titreParts[] = "Avec prise en charge : " . ($assureur ? $assureur->nom : '');
                 } elseif ($request->assurance === "non_assure") {
                     $prestations->whereDoesntHave('priseCharge');
                     $titreParts[] = "Sans prise en charge";
                 } else {
                     $titreParts[] = "Toutes les prestations";
-                }
-            }
-
-            // Filtre par état des factures
-            if ($request->filled('facture_state')) {
-                $factureState = $request->facture_state;
-                if ($factureState === 'regle') {
-                    $prestations->whereHas('factures', fn($q) => $q->where('state', 3));
-                    $titreParts[] = "Factures réglées";
-                } elseif ($factureState === 'non_regle') {
-                    $prestations->whereHas('factures', fn($q) => $q->whereIn('state', [1, 2]));
-                    $titreParts[] = "Factures non réglées";
-                } else {
-                    $titreParts[] = "Toutes les factures";
                 }
             }
 
@@ -362,7 +356,7 @@ class StatistiqueController extends Controller
             if ($prestations->isEmpty()) {
                 DB::rollBack();
                 return response()->json([
-                    'message' => 'Aucune prestation trouvée.'
+                    'message' => 'Aucune donnée trouvée.'
                 ], 404);
             }
 
@@ -422,6 +416,151 @@ class StatistiqueController extends Controller
             ], 500);
         }
     }
+
+
+    public function get_facture_by_assurances(Request $request)
+    {
+        try {
+            DB::beginTransaction();
+
+            $prestations = Prestation::with([
+                'factures.regulations' => fn($q) => $q->where('state', 1),
+                'client',
+                'consultant',
+                'prestationables',
+                'centre',
+                'priseCharge'
+            ])
+                ->where('centre_id', $request->header('centre'));
+
+            $titreParts = [];
+
+            // Filtre par période de factures
+            if ($request->filled('facture_start') && $request->filled('facture_end')) {
+                $start = Carbon::parse($request->facture_start)->startOfDay();
+                $end   = Carbon::parse($request->facture_end)->endOfDay();
+                $prestations->whereHas('factures', fn($q) => $q->whereBetween('date_fact', [$start, $end]));
+                $titreParts[] = "Factures du " . $start->format('d/m/Y') . " au " . $end->format('d/m/Y');
+            }
+
+            // Filtre par période de prestation
+            if ($request->filled('prestation_start') && $request->filled('prestation_end')) {
+                $start = Carbon::parse($request->prestation_start)->startOfDay();
+                $end   = Carbon::parse($request->prestation_end)->endOfDay();
+                $prestations->whereBetween('created_at', [$start, $end]);
+                $titreParts[] = "Prestations du " . $start->format('d/m/Y') . " au " . $end->format('d/m/Y');
+            }
+
+
+            // Filtre par date de règlement
+            if ($request->filled('reglement_start') && $request->filled('reglement_end')) {
+                $start = Carbon::parse($request->reglement_start)->startOfDay();
+                $end   = Carbon::parse($request->reglement_end)->endOfDay();
+                $prestations->whereHas('factures.regulations', fn($q) => $q->whereBetween('date', [$start, $end]));
+                $titreParts[] = "Règlements du " . $start->format('d/m/Y') . " au " . $end->format('d/m/Y');
+            }
+
+            // Filtre par assurance
+            if ($request->filled('assurance')) {
+                if ($request->assurance === "assure" && $request->filled('assurance_id')) {
+                    $prestations->whereHas('priseCharge', function ($q) use ($request) {
+                        $q->where('assureur_id', $request->assurance_id); // Filtrer par l'assurance sélectionnée
+                    });
+                    $assureur = \App\Models\Assureur::find($request->assurance_id);
+                    $titreParts[] = "Avec prise en charge : " . ($assureur ? $assureur->nom : '');
+                } elseif ($request->assurance === "non_assure") {
+                    $prestations->whereDoesntHave('priseCharge');
+                    $titreParts[] = "Sans prise en charge";
+                } else {
+                    $titreParts[] = "Toutes les prestations";
+                }
+            }
+
+            // Si aucun filtre n’est fourni, on prend seulement les prestations du jour
+            if (
+                !$request->filled('facture_start') &&
+                !$request->filled('facture_end') &&
+                !$request->filled('prestation_start') &&
+                !$request->filled('prestation_end') &&
+                !$request->filled('reglement_start') &&
+                !$request->filled('reglement_end') &&
+                !$request->filled('assurance')
+            ) {
+                $prestations->whereDate('created_at', Carbon::today());
+                $titreParts[] = "Prestations du jour";
+            }
+
+            // Exécution finale
+            $prestations = $prestations->orderBy('created_at', 'ASC')->get();
+
+            if ($prestations->isEmpty()) {
+                DB::rollBack();
+                return response()->json([
+                    'message' => 'Aucune donnée trouvée.'
+                ], 404);
+            }
+
+            $centre = Centre::find($request->header('centre'));
+            $media  = $centre->medias()->where('name', 'logo')->first();
+            $titre  = implode(" - ", $titreParts);
+
+            $data = [
+                'prestations' => $prestations,
+                'logo'        => $media ? 'storage/' . $media->path . '/' . $media->filename : '',
+                'centre'      => $centre,
+                'titre'       => $titre,
+            ];
+
+            // -------------------
+            // GÉNÉRATION DU PDF
+            // -------------------
+            $fileName   = 'prestations-assurances-' . now()->format('YmdHis') . '.pdf';
+            $folderPath = 'storage/prestations-assurances';
+            $filePath   = $folderPath . '/' . $fileName;
+
+            if (!file_exists($folderPath)) {
+                mkdir($folderPath, 0755, true);
+            }
+            $footer = 'pdfs.reports.factures.footer';
+
+            save_browser_shot_pdf(
+                view: 'pdfs.prestations-assurances.prestations-assurances',
+                data: $data,
+                folderPath: $folderPath,
+                path: $filePath,
+                margins: [15, 10, 15, 10],
+                footer: $footer,
+                format: 'A5',
+                direction: 'landscape'
+            );
+
+            DB::commit();
+
+            if (!file_exists($filePath)) {
+                return response()->json(['message' => 'Le fichier PDF n\'a pas été généré.'], 500);
+            }
+
+            $pdfContent = file_get_contents($filePath);
+            $base64     = base64_encode($pdfContent);
+
+            return response()->json([
+                'prestations' => $prestations,
+                'base64'      => $base64,
+                'url'         => $filePath,
+                'filename'    => $fileName,
+            ], 200);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'error'   => 'Une erreur est survenue',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+
+    }
+
+
 
 
 

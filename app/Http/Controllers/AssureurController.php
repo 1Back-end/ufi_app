@@ -152,6 +152,8 @@ class AssureurController extends Controller
                 'email' => 'nullable|email|unique:assureurs,email',
                 'BM' => 'nullable|in:1,0',
                 'taux_retenu' => 'required|numeric|min:0|max:100',
+                'number_facture' => 'nullable|string|unique:assureurs,number_facture',
+                'is_checked' => 'nullable|boolean',
             ]);
 
             // Gestion du type Principale
@@ -209,18 +211,19 @@ class AssureurController extends Controller
      * @permission AssureurController::update
      * @permission_desc Modifier les informations des assureurs
      */
-    public function update(Request $request, Assureur $assureur)
+    public function update(Request $request, $id)
     {
         $auth = auth()->user();
+        $assureur = Assureur::findOrFail($id);
 
         try {
-            // Valider les données
+            // Valider les données de base
             $data = $request->validate([
                 'nom' => 'required|string',
                 'nom_abrege' => 'nullable|string',
                 'adresse' => 'required|string',
-                'tel' => 'required|string|unique:assureurs,tel,' . $assureur->id,
-                'tel1' => 'nullable|string',
+                'tel' => 'nullable|string|unique:assureurs,tel,'.$assureur->id,
+                'tel1' => 'nullable|string|unique:assureurs,tel,'.$assureur->id,
                 'code_quotation' => 'required|exists:quotations,id',
                 'Reg_com' => 'required|string|unique:assureurs,Reg_com,' . $assureur->id,
                 'num_com' => 'required|string|unique:assureurs,num_com,' . $assureur->id,
@@ -228,10 +231,13 @@ class AssureurController extends Controller
                 'fax' => 'required|string',
                 'code_type' => 'required|string|in:Principale,Auxiliaire',
                 'code_main' => 'nullable|string',
-                'email' => 'nullable|email|unique:assureurs,email,' . $assureur->id,
+                'email' => 'nullable|email',
                 'BM' => 'nullable|in:1,0',
                 'taux_retenu' => 'required|numeric|min:0|max:100',
+                'number_facture' => 'required|string|unique:assureurs,number_facture,'.$assureur->id,
+                'is_checked' => 'nullable|boolean',
             ]);
+
 
             // Gestion du type Principale
             if ($data['code_type'] === 'Principale' && isset($data['ref_assur_principal'])) {
@@ -277,6 +283,7 @@ class AssureurController extends Controller
             ], 500);
         }
     }
+
 
 
 

@@ -38,7 +38,9 @@ class Assureur extends Model
         'updated_by',
         'is_deleted',
         'ref_assur_principal',
-        'taux_retenu'
+        'taux_retenu',
+        'number_facture',
+        'is_checked'
     ];
 
 

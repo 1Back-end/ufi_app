@@ -35,7 +35,8 @@ class ConsultantController extends Controller
      * @permission ConsultantController::index
      * @permission_desc Afficher la liste des consultants
      */
-    public function index(Request $request){
+    public function index(Request $request)
+    {
         $perPage = $request->input('limit', 25);
         $page = $request->input('page', 1);
 
@@ -44,58 +45,86 @@ class ConsultantController extends Controller
             'code_specialite',
             'code_titre',
             'disponibilites',
-            'user'
+            'user',
+            'creator',
+            'updater'
         ])
-            ->where('is_deleted', false)
-            ->when($request->input('search'), function ($query) use ($request) {
-                $search = $request->input('search');
+            ->where('is_deleted', false);
 
-                $query->where(function($q) use ($search) {
-                    // Champs du consultant
-                    $q->where('ref', 'like', "%$search%")
-                        ->orWhere('nom', 'like', "%$search%")
-                        ->orWhere('prenom', 'like', "%$search%")
-                        ->orWhere('nomcomplet', 'like', "%$search%")
-                        ->orWhere('tel', 'like', "%$search%")
-                        ->orWhere('tel1', 'like', "%$search%")
-                        ->orWhere('email', 'like', "%$search%")
-                        ->orWhere('type', 'like', "%$search%")
-                        ->orWhere('status', 'like', "%$search%")
+        // Filtre par type
+        if ($request->filled('type')) {
+            $consultants->where('type', $request->type);
+        }
+        if ($request->filled('status')) {
+            $consultants->where('status', $request->status);
+        }
+        if ($request->filled('code_hopi')) {
+            $consultants->where('code_hopi', $request->code_hopi);
+        }
+        if ($request->filled('code_service_hopi')) {
+            $consultants->where('code_service_hopi', $request->code_service_hopi);
+        }
+        if ($request->filled('code_specialite')) {
+            $consultants->where('code_specialite', $request->code_specialite);
+        }
+        if ($request->filled('code_titre')) {
+            $consultants->where('code_titre', $request->code_specialite);
+        }
+        // Recherche globale
+        $consultants->when($request->input('search'), function ($query) use ($request) {
+            $search = $request->input('search');
+
+            $query->where(function ($q) use ($search) {
+
+                // Champs de consultant
+                $q->where('ref', 'like', "%$search%")
+                    ->orWhere('nom', 'like', "%$search%")
+                    ->orWhere('prenom', 'like', "%$search%")
+                    ->orWhere('nomcomplet', 'like', "%$search%")
+                    ->orWhere('tel', 'like', "%$search%")
+                    ->orWhere('tel1', 'like', "%$search%")
+                    ->orWhere('email', 'like', "%$search%")
+                    ->orWhere('type', 'like', "%$search%")
+                    ->orWhere('status', 'like', "%$search%")
+                    ->orWhere('id', 'like', "%$search%");
+
+                // code_specialite
+                $q->orWhereHas('code_specialite', function ($qq) use ($search) {
+                    $qq->where('nom_specialite', 'like', "%$search%")
                         ->orWhere('id', 'like', "%$search%");
-
-                    // Recherche dans code_specialite
-                    $q->orWhereHas('code_specialite', function($qq) use ($search) {
-                        $qq->where('nom_specialite', 'like', "%$search%")
-                            ->orWhere('id', 'like', "%$search%");
-                    });
-
-                    // Recherche dans code_titre
-                    $q->orWhereHas('code_titre', function($qq) use ($search) {
-                        $qq->where('nom_titre', 'like', "%$search%")
-                            ->orWhere('abbreviation_titre', 'like', "%$search%")
-                            ->orWhere('id', 'like', "%$search%");
-                    });
-
-                    // Recherche dans code_hopi
-                    $q->orWhereHas('code_hopi', function($qq) use ($search) {
-                        $qq->where('nom_hopi', 'like', "%$search%")
-                            ->orWhere('id', 'like', "%$search%")
-                            ->orWhere('Abbreviation_hopi', 'like', "%$search%")
-                            ->orWhere('addresse_hopi', 'like', "%$search%");
-
-                    });
-
-                    // Recherche dans user
-                    $q->orWhereHas('user', function($qq) use ($search) {
-                        $qq->where('login', 'like', "%$search%")
-                            ->orWhere('email', 'like', "%$search%")
-                            ->orWhere('nom_utilisateur', 'like', "%$search%")
-                            ->orWhere('prenom', 'like', "%$search%");
-                    });
                 });
-            })
-            ->latest()
-            ->paginate(perPage: $perPage, page: $page);
+
+                // code_titre
+                $q->orWhereHas('code_titre', function ($qq) use ($search) {
+                    $qq->where('nom_titre', 'like', "%$search%")
+                        ->orWhere('abbreviation_titre', 'like', "%$search%")
+                        ->orWhere('id', 'like', "%$search%");
+                });
+
+                // code_hopi
+                $q->orWhereHas('code_hopi', function ($qq) use ($search) {
+                    $qq->where('nom_hopi', 'like', "%$search%")
+                        ->orWhere('Abbreviation_hopi', 'like', "%$search%")
+                        ->orWhere('addresse_hopi', 'like', "%$search%")
+                        ->orWhere('id', 'like', "%$search%");
+                });
+
+                // user
+                $q->orWhereHas('user', function ($qq) use ($search) {
+                    $qq->where('login', 'like', "%$search%")
+                        ->orWhere('email', 'like', "%$search%")
+                        ->orWhere('nom_utilisateur', 'like', "%$search%")
+                        ->orWhere('prenom', 'like', "%$search%");
+                });
+
+            });
+        });
+
+        // Pagination
+        $consultants = $consultants->latest()->paginate(
+            perPage: $perPage,
+            page: $page
+        );
 
         return response()->json([
             'data' => $consultants->items(),
@@ -104,6 +133,7 @@ class ConsultantController extends Controller
             'total' => $consultants->total(),
         ]);
     }
+
 
 
     /**
