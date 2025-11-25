@@ -435,6 +435,7 @@ class StatistiqueController extends Controller
 
             $titreParts = [];
 
+
             // Filtre par période de factures
             if ($request->filled('facture_start') && $request->filled('facture_end')) {
                 $start = Carbon::parse($request->facture_start)->startOfDay();
@@ -452,14 +453,6 @@ class StatistiqueController extends Controller
             }
 
 
-            // Filtre par date de règlement
-            if ($request->filled('reglement_start') && $request->filled('reglement_end')) {
-                $start = Carbon::parse($request->reglement_start)->startOfDay();
-                $end   = Carbon::parse($request->reglement_end)->endOfDay();
-                $prestations->whereHas('factures.regulations', fn($q) => $q->whereBetween('date', [$start, $end]));
-                $titreParts[] = "Règlements du " . $start->format('d/m/Y') . " au " . $end->format('d/m/Y');
-            }
-
             // Filtre par assurance
             if ($request->filled('assurance')) {
                 if ($request->assurance === "assure" && $request->filled('assurance_id')) {
@@ -476,6 +469,21 @@ class StatistiqueController extends Controller
                 }
             }
 
+            // 🔹 Filtre client
+            if ($request->client === 'client' && $request->filled('client_id')) {
+                $prestations->where('client_id', $request->client_id);
+                $client = \App\Models\Client::find($request->client_id);
+                $titreParts[] = "Client : " . ($client ? $client->nomcomplet_client : '');
+            }
+
+            // 🔹 Filtre consultant
+            if ($request->consultant === 'consultant' && $request->filled('consultant_id')) {
+                $prestations->where('consultant_id', $request->consultant_id);
+                $consultant = \App\Models\Consultant::find($request->consultant_id);
+                $titreParts[] = "Consultant : " . ($consultant ? $consultant->nomcomplet : '');
+            }
+
+
             // Si aucun filtre n’est fourni, on prend seulement les prestations du jour
             if (
                 !$request->filled('facture_start') &&
@@ -483,8 +491,9 @@ class StatistiqueController extends Controller
                 !$request->filled('prestation_start') &&
                 !$request->filled('prestation_end') &&
                 !$request->filled('reglement_start') &&
-                !$request->filled('reglement_end') &&
-                !$request->filled('assurance')
+                !$request->filled('assurance') &&
+                !$request->filled('client_id') &&
+                !$request->filled('consultant_id')
             ) {
                 $prestations->whereDate('created_at', Carbon::today());
                 $titreParts[] = "Prestations du jour";
