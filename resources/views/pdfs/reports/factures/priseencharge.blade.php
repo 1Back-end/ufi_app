@@ -79,7 +79,7 @@
                                 {{ $hospitalisation->name }}
                             </td>
                             <td>{{ \App\Helpers\FormatPrice::format($hospitalisation->pivot->pu) }}</td>
-                            <td>{{ $hospitalisation->pivot->b }}</td>
+                            <td>{{ intval($hospitalisation->pivot->b) }}</td>
                             <td>{{ $priseCharge->taux_pc . '%' }}</td>
                             <td>{{ \App\Helpers\FormatPrice::format(($hospitalisation->pivot->pu * $hospitalisation->pivot->remise) / 100) }}
                             </td>
@@ -95,7 +95,7 @@
                                 {{ $consultation->name }}
                             </td>
                             <td>{{ \App\Helpers\FormatPrice::format($consultation->pivot->pu) }}</td>
-                            <td>{{ $consultation->pivot->b }}</td>
+                            <td>{{ intval($consultation->pivot->b) }}</td>
                             <td>{{ $priseCharge->taux_pc . '%' }}</td>
                             <td>{{ \App\Helpers\FormatPrice::format(($consultation->pivot->pu * $consultation->pivot->remise) / 100) }}
                             </td>
@@ -111,7 +111,7 @@
                                 {{ $consultation->name }}
                             </td>
                             <td>{{ \App\Helpers\FormatPrice::format($consultation->pivot->pu) }}</td>
-                            <td>{{ $consultation->pivot->b }}</td>
+                            <td>{{ intval($consultation->pivot->b) }}</td>
                             <td>{{ $priseCharge->taux_pc . '%' }}</td>
                             <td>{{ \App\Helpers\FormatPrice::format(($consultation->pivot->pu * $consultation->pivot->remise) / 100) }}
                             </td>
@@ -127,7 +127,7 @@
                                 {{ $examen->name }}
                             </td>
                             <td>{{ \App\Helpers\FormatPrice::format($examen->pivot->pu) }}</td>
-                            <td>{{ $examen->pivot->b }}</td>
+                            <td>{{ intval($examen->pivot->b) }}</td>
                             <td>{{ $priseCharge->taux_pc . '%' }}</td>
                             <td>{{ \App\Helpers\FormatPrice::format(($examen->pivot->pu * $examen->pivot->remise) / 100) }}</td>
                             <td>{{ \App\Helpers\FormatPrice::format(($examen->pivot->pu * $priseCharge->taux_pc) / 100) }}</td>
@@ -142,7 +142,7 @@
                                 {{ $soin->name }}
                             </td>
                             <td>{{ \App\Helpers\FormatPrice::format($soin->pivot->pu) }}</td>
-                            <td>{{ $soin->pivot->b }}</td>
+                            <td>{{ intval($soin->pivot->b )}}</td>
                             <td>{{ $priseCharge->taux_pc . '%' }}</td>
                             <td>{{ \App\Helpers\FormatPrice::format(($soin->pivot->pu * $soin->pivot->remise) / 100) }}</td>
                             <td>{{ \App\Helpers\FormatPrice::format(($soin->pivot->pu * $priseCharge->taux_pc) / 100) }}</td>
