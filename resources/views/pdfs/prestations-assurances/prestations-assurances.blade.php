@@ -127,11 +127,11 @@
                 <th>Pris en charge</th>
                 <th>Societé / Partenaire</th>
                 <th>Montant Total</th>
+                <th>Montant PC</th>
                 <th>Part patient</th>
                 <th>Montant payé patient</th>
                 <th>Montant Remise</th>
                 <th>Reste à payer client</th>
-                <th>Montant PC</th>
                 <th>Assurance</th>
             </tr>
             </thead>
@@ -182,6 +182,7 @@
                     </td>
 
                     <td>{{ \App\Helpers\FormatPrice::format(optional($facture)->amount) }}</td>
+                    <td>{{ \App\Helpers\FormatPrice::format(optional($facture)->amount_pc) }}</td>
                     <td>{{ \App\Helpers\FormatPrice::format(optional($facture)->amount_client) }}</td>
                     <td>{{ \App\Helpers\FormatPrice::format(optional($facture)->amount_client) }}</td>
                     <td>{{ \App\Helpers\FormatPrice::format(optional($facture)->amount_remise) }}</td>
@@ -192,7 +193,6 @@
                     @endphp
 
                     <td>{{ \App\Helpers\FormatPrice::format($restAPayer) }}</td>
-                    <td>{{ \App\Helpers\FormatPrice::format(optional($facture)->amount_pc) }}</td>
                     <td>
                         @if($prestation->payableBy)
                             {{ $prestation->payableBy->nomcomplet_client }}
