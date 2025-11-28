@@ -18,6 +18,7 @@ use App\Http\Controllers\HopitalController;
 use App\Http\Controllers\KbPrelevementController;
 use App\Http\Controllers\PaillasseController;
 use App\Http\Controllers\PrefixController;
+use App\Http\Controllers\ProformaController;
 use App\Http\Controllers\RegulationController;
 use App\Http\Controllers\RegulationMethodController;
 use App\Http\Controllers\Reports\FacturationsController;
@@ -100,6 +101,9 @@ Route::middleware(['activity'])->group(function () {
     Route::middleware(['auth:sanctum', 'user.change_password', 'check.permission'])->group(function () {
 
         Route::apiResource("archives_patients", PatientArchiveController::class);
+        Route::apiResource('proforma', ProformaController::class);
+        Route::patch('proforma/{id}/cancel', [ProformaController::class, 'cancel']);
+        Route::get('proforma/{id}/print_proforma', [ProformaController::class, 'print_proforma']);
 
 
 
@@ -591,6 +595,7 @@ Route::middleware(['activity'])->group(function () {
             Route::get('clients_by_day',  'get_client_by_day');
             Route::get('reglements_by_day',  'get_reglemenets_by_day');
             Route::get('get_facture_by_assurances',  'get_facture_by_assurances');
+
         });
         Route::controller(RapportActeController::class)->prefix('rapport_acte')->group(function () {
             Route::post('/create', 'store');
