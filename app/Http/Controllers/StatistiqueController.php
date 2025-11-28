@@ -9,6 +9,7 @@ use App\Models\Centre;
 use App\Models\Client;
 use App\Models\Facture;
 use App\Models\Prestation;
+use App\Models\Proforma;
 use App\Models\Regulation;
 use App\Models\RendezVous;
 use Carbon\Carbon;
@@ -568,6 +569,9 @@ class StatistiqueController extends Controller
         }
 
     }
+
+
+
 
 
 

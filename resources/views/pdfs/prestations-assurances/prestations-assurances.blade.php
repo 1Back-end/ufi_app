@@ -188,11 +188,12 @@
                     <td>{{ \App\Helpers\FormatPrice::format(optional($facture)->amount_remise) }}</td>
 
                     @php
-                        $totalPaid = $facture ? $facture->regulations->where('particular', false)->sum('amount') : 0;
-                        $restAPayer = optional($facture)->amount_client - $totalPaid;
+                        $restAPayer = optional($facture)->amount_client - optional($facture)->amount_client;
                     @endphp
 
-                    <td>{{ \App\Helpers\FormatPrice::format($restAPayer) }}</td>
+                    <td>
+                        {{ \App\Helpers\FormatPrice::format($restAPayer) }}
+                    </td>
                     <td>
                         @if($prestation->payableBy)
                             {{ $prestation->payableBy->nomcomplet_client }}
