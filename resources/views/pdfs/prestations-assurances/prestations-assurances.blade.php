@@ -116,7 +116,7 @@
 
 
     <div class="mt-2 w-100">
-        <table class="table table-bordered table-striped text-center border-black" style="font-size: 2.5mm;">
+        <table class="table table-bordered table-striped text-center border-black" style="font-size: 12px;">
             <thead>
             <tr>
                 <th>N° Facture</th>
@@ -142,7 +142,7 @@
                 @endphp
                 <tr>
                     <td>{{ $facture ? $facture->code : "Facture non créée" }}</td>
-                    <td>{{ $facture ? $facture->date_fact?->format('d/m/Y') : $prestation->created_at?->format('d/m/Y') }}</td>
+                    <td>{{ $prestation->created_at?->format('d/m/Y') }}</td>
                     <td>{{ optional($prestation->client)->nomcomplet_client }}</td>
                     <td>{{ $prestation?->consultant?->nomcomplet }}</td>
                     <td>
@@ -184,11 +184,16 @@
                     <td>{{ \App\Helpers\FormatPrice::format(optional($facture)->amount) }}</td>
                     <td>{{ \App\Helpers\FormatPrice::format(optional($facture)->amount_pc) }}</td>
                     <td>{{ \App\Helpers\FormatPrice::format(optional($facture)->amount_client) }}</td>
-                    <td>{{ \App\Helpers\FormatPrice::format(optional($facture)->amount_client) }}</td>
+                    @php
+                        $regulation = $facture->regulations->first();
+                    @endphp
+                    <td>
+                        {{ \App\Helpers\FormatPrice::format(optional($regulation)->amount) }}
+                    </td>
                     <td>{{ \App\Helpers\FormatPrice::format(optional($facture)->amount_remise) }}</td>
 
                     @php
-                        $restAPayer = optional($facture)->amount_client - optional($facture)->amount_client;
+                        $restAPayer = optional($facture)->amount_client - optional($regulation)->amount;
                     @endphp
 
                     <td>
