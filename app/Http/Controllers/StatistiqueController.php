@@ -289,7 +289,7 @@ class StatistiqueController extends Controller
 
             $titreParts = [];
 
-            // Filtre par période de factures
+            // Filtre par période +de factures
             if ($request->filled('facture_start') && $request->filled('facture_end')) {
                 $start = Carbon::parse($request->facture_start)->startOfDay();
                 $end   = Carbon::parse($request->facture_end)->endOfDay();

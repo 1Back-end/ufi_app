@@ -189,31 +189,28 @@
                     <td>{{ \App\Helpers\FormatPrice::format(optional($facture)->amount_client) }}</td>
 
                     @php
-                        $totalPaid = $facture ? $facture->regulations->where('particular', false)->sum('amount') : 0;
-                        $restAPayer = optional($facture)->amount_client - $totalPaid;
+                        // Total encaissé pour cette facture (sauf particuliers)
+                        $totalEncaissé = $facture
+                            ? $facture->regulations->where('particular', false)->sum('amount')
+                            : 0;
+
+                        // Reste à payer = Montant client - Montant encaissé
+                        $reste = optional($facture)->amount_client - $totalEncaissé;
                     @endphp
 
+
                     @php
-                        $modeSelectionne = request('mode_reglement'); // récupère le mode choisi
+                        $modeSelectionne = request('mode_reglement');
                     @endphp
 
                     <td>
-                        @if($facture && $facture->regulations->where('particular', false)->count())
-                            <ul class="list-unstyled">
-                                @foreach($facture->regulations->where('particular', false) as $regulation)
-                                    @if(!$modeSelectionne || $regulation->regulation_method_id == $modeSelectionne)
-                                        <li>
-                                            <strong>{{ optional($regulation->regulationMethod)->name }}:</strong>
-                                            {{ \App\Helpers\FormatPrice::format($regulation->amount) }}
-                                        </li>
-                                    @endif
-                                @endforeach
-                            </ul>
-                        @endif
+                        {{ \App\Helpers\FormatPrice::format($totalEncaissé) }}
                     </td>
 
                     @if(!$modeSelectionne)
-                        <td>{{ \App\Helpers\FormatPrice::format($restAPayer) }}</td>
+                        <td>
+                            {{ \App\Helpers\FormatPrice::format($reste) }}
+                        </td>
                     @endif
                 </tr>
             @endforeach
@@ -221,41 +218,56 @@
             @php
                 $modeSelectionne = request('mode_reglement');
 
-                // Toutes les factures
+                // Récupérer toutes les factures
                 $allFactures = $prestations->flatMap->factures;
 
-                // Filtrer les factures si un mode de règlement est sélectionné
-                if($modeSelectionne) {
-                    $allFactures = $allFactures->filter(function($facture) use ($modeSelectionne) {
-                        return $facture->regulations->contains(fn($r) => !$r->particular && $r->regulation_method_id == $modeSelectionne);
+                // Si un mode de règlement est choisi, filtrer les factures
+                if ($modeSelectionne) {
+                    $allFactures = $allFactures->filter(function ($facture) use ($modeSelectionne) {
+                        return $facture->regulations->contains(
+                            fn($r) => !$r->particular && $r->regulation_method_id == $modeSelectionne
+                        );
                     });
                 }
 
-                // Régulations correspondantes
-                $allRegulations = $allFactures->flatMap->regulations
+                // Récupérer les régulations associées
+                $allRegulations = $allFactures
+                    ->flatMap->regulations
                     ->where('particular', false)
-                    ->when($modeSelectionne, fn($collection) => $collection->where('regulation_method_id', $modeSelectionne));
+                    ->when($modeSelectionne, fn($collection) =>
+                        $collection->where('regulation_method_id', $modeSelectionne)
+                    );
+
+                // Totaux
+                $totalMontant      = $allFactures->sum('amount');
+                $totalPc           = $allFactures->sum('amount_pc');
+                $totalRemise       = $allFactures->sum('amount_remise');
+                $totalClient       = $allFactures->sum('amount_client');
+                $totalEncaisse     = $allRegulations->sum('amount');
+                $resteAPayer       = $totalClient - $totalEncaisse;
             @endphp
+
         </table>
         <div style="page-break-inside: avoid; margin-top: 10px;">
             <table class="table table-bordered table-striped text-center" style="font-size: 2.5mm;">
                 <tr class="fw-bold">
-                    <td colspan="5" class="text-center">Totaux: </td>
-                    <td class="text-center">Montant Total: {{ \App\Helpers\FormatPrice::format($allFactures->sum('amount')) }}</td>
-                    <td class="text-center">Montant PC: {{ \App\Helpers\FormatPrice::format($allFactures->sum('amount_pc')) }}</td>
-                    <td class="text-center">Montant Remise: {{ \App\Helpers\FormatPrice::format($allFactures->sum('amount_remise')) }}</td>
-                    <td class="text-center">Montant à payer: {{ \App\Helpers\FormatPrice::format($allFactures->sum('amount_client')) }}</td>
-                    <td class="text-center">Montant Encaissé: {{ \App\Helpers\FormatPrice::format($allRegulations->sum('amount')) }}</td>
+                    <td colspan="5" class="text-center">Totaux:</td>
+
+                    <td class="text-center">Montant Total: {{ \App\Helpers\FormatPrice::format($totalMontant) }}</td>
+                    <td class="text-center">Montant PC: {{ \App\Helpers\FormatPrice::format($totalPc) }}</td>
+                    <td class="text-center">Montant Remise: {{ \App\Helpers\FormatPrice::format($totalRemise) }}</td>
+                    <td class="text-center">Montant à payer: {{ \App\Helpers\FormatPrice::format($totalClient) }}</td>
+                    <td class="text-center">Montant Encaissé: {{ \App\Helpers\FormatPrice::format($totalEncaisse) }}</td>
+
                     @if(!$modeSelectionne)
                         <td class="text-center">
-                            Reste à payer: {{ \App\Helpers\FormatPrice::format($allFactures->sum('amount_client') - $allRegulations->sum('amount')) }}
+                            Reste à payer: {{ \App\Helpers\FormatPrice::format($resteAPayer) }}
                         </td>
                     @endif
                 </tr>
             </table>
         </div>
-    </div>
-    <br><br>
+        <br><br>
     @php
         $modeSelectionne = request('mode_reglement'); // récupère le mode choisi
 
