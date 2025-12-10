@@ -146,55 +146,65 @@
     <hr class="border border-2 border-primary opacity-75">
 
     <div class="mt-2 w-75">
-        <table class="table table-bordered table-striped text-center border-black">
+        <table class="table table-bordered border-black">
             <thead>
             <tr>
                 @if($proforma->type == 2)
                     <th>Consultations demandées</th>
                 @elseif($proforma->type == 1)
                     <th>Examens demandés</th>
+                @elseif($proforma->type == 3)
+                    <th>Actes demandés</th>
                 @endif
-                 @if($proforma->type == 3)
-                        <th>Actes demandés</th>
-                    @endif
                 <th>PU</th>
-
-                @if($proforma->type == 1 || $proforma->type == 3)
+                @if($proforma->type == 1)
                     <th>B</th>
                 @endif
             </tr>
             </thead>
             <tbody>
-            @foreach ($proforma->items as $index => $item)
+            @foreach ($proforma->items as $item)
                 <tr>
                     <td>{{ $item->name }}</td>
                     <td>{{ \App\Helpers\FormatPrice::format($item->unit_price) }}</td>
-                    @if($proforma->type == 1 || $proforma->type == 3)
-                    <td>{{ $item->b_value }}</td>
+                    @if($proforma->type == 1)
+                        <td>{{ $item->b_value }}</td>
                     @endif
                 </tr>
             @endforeach
+
+            @if($proforma->type == 1)
+                <tr>
+                    <th class="text-start">Montant prélèvement</th>
+                    <td>{{ \App\Helpers\FormatPrice::format($proforma->price_kb_prelevement) }}</td>
+                    <td></td> {{-- pour la colonne B --}}
+                </tr>
+            @endif
+                <th class="text-start"></th>
+                <td>{{ \App\Helpers\FormatPrice::format($proforma->total) }}</td>
+                @if($proforma->type == 1)
+                    <td></td> {{-- pour la colonne B --}}
+                @endif
             </tbody>
         </table>
     </div>
-
 
     <div class="col-12 px-1 d-flex justify-content-end mt-5">
         <div class="table-responsive-md" style="width: 400px;">
             <table class="table table-bordered text-center table-striped border-dark">
                 <tbody>
                 <tr>
-                    <th class="text-start">Montant Total HT</th>
-                    <td>{{ \App\Helpers\FormatPrice::format($proforma->items->sum('unit_price')) }}</td>
+                    <th class="text-start" style="font-style: italic">Montant Total HT</th>
+                    <td>{{ \App\Helpers\FormatPrice::format($proforma->total) }}</td>
                 </tr>
-                @if($proforma->type == 1)
+
                 <tr>
-                    <th class="text-start">Montant prélèvement</th>
-                    <td>{{ \App\Helpers\FormatPrice::format($proforma->price_kb_prelevement) }}</td>
+                    <th class="text-start" style="font-style: italic">Remise</th>
+                    <td>0%</td>
                 </tr>
-                @endif
+
                 <tr>
-                    <th class="text-start">Total Général</th>
+                    <th class="text-start" style="font-style: italic">Total Général</th>
                     <td>{{ \App\Helpers\FormatPrice::format($proforma->total) }}</td>
                 </tr>
                 </tbody>

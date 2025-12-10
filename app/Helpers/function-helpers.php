@@ -4,6 +4,7 @@ use App\Enums\StateExamen;
 use App\Enums\StateFacture;
 use App\Enums\TypePrestation;
 use App\Models\Acte;
+use App\Models\CampagneFacture;
 use App\Models\Centre;
 use App\Models\ElementPaillasse;
 use App\Models\Examen;
@@ -288,8 +289,18 @@ if (!function_exists('calculate_amount_facture')) {
                     $amount_client += ($hospitalisation->pivot->quantity * $pu) - $amount_hospitalisation_remise - $amount_hospitalisation_pc;
                 }
                 break;
-        }
 
+            case TypePrestation::CAMPAGNE: // <-- AJOUTÉ
+                if ($prestation->campagne) {
+                    $amount = $prestation->campagne->price;
+                    $amount_client = $amount;
+                    $amount_pc = 0;
+                    $amount_remise = 0;
+                    $amount_prelevement = 0;
+                    $amount_prelevement_pc = 0;
+                }
+                break;
+        }
 
         return [$amount, $amount_pc, $amount_remise, $amount_client, $amount_prelevement, $amount_prelevement_pc];
     }

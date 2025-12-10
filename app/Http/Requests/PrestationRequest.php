@@ -171,6 +171,7 @@ class PrestationRequest extends FormRequest
                 break;
             case TypePrestation::SOINS->value:
             case TypePrestation::LABORATOIR->value:
+            case TypePrestation::CAMPAGNE->value:
             case TypePrestation::PRODUITS->value:
                 break;
             case TypePrestation::CONSULTATIONS->value:
