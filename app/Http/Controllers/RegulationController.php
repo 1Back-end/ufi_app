@@ -11,6 +11,7 @@ use App\Models\Acte;
 use App\Models\Assureur;
 use App\Models\Client;
 use App\Models\Consultation;
+use App\Models\FacturationAssurance;
 use App\Models\Facture;
 use App\Models\OpsTblHospitalisation;
 use App\Models\Prestation;
@@ -139,6 +140,7 @@ class RegulationController extends Controller
      */
     public function specialRegulation(Request $request)
     {
+        $auth = auth()->user();
         $request->validate([
             'regulation_method_id' => ['required', 'exists:regulation_methods,id'],
             'amount' => ['required'],
@@ -165,6 +167,28 @@ class RegulationController extends Controller
             $regulateType = $request->type == 'client' ? Client::class : Assureur::class;
             $regulateId = $request->type == 'client' ? $request->input('client_id') : $request->input('assureur_id');
 
+            $existing = FacturationAssurance::where('assurance_id', $regulateId)
+                ->where(function ($q) use ($request) {
+                    $start = \Carbon\Carbon::parse($request->start_date)->format('Y-m-d H:i:s');
+                    $end = \Carbon\Carbon::parse($request->end_date)->format('Y-m-d H:i:s');
+
+                    $q->whereBetween('start_date', [$start, $end])
+                        ->orWhereBetween('end_date', [$start, $end])
+                        ->orWhere(function($q2) use ($start, $end) {
+                            $q2->where('start_date', '<=', $start)
+                                ->where('end_date', '>=', $end);
+                        });
+                })
+                ->exists();
+
+            if ($existing) {
+                DB::rollBack();
+                return response()->json([
+                    'status' => 'info',
+                    'message' => 'Une facture pour cet assureur et cette période existe déjà. Aucune nouvelle facture créée.'
+                ]);
+            }
+
             SpecialRegulation::create([
                 'regulation_id' => $regulateId,
                 'regulation_type' => $regulateType,
@@ -174,6 +198,17 @@ class RegulationController extends Controller
                 'end_date' => $request->input('end_date'),
                 'number_piece' => $request->input('number_piece'),
                 'date_piece' => $request->input('date_piece'),
+            ]);
+
+            FacturationAssurance::create([
+                'start_date' => \Carbon\Carbon::parse($request->input('start_date'))->format('Y-m-d H:i:s'),
+                'end_date' => \Carbon\Carbon::parse($request->input('end_date'))->format('Y-m-d H:i:s'),
+                'assurance' => Assureur::class,
+                'facture_number' => $request->input('number_piece'),
+                'amount' => $request->input('amount'),
+                'created_by' => $auth->id,
+                'updated_by' => $auth->id,
+                'assurance_id' => $regulateId,
             ]);
 
             // If all factures
@@ -217,8 +252,14 @@ class RegulationController extends Controller
                                 });
                                 break;
                             case TypePrestation::LABORATOIR:
+                                $prestation->examens->each(function ($examen) use ($prestation) {
+                                    $prestation->examens()->updateExistingPivot($examen->id, ['amount_regulate' => $examen->pivot->pu * 100]);
+                                });
+                                break;
                             case TypePrestation::PRODUITS:
-                                throw new \Exception('To be implemented');
+                                $prestation->products->each(function ($product) use ($prestation) {
+                                    $prestation->products()->updateExistingPivot($product->id, ['amount_regulate' => $product->pivot->pu * 100]);
+                                });
                                 break;
                             case TypePrestation::HOSPITALISATION:
                                 $prestation->hospitalisations->each(function (OpsTblHospitalisation $hospitalisation) use ($prestation) {
@@ -272,15 +313,21 @@ class RegulationController extends Controller
                                 ->updateExistingPivot($item['id'], ['amount_regulate' => $item['amount'] * 100]);
                             break;
                         case TypePrestation::LABORATOIR:
+                            $facture->prestation->examens()
+                                ->updateExistingPivot($item['id'], ['amount_regulate' => $item['amount'] * 100]);
+                            break;
                         case TypePrestation::PRODUITS:
-                            throw new \Exception('To be implemented');
+                            $facture->prestation->products()
+                                ->updateExistingPivot($item['id'], ['amount_regulate' => $item['amount'] * 100]);
                             break;
                         case TypePrestation::HOSPITALISATION:
                             $facture->prestation->hospitalisations()
                                 ->updateExistingPivot($item['id'], ['amount_regulate' => $item['amount'] * 100]);
                             break;
                         default:
-                            throw new \Exception('To be implemented');
+                            // Ignorer ou logger le type non implémenté
+                            \Log::warning("Type de prestation non implémenté: {$facture->prestation->type}");
+                            break;
                     }
 
                 }

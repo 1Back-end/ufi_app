@@ -39,7 +39,9 @@ class Prestation extends Model
         'type',
         'regulated',
         'centre_id',
-        'apply_prelevement'
+        'apply_prelevement',
+        'campagne_id',
+        'is_campagne'
     ];
 
     protected function casts(): array
@@ -361,5 +363,9 @@ class Prestation extends Model
     public function results(): HasMany
     {
         return $this->hasMany(Result::class, 'prestation_id');
+    }
+    public function campagne()
+    {
+        return $this->belongsTo(Campagne::class, 'campagne_id', 'id');
     }
 }

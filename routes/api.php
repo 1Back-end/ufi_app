@@ -89,8 +89,12 @@ use App\Imports\ImportAssociateClient;
 use App\Imports\ImportConfigASC;
 use App\Imports\ImportPredefinedList;
 use App\Http\Controllers\PatientArchiveController;
+use App\Http\Controllers\VentilationPriceController;
+use App\Http\Controllers\CampagneController;
+use App\Http\Controllers\CampagneFactureController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+
 
 Route::middleware(['activity'])->group(function () {
 
@@ -104,6 +108,14 @@ Route::middleware(['activity'])->group(function () {
         Route::apiResource('proforma', ProformaController::class);
         Route::patch('proforma/{id}/cancel', [ProformaController::class, 'cancel']);
         Route::get('proforma/{id}/print_proforma', [ProformaController::class, 'print_proforma']);
+        Route::get('/partenaires/{id}/factures', [VentilationPriceController::class, 'getFacturesByPartenaire']);
+        Route::get('/patients/partenaires', [VentilationPriceController::class, 'getPatientPartenaire']);
+
+        Route::apiResource('campagnes', CampagneController::class);
+        Route::patch('/campagnes/{id}/status', [CampagneController::class, 'changeStatus']);
+        route::apiResource('facturations_campagnes',CampagneFactureController::class);
+
+
 
 
 

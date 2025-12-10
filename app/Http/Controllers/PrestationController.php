@@ -14,6 +14,7 @@ use App\Models\Consultant;
 use App\Models\Consultation;
 use App\Models\ConventionAssocie;
 use App\Models\Examen;
+use App\Models\FacturationAssurance;
 use App\Models\Facture;
 use App\Models\FactureAssociate;
 use App\Models\Media;
@@ -154,7 +155,7 @@ class PrestationController extends Controller
             ->when($request->input('prelevement'), function (Builder $query) use ($request) {
             $query->whereHas('prestationables', function ($query) {
                 $query->whereNull('prestationables.prelevements');
-            })->where('type', TypePrestation::LABORATOIR->value)
+            })->whereIn('type', [TypePrestation::LABORATOIR->value, TypePrestation::CAMPAGNE->value])
                 ->whereHas('factures', function ($query) {
                     $query->where('factures.type', 2);
                 });
@@ -169,7 +170,7 @@ class PrestationController extends Controller
                 }, function (Builder $query) {
                     $query->whereNotNull('prelevements');
                 });
-            })->where('type', TypePrestation::LABORATOIR->value)
+            })->whereIn('type', [TypePrestation::LABORATOIR->value, TypePrestation::CAMPAGNE->value])
                 ->when($request->input('paillasse'), function (Builder $query) use ($request) {
                     $query->whereHas('examens', function ($query) use ($request) {
                         $query->where('paillasse_id', $request->input('paillasse'));
@@ -179,7 +180,7 @@ class PrestationController extends Controller
             ->when($request->input('show_results'), function (Builder $query) use ($request) {
             $query->whereHas('prestationables', function ($query) use ($request) {
                 $query->whereIn('status_examen', $request->input("states"));
-            })->where('type', TypePrestation::LABORATOIR->value);
+            })->whereIn('type', [TypePrestation::LABORATOIR->value, TypePrestation::CAMPAGNE->value]);
         })
             ->when($request->input('prestation_id'), function (Builder $query) use ($request) {
                 $query->where('id', $request->input('prestation_id'));
@@ -843,6 +844,7 @@ class PrestationController extends Controller
      */
     public function printFactureAssurance(Request $request)
     {
+        $auth = auth()->user();
         $request->validate([
             'assurance' => ['required_if:client,null', 'exists:assureurs,id'],
             'client' => ['required_if:assurance,null', 'exists:clients,id'],
@@ -909,6 +911,7 @@ class PrestationController extends Controller
                 ], 400);
             }
 
+
             $column = $request->input('assurance') ? 'amount_client' : 'amount_pc';
             $totalAmount = DB::table('factures')
                 ->join('prestations', 'factures.prestation_id', '=', 'prestations.id')
@@ -939,6 +942,7 @@ class PrestationController extends Controller
                     'date' => now(),
                 ]);
             }
+
 
             $path = $client ? 'facture-clients/' . $fileName : 'facture-assurance/' . $fileName;
 
