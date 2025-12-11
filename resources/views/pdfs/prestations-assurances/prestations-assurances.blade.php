@@ -119,27 +119,38 @@
         <table class="table table-bordered table-striped text-center border-black" style="font-size: 12px;">
             <thead>
             <tr>
-                <th>N° Facture</th>
-                <th>Création DT</th>
-                <th>Nom patient</th>
-                <th>Prescripteur</th>
-                <th>Eléments</th>
-                <th>Pris en charge</th>
-                <th>Societé / Partenaire</th>
-                <th>Montant Total</th>
-                <th>Montant PC</th>
-                <th>Part patient</th>
-                <th>Montant payé patient</th>
-                <th>Montant Remise</th>
-                <th>Reste à payer client</th>
-                <th>Assurance</th>
+                <th style="font-style: italic;font-size: 11px">N° Facture</th>
+                <th style="font-style: italic;font-size: 11px">Création DT</th>
+                <th style="font-style: italic;font-size: 11px">Nom patient</th>
+                <th style="font-style: italic;font-size: 11px">Prescripteur</th>
+                <th style="font-style: italic;font-size: 11px">Eléments</th>
+                <th style="font-style: italic;font-size: 11px">Pris en charge</th>
+                <th style="font-style: italic;font-size: 11px">Societé / Partenaire</th>
+                <th style="font-style: italic;font-size: 11px">Montant Total</th>
+                <th style="font-style: italic;font-size: 11px">Montant PC</th>
+                <th style="font-style: italic;font-size: 11px">Part patient</th>
+                <th style="font-style: italic;font-size: 11px">Montant payé patient</th>
+                <th style="font-style: italic;font-size: 11px">Montant Remise</th>
+                <th style="font-style: italic;font-size: 11px">Reste à payer client</th>
+                <th style="font-style: italic;font-size: 11px">Assurance</th>
             </tr>
             </thead>
             <tbody>
             @foreach ($prestations as $index => $prestation)
                 @php
+                    // Récupérer la facture principale
                     $facture = $prestation->factures->first();
+
+                    // Récupérer la facture qui contient un règlement
+                    $factureReglee = $prestation->factures
+                        ->filter(fn($f) => $f->regulations && $f->regulations->where('state', 1)->count() > 0)
+                        ->first();
+
+                    $regulation = $factureReglee ? $factureReglee->regulations->first() : null;
+
+                    $restAPayer = ($factureReglee ? $factureReglee->amount_client : 0) - ($regulation ? $regulation->amount : 0);
                 @endphp
+
                 <tr>
                     <td>{{ $facture ? $facture->code : "Facture non créée" }}</td>
                     <td>{{ $prestation->created_at?->format('d/m/Y') }}</td>
@@ -184,21 +195,10 @@
                     <td>{{ \App\Helpers\FormatPrice::format(optional($facture)->amount) }}</td>
                     <td>{{ \App\Helpers\FormatPrice::format(optional($facture)->amount_pc) }}</td>
                     <td>{{ \App\Helpers\FormatPrice::format(optional($facture)->amount_client) }}</td>
-                    @php
-                        $regulation = $facture->regulations->first();
-                    @endphp
-                    <td>
-                        {{ \App\Helpers\FormatPrice::format(optional($regulation)->amount) }}
-                    </td>
+                    <td>{{ \App\Helpers\FormatPrice::format(optional($regulation)->amount) }}</td>
                     <td>{{ \App\Helpers\FormatPrice::format(optional($facture)->amount_remise) }}</td>
+                    <td>{{ \App\Helpers\FormatPrice::format($restAPayer) }}</td>
 
-                    @php
-                        $restAPayer = optional($facture)->amount_client - optional($regulation)->amount;
-                    @endphp
-
-                    <td>
-                        {{ \App\Helpers\FormatPrice::format($restAPayer) }}
-                    </td>
                     <td>
                         @if($prestation->payableBy)
                             {{ $prestation->payableBy->nomcomplet_client }}

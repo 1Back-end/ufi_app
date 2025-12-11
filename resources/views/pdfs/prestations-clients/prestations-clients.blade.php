@@ -123,7 +123,7 @@
 
 
     <div class="mt-2 w-100">
-        <table class="table table-bordered table-striped text-center" style="font-size: 2.5mm;">
+        <table class="table table-bordered table-striped text-center" style="font-size: 12px;">
             <thead>
             <tr>
                 <th>N° Facture</th>

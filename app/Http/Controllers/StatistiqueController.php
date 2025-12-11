@@ -289,12 +289,13 @@ class StatistiqueController extends Controller
 
             $titreParts = [];
 
-            // Filtre par période +de factures
             if ($request->filled('facture_start') && $request->filled('facture_end')) {
                 $start = Carbon::parse($request->facture_start)->startOfDay();
                 $end   = Carbon::parse($request->facture_end)->endOfDay();
-                $prestations->whereHas('factures', fn($q) => $q->whereBetween('date_fact', [$start, $end]));
-                $titreParts[] = "Factures du " . $start->format('d/m/Y') . " au " . $end->format('d/m/Y');
+                $prestations->whereHas('factures.regulations', function ($q) use ($start, $end) {
+                    $q->whereBetween('date', [$start, $end]);
+                });
+                $titreParts[] = "Factures réglées du {$start->format('d/m/Y')} au {$end->format('d/m/Y')}";
             }
 
             // Filtre par période de prestation
@@ -302,22 +303,27 @@ class StatistiqueController extends Controller
                 $start = Carbon::parse($request->prestation_start)->startOfDay();
                 $end   = Carbon::parse($request->prestation_end)->endOfDay();
                 $prestations->whereBetween('created_at', [$start, $end]);
-                $titreParts[] = "Prestations du " . $start->format('d/m/Y') . " au " . $end->format('d/m/Y');
+                $titreParts[] = "Prestations du {$start->format('d/m/Y')} au {$end->format('d/m/Y')}";
             }
 
             // Filtre par mode de règlement
             if ($request->filled('mode_reglement')) {
                 $mode = \App\Models\RegulationMethod::find($request->mode_reglement);
-                $prestations->whereHas('factures.regulations', fn($q) => $q->where('regulation_method_id', $request->mode_reglement));
-                $titreParts[] = "Mode de règlement: " . ($mode ? $mode->name : '');
+
+                $prestations->whereHas('factures.regulations', function ($q) use ($request) {
+                    $q->where('regulation_method_id', $request->mode_reglement);
+                });
+                $titreParts[] = "Mode de règlement : " . ($mode?->name ?? '');
             }
 
             // Filtre par date de règlement
             if ($request->filled('reglement_start') && $request->filled('reglement_end')) {
                 $start = Carbon::parse($request->reglement_start)->startOfDay();
                 $end   = Carbon::parse($request->reglement_end)->endOfDay();
-                $prestations->whereHas('factures.regulations', fn($q) => $q->whereBetween('date', [$start, $end]));
-                $titreParts[] = "Règlements du " . $start->format('d/m/Y') . " au " . $end->format('d/m/Y');
+                $prestations->whereHas('factures.regulations', function ($q) use ($start, $end) {
+                    $q->whereBetween('date', [$start, $end]);
+                });
+                $titreParts[] = "Règlements du {$start->format('d/m/Y')} au {$end->format('d/m/Y')}";
             }
 
             if ($request->filled('assurance')) {
@@ -436,13 +442,13 @@ class StatistiqueController extends Controller
 
             $titreParts = [];
 
-
-            // Filtre par période de factures
             if ($request->filled('facture_start') && $request->filled('facture_end')) {
                 $start = Carbon::parse($request->facture_start)->startOfDay();
                 $end   = Carbon::parse($request->facture_end)->endOfDay();
-                $prestations->whereHas('factures', fn($q) => $q->whereBetween('date_fact', [$start, $end]));
-                $titreParts[] = "Factures du " . $start->format('d/m/Y') . " au " . $end->format('d/m/Y');
+                $prestations->whereHas('factures.regulations', function ($q) use ($start, $end) {
+                    $q->whereBetween('date', [$start, $end]);
+                });
+                $titreParts[] = "Factures réglées du {$start->format('d/m/Y')} au {$end->format('d/m/Y')}";
             }
 
             // Filtre par période de prestation
@@ -450,11 +456,29 @@ class StatistiqueController extends Controller
                 $start = Carbon::parse($request->prestation_start)->startOfDay();
                 $end   = Carbon::parse($request->prestation_end)->endOfDay();
                 $prestations->whereBetween('created_at', [$start, $end]);
-                $titreParts[] = "Prestations du " . $start->format('d/m/Y') . " au " . $end->format('d/m/Y');
+                $titreParts[] = "Prestations du {$start->format('d/m/Y')} au {$end->format('d/m/Y')}";
             }
 
+            // Filtre par mode de règlement
+            if ($request->filled('mode_reglement')) {
+                $mode = \App\Models\RegulationMethod::find($request->mode_reglement);
 
-            // Filtre par assurance
+                $prestations->whereHas('factures.regulations', function ($q) use ($request) {
+                    $q->where('regulation_method_id', $request->mode_reglement);
+                });
+                $titreParts[] = "Mode de règlement : " . ($mode?->name ?? '');
+            }
+
+            // Filtre par date de règlement
+            if ($request->filled('reglement_start') && $request->filled('reglement_end')) {
+                $start = Carbon::parse($request->reglement_start)->startOfDay();
+                $end   = Carbon::parse($request->reglement_end)->endOfDay();
+                $prestations->whereHas('factures.regulations', function ($q) use ($start, $end) {
+                    $q->whereBetween('date', [$start, $end]);
+                });
+                $titreParts[] = "Règlements du {$start->format('d/m/Y')} au {$end->format('d/m/Y')}";
+            }
+
             if ($request->filled('assurance')) {
                 if ($request->assurance === "assure" && $request->filled('assurance_id')) {
                     $prestations->whereHas('priseCharge', function ($q) use ($request) {
