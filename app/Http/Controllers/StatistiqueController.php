@@ -302,7 +302,14 @@ class StatistiqueController extends Controller
             if ($request->filled('prestation_start') && $request->filled('prestation_end')) {
                 $start = Carbon::parse($request->prestation_start)->startOfDay();
                 $end   = Carbon::parse($request->prestation_end)->endOfDay();
-                $prestations->whereBetween('created_at', [$start, $end]);
+                $prestations->where(function($query) use ($start, $end) {
+                    // Prestations créées dans la période
+                    $query->whereBetween('created_at', [$start, $end])
+                        // OU prestations dont les règlements sont dans la période
+                        ->orWhereHas('factures.regulations', function($q) use ($start, $end) {
+                            $q->whereBetween('date', [$start, $end]);
+                        });
+                });
                 $titreParts[] = "Prestations du {$start->format('d/m/Y')} au {$end->format('d/m/Y')}";
             }
 
@@ -455,7 +462,14 @@ class StatistiqueController extends Controller
             if ($request->filled('prestation_start') && $request->filled('prestation_end')) {
                 $start = Carbon::parse($request->prestation_start)->startOfDay();
                 $end   = Carbon::parse($request->prestation_end)->endOfDay();
-                $prestations->whereBetween('created_at', [$start, $end]);
+                $prestations->where(function($query) use ($start, $end) {
+                    // Prestations créées dans la période
+                    $query->whereBetween('created_at', [$start, $end])
+                        // OU prestations dont les règlements sont dans la période
+                        ->orWhereHas('factures.regulations', function($q) use ($start, $end) {
+                            $q->whereBetween('date', [$start, $end]);
+                        });
+                });
                 $titreParts[] = "Prestations du {$start->format('d/m/Y')} au {$end->format('d/m/Y')}";
             }
 
@@ -535,22 +549,22 @@ class StatistiqueController extends Controller
             }
 
             $centre = Centre::find($request->header('centre'));
-            $media  = $centre->medias()->where('name', 'logo')->first();
-            $titre  = implode(" - ", $titreParts);
+            $media = $centre->medias()->where('name', 'logo')->first();
+            $titre = implode(" - ", $titreParts);
 
             $data = [
                 'prestations' => $prestations,
-                'logo'        => $media ? 'storage/' . $media->path . '/' . $media->filename : '',
-                'centre'      => $centre,
-                'titre'       => $titre,
+                'logo' => $media ? 'storage/' . $media->path . '/' . $media->filename : '',
+                'centre' => $centre,
+                'titre' => $titre,
             ];
 
             // -------------------
             // GÉNÉRATION DU PDF
             // -------------------
-            $fileName   = 'prestations-assurances-' . now()->format('YmdHis') . '.pdf';
+            $fileName = 'prestations-assurances-' . now()->format('YmdHis') . '.pdf';
             $folderPath = 'storage/prestations-assurances';
-            $filePath   = $folderPath . '/' . $fileName;
+            $filePath = $folderPath . '/' . $fileName;
 
             if (!file_exists($folderPath)) {
                 mkdir($folderPath, 0755, true);
@@ -575,19 +589,19 @@ class StatistiqueController extends Controller
             }
 
             $pdfContent = file_get_contents($filePath);
-            $base64     = base64_encode($pdfContent);
+            $base64 = base64_encode($pdfContent);
 
             return response()->json([
                 'prestations' => $prestations,
-                'base64'      => $base64,
-                'url'         => $filePath,
-                'filename'    => $fileName,
+                'base64' => $base64,
+                'url' => $filePath,
+                'filename' => $fileName,
             ], 200);
 
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json([
-                'error'   => 'Une erreur est survenue',
+                'error' => 'Une erreur est survenue',
                 'message' => $e->getMessage()
             ], 500);
         }
