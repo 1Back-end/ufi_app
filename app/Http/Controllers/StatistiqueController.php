@@ -7,6 +7,8 @@ use App\Enums\TypeClient;
 use App\Enums\TypePrestation;
 use App\Models\Centre;
 use App\Models\Client;
+use App\Models\Consultant;
+use App\Models\Examen;
 use App\Models\Facture;
 use App\Models\Prestation;
 use App\Models\Proforma;
@@ -606,6 +608,125 @@ class StatistiqueController extends Controller
             ], 500);
         }
 
+    }
+
+
+    /**
+     * Display a listing of the resource.
+     * @permission StatistiqueController::etat_examens_par_paillasse
+     * @permission_desc Etat affichant le nombre d'examens par éléménts de paillases
+     */
+    public function etat_examens_par_paillasse(Request $request)
+    {
+        DB::beginTransaction();
+
+        try {
+            $start = $request->start_date
+                ? Carbon::parse($request->start_date)->startOfDay()
+                : Carbon::now()->startOfMonth(); // par défaut début du mois
+            $end = $request->end_date
+                ? Carbon::parse($request->end_date)->endOfDay()
+                : Carbon::now()->endOfMonth(); // par défaut fin du mois
+            $centreId = $request->header('centre');
+            if (!$centreId) {
+                return response()->json([
+                    'message' => 'Centre non fourni'
+                ], 400);
+            }
+
+            $query = DB::table('prestations')
+                ->join('prestationables', function ($join) {
+                    $join->on('prestations.id', '=', 'prestationables.prestation_id')
+                        ->where('prestationables.prestationable_type', Examen::class);
+                })
+                ->join('examens', 'examens.id', '=', 'prestationables.prestationable_id')
+                ->join('paillasses', 'paillasses.id', '=', 'examens.paillasse_id')
+                ->whereBetween('prestations.created_at', [$start, $end])
+                ->where('prestations.centre_id', $centreId);
+
+            // Filtre optionnel par consultant
+            if ($request->consultant_id) {
+                $query->where('prestations.consultant_id', $request->consultant_id);
+            }
+
+            $rows = $query->select(
+                'paillasses.id as paillasse_id',
+                'paillasses.name as paillasse',
+                'examens.name as examen',
+                DB::raw('SUM(prestationables.quantity) as total_examens')
+            )
+                ->groupBy(
+                    'paillasses.id',
+                    'paillasses.name',
+                    'examens.name'
+                )
+                ->orderBy('paillasses.name')
+                ->get()
+                ->groupBy('paillasse');
+
+            if ($rows->isEmpty()) {
+                DB::rollBack();
+                return response()->json([
+                    'message' => 'Aucune donnée trouvée.'
+                ], 404);
+            }
+
+            $centre = Centre::findOrFail($centreId);
+            $media  = $centre->medias()->where('name', 'logo')->first();
+            $consultant = null;
+            if ($request->consultant_id) {
+                $consultant = Consultant::find($request->consultant_id);
+            }
+
+            $data = [
+                'rows'   => $rows,
+                'centre'=> $centre,
+                'logo'  => $media ? 'storage/' . $media->path . '/' . $media->filename : '',
+                'periode' => [
+                    'du' => $start->format('d/m/Y'),
+                    'au' => $end->format('d/m/Y'),
+                ],
+                'consultant' => $consultant, // ajouté ici
+            ];
+
+            // -------------------
+            // GÉNÉRATION DU PDF
+            // -------------------
+            $fileName   = 'examens-paillasses-' . now()->format('YmdHis') . '.pdf';
+            $folderPath = 'storage/examens-paillasses';
+            $filePath   = $folderPath . '/' . $fileName;
+
+            if (!file_exists($folderPath)) {
+                mkdir($folderPath, 0755, true);
+            }
+            $footer = 'pdfs.reports.factures.footer';
+            save_browser_shot_pdf(
+                view: 'pdfs.examens-paillasses.examens-paillasses',
+                data: $data,
+                folderPath: $folderPath,
+                path: $filePath,
+                margins: [15, 10, 15, 10],
+                format: 'A4',
+                footer: $footer
+            );
+
+            DB::commit();
+
+            $pdfContent = file_get_contents($filePath);
+
+            return response()->json([
+                'base64'   => base64_encode($pdfContent),
+                'url'      => $filePath,
+                'filename' => $fileName,
+            ], 200);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'error'   => 'Une erreur est survenue',
+                'message' => $e->getMessage()
+            ], 500);
+        }
     }
 
 
