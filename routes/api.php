@@ -607,6 +607,7 @@ Route::middleware(['activity'])->group(function () {
             Route::get('clients_by_day',  'get_client_by_day');
             Route::get('reglements_by_day',  'get_reglemenets_by_day');
             Route::get('get_facture_by_assurances',  'get_facture_by_assurances');
+            Route::get('examens_par_paillasse','etat_examens_par_paillasse');
 
         });
         Route::controller(RapportActeController::class)->prefix('rapport_acte')->group(function () {
