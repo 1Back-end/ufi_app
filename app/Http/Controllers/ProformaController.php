@@ -333,6 +333,12 @@ class ProformaController extends Controller
         ], Response::HTTP_OK);
     }
 
+
+    /**
+     * Display a listing of the resource.
+     * @permission ProformaController::print_proforma
+     * @permission_desc Imprimer les factures des proformas
+     */
     public function print_proforma(Request $request, $id)
     {
         DB::beginTransaction();

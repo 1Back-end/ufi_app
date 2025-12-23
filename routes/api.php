@@ -92,6 +92,7 @@ use App\Http\Controllers\PatientArchiveController;
 use App\Http\Controllers\VentilationPriceController;
 use App\Http\Controllers\CampagneController;
 use App\Http\Controllers\CampagneFactureController;
+use App\Http\Controllers\ResultatExamenCampagneFactureController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -114,6 +115,9 @@ Route::middleware(['activity'])->group(function () {
         Route::apiResource('campagnes', CampagneController::class);
         Route::patch('/campagnes/{id}/status', [CampagneController::class, 'changeStatus']);
         route::apiResource('facturations_campagnes',CampagneFactureController::class);
+
+        Route::apiResource('examens_resultats_campagnes', ResultatExamenCampagneFactureController::class);
+        Route::get('examens_resultats_campagnes/{id}/print_resultat_facture_campagne', [ResultatExamenCampagneFactureController::class, 'print_resultat_facture_campagne']);
 
 
 
