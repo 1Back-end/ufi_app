@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -16,6 +17,10 @@ class CampagneElement extends Model
         'price',
         'created_by',
         'updated_by'
+    ];
+
+    protected $appends = [
+        'element_name', // Permet de l'inclure automatiquement dans les JSON
     ];
 
     /**
@@ -54,6 +59,10 @@ class CampagneElement extends Model
             'soins' => $this->belongsTo(Soins::class, 'element_id'),
             default => null
         };
+    }
+    protected function elementName(): Attribute
+    {
+        return Attribute::get(fn () => $this->element?->name);
     }
 
 }

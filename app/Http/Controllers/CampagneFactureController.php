@@ -271,16 +271,28 @@ class CampagneFactureController extends Controller
 
     public function show($id)
     {
-        $facture_campagne = CampagneFacture::with(
-            'campagne',
-            'patient',
+        $facture_campagne = CampagneFacture::with([
+            'campagne.elements', // ✅ ICI
+            'patient.sexe',
             'consultant',
             'centre'
-        )->findOrFail($id);
+        ])->findOrFail($id);
 
         return response()->json([
             'facture_campagne' => $facture_campagne
         ]);
+    }
+
+
+
+    /**
+     * Display a listing of the resource.
+     * @permission CampagneFactureController::destroy
+     * @permission_desc Supprimer une campagne facturée
+     */
+    public function destroy($id)
+    {
+        $auth = auth()->user();
     }
 
 
