@@ -19,8 +19,6 @@ class TitreController extends Controller
      * @permission TitreController::index
      * @permission_desc Afficher l'id et le nom du titre
      */
-
-
     public function index()
     {
         $titres = Titre::select('id','nom_titre')

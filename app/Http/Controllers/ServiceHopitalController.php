@@ -27,13 +27,11 @@ class ServiceHopitalController extends Controller
         //
     }
 
-    // Affiche la liste des services hospitaliers avec pagination
     /**
      * Display a listing of the resource.
      * @permission ServiceHopitalController::get_all
      * @permission_desc Afficher la liste des services hospitaliers
      */
-
     public function get_all(Request $request)
     {
         $perPage = $request->input('limit', 10);  // Par défaut, 10 éléments par page
@@ -55,7 +53,6 @@ class ServiceHopitalController extends Controller
         //
     }
 
-    // Crée un nouveau service hospitalier
     /**
      * Display a listing of the resource.
      * @permission ServiceHopitalController::store
@@ -91,7 +88,7 @@ class ServiceHopitalController extends Controller
     // Affiche un service hospitalier spécifique
     /**
      * Display a listing of the resource.
-     * @permission ServiceHopitalController::get_all
+     * @permission ServiceHopitalController::show
      * @permission_desc Afficher un service hospitalier spécifique
      */
     public function show(string $id)

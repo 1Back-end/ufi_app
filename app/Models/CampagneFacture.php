@@ -22,6 +22,7 @@ class CampagneFacture extends Model
         'billing_date',
         'created_by',
         'updated_by',
+        'facturation_date'
     ];
 
     // 🔹 Relations

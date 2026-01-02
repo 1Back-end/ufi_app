@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Enums\StateFacture;
+use App\Enums\StockAdjustmentAction;
 use App\Enums\TypeClient;
 use App\Enums\TypePrestation;
 use App\Models\Centre;
@@ -315,6 +316,30 @@ class StatistiqueController extends Controller
                 $titreParts[] = "Prestations du {$start->format('d/m/Y')} au {$end->format('d/m/Y')}";
             }
 
+            if ($request->filled('prestation_type')) {
+                $type = (int) $request->prestation_type;
+
+                if (!array_key_exists($type, TypePrestation::toArray())) {
+                    Log::warning("Type invalide : {$type}");
+                    return response()->json([
+                        'status' => 'error',
+                        'message' => 'Type invalide.'
+                    ], 422);
+                }
+
+                $prestations->where('type', $type);
+
+                // Convertir l'entier en instance d'enum
+                $enumInstance = TypePrestation::from($type);
+
+                // Récupérer le label
+                $actionLabel = TypePrestation::label($enumInstance);
+
+                // Ajouter le label lisible au titre
+                $titreParts[] = "Type prestation : " . $actionLabel;
+            }
+
+
             // Filtre par mode de règlement
             if ($request->filled('mode_reglement')) {
                 $mode = \App\Models\RegulationMethod::find($request->mode_reglement);
@@ -360,7 +385,8 @@ class StatistiqueController extends Controller
                 !$request->filled('reglement_start') &&
                 !$request->filled('reglement_end') &&
                 !$request->filled('assurance') &&
-                !$request->filled('facture_state')
+                !$request->filled('facture_state') &&
+                !$request->filled('prestation_type')
             ) {
                 $prestations->whereDate('created_at', Carbon::today());
                 $titreParts[] = "Prestations du jour";
@@ -475,6 +501,27 @@ class StatistiqueController extends Controller
                 $titreParts[] = "Prestations du {$start->format('d/m/Y')} au {$end->format('d/m/Y')}";
             }
 
+            if ($request->filled('prestation_type')) {
+                $type = (int) $request->prestation_type;
+
+                if (!array_key_exists($type, TypePrestation::toArray())) {
+                    Log::warning("Type invalide : {$type}");
+                    return response()->json([
+                        'status' => 'error',
+                        'message' => 'Type invalide.'
+                    ], 422);
+                }
+
+                $prestations->where('type', $type);
+
+                $actionLabel = TypePrestation::label($type);
+                // Ajouter le label lisible
+                $titreParts[] = "Type prestation : " . $actionLabel;
+            }
+
+
+
+
             // Filtre par mode de règlement
             if ($request->filled('mode_reglement')) {
                 $mode = \App\Models\RegulationMethod::find($request->mode_reglement);
@@ -534,7 +581,8 @@ class StatistiqueController extends Controller
                 !$request->filled('reglement_start') &&
                 !$request->filled('assurance') &&
                 !$request->filled('client_id') &&
-                !$request->filled('consultant_id')
+                !$request->filled('consultant_id') &&
+                !$request->filled('prestation_type')
             ) {
                 $prestations->whereDate('created_at', Carbon::today());
                 $titreParts[] = "Prestations du jour";
@@ -642,7 +690,8 @@ class StatistiqueController extends Controller
                 ->join('examens', 'examens.id', '=', 'prestationables.prestationable_id')
                 ->join('paillasses', 'paillasses.id', '=', 'examens.paillasse_id')
                 ->whereBetween('prestations.created_at', [$start, $end])
-                ->where('prestations.centre_id', $centreId);
+                ->where('prestations.centre_id', $centreId)
+                ->where('prestations.regulated', '!=', 3);
 
             // Filtre optionnel par consultant
             if ($request->consultant_id) {
@@ -728,6 +777,216 @@ class StatistiqueController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Display a listing of the resource.
+     * @permission StatistiqueController::getFactureInProgressAssurance
+     * @permission_desc Afficher les factures en cours des par assurances
+     */
+    public function getFactureInProgressAssurance(Request $request)
+    {
+        // Validation
+        $request->validate([
+            'assurance_id' => ['required', 'exists:assureurs,id'],
+            'start_date'   => ['required', 'date'],
+            'end_date'     => ['required', 'date'],
+            'per_page'     => ['nullable', 'integer'],
+            'page'         => ['nullable', 'integer'],
+        ]);
+
+        $centreId = $request->header('centre');
+        if (!$centreId) {
+            return response()->json(['message' => 'Centre non fourni'], 400);
+        }
+
+        $start = Carbon::parse($request->start_date)->startOfDay();
+        $end   = Carbon::parse($request->end_date)->endOfDay();
+        $assuranceId = $request->assurance_id;
+
+        // Récupération des factures avec pagination
+        $perPage = $request->input('per_page', 25);
+        $page    = $request->input('page', 1);
+
+        $query = Facture::with([
+            'prestation.client',
+            'prestation.examens',
+            'prestation.priseCharge'
+        ])
+            ->where('state', StateFacture::IN_PROGRESS->value)
+            ->whereHas('prestation', function ($q) use ($centreId, $start, $end, $assuranceId) {
+                $q->where('centre_id', $centreId)
+                    ->whereBetween('created_at', [$start, $end])
+                    ->whereHas('priseCharge', function ($pc) use ($assuranceId) {
+                        $pc->where('assureur_id', $assuranceId);
+                    });
+            })
+            ->orderBy('created_at', 'desc');
+
+        $factures = $query->paginate($perPage, ['*'], 'page', $page);
+
+        // Calcul du montant total pris en charge
+        $totalAmountPc = $query->sum('amount_pc');
+
+        return response()->json([
+            'factures'       => $factures->items(),
+            'total_amount_pc'=> $totalAmountPc,
+            'pagination'     => [
+                'current_page'   => $factures->currentPage(),
+                'per_page'       => $factures->perPage(),
+                'total_items'    => $factures->total(),
+                'total_pages'    => $factures->lastPage(),
+                'has_more_pages' => $factures->hasMorePages()
+            ]
+        ], 200);
+    }
+
+
+
+    /**
+     * Display a listing of the resource.
+     * @permission StatistiqueController::print_FactureInProgress
+     * @permission_desc Imprimer les factures en cours par assurances
+     */
+    public function print_FactureInProgress(Request $request)
+    {
+        try {
+            $request->validate([
+                'assurance_id' => ['required', 'exists:assureurs,id'],
+                'start_date' => ['required', 'date'],
+                'end_date' => ['required', 'date'],
+            ]);
+
+            $centreId = $request->header('centre');
+            if (!$centreId) {
+                return response()->json(['message' => 'Centre non fourni'], 400);
+            }
+
+            $start = Carbon::parse($request->start_date)->startOfDay();
+            $end = Carbon::parse($request->end_date)->endOfDay();
+            $assuranceId = $request->assurance_id;
+
+            // -------------------
+            // Récupération des factures avec pagination
+            // -------------------
+            $perPage = $request->input('per_page', 25);
+            $page = $request->input('page', 1);
+
+            $factures = Facture::with([
+                'prestation.client',
+                'prestation.examens',
+                'prestation.priseCharge'
+            ])
+                ->where('state', StateFacture::IN_PROGRESS->value)
+                ->whereHas('prestation', function ($q) use ($centreId, $start, $end, $assuranceId) {
+                    $q->where('centre_id', $centreId)
+                        ->whereBetween('created_at', [$start, $end])
+                        ->whereHas('priseCharge', function ($pc) use ($assuranceId) {
+                            $pc->where('assureur_id', $assuranceId);
+                        });
+                })
+                ->orderByDesc('created_at')
+                ->get(); // <-- ici, plus de paginate
+
+            $totalAmountPc = Facture::where('state', StateFacture::IN_PROGRESS->value)
+                ->whereHas('prestation', function ($q) use ($centreId, $start, $end, $assuranceId) {
+                    $q->where('centre_id', $centreId)
+                        ->whereBetween('created_at', [$start, $end])
+                        ->whereHas('priseCharge', function ($pc) use ($assuranceId) {
+                            $pc->where('assureur_id', $assuranceId);
+                        });
+                })
+                ->sum('amount_pc');
+
+            if ($factures->isEmpty()) {
+                return response()->json([
+                    'message' => 'Aucune donnée trouvée.'
+                ], 404);
+            }
+
+            $centre = Centre::find($centreId);
+            $media = $centre?->medias()->where('name', 'logo')->first();
+
+            $data = [
+                'factures' => $factures,
+                'logo' => $media ? 'storage/' . $media->path . '/' . $media->filename : '',
+                'centre' => $centre,
+                'totalAmountPc' => $totalAmountPc,
+                'startDate' => $start->format('d/m/Y'),  // <-- ici
+                'endDate' => $end->format('d/m/Y'),      // <-- et ici
+            ];
+
+            // -------------------
+            // Génération PDF
+            // -------------------
+            $fileName = 'FACTURES-ASSURANCES' . now()->format('YmdHis') . '.pdf';
+            $folderPath = 'storage/factures-assurances';
+            $filePath = $folderPath . '/' . $fileName;
+
+            if (!file_exists($folderPath)) {
+                mkdir($folderPath, 0755, true);
+            }
+
+            $footer = 'pdfs.reports.factures.footer';
+
+            save_browser_shot_pdf(
+                view: 'pdfs.factures-assurances.factures-assurances',
+                data: $data,
+                folderPath: $folderPath,
+                path: $filePath,
+                margins: [15, 10, 15, 10],
+                footer: $footer
+            );
+
+            if (!file_exists($filePath)) {
+                return response()->json(['message' => 'Le fichier PDF n\'a pas été généré.'], 500);
+            }
+
+            $facturation = \App\Models\FacturationAssurance::updateOrCreate(
+                [
+                    'assurance_id' => $assuranceId,
+                    'start_date' => $start,
+                    'end_date' => $end,
+                    'centre_id' => $centreId,
+                ],
+                [
+                    'assurance' => $factures->first()->prestation->priseCharge->assureur->nom ?? '',
+                    'facture_number' => 'FA-' . now()->format('YmdHis'), // ou garder l'ancien si tu veux
+                    'amount' => $totalAmountPc,
+                    'created_by' => auth()->id(),
+                    'updated_by' => auth()->id(),
+                ]
+            );
+
+            $pdfContent = file_get_contents($filePath);
+            $base64 = base64_encode($pdfContent);
+
+            // -------------------
+            // Retour JSON complet avec pagination
+            // -------------------
+            return response()->json([
+                'factures' => $factures,         // contient data + meta pour Angular
+                'totalAmountPc' => $totalAmountPc,
+                'base64' => $base64,
+                'url' => $filePath,
+                'filename' => $fileName,
+            ], 200);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'message' => 'Erreur de validation.',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Une erreur est survenue lors de la génération du PDF.',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+
+
+
 
 
 
