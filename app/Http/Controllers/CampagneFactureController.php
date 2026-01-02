@@ -8,6 +8,7 @@ use App\Models\CampagneFacture;
 use App\Models\Centre;
 use App\Models\Facture;
 use App\Models\Prestation;
+use App\Models\RendezVous;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -71,6 +72,22 @@ class CampagneFactureController extends Controller
 
     }
 
+    private function createRendezVous(array $data)
+    {
+        return RendezVous::create([
+            'created_by'            => $data['created_by'],
+            'updated_by'            => $data['updated_by'],
+            'client_id'             => $data['client_id'],
+            'consultant_id'         => $data['consultant_id'],
+            'dateheure_rdv'         => $data['dateheure_rdv'],
+            'details'               => $data['details'] ?? null,
+            'nombre_jour_validite'  => $data['nombre_jour_validite'] ?? 1,
+            'duration'              => $data['duration'] ?? 30,
+            'type'                  => $data['type'],
+            'prestation_id'  => $data['prestation_id'],
+        ]);
+    }
+
     /**
      * Display a listing of the resource.
      * @permission CampagneFactureController::store
@@ -93,6 +110,7 @@ class CampagneFactureController extends Controller
             'consultant_id' => 'nullable|exists:consultants,id',
             'status'        => 'nullable|in:pending,paid,cancelled',
             'billing_date'  => 'nullable|date',
+            'facturation_date' => 'nullable|date',
         ]);
 
         $centre   = Centre::findOrFail($centreId);
@@ -135,12 +153,18 @@ class CampagneFactureController extends Controller
                 'created_by'    => $auth->id,
                 'updated_by'    => $auth->id,
                 'status'        => $validated['status'] ?? 'pending',
+                'facturation_date' => $validated['facturation_date'] ?? now(),
+                'billing_date'   => $validated['billing_date'] ?? now(),
             ]);
 
             // Attachement des éléments de la campagne
             foreach ($campagne->elements as $element) {
+
+                /** =======================
+                 *  EXAMENS
+                 *  ======================= */
                 if ($element->type === 'examens') {
-                    // Vérifier si l'examen est déjà attaché
+
                     $exists = $prestation->examens()
                         ->where('examens.id', $element->element_id)
                         ->exists();
@@ -151,27 +175,68 @@ class CampagneFactureController extends Controller
                         'b'               => $element->b ?? null,
                         'remise'          => 0,
                         'amount_regulate' => 0,
-                        'prelevements'    => [], // Toujours initialisé pour permettre le prélèvement
+                        'prelevements'    => [],
                         'created_at'      => now(),
                         'updated_at'      => now(),
                     ];
 
-                    if ($exists) {
-                        $prestation->examens()->updateExistingPivot($element->element_id, $pivotData);
-                    } else {
-                        $prestation->examens()->attach($element->element_id, $pivotData);
-                    }
+                    $exists
+                        ? $prestation->examens()->updateExistingPivot($element->element_id, $pivotData)
+                        : $prestation->examens()->attach($element->element_id, $pivotData);
+                }
 
-                } elseif ($element->type === 'consultations') {
+                /** =======================
+                 *  CONSULTATIONS
+                 *  ======================= */
+                elseif ($element->type === 'consultations') {
+
                     $prestation->consultations()->syncWithoutDetaching([
                         $element->element_id => [
                             'quantity'   => 1,
                             'pu'         => $element->price ?? $campagne->price,
-                            'date_rdv'   => now(),
                             'remise'     => 0,
                             'created_at' => now(),
                             'updated_at' => now(),
                         ],
+                    ]);
+
+                    // ➕ Création RDV consultation
+                    $this->createRendezVous([
+                        'created_by'    => $auth->id,
+                        'updated_by'    => $auth->id,
+                        'client_id'     => $validated['patient_id'],
+                        'consultant_id' => $validated['consultant_id'],
+                        'dateheure_rdv' => now(),
+                        'details'       => 'Rendez-vous consultation (campagne)',
+                        'type'          => 'Facturé',
+                        'prestation_id' => $prestation->id,
+                    ]);
+                }
+
+                /** =======================
+                 *  ACTES
+                 *  ======================= */
+                elseif ($element->type === 'actes') {
+                    $prestation->actes()->syncWithoutDetaching([
+                        $element->element_id => [
+                            'quantity'   => 1,
+                            'pu'         => $element->price ?? $campagne->price,
+                            'remise'     => 0,
+                            'created_at' => now(),
+                            'updated_at' => now(),
+                        ],
+                    ]);
+
+                    // ➕ Création RDV acte
+                    $this->createRendezVous([
+                        'created_by'    => $auth->id,
+                        'updated_by'    => $auth->id,
+                        'client_id'     => $validated['patient_id'],
+                        'consultant_id' => $validated['consultant_id'],
+                        'dateheure_rdv' => now(),
+                        'details'       => 'Rendez-vous acte (campagne)',
+                        'type'          => 'Facturé',
+                        'prestation_id' => $prestation->id,
                     ]);
                 }
             }
@@ -241,6 +306,8 @@ class CampagneFactureController extends Controller
                 'patient_id'    => $validated['patient_id'],
                 'consultant_id' => $validated['consultant_id'],
                 'campagne_id'   => $validated['campagne_id'],
+                'facturation_date' => $validated['facturation_date'] ?? now(),
+                'billing_date'   => $validated['billing_date'] ?? now(),
             ]);
 
             foreach ($prestations as $prestation) {

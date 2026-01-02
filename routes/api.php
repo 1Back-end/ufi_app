@@ -612,6 +612,8 @@ Route::middleware(['activity'])->group(function () {
             Route::get('reglements_by_day',  'get_reglemenets_by_day');
             Route::get('get_facture_by_assurances',  'get_facture_by_assurances');
             Route::get('examens_par_paillasse','etat_examens_par_paillasse');
+            Route::get('/factures/assurance/en_cours', 'getFactureInProgressAssurance');
+            Route::get('/print/assurance/facture_en_cours', 'print_FactureInProgress');
 
         });
         Route::controller(RapportActeController::class)->prefix('rapport_acte')->group(function () {

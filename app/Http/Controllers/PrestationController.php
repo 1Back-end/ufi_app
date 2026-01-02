@@ -556,7 +556,7 @@ class PrestationController extends Controller
             ->join('prestations', 'factures.prestation_id', '=', 'prestations.id')
             ->where('factures.type', 2)
             ->where('factures.state', StateFacture::IN_PROGRESS->value)
-            ->when($lastFactures, fn($query) => $query->whereDate('factures.date_fact', '<', $request->input('start_date')))
+            ->when($lastFactures, fn($query) => $query->whereDate('prestations.created_at', '<', $request->input('start_date')))
             ->where('prestations.centre_id', $request->header('centre'))
             ->when($request->input('assurance'), fn($q) => $q->where('prise_en_charges.assureur_id', $request->input('assurance')))
             ->when($request->input('payable_by'), fn($q) => $q->where('prestations.payable_by', $request->input('payable_by')))

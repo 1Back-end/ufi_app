@@ -21,7 +21,7 @@
 
     <div class="">
         <span class="text-decoration-underline">Objet:</span>
-        <span></span>
+        <span>Analyse médicale de vos assurés</span>
 
         <p>Période: du {{ $start_date->translatedFormat('j F Y') }} au {{ $end_date->translatedFormat('j F Y') }}</p>
     </div>
