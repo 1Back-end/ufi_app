@@ -155,7 +155,7 @@
                 <th>Date facture</th>
                 <th>N° Facture</th>
                 <th>Nom patient</th>
-                <th>Montant Reclamé</th>
+                <th>Montant facture</th>
                 <th>Modérateur</th>
                 <th>Montant à réglé</th>
             </tr>
@@ -181,9 +181,9 @@
                     <td>{{ \Carbon\Carbon::parse($facture->date_fact)->format('d/m/Y') }}</td>
                     <td>{{ $facture->code ?? '' }}</td>
                     <td>{{ $facture->prestation->client->nomcomplet_client ?? '' }}</td>
-                    <td>{{ \App\Helpers\FormatPrice::format($facture->amount_pc) }}</td>
+                    <td>{{ \App\Helpers\FormatPrice::format($facture->amount) }}</td>
                     <td class="text-center">{{ \App\Helpers\FormatPrice::format($facture->amount_client) }}</td>
-                    <td class="text-center">{{ \App\Helpers\FormatPrice::format($facture->amount_pc - $facture->amount_client) }}</td>
+                    <td class="text-center">{{ \App\Helpers\FormatPrice::format($facture->amount_pc) }}</td>
                 </tr>
             @endforeach
 
@@ -197,9 +197,16 @@
 
 
             @php
+                // Taux de retenue (HR)
                 $taux = $firstFacture->prestation->priseCharge->assureur->taux_retenu ?? 0;
                 $totalHR = ($totalARegler * $taux / 100);
-                $netAPayer = $totalARegler - $totalHR;
+
+                // TVA
+                $tva = $firstFacture->prestation->priseCharge->assureur->tva ?? 0;
+                $totalTva = ($totalARegler * $tva / 100);
+
+                // Net à payer
+                $netAPayer = $totalARegler - $totalHR - $totalTva; // TVA est ajoutée
             @endphp
 
             {{-- Ligne HR alignée sous Montant à régler --}}
@@ -207,6 +214,15 @@
                 <tr class="fw-bold">
                     <td colspan="4" class="text-end">HR ({{ $taux }}%) :</td>
                     <td colspan="10" class="text-end">{{ \App\Helpers\FormatPrice::format($totalHR) }}</td>
+                </tr>
+            @endif
+
+            @if($totalTva > 0)
+                <tr class="fw-bold">
+                    <td colspan="4" class="text-end">TVA ({{ $tva }}%) :</td>
+                    <td colspan="10" class="text-end">
+                        {{ \App\Helpers\FormatPrice::format($totalTva) }}
+                    </td>
                 </tr>
             @endif
 

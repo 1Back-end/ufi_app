@@ -10,6 +10,7 @@ use App\Models\Centre;
 use App\Models\Client;
 use App\Models\Consultant;
 use App\Models\Examen;
+use App\Models\FacturationAssurance;
 use App\Models\Facture;
 use App\Models\Prestation;
 use App\Models\Proforma;
@@ -411,6 +412,7 @@ class StatistiqueController extends Controller
                 'logo'        => $media ? 'storage/' . $media->path . '/' . $media->filename : '',
                 'centre'      => $centre,
                 'titre'       => $titre,
+                'request' => $request,
             ];
 
             // -------------------
@@ -518,9 +520,6 @@ class StatistiqueController extends Controller
                 // Ajouter le label lisible
                 $titreParts[] = "Type prestation : " . $actionLabel;
             }
-
-
-
 
             // Filtre par mode de règlement
             if ($request->filled('mode_reglement')) {
@@ -785,13 +784,14 @@ class StatistiqueController extends Controller
      */
     public function getFactureInProgressAssurance(Request $request)
     {
-        // Validation
+        $perPage = $request->input('limit', 25);
+        $page    = $request->input('page', 1);
+
         $request->validate([
             'assurance_id' => ['required', 'exists:assureurs,id'],
             'start_date'   => ['required', 'date'],
             'end_date'     => ['required', 'date'],
-            'per_page'     => ['nullable', 'integer'],
-            'page'         => ['nullable', 'integer'],
+            'state'        => ['nullable', 'string'],
         ]);
 
         $centreId = $request->header('centre');
@@ -803,44 +803,77 @@ class StatistiqueController extends Controller
         $end   = Carbon::parse($request->end_date)->endOfDay();
         $assuranceId = $request->assurance_id;
 
-        // Récupération des factures avec pagination
-        $perPage = $request->input('per_page', 25);
-        $page    = $request->input('page', 1);
+        // 🔹 États autorisés
+        $stateMap = [
+            'creer'    => StateFacture::CREATE->value,
+            'en_cours' => StateFacture::IN_PROGRESS->value,
+        ];
 
-        $query = Facture::with([
-            'prestation.client',
-            'prestation.examens',
-            'prestation.priseCharge'
-        ])
-            ->where('state', StateFacture::IN_PROGRESS->value)
-            ->whereHas('prestation', function ($q) use ($centreId, $start, $end, $assuranceId) {
+        $states = match ($request->state) {
+            'creer'    => [$stateMap['creer']],
+            'en_cours' => [$stateMap['en_cours']],
+            default    => array_values($stateMap),
+        };
+
+        /* ======================================================
+            REQUÊTE DE BASE (COMMUNE)
+        ====================================================== */
+        $baseQuery = Facture::with(['prestation.client', 'prestation.priseCharge'])
+            ->where('state_facture', 0) // impayées
+            ->whereIn('state', $states)
+            ->whereHas('prestation', function ($q) use ($centreId, $assuranceId) {
                 $q->where('centre_id', $centreId)
-                    ->whereBetween('created_at', [$start, $end])
-                    ->whereHas('priseCharge', function ($pc) use ($assuranceId) {
-                        $pc->where('assureur_id', $assuranceId);
-                    });
-            })
-            ->orderBy('created_at', 'desc');
+                    ->whereHas('priseCharge', fn ($pc) =>
+                    $pc->where('assureur_id', $assuranceId)
+                    );
+            });
 
-        $factures = $query->paginate($perPage, ['*'], 'page', $page);
+        /* ======================================================
+            FACTURES ANTÉRIEURES
+        ====================================================== */
+        $oldQuery = (clone $baseQuery)
+            ->where('created_at', '<', $start);
 
-        // Calcul du montant total pris en charge
-        $totalAmountPc = $query->sum('amount_pc');
+        $oldCount    = $oldQuery->count();
+        $oldAmountPc = (int) $oldQuery->sum('amount_pc') / 100;
 
+        /* ======================================================
+         DÉCISION DE PAGINATION
+        ====================================================== */
+        if ($oldCount > 0) {
+
+            // PAGINATION DES FACTURES ANTÉRIEURES
+            $paginated = $oldQuery
+                ->orderBy('created_at', 'asc')
+                ->paginate($perPage, ['*'], 'page', $page);
+
+            $alerteOldFactures =
+                "Attention ! {$oldCount} facture(s) antérieure(s) pour un montant de "
+                . number_format($oldAmountPc, 0, ',', ' ') . " FCFA.";
+
+        } else {
+
+            // PAGINATION DES FACTURES DE LA PÉRIODE
+            $paginated = (clone $baseQuery)
+                ->whereBetween('created_at', [$start, $end])
+                ->orderBy('created_at', 'asc')
+                ->paginate($perPage, ['*'], 'page', $page);
+
+            $alerteOldFactures = null;
+        }
+
+        /* ======================================================
+           RÉPONSE JSON UNIQUE
+        ====================================================== */
         return response()->json([
-            'factures'       => $factures->items(),
-            'total_amount_pc'=> $totalAmountPc,
-            'pagination'     => [
-                'current_page'   => $factures->currentPage(),
-                'per_page'       => $factures->perPage(),
-                'total_items'    => $factures->total(),
-                'total_pages'    => $factures->lastPage(),
-                'has_more_pages' => $factures->hasMorePages()
-            ]
-        ], 200);
+            'data' => $paginated->items(),
+            'display_amount_pc' => $oldAmountPc,
+            'current_page' => $paginated->currentPage(),
+            'last_page'    => $paginated->lastPage(),
+            'total'        => $paginated->total(),
+            'alerte_old_factures' => $alerteOldFactures,
+        ]);
     }
-
-
 
     /**
      * Display a listing of the resource.
@@ -850,10 +883,12 @@ class StatistiqueController extends Controller
     public function print_FactureInProgress(Request $request)
     {
         try {
+            // Validation
             $request->validate([
                 'assurance_id' => ['required', 'exists:assureurs,id'],
-                'start_date' => ['required', 'date'],
-                'end_date' => ['required', 'date'],
+                'start_date'   => ['required', 'date'],
+                'end_date'     => ['required', 'date'],
+                'state'        => ['nullable', 'string'],
             ]);
 
             $centreId = $request->header('centre');
@@ -862,71 +897,104 @@ class StatistiqueController extends Controller
             }
 
             $start = Carbon::parse($request->start_date)->startOfDay();
-            $end = Carbon::parse($request->end_date)->endOfDay();
+            $end   = Carbon::parse($request->end_date)->endOfDay();
             $assuranceId = $request->assurance_id;
 
-            // -------------------
-            // Récupération des factures avec pagination
-            // -------------------
-            $perPage = $request->input('per_page', 25);
-            $page = $request->input('page', 1);
+            // 🔹 États
+            $stateMap = [
+                'creer'    => StateFacture::CREATE->value,
+                'en_cours' => StateFacture::IN_PROGRESS->value,
+            ];
+            $states = match ($request->state) {
+                'creer'    => [$stateMap['creer']],
+                'en_cours' => [$stateMap['en_cours']],
+                default    => array_values($stateMap),
+            };
 
-            $factures = Facture::with([
-                'prestation.client',
-                'prestation.examens',
-                'prestation.priseCharge'
-            ])
-                ->where('state', StateFacture::IN_PROGRESS->value)
-                ->whereHas('prestation', function ($q) use ($centreId, $start, $end, $assuranceId) {
+            // Factures antérieures
+            $oldFactures = Facture::with(['prestation.client', 'prestation.priseCharge'])
+                ->where('state_facture', 0) // 🔹 Seulement les factures impayées
+                ->whereIn('state', $states)
+                ->where('created_at', '<', $start)
+                ->whereHas('prestation', fn($q) =>
+                $q->where('centre_id', $centreId)
+                    ->whereHas('priseCharge', fn($pc) => $pc->where('assureur_id', $assuranceId))
+                )
+                ->orderBy('created_at', 'asc')
+                ->get();
+
+            $oldCount    = $oldFactures->count();
+            $oldAmountPc = $oldFactures->sum('amount_pc');
+
+            $alerteOldFactures = $oldCount > 0
+                ? "Attention ! {$oldCount} facture(s) antérieure(s) pour un montant de " . number_format($oldAmountPc, 0, ',', ' ') . " FCFA."
+                : null;
+
+            // Factures de la période seulement si pas de factures anciennes
+            if ($oldCount > 0) {
+                $allFactures = $oldFactures; // On affiche seulement les anciennes
+                $pdfStartDate = $oldFactures->first()->created_at->format('d/m/Y');
+                $pdfEndDate   = $oldFactures->last()->created_at->format('d/m/Y');
+            } else {
+                $facturesPeriode = Facture::with(['prestation.client', 'prestation.priseCharge'])
+                    ->where('state_facture', 0) // 🔹 Seulement les factures impayées
+                    ->whereIn('state', $states)
+                    ->whereBetween('created_at', [$start, $end])
+                    ->whereHas('prestation', fn($q) =>
                     $q->where('centre_id', $centreId)
-                        ->whereBetween('created_at', [$start, $end])
-                        ->whereHas('priseCharge', function ($pc) use ($assuranceId) {
-                            $pc->where('assureur_id', $assuranceId);
-                        });
-                })
-                ->orderByDesc('created_at')
-                ->get(); // <-- ici, plus de paginate
+                        ->whereHas('priseCharge', fn($pc) => $pc->where('assureur_id', $assuranceId))
+                    )
+                    ->orderBy('created_at', 'asc')
+                    ->get();
 
-            $totalAmountPc = Facture::where('state', StateFacture::IN_PROGRESS->value)
-                ->whereHas('prestation', function ($q) use ($centreId, $start, $end, $assuranceId) {
-                    $q->where('centre_id', $centreId)
-                        ->whereBetween('created_at', [$start, $end])
-                        ->whereHas('priseCharge', function ($pc) use ($assuranceId) {
-                            $pc->where('assureur_id', $assuranceId);
-                        });
-                })
-                ->sum('amount_pc');
-
-            if ($factures->isEmpty()) {
-                return response()->json([
-                    'message' => 'Aucune donnée trouvée.'
-                ], 404);
+                $allFactures = $facturesPeriode;
+                $pdfStartDate = $start->format('d/m/Y');
+                $pdfEndDate   = $end->format('d/m/Y');
             }
 
+            if ($allFactures->isEmpty()) {
+                return response()->json(['message' => 'Aucune donnée trouvée.'], 404);
+            }
+
+            $assureur = $allFactures->first()->prestation->priseCharge->assureur;
+
+            // 🔹 Totaux
+            $totalAmountPc     = $allFactures->sum('amount_pc');
+            $totalAmountClient = $allFactures->sum('amount_client');
+            $totalARegler      = $totalAmountPc - $totalAmountClient;
+
+            $tauxRetenu = $assureur->taux_retenu ?? 0;
+            $totalHR    = ($totalARegler * $tauxRetenu / 100);
+
+            $tauxTva   = $assureur->tva ?? 0;
+            $totalTva  = ($totalARegler * $tauxTva / 100);
+
+            $netAPayer = $totalARegler - $totalHR - $totalTva;
+
+            // 🔹 Séquence
+            $lastSequence = FacturationAssurance::where('assurance_id', $assuranceId)
+                ->where('centre_id', $centreId)
+                ->max('sequence');
+            $sequence = $lastSequence ? $lastSequence + 1 : 1;
+
             $centre = Centre::find($centreId);
-            $media = $centre?->medias()->where('name', 'logo')->first();
+            $media  = $centre?->medias()->where('name', 'logo')->first();
 
             $data = [
-                'factures' => $factures,
+                'factures' => $allFactures,
                 'logo' => $media ? 'storage/' . $media->path . '/' . $media->filename : '',
                 'centre' => $centre,
                 'totalAmountPc' => $totalAmountPc,
-                'startDate' => $start->format('d/m/Y'),  // <-- ici
-                'endDate' => $end->format('d/m/Y'),      // <-- et ici
+                'startDate' => $pdfStartDate,
+                'endDate' => $pdfEndDate,
+                'alerteOldFactures' => $alerteOldFactures,
             ];
 
-            // -------------------
-            // Génération PDF
-            // -------------------
+            // 🔹 Génération PDF
             $fileName = 'FACTURES-ASSURANCES' . now()->format('YmdHis') . '.pdf';
             $folderPath = 'storage/factures-assurances';
             $filePath = $folderPath . '/' . $fileName;
-
-            if (!file_exists($folderPath)) {
-                mkdir($folderPath, 0755, true);
-            }
-
-            $footer = 'pdfs.reports.factures.footer';
+            if (!file_exists($folderPath)) mkdir($folderPath, 0755, true);
 
             save_browser_shot_pdf(
                 view: 'pdfs.factures-assurances.factures-assurances',
@@ -934,24 +1002,25 @@ class StatistiqueController extends Controller
                 folderPath: $folderPath,
                 path: $filePath,
                 margins: [15, 10, 15, 10],
-                footer: $footer
+                footer: 'pdfs.reports.factures.footer'
             );
 
-            if (!file_exists($filePath)) {
-                return response()->json(['message' => 'Le fichier PDF n\'a pas été généré.'], 500);
-            }
-
-            $facturation = \App\Models\FacturationAssurance::updateOrCreate(
+            // 🔹 Enregistrement Facturation
+            FacturationAssurance::updateOrCreate(
                 [
                     'assurance_id' => $assuranceId,
-                    'start_date' => $start,
-                    'end_date' => $end,
                     'centre_id' => $centreId,
+                    'start_date' => $start->toDateString(),
+                    'end_date' => $end->toDateString(),
                 ],
                 [
-                    'assurance' => $factures->first()->prestation->priseCharge->assureur->nom ?? '',
-                    'facture_number' => 'FA-' . now()->format('YmdHis'), // ou garder l'ancien si tu veux
-                    'amount' => $totalAmountPc,
+                    'assurance' => $assureur->nom,
+                    'facture_number' => 'FA-' . now()->format('Y-m-d') . '-' . $sequence,
+                    'sequence' => $sequence,
+                    'amount' => $totalARegler,
+                    'price_after_application_hr' => $totalHR,
+                    'price_after_application_tva' => $totalTva,
+                    'net_to_pay' => $netAPayer,
                     'created_by' => auth()->id(),
                     'updated_by' => auth()->id(),
                 ]
@@ -960,11 +1029,9 @@ class StatistiqueController extends Controller
             $pdfContent = file_get_contents($filePath);
             $base64 = base64_encode($pdfContent);
 
-            // -------------------
-            // Retour JSON complet avec pagination
-            // -------------------
             return response()->json([
-                'factures' => $factures,         // contient data + meta pour Angular
+                'factures' => $allFactures,
+                'alerte_old_factures' => $alerteOldFactures,
                 'totalAmountPc' => $totalAmountPc,
                 'base64' => $base64,
                 'url' => $filePath,
@@ -983,6 +1050,11 @@ class StatistiqueController extends Controller
             ], 500);
         }
     }
+
+
+
+
+
 
 
 

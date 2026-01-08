@@ -154,6 +154,8 @@ class AssureurController extends Controller
                 'taux_retenu' => 'required|numeric|min:0|max:100',
                 'number_facture' => 'nullable|string|unique:assureurs,number_facture',
                 'is_checked' => 'nullable|boolean',
+                'tva' => 'nullable|numeric',
+                'is_tva' => 'nullable|boolean',
             ]);
 
             // Gestion du type Principale
@@ -234,8 +236,10 @@ class AssureurController extends Controller
                 'email' => 'nullable|email',
                 'BM' => 'nullable|in:1,0',
                 'taux_retenu' => 'required|numeric|min:0|max:100',
-                'number_facture' => 'required|string|unique:assureurs,number_facture,'.$assureur->id,
+                'number_facture' => 'nullable|string|unique:assureurs,number_facture,'.$assureur->id,
                 'is_checked' => 'nullable|boolean',
+                'tva' => 'nullable|numeric',
+                'is_tva' => 'nullable|boolean',
             ]);
 
 
