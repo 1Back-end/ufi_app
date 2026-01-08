@@ -118,7 +118,7 @@ Route::middleware(['activity'])->group(function () {
 
         Route::apiResource('examens_resultats_campagnes', ResultatExamenCampagneFactureController::class);
         Route::get('examens_resultats_campagnes/{id}/print_resultat_facture_campagne', [ResultatExamenCampagneFactureController::class, 'print_resultat_facture_campagne']);
-
+        Route::apiResource('regulated_factures_assurances', \App\Http\Controllers\VentilationAssuranceFactureController::class);
 
 
 

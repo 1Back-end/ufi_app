@@ -20,7 +20,11 @@ class FacturationAssurance extends Model
         'created_by',
         'updated_by',
         'centre_id',
-        'assurance_id'
+        'assurance_id',
+        'sequence',
+        'price_after_application_hr',
+        'price_after_application_tva',
+        'net_to_pay'
     ];
 
 

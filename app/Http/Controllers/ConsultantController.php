@@ -127,10 +127,10 @@ class ConsultantController extends Controller
         );
 
         return response()->json([
-            'data' => $consultants->items(),
-            'current_page' => $consultants->currentPage(),
-            'last_page' => $consultants->lastPage(),
-            'total' => $consultants->total(),
+                'data' => $consultants->items(),
+                'current_page' => $consultants->currentPage(),
+                'last_page' => $consultants->lastPage(),
+                'total' => $consultants->total(),
         ]);
     }
 

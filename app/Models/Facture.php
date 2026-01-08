@@ -29,7 +29,9 @@ class Facture extends Model
         'state',
         'contentieux',
         'amount_prelevement',
-        'amount_prelevement_pc'
+        'amount_prelevement_pc',
+        'description_bay_by_assurance',
+        'price_bay_by_assurance'
     ];
 
     protected function casts(): array

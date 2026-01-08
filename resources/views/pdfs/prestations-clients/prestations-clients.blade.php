@@ -151,7 +151,7 @@
                 @endphp
                 <tr>
                     <td>{{ $facture ? $facture->code : "Facture non créée" }}</td>
-                    <td>{{ $facture ? $facture->date_fact?->format('d/m/Y') : $prestation->created_at?->format('d/m/Y') }}</td>
+                    <td>{{ $prestation->created_at?->format('d/m/Y') }}</td>
 
                     @php
                         $modeSelectionne = request('mode_reglement');
@@ -189,62 +189,74 @@
                     <td>{{ \App\Helpers\FormatPrice::format(optional($facture)->amount_client) }}</td>
 
                     @php
-                        // Total encaissé pour cette facture (sauf particuliers)
-                        $totalEncaissé = $facture
-                            ? $facture->regulations->where('particular', false)->sum('amount')
-                            : 0;
+                        $modeSelectionne = request('mode_reglement'); // récupère le mode choisi
+                        $factureStart = $request->facture_start ? Carbon\Carbon::parse($request->facture_start)->startOfDay() : null;
+                        $factureEnd = $request->facture_end ? Carbon\Carbon::parse($request->facture_end)->endOfDay() : null;
 
-                        // Reste à payer = Montant client - Montant encaissé
-                        $reste = optional($facture)->amount_client - $totalEncaissé;
-                    @endphp
+                        // Filtrer les règlements par date et par mode
+                        $filteredRegulations = $facture
+                            ? $facture->regulations->where('particular', false)
+                                ->filter(function($reg) use ($modeSelectionne, $factureStart, $factureEnd) {
+                                    $matchMode = !$modeSelectionne || $reg->regulation_method_id == $modeSelectionne;
+                                    $matchDate = true;
+                                    if ($factureStart && $factureEnd) {
+                                        $regDate = \Carbon\Carbon::parse($reg->date);
+                                        $matchDate = $regDate->between($factureStart, $factureEnd);
+                                    }
+                                    return $matchMode && $matchDate;
+                                })
+                            : collect();
 
+                        // Montant encaissé pour la période filtrée
+                        $totalPaid = $filteredRegulations->sum('amount');
 
-                    @php
-                        $modeSelectionne = request('mode_reglement');
+                        // Reste à payer = montant client - total encaissé **pour la période filtrée**
+                        $restAPayer = optional($facture)->amount_client - $totalPaid;
                     @endphp
 
                     <td>
-                        {{ \App\Helpers\FormatPrice::format($totalEncaissé) }}
+                        @if($filteredRegulations->count())
+                            <ul class="list-unstyled">
+                                @foreach($filteredRegulations as $regulation)
+                                    <li>
+                                        <strong>{{ optional($regulation->regulationMethod)->name }}:</strong>
+                                        {{ \App\Helpers\FormatPrice::format($regulation->amount) }}
+                                    </li>
+                                @endforeach
+                            </ul>
+                        @endif
                     </td>
 
                     @if(!$modeSelectionne)
-                        <td>
-                            {{ \App\Helpers\FormatPrice::format($reste) }}
-                        </td>
+                        <td>{{ \App\Helpers\FormatPrice::format($restAPayer) }}</td>
                     @endif
                 </tr>
             @endforeach
             </tbody>
             @php
-                $modeSelectionne = request('mode_reglement');
+                $modeSelectionne = request('mode_reglement'); // mode choisi
+                $factureStart    = $request->facture_start ? \Carbon\Carbon::parse($request->facture_start)->startOfDay() : null;
+                $factureEnd      = $request->facture_end ? \Carbon\Carbon::parse($request->facture_end)->endOfDay() : null;
 
-                // Récupérer toutes les factures
+                // Récupérer toutes les factures du tableau
                 $allFactures = $prestations->flatMap->factures;
 
-                // Si un mode de règlement est choisi, filtrer les factures
-                if ($modeSelectionne) {
-                    $allFactures = $allFactures->filter(function ($facture) use ($modeSelectionne) {
-                        return $facture->regulations->contains(
-                            fn($r) => !$r->particular && $r->regulation_method_id == $modeSelectionne
-                        );
-                    });
-                }
-
-                // Récupérer les régulations associées
+                // Récupérer toutes les régulations filtrées
                 $allRegulations = $allFactures
                     ->flatMap->regulations
                     ->where('particular', false)
-                    ->when($modeSelectionne, fn($collection) =>
-                        $collection->where('regulation_method_id', $modeSelectionne)
+                    ->when($modeSelectionne, fn($collection) => $collection->where('regulation_method_id', $modeSelectionne))
+                    ->when($factureStart && $factureEnd, fn($collection) =>
+                        $collection->filter(fn($r) => \Carbon\Carbon::parse($r->date)->between($factureStart, $factureEnd))
                     );
 
-                // Totaux
-                $totalMontant      = $allFactures->sum('amount');
-                $totalPc           = $allFactures->sum('amount_pc');
-                $totalRemise       = $allFactures->sum('amount_remise');
-                $totalClient       = $allFactures->sum('amount_client');
-                $totalEncaisse     = $allRegulations->sum('amount');
-                $resteAPayer       = $totalClient - $totalEncaisse;
+                // Totaux filtrés
+                $totalMontant  = $allFactures->sum('amount');
+                $totalPc       = $allFactures->sum('amount_pc');
+                $totalRemise   = $allFactures->sum('amount_remise');
+                $totalClient   = $allFactures->sum('amount_client');
+                $totalEncaisse = $allRegulations->sum('amount');
+                $resteAPayer   = max(0, $totalClient - $totalEncaisse);
             @endphp
 
         </table>

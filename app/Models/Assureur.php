@@ -40,7 +40,9 @@ class Assureur extends Model
         'ref_assur_principal',
         'taux_retenu',
         'number_facture',
-        'is_checked'
+        'is_checked',
+        'tva',
+        'is_tva'
     ];
 
 
