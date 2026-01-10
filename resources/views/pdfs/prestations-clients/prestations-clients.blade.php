@@ -1,3 +1,4 @@
+@php use Carbon\Carbon; @endphp
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -189,48 +190,67 @@
                     <td>{{ \App\Helpers\FormatPrice::format(optional($facture)->amount_client) }}</td>
 
                     @php
-                        $modeSelectionne = request('mode_reglement'); // récupère le mode choisi
-                        $factureStart = $request->facture_start ? Carbon\Carbon::parse($request->facture_start)->startOfDay() : null;
-                        $factureEnd = $request->facture_end ? Carbon\Carbon::parse($request->facture_end)->endOfDay() : null;
+                        $modeSelectionne = request('mode_reglement');
 
-                        // Filtrer les règlements par date et par mode
-                        $filteredRegulations = $facture
+                        $factureStart = request('facture_start')
+                            ? Carbon::parse(request('facture_start'))->startOfDay()
+                            : null;
+
+                        $factureEnd = request('facture_end')
+                            ? Carbon::parse(request('facture_end'))->endOfDay()
+                            : null;
+
+                        // 1️⃣ TOUS les règlements (historique complet)
+                        $allRegulations = $facture
                             ? $facture->regulations->where('particular', false)
-                                ->filter(function($reg) use ($modeSelectionne, $factureStart, $factureEnd) {
-                                    $matchMode = !$modeSelectionne || $reg->regulation_method_id == $modeSelectionne;
-                                    $matchDate = true;
-                                    if ($factureStart && $factureEnd) {
-                                        $regDate = \Carbon\Carbon::parse($reg->date);
-                                        $matchDate = $regDate->between($factureStart, $factureEnd);
-                                    }
-                                    return $matchMode && $matchDate;
-                                })
                             : collect();
 
-                        // Montant encaissé pour la période filtrée
-                        $totalPaid = $filteredRegulations->sum('amount');
+                        $totalPaidGlobal = $allRegulations->sum('amount');
 
-                        // Reste à payer = montant client - total encaissé **pour la période filtrée**
-                        $restAPayer = optional($facture)->amount_client - $totalPaid;
+                        // 2️⃣ Règlements filtrés (période + mode)
+                        $filteredRegulations = $allRegulations->filter(function ($reg) use ($modeSelectionne, $factureStart, $factureEnd) {
+                            $matchMode = !$modeSelectionne || $reg->regulation_method_id == $modeSelectionne;
+
+                            $matchDate = true;
+                            if ($factureStart && $factureEnd) {
+                                $regDate = Carbon::parse($reg->date);
+                                $matchDate = $regDate->between($factureStart, $factureEnd);
+                            }
+
+                            return $matchMode && $matchDate;
+                        });
+
+                        // 3️⃣ Montant encaissé sur la période
+                        $totalPaidPeriod = $filteredRegulations->sum('amount');
+
+                        // 4️⃣ Reste à payer RÉEL (indépendant des filtres)
+                        $restAPayer = max(
+                            optional($facture)->amount_client - $totalPaidGlobal,
+                            0
+                        );
                     @endphp
 
+                    {{-- Montant encaissé --}}
                     <td>
                         @if($filteredRegulations->count())
-                            <ul class="list-unstyled">
+                            <ul class="list-unstyled mb-0">
                                 @foreach($filteredRegulations as $regulation)
                                     <li>
-                                        <strong>{{ optional($regulation->regulationMethod)->name }}:</strong>
+                                        <strong>{{ optional($regulation->regulationMethod)->name }} :</strong>
                                         {{ \App\Helpers\FormatPrice::format($regulation->amount) }}
                                     </li>
                                 @endforeach
                             </ul>
+                        @else
+                            {{ \App\Helpers\FormatPrice::format(0) }}
                         @endif
                     </td>
 
                     @if(!$modeSelectionne)
                         <td>{{ \App\Helpers\FormatPrice::format($restAPayer) }}</td>
-                    @endif
-                </tr>
+                @endif
+
+               </tr>
             @endforeach
             </tbody>
             @php
