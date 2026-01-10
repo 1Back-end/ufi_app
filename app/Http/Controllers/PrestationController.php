@@ -245,6 +245,24 @@ class PrestationController extends Controller
     {
         $centre = $request->header('centre');
         $data = array_merge($request->validated(), ['centre_id' => $centre]);
+        $centreModel = Centre::find($centre);
+        $type = $request->input('type');
+
+        if (in_array($type, [TypePrestation::ACTES->value, TypePrestation::CAMPAGNE->value, TypePrestation::CONSULTATIONS->value, TypePrestation::HOSPITALISATION->value])) {
+            if ($centreModel->short_name !== 'CMGT') {
+                return response()->json([
+                    'message' => 'Cette prestation ne peut être créé que dans le Centre Médical.'
+                ], Response::HTTP_BAD_REQUEST);
+            }
+        }
+
+        if (in_array($type, [TypePrestation::LABORATOIR->value])) {
+            if ($centreModel->short_name !== 'GTLABO') {
+                return response()->json([
+                    'message' => 'Cette prestation ne peut être créé que dans le Centre GTLABO.'
+                ], Response::HTTP_BAD_REQUEST);
+            }
+        }
 
         DB::beginTransaction();
         try {
@@ -348,6 +366,26 @@ class PrestationController extends Controller
      */
     public function update(PrestationRequest $request, Prestation $prestation)
     {
+        $centre = $request->header('centre');
+        $centreModel = Centre::find($centre);
+        $type = $request->input('type');
+
+        if (in_array($type, [TypePrestation::ACTES->value, TypePrestation::CAMPAGNE->value, TypePrestation::CONSULTATIONS->value, TypePrestation::HOSPITALISATION->value])) {
+            if ($centreModel->short_name !== 'CMGT') {
+                return response()->json([
+                    'message' => 'Cette prestation ne peut être créé que dans le Centre Médical.'
+                ], Response::HTTP_BAD_REQUEST);
+            }
+        }
+
+        if (in_array($type, [TypePrestation::LABORATOIR->value])) {
+            if ($centreModel->short_name !== 'GTLABO') {
+                return response()->json([
+                    'message' => 'Cette prestation ne peut être créé que dans le Centre GTLABO.'
+                ], Response::HTTP_BAD_REQUEST);
+            }
+        }
+        
         DB::beginTransaction();
         try {
             if ($errorConflit = $request->validateRdvDate($prestation->id)) {
