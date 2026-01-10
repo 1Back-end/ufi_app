@@ -302,18 +302,14 @@ class StatistiqueController extends Controller
                 $titreParts[] = "Factures réglées du {$start->format('d/m/Y')} au {$end->format('d/m/Y')}";
             }
 
-            // Filtre par période de prestation
             if ($request->filled('prestation_start') && $request->filled('prestation_end')) {
+
                 $start = Carbon::parse($request->prestation_start)->startOfDay();
                 $end   = Carbon::parse($request->prestation_end)->endOfDay();
-                $prestations->where(function($query) use ($start, $end) {
-                    // Prestations créées dans la période
-                    $query->whereBetween('created_at', [$start, $end])
-                        // OU prestations dont les règlements sont dans la période
-                        ->orWhereHas('factures.regulations', function($q) use ($start, $end) {
-                            $q->whereBetween('date', [$start, $end]);
-                        });
-                });
+
+                // ✅ UNIQUEMENT la date de création de la prestation
+                $prestations->whereBetween('created_at', [$start, $end]);
+
                 $titreParts[] = "Prestations du {$start->format('d/m/Y')} au {$end->format('d/m/Y')}";
             }
 
