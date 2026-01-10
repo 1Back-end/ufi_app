@@ -151,10 +151,10 @@ class AssureurController extends Controller
                 'code_main' => 'nullable|string',
                 'email' => 'nullable|email|unique:assureurs,email',
                 'BM' => 'nullable|in:1,0',
-                'taux_retenu' => 'required|numeric|min:0|max:100',
+                'taux_retenu' => 'nullable|string',
                 'number_facture' => 'nullable|string|unique:assureurs,number_facture',
                 'is_checked' => 'nullable|boolean',
-                'tva' => 'nullable|numeric',
+                'tva' => 'nullable|string',
                 'is_tva' => 'nullable|boolean',
             ]);
 
@@ -235,10 +235,10 @@ class AssureurController extends Controller
                 'code_main' => 'nullable|string',
                 'email' => 'nullable|email',
                 'BM' => 'nullable|in:1,0',
-                'taux_retenu' => 'required|numeric|min:0|max:100',
+                'taux_retenu' => 'nullable|string',
                 'number_facture' => 'nullable|string|unique:assureurs,number_facture,'.$assureur->id,
                 'is_checked' => 'nullable|boolean',
-                'tva' => 'nullable|numeric',
+                'tva' => 'nullable|string',
                 'is_tva' => 'nullable|boolean',
             ]);
 
