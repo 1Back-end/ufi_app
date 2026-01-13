@@ -189,9 +189,7 @@
                     <td>{{ \App\Helpers\FormatPrice::format(optional($facture)->amount_remise) }}</td>
                     <td>{{ \App\Helpers\FormatPrice::format(optional($facture)->amount_client) }}</td>
 
-                    @php
-                        use Carbon\Carbon;
-
+                    @php                    
                         $modeSelectionne = request('mode_reglement');
 
                         $factureStart = request('facture_start')
