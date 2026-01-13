@@ -385,7 +385,7 @@ class PrestationController extends Controller
                 ], Response::HTTP_BAD_REQUEST);
             }
         }
-        
+
         DB::beginTransaction();
         try {
             if ($errorConflit = $request->validateRdvDate($prestation->id)) {
