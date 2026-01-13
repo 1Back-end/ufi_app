@@ -190,6 +190,8 @@
                     <td>{{ \App\Helpers\FormatPrice::format(optional($facture)->amount_client) }}</td>
 
                     @php
+                        use Carbon\Carbon;
+
                         $modeSelectionne = request('mode_reglement');
 
                         $factureStart = request('facture_start')
@@ -200,44 +202,62 @@
                             ? Carbon::parse(request('facture_end'))->endOfDay()
                             : null;
 
-                        // 1️⃣ TOUS les règlements (historique complet)
-                        $allRegulations = $facture
-                            ? $facture->regulations->where('particular', false)
+                        // Toutes les factures (sécurisé)
+                        $allFactures = $prestations->flatMap->factures->filter();
+
+                        // Tous les règlements globaux (historique complet)
+                        $allRegulationsGlobal = $allFactures
+                            ->flatMap->regulations
+                            ->where('particular', false);
+
+                        // Règlements FILTRÉS (pour affichage)
+                        $allRegulationsFiltered = $allRegulationsGlobal
+                            ->when($modeSelectionne, fn ($c) =>
+                                $c->where('regulation_method_id', $modeSelectionne)
+                            )
+                            ->when($factureStart && $factureEnd, fn ($c) =>
+                                $c->filter(fn ($r) =>
+                                    Carbon::parse($r->date)->between($factureStart, $factureEnd)
+                                )
+                            );
+
+                        // TOTAUX FACTURES (GLOBAL)
+                        $totalMontant = $allFactures->sum('amount');
+                        $totalPc      = $allFactures->sum('amount_pc');
+                        $totalRemise  = $allFactures->sum('amount_remise');
+                        $totalClient  = $allFactures->sum('amount_client');
+
+                        // ENCAISSÉ
+                        $totalEncaisseGlobal = $allRegulationsGlobal->sum('amount');
+                        $totalEncaisseFiltre = $allRegulationsFiltered->sum('amount');
+
+                        // RESTE À PAYER (RÉEL)
+                        $resteAPayer = max(0, $totalClient - $totalEncaisseGlobal);
+                    @endphp
+
+                    @php
+                        $regulationsFacture = $facture
+                            ? $allRegulationsFiltered->where('facture_id', $facture->id)
                             : collect();
 
-                        $totalPaidGlobal = $allRegulations->sum('amount');
+                        $totalPaidFactureGlobal = $allRegulationsGlobal
+                            ->where('facture_id', optional($facture)->id)
+                            ->sum('amount');
 
-                        // 2️⃣ Règlements filtrés (période + mode)
-                        $filteredRegulations = $allRegulations->filter(function ($reg) use ($modeSelectionne, $factureStart, $factureEnd) {
-                            $matchMode = !$modeSelectionne || $reg->regulation_method_id == $modeSelectionne;
-
-                            $matchDate = true;
-                            if ($factureStart && $factureEnd) {
-                                $regDate = Carbon::parse($reg->date);
-                                $matchDate = $regDate->between($factureStart, $factureEnd);
-                            }
-
-                            return $matchMode && $matchDate;
-                        });
-
-                        // 3️⃣ Montant encaissé sur la période
-                        $totalPaidPeriod = $filteredRegulations->sum('amount');
-
-                        // 4️⃣ Reste à payer RÉEL (indépendant des filtres)
-                        $restAPayer = max(
-                            optional($facture)->amount_client - $totalPaidGlobal,
+                        $resteFacture = max(
+                            optional($facture)->amount_client - $totalPaidFactureGlobal,
                             0
                         );
                     @endphp
 
                     {{-- Montant encaissé --}}
                     <td>
-                        @if($filteredRegulations->count())
+                        @if($regulationsFacture->count())
                             <ul class="list-unstyled mb-0">
-                                @foreach($filteredRegulations as $regulation)
+                                @foreach($regulationsFacture as $reg)
                                     <li>
-                                        <strong>{{ optional($regulation->regulationMethod)->name }} :</strong>
-                                        {{ \App\Helpers\FormatPrice::format($regulation->amount) }}
+                                        <strong>{{ optional($reg->regulationMethod)->name }} :</strong>
+                                        {{ \App\Helpers\FormatPrice::format($reg->amount) }}
                                     </li>
                                 @endforeach
                             </ul>
@@ -247,83 +267,59 @@
                     </td>
 
                     @if(!$modeSelectionne)
-                        <td>{{ \App\Helpers\FormatPrice::format($restAPayer) }}</td>
-                @endif
+                        <td>{{ \App\Helpers\FormatPrice::format($resteFacture) }}</td>
+                    @endif
 
                </tr>
             @endforeach
             </tbody>
-            @php
-                $modeSelectionne = request('mode_reglement'); // mode choisi
-                $factureStart    = $request->facture_start ? \Carbon\Carbon::parse($request->facture_start)->startOfDay() : null;
-                $factureEnd      = $request->facture_end ? \Carbon\Carbon::parse($request->facture_end)->endOfDay() : null;
 
-                // Récupérer toutes les factures du tableau
-                $allFactures = $prestations->flatMap->factures;
-
-                // Récupérer toutes les régulations filtrées
-                $allRegulations = $allFactures
-                    ->flatMap->regulations
-                    ->where('particular', false)
-                    ->when($modeSelectionne, fn($collection) => $collection->where('regulation_method_id', $modeSelectionne))
-                    ->when($factureStart && $factureEnd, fn($collection) =>
-                        $collection->filter(fn($r) => \Carbon\Carbon::parse($r->date)->between($factureStart, $factureEnd))
-                    );
-
-                // Totaux filtrés
-                $totalMontant  = $allFactures->sum('amount');
-                $totalPc       = $allFactures->sum('amount_pc');
-                $totalRemise   = $allFactures->sum('amount_remise');
-                $totalClient   = $allFactures->sum('amount_client');
-                $totalEncaisse = $allRegulations->sum('amount');
-                $resteAPayer   = max(0, $totalClient - $totalEncaisse);
-            @endphp
 
         </table>
         <div style="page-break-inside: avoid; margin-top: 10px;">
             <table class="table table-bordered table-striped text-center" style="font-size: 2.5mm;">
                 <tr class="fw-bold">
-                    <td colspan="5" class="text-center">Totaux:</td>
+                    <td colspan="5">Totaux</td>
 
-                    <td class="text-center">Montant Total: {{ \App\Helpers\FormatPrice::format($totalMontant) }}</td>
-                    <td class="text-center">Montant PC: {{ \App\Helpers\FormatPrice::format($totalPc) }}</td>
-                    <td class="text-center">Montant Remise: {{ \App\Helpers\FormatPrice::format($totalRemise) }}</td>
-                    <td class="text-center">Montant à payer: {{ \App\Helpers\FormatPrice::format($totalClient) }}</td>
-                    <td class="text-center">Montant Encaissé: {{ \App\Helpers\FormatPrice::format($totalEncaisse) }}</td>
+                    <td>Montant Total: {{ \App\Helpers\FormatPrice::format($totalMontant) }}</td>
+                    <td>Montant PC: {{ \App\Helpers\FormatPrice::format($totalPc) }}</td>
+                    <td>Montant Remise: {{ \App\Helpers\FormatPrice::format($totalRemise) }}</td>
+                    <td>Montant à payer: {{ \App\Helpers\FormatPrice::format($totalClient) }}</td>
+                    <td>Montant encaissé: {{ \App\Helpers\FormatPrice::format($totalEncaisseFiltre) }}</td>
 
                     @if(!$modeSelectionne)
-                        <td class="text-center">
-                            Reste à payer: {{ \App\Helpers\FormatPrice::format($resteAPayer) }}
-                        </td>
+                        <td>Reste à payer: {{ \App\Helpers\FormatPrice::format($resteAPayer) }}</td>
                     @endif
                 </tr>
             </table>
+
         </div>
         <br><br>
-    @php
-        $modeSelectionne = request('mode_reglement'); // récupère le mode choisi
+        @php
+            $reglementsParMode = $allRegulationsFiltered
+                ->groupBy(fn ($r) => optional($r->regulationMethod)->name ?? 'Inconnu')
+                ->map(fn ($items) => $items->sum('amount'));
+        @endphp
 
-        $reglementsParMode = $prestations->flatMap->factures
-            ->flatMap->regulations
-            ->where('particular', false)
-            // Filtrer si un mode de règlement a été sélectionné
-            ->when($modeSelectionne, fn($collection) => $collection->where('regulation_method_id', $modeSelectionne))
-            ->groupBy(fn($r) => optional($r->regulationMethod)->name)
-            ->map(fn($items) => $items->sum('amount'));
-    @endphp
 
-    <h2 class="text-center fw-bold text-uppercase fs-6">Montant des règlements par mode de règlement:</h2>
-    <div class="d-flex gap-4 justify-content-center">
-        @foreach($reglementsParMode as $mode => $total)
-            <div class="d-flex gap-3 align-items-center">
-                <div>{{ $mode }}:</div>
-                <div class="fw-bold fs-5">{{ \App\Helpers\FormatPrice::format($total) }}</div>
-            </div>
-        @endforeach
+        <h2 class="text-center fw-bold text-uppercase fs-6">
+            Montant des règlements par mode de règlement
+        </h2>
+
+        <div class="d-flex gap-4 justify-content-center">
+            @forelse($reglementsParMode as $mode => $total)
+                <div class="d-flex gap-3 align-items-center">
+                    <div>{{ $mode }} :</div>
+                    <div class="fw-bold fs-5">
+                        {{ \App\Helpers\FormatPrice::format($total) }}
+                    </div>
+                </div>
+            @empty
+                <div class="text-muted">Aucun règlement</div>
+            @endforelse
+        </div>
+
     </div>
-
-
-</div>
 
 
 </body>
