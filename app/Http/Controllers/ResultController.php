@@ -57,9 +57,11 @@ class ResultController extends Controller
                         ->first();
 
                     if ($element->typeResult->type != InputType::COMMENT->value) {
-                        $prestationable->update([
-                            'status_examen' =>  StateExamen::PENDING->value,
-                        ]);
+                        if ($prestationable->status_examen != StateExamen::VALIDATED->value) {
+                            $prestationable->update([
+                                'status_examen' => StateExamen::PENDING->value,
+                            ]);
+                        }
                     }
 
                     if ($resultExist) {
