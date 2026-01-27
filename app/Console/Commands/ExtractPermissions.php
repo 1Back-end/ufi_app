@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Models\CategoryPermission;
 use App\Models\Permission;
 use App\Models\Role;
 use App\Models\User;
@@ -12,127 +13,148 @@ use ReflectionMethod;
 class ExtractPermissions extends Command
 {
     protected $signature = 'permissions:extract';
-    protected $description = 'Extract @permission and @permission_desc from all controllers';
+    protected $description = 'Synchronise les permissions avec les annotations des contrôleurs et les catégorise par menu.';
 
     public function handle(): void
     {
         $controllersPath = app_path('Http/Controllers');
-        $permissionsFromControllers = [];
+        $permissions = [];
 
-        $userSYSTEM = User::whereLogin('SYSTEM')->first();
+        $systemUser = User::where('login', 'SYSTEM')->first();
+        $systemId = $systemUser?->id ?? 1;
 
-        // 1️⃣ Extraire les permissions des controllers
+        $superAdminRole = Role::find(1);
+
+        // 1️⃣ Extraction des permissions depuis les contrôleurs
         foreach ($this->getControllers($controllersPath) as $controller) {
-            $this->extractPermissionsFromController($controller, $permissionsFromControllers);
+            $this->extractPermissionsFromController($controller, $permissions);
         }
 
-        // 2️⃣ Traiter chaque permission extraite
-        foreach ($permissionsFromControllers as $controller => $methods) {
-            foreach ($methods as $method => $perm) {
+        $this->info("\n--- Synchronisation des permissions ---");
+
+        // 2️⃣ Création / mise à jour des permissions et catégories
+        foreach ($permissions as $controller => $methods) {
+
+            $categoryName = $this->extractControllerCategory($controller) ?? 'Autres';
+
+            $category = CategoryPermission::firstOrCreate(
+                ['name' => $categoryName],
+                [
+                    'description' => $categoryName,
+                    'created_by' => $systemId,
+                    'updated_by' => $systemId,
+                ]
+            );
+
+            foreach ($methods as $perm) {
                 if (empty($perm['permission'])) continue;
 
-                $permission = Permission::where('name', $perm['permission'])->first();
-
-                if ($permission) {
-                    // Mise à jour si nécessaire
-                    if ($permission->description !== $perm['permission_desc']) {
-                        $permission->update([
-                            'description' => $perm['permission_desc'],
-                            'updated_by' => $userSYSTEM->id
-                        ]);
-                        $this->line("✏️  Permission mise à jour: {$perm['permission']} ({$method})");
-                    } else {
-                        $this->line("✅  Permission inchangée: {$perm['permission']} ({$method})");
-                    }
-                } else {
-                    // Création
-                    $permission = Permission::create([
-                        'name' => $perm['permission'],
-                        'description' => $perm['permission_desc'],
+                $permission = Permission::updateOrCreate(
+                    ['name' => $perm['permission']],
+                    [
+                        'description' => $perm['permission_desc'] ?? '',
+                        'category_id' => $category->id,
                         'system' => true,
-                        'created_by' => $userSYSTEM->id,
-                        'updated_by' => $userSYSTEM->id
-                    ]);
-                    $this->line("🆕  Nouvelle permission créée: {$perm['permission']} ({$method})");
+                        'active' => true,
+                        'created_by' => $systemId,
+                        'updated_by' => $systemId,
+                    ]
+                );
 
-                    // Associer au rôle admin
-                    $role = Role::find(1);
-                    if ($role) {
-                        $role->permissions()->syncWithPivotValues([$permission->id], [
-                            'created_by' => $userSYSTEM->id,
-                            'updated_by' => $userSYSTEM->id
-                        ], false);
-                        $this->line("🔗  Permission ajoutée au rôle : {$role->name}");
-                    }
+                $this->info(
+                    $permission->wasRecentlyCreated
+                        ? "✅ Créée : {$permission->name}"
+                        : "🔁 Mise à jour : {$permission->name}"
+                );
+
+                // Assigner la permission au Super Admin si pas déjà assignée
+                if ($superAdminRole && !$superAdminRole->permissions->contains($permission->id)) {
+                    $superAdminRole->permissions()->attach($permission->id, [
+                        'created_by' => $systemId,
+                        'updated_by' => $systemId,
+                    ]);
                 }
             }
         }
 
-        // 3️⃣ Supprimer les permissions obsolètes
-        $allControllerPermissions = collect($permissionsFromControllers)
-            ->flatMap(fn($methods) => collect($methods)->pluck('permission'))
-            ->filter()
-            ->toArray();
+        // 3️⃣ Suppression des catégories vides
+        $usedCategoryIds = Permission::pluck('category_id')->unique()->filter();
 
-        Permission::where('system', true)
-            ->whereNotIn('name', $allControllerPermissions)
-            ->each(function ($permission) {
-                $permission->delete();
-                $this->line("❌  Permission supprimée: {$permission->name}");
+        CategoryPermission::whereNotIn('id', $usedCategoryIds)
+            ->each(function ($category) {
+                $category->delete();
+                $this->warn("🗑️ Catégorie supprimée : {$category->name}");
             });
 
-        $this->info('🎯 Extraction et synchronisation des permissions terminées.');
+        $this->info("\n✅ Synchronisation terminée avec succès !");
     }
 
-    private function getControllers($directory, $namespace = 'App\\Http\\Controllers'): array
+    /**
+     * Récupère tous les contrôleurs du dossier donné
+     */
+    private function getControllers(string $directory, string $namespace = 'App\\Http\\Controllers'): array
     {
         $controllers = [];
-        $files = scandir($directory);
-
-        foreach ($files as $file) {
-            if ($file === '.' || $file === '..') continue;
+        foreach (scandir($directory) as $file) {
+            if (in_array($file, ['.', '..'])) continue;
 
             $fullPath = $directory . DIRECTORY_SEPARATOR . $file;
 
             if (is_dir($fullPath)) {
-                $subNamespace = $namespace . '\\' . $file;
-                $controllers = array_merge($controllers, $this->getControllers($fullPath, $subNamespace));
+                $controllers = array_merge(
+                    $controllers,
+                    $this->getControllers($fullPath, $namespace . '\\' . $file)
+                );
             } elseif (pathinfo($file, PATHINFO_EXTENSION) === 'php') {
                 $controllers[] = $namespace . '\\' . pathinfo($file, PATHINFO_FILENAME);
             }
         }
-
         return $controllers;
     }
 
-    private function extractPermissionsFromController($controller, &$permissions): void
+    /**
+     * Extrait les permissions depuis les méthodes publiques d’un contrôleur
+     */
+    private function extractPermissionsFromController(string $controller, array &$permissions): void
     {
         if (!class_exists($controller)) return;
 
         $reflection = new ReflectionClass($controller);
-        $methods = $reflection->getMethods(ReflectionMethod::IS_PUBLIC);
 
-        foreach ($methods as $method) {
+        foreach ($reflection->getMethods(ReflectionMethod::IS_PUBLIC) as $method) {
             $docComment = $method->getDocComment();
-            if ($docComment) {
-                $permission = $this->extractTagValue($docComment, '@permission');
-                $permissionDesc = $this->extractTagValue($docComment, '@permission_desc');
+            if (!$docComment) continue;
 
-                if ($permission || $permissionDesc) {
-                    $permissions[$controller][$method->getName()] = [
-                        'permission' => $permission,
-                        'permission_desc' => $permissionDesc,
-                    ];
-                }
+            $permission = $this->extractTagValue($docComment, '@permission');
+            $permissionDesc = $this->extractTagValue($docComment, '@permission_desc');
+
+            if ($permission) {
+                $permissions[$controller][$method->getName()] = [
+                    'permission' => $permission,
+                    'permission_desc' => $permissionDesc ?? '',
+                ];
             }
         }
     }
 
-    private function extractTagValue($doc, $tag): ?string
+    /**
+     * Récupère la catégorie définie dans le contrôleur via @permission_category
+     */
+    private function extractControllerCategory(string $controller): ?string
     {
-        if (preg_match('/' . preg_quote($tag) . '\s+(.+)/', $doc, $matches)) {
-            return trim($matches[1]);
-        }
-        return null;
+        $reflection = new ReflectionClass($controller);
+        $docComment = $reflection->getDocComment();
+
+        return $docComment ? $this->extractTagValue($docComment, '@permission_category') : null;
+    }
+
+    /**
+     * Extrait la valeur d’un tag dans un docblock
+     */
+    private function extractTagValue(string $doc, string $tag): ?string
+    {
+        return preg_match('/' . preg_quote($tag) . '\s+(.+)/', $doc, $matches)
+            ? trim($matches[1])
+            : null;
     }
 }

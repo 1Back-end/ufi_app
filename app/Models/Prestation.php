@@ -41,7 +41,9 @@ class Prestation extends Model
         'centre_id',
         'apply_prelevement',
         'campagne_id',
-        'is_campagne'
+        'is_campagne',
+        'reason_for_delete',
+        'reason_for_cancel'
     ];
 
     protected function casts(): array
