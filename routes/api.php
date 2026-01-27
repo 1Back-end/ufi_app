@@ -3,6 +3,7 @@
 use App\Http\Controllers\ActeController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\AnalysisTechniqueController;
+use App\Http\Controllers\Authorization\PermissionController;
 use App\Http\Controllers\CatPredefinedListController;
 use App\Http\Controllers\CentreController;
 use App\Http\Controllers\ClientController;
@@ -120,7 +121,9 @@ Route::middleware(['activity'])->group(function () {
         Route::get('examens_resultats_campagnes/{id}/print_resultat_facture_campagne', [ResultatExamenCampagneFactureController::class, 'print_resultat_facture_campagne']);
         Route::apiResource('regulated_factures_assurances', \App\Http\Controllers\VentilationAssuranceFactureController::class);
 
-
+        Route::apiResource('sub_act_categories', \App\Http\Controllers\SubActeController::class);
+        Route::patch('/sub_act_categories/{id}/is_active', [\App\Http\Controllers\SubActeController::class, 'updateStatus']);
+        Route::get('/permissions_by_category', [PermissionController::class, 'permissionsByCategory']);
 
 
         // Gestion des centres

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Authorization;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Authorization\PermissionRequest;
+use App\Models\CategoryPermission;
 use App\Models\Permission;
 use App\Models\Role;
 use App\Models\User;
@@ -47,6 +48,31 @@ class PermissionController extends Controller
 
         return response()->json([
             'permissions' => $permissions,
+        ]);
+    }
+
+    public function permissionsByCategory(Request $request): JsonResponse
+    {
+        $search = $request->input('search');
+
+        $categories = CategoryPermission::where('name', '!=', 'Autres')
+            ->with(['permissions' => function($q) use ($search) {
+                if ($search) {
+                    $q->where(function($query) use ($search) {
+                        $query->where('name', 'like', "%{$search}%")
+                            ->orWhere('description', 'like', "%{$search}%");
+                    });
+                }
+                $q->orderBy('name', 'asc');
+            }])
+            ->when($search, function($q) use ($search) {
+                $q->where('libelle', 'like', "%{$search}%")
+                    ->orWhere('description', 'like', "%{$search}%");
+            })
+            ->orderBy('created_at', 'desc')->get();
+
+        return response()->json([
+            'categories' => $categories,
         ]);
     }
 

@@ -17,6 +17,9 @@ Route::post('/logout', [AuthenticatedSessionController::class, 'destroy'])
     ->middleware(['auth:sanctum', 'user.change_password',])
     ->name('logout');
 
+Route::post('/refresh', [AuthenticatedSessionController::class, 'refresh'])
+    ->middleware('auth:sanctum');
+
 Route::middleware('auth:sanctum')
     ->post('/change-default-password', ChangeDefaultPasswordController::class);
 

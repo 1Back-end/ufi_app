@@ -455,11 +455,23 @@ class PrestationController extends Controller
      * @permission_desc Supprimer une prestation
      * @throws \Throwable
      */
-    public function destroy(Prestation $prestation)
+    public function destroy(Request $request, Prestation $prestation)
     {
+        // Validation de la raison de suppression
+        $request->validate([
+            'reason_for_delete' => 'required|string',
+        ]);
+
         DB::beginTransaction();
         try {
+            // Remplir le champ reason_for_delete
+            $prestation->reason_for_delete = $request->reason_for_delete;
+            $prestation->save();
+
+            // Supprimer la prestation (soft delete si applicable)
             $prestation->delete();
+
+            // Supprimer toutes les factures liées
             foreach ($prestation->factures as $facture) {
                 foreach ($facture->regulations as $regulation) {
                     $regulation->delete();
@@ -468,17 +480,17 @@ class PrestationController extends Controller
                 $facture->delete();
             }
 
+            DB::commit();
+
+            return response()->json([
+                'message' => __("Prestation supprimée avec succès !")
+            ]);
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json([
                 'message' => $e->getMessage()
             ], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
-        DB::commit();
-
-        return response()->json([
-            'message' => __("Prestation supprimée avec succès !")
-        ]);
     }
 
     /**

@@ -11,8 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('factures', function (Blueprint $table) {
-            $table->integer('state_facture')->default(0);
+        Schema::table('prestations', function (Blueprint $table) {
+            $table->text('reason_for_cancel')->nullable()->after('reason_for_delete');
         });
     }
 
@@ -21,9 +21,8 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('factures', function (Blueprint $table) {
-            $table->dropColumn('state_facture');
-
+        Schema::table('prestations', function (Blueprint $table) {
+            $table->dropColumn('reason_for_cancel');
         });
     }
 };
