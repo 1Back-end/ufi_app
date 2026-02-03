@@ -16,6 +16,9 @@ class ActeRequest extends FormRequest
             'k_modulateur' => ['required', 'integer'],
             'b' => ['required', 'integer'],
             'b1' => ['required', 'integer'],
+            'pu_assurance' => ['nullable', 'integer'],
+            'code' => ['nullable', 'string','unique:actes,code'],
+            'sub_act_category_id' => ['nullable', 'exists:sub_act_categories,id'],
         ];
     }
 }

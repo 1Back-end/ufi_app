@@ -583,7 +583,7 @@ class PrestationController extends Controller
             page: $request->input('page', 1)
         );
 
-        if (!$latestPrestations->items()) {
+        if ($latestPrestations->isEmpty()) {
             $prestations = Prestation::filterInProgress(
                 startDate: $request->input('start_date'),
                 endDate: $request->input('end_date'),
@@ -605,7 +605,7 @@ class PrestationController extends Controller
         $totalAmount = DB::table('factures')
             ->join('prestations', 'factures.prestation_id', '=', 'prestations.id')
             ->where('factures.type', 2)
-            ->where('factures.state', StateFacture::IN_PROGRESS->value)
+            ->whereIn('factures.state', [StateFacture::IN_PROGRESS->value,StateFacture::CREATE->value])
             ->when($lastFactures, fn($query) => $query->whereDate('prestations.created_at', '<', $request->input('start_date')))
             ->where('prestations.centre_id', $request->header('centre'))
             ->when($request->input('assurance'), fn($q) => $q->where('prise_en_charges.assureur_id', $request->input('assurance')))

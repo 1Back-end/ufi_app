@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\ExamenRequest;
+use App\Models\Centre;
 use App\Models\ElementPaillasse;
 use App\Models\Examen;
 use App\Models\FamilyExam;
@@ -362,30 +363,40 @@ class ExamenController extends Controller
      * @permission ExamenController::PrintTarifaireActes
      * @permission_desc Imprimer le tarifaire des examens
      */
-    public function PrintTarifaireActes()
+    public function PrintTarifaireActes(Request $request)
     {
+        $centre = Centre::find($request->header('centre'));
+
+        if (!$centre || $centre->reference !== 'GTLABO') {
+            return response()->json([
+                'error'   => 'Accès refusé',
+                'message' => 'Veuillez vous connecter au centre GTLABO'
+            ], 403);
+        }
         DB::beginTransaction();
 
         try {
-            // Récupération des familles et de leurs examens triés
+
             $familles_examens = FamilyExam::with(['examens' => function ($query) {
-                // Les examens sont juste chargés, tri optionnel par nom
                 $query->orderBy('name')
                     ->with(['typePrelevement', 'tubePrelevement']);
             }])
-                ->orderBy('order', 'asc') // ✅ affichage par champ 'order'
+                ->orderBy('order', 'asc')
                 ->get();
 
             $familles_examens = $familles_examens->filter(fn($famille) => $famille->examens->count() > 0);
+            $media  = $centre->medias()->where('name', 'logo')->first();
 
             $data = [
                 'title' => 'Tarifaire des examens',
                 'familles_examens' => $familles_examens,
+                'logo'        => $media ? 'storage/' . $media->path . '/' . $media->filename : '',
+                'centre'      => $centre,
             ];
 
 
             // Nom du fichier et dossier
-            $fileName   = 'tarifaires-examens-' . now()->format('YmdHis') . '.pdf';
+            $fileName   = 'TARIFAIRE-GLOBAL-DES-EXAMENS-' . now()->format('YmdHis') . '.pdf';
             $folderPath = "storage/tarifaires-examens";
             $filePath   = $folderPath . '/' . $fileName;
 
@@ -393,6 +404,8 @@ class ExamenController extends Controller
             if (!file_exists($folderPath)) {
                 mkdir($folderPath, 0755, true);
             }
+
+            $footer = 'pdfs.reports.factures.footer';
 
             // Génération du PDF
             save_browser_shot_pdf(
@@ -402,6 +415,7 @@ class ExamenController extends Controller
                 path: $filePath,
                 margins: [10, 10, 10, 10],
                 format: 'A4',
+                footer: $footer,
             );
 
             // Vérifier si le PDF a été généré
