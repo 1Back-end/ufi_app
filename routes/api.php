@@ -166,6 +166,8 @@ Route::middleware(['activity'])->group(function () {
         Route::patch('/actes/{acte}/activate', [ActeController::class, 'changeStatus']);
         Route::post('/actes/import', [ActeController::class, 'import']);
         Route::get('/actes/print_rapports', [ActeController::class, 'PrintRapportActes']);
+        Route::get('/actes/print_rapports_assurances', [ActeController::class, 'PrintRapportActesForAssurances']);
+        Route::get('/prints_tarifaire_actes/assurance/{assurance}', [ActeController::class, 'print_tarifsActes_byAssurance']);
 
         // Prestations
         Route::get('prestations/types', [PrestationController::class, 'typePrestation']);

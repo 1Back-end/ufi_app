@@ -28,6 +28,9 @@ class Acte extends Model
         'k_modulateur',
         'b',
         'b1',
+        'pu_assurance',
+        'code',
+        'sub_act_category_id'
     ];
 
     protected function casts(): array
@@ -101,4 +104,9 @@ class Acte extends Model
         return $this->morphToMany(Assureur::class, 'assurable')
             ->withPivot(['k_modulateur', 'b']);
     }
+    public function assurables()
+    {
+        return $this->morphMany(Assurable::class, 'assurable');
+    }
+
 }

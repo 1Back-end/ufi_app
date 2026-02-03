@@ -189,7 +189,7 @@ class Prestation extends Model
 
         $factureFilter = function ($query) use ($startDate, $endDate, $latestFacture, $search) {
             $query->where('factures.type', 2)
-                ->where('factures.state', StateFacture::IN_PROGRESS->value)
+                ->whereIn('factures.state', [StateFacture::IN_PROGRESS->value,StateFacture::CREATE->value])
                 ->when($search, fn($q) => $q->where('factures.code', 'like', "%$search%"))
                 ->when(
                     $latestFacture,

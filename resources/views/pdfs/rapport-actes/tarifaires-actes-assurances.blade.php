@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>TARIFAIRE GLOBAL DES EXAMENS</title>
+    <title>TARIFAIRE DES ACTES POUR LES ASSURANCES</title>
 
     <style>
         {!! $bootstrap !!}
@@ -70,6 +70,7 @@
 </head>
 <body>
 
+
 <div class="col-lg-12 col-sm-12 p-0 print-wrapper">
 
 
@@ -110,42 +111,52 @@
     <div class="mb-2 w-100" style="border-top: 1px double rgb(0, 0, 0, 0.75);"></div>
 
 
-    <h1 class="fs-3 fw-bold text-center text-uppercase">
-        TARIFAIRE GLOBAL DES EXAMENS DE LABORATOIRE
+    <h1 class="fs-3 fw-bold text-center text-uppercase mt-3">
+        TARIFAIRE DES ACTES
     </h1>
+
+
+    <h5 class="tfs-3 fw-bold text-center text-uppercase mt-3">
+        ASSURANCE : {{ $assureur->nom }}
+    </h5>
 
     <p class="fst-italic text-end">Date d'impression: {{ now()->format('d/m/Y H:i') }}</p>
 
+    @foreach($types as $index => $type)
+        @if($type->actes->count()) {{-- Affiche uniquement si le type a des actes --}}
+        <h6 class="mt-4 mb-xxl-3 text-center text-uppercase">
+            <strong>{{ roman_number($index + 1) }}. {{ $type->name }}</strong>
+        </h6>
 
-    @foreach($familles_examens as $familleIndex => $famille)
-    <h6 class="mt-4 mb-xxl-3 text-center text-uppercase">
-        <strong>{{ roman_number($familleIndex + 1) }}. {{ $famille->name }}</strong>
-    </h6>
-
-    <table class="table table-bordered table-striped" style="font-size: 12px;">
-        <thead>
-        <tr>
-            <th>N°</th>
-            <th>Code</th>
-            <th>Examen</th>
-            <th>B</th>
-            <th>B1</th>
-            <th>Prix</th>
-        </tr>
-        </thead>
-        <tbody>
-        @foreach($famille->examens as $index => $examen)
+        <table class="table table-bordered table-striped" style="font-size: 12px;">
+            <thead>
             <tr>
-                <td>{{ $examen->id }}</td>
-                <td>{{ $examen->code }}</td>
-                <td>{{ $examen->name }}</td>
-                <td>{{ $examen->b }}</td>
-                <td>{{ $examen->b1 }}</td>
-                <td>{{ number_format($examen->price, 0, ',', ' ') }} FCFA</td>
+                <th>N°</th>
+                <th>Libellé</th>
+                <th>B</th>
+                <th>Prix</th>
             </tr>
-        @endforeach
-        </tbody>
-    </table>
+            </thead>
+            <tbody>
+            @foreach($type->actes as $num => $acte)
+
+                @php
+                    $tarifAssurance = $acte->assurables->first();
+                    $pu = $tarifAssurance->pu ?? $acte->pu;
+                    $b = $tarifAssurance->b ?? $acte->b1;
+                @endphp
+
+                <tr>
+                    <td>{{ $num + 1 }}</td>
+                    <td>{{ $acte->name }}</td>
+                    <td>{{ $b }}</td>
+                    <td>{{ number_format($pu, 0, ',', ' ') }} FCFA</td>
+                </tr>
+
+            @endforeach
+            </tbody>
+        </table>
+        @endif
     @endforeach
 </div>
 
