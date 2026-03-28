@@ -48,7 +48,7 @@ class RegulationController extends Controller
     public function store(RegulationRequest $request)
     {
         $auth = auth()->user();
-        $centreId = $request->header('centre'); // 🔹 Filtrage par centre
+        $centreId = $request->header('centre');
         $facture = Facture::find($request->input('facture_id'));
 
         // 🔹 Récupérer la caisse active pour cet utilisateur et ce centre
@@ -465,12 +465,13 @@ class RegulationController extends Controller
         }
 
         $amount = $facture->regulations()
-            ->where('state', '!=', StatusRegulation::CANCELLED->value)
-            ->sum('amount');
+            ->where('regulations.state', '!=', StatusRegulation::CANCELLED->value)
+            ->sum('regulations.amount');
 
-        $totalExpected = $facture->amount_client + $facture->amount_pc;
-
-        $amountValidate = abs($amount - $totalExpected) < 1;
+        $amountValidate = ($amount / 100) == $facture->amount_client + $facture->amount_pc;
+        $facture->update([
+            'state' => $amountValidate ? StateFacture::PAID : StateFacture::IN_PROGRESS
+        ]);
 
         $facture->update([
             'state' => $amountValidate
