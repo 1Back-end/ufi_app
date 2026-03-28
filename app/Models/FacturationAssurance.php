@@ -27,6 +27,13 @@ class FacturationAssurance extends Model
         'net_to_pay'
     ];
 
+    protected static function booted()
+    {
+        static::creating(function ($model) {
+            $model->sequence = (static::max('sequence') ?? 0) + 1;
+        });
+    }
+
 
 
     public function creator()

@@ -9,6 +9,7 @@ use App\Models\User;
 
 /**
  * @permission_category Gestion des hôpitaux
+ * @permission_module Paramètres Applicatifs
  */
 class HopitalController extends Controller
 {

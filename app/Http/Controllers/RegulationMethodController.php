@@ -8,6 +8,7 @@ use Illuminate\Http\JsonResponse;
 
 /**
  * @permission_category Gestion des modes de règlements
+ * @permission_module Paramètres Applicatifs
  */
 class RegulationMethodController extends Controller
 {

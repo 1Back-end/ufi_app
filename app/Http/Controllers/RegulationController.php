@@ -9,6 +9,7 @@ use App\Enums\TypeRegulation;
 use App\Http\Requests\RegulationRequest;
 use App\Models\Acte;
 use App\Models\Assureur;
+use App\Models\Caisse;
 use App\Models\Client;
 use App\Models\Consultation;
 use App\Models\FacturationAssurance;
@@ -17,6 +18,8 @@ use App\Models\OpsTblHospitalisation;
 use App\Models\Prestation;
 use App\Models\Regulation;
 use App\Models\RegulationMethod;
+use App\Models\SessionCaisse;
+use App\Models\SessionElement;
 use App\Models\Soins;
 use App\Models\SpecialRegulation;
 use Illuminate\Http\JsonResponse;
@@ -44,19 +47,64 @@ class RegulationController extends Controller
      */
     public function store(RegulationRequest $request)
     {
+        $auth = auth()->user();
+        $centreId = $request->header('centre'); // 🔹 Filtrage par centre
         $facture = Facture::find($request->input('facture_id'));
-        foreach ($request->input('regulations') as $regulation) {
+
+        // 🔹 Récupérer la caisse active pour cet utilisateur et ce centre
+        $caisse = Caisse::where('user_id', $auth->id)
+            ->where('centre_id', $centreId)
+            ->where('is_active', true)
+            ->first();
+
+        if (!$caisse) {
+            return response()->json([
+                'message' => "Aucune caisse active assignée à cet utilisateur pour ce centre."
+            ], 403);
+        }
+
+        // 🔹 Chercher la session ouverte pour cette caisse et ce centre
+        $session = SessionCaisse::where('user_id', $auth->id)
+            ->where('caisse_id', $caisse->id)
+            ->where('centre_id', $centreId)
+            ->where('etat', 'OUVERTE')
+            ->latest('ouverture_ts')
+            ->first();
+
+        if (!$session) {
+            return response()->json([
+                'message' => 'Aucune session ouverte trouvée pour cet utilisateur dans ce centre.'
+            ], 403);
+        }
+
+        foreach ($request->input('regulations') as $reg) {
+            // 🔹 Créer le règlement
             $regulation = Regulation::create([
                 'facture_id' => $request->input('facture_id'),
-                'regulation_method_id' => $regulation['method'],
-                'amount' => $regulation['amount'],
+                'regulation_method_id' => $reg['method'],
+                'amount' => $reg['amount'],
                 'date' => now(),
                 'type' => $request->input('type'),
-                'comment' => $regulation['comment'] ?? null,
-                'reason' => $regulation['reason'] ?? null,
-                'phone' => $regulation['phone'] ?? null,
-                'reference' => $regulation['reference'] ?? null,
+                'comment' => $reg['comment'] ?? null,
+                'reason' => $reg['reason'] ?? null,
+                'phone' => $reg['phone'] ?? null,
+                'reference' => $reg['reference'] ?? null,
             ]);
+
+            // 🔹 Créer l'entrée SessionElement
+            $sessionElement = \App\Models\SessionElement::create([
+                'session_id' => $session->id,
+                'facture_id' => $facture->id,
+                'montant' => $reg['amount'],
+                'regulation_id' => $regulation->id,
+                'caisse_id' => $session->caisse_id,
+                'created_by' => $auth->id,
+                'updated_by' => $auth->id,
+                'centre_id' => $centreId,
+                'regulation_method_id' => $reg['method'],
+            ]);
+
+            $session->increment('solde', $reg['amount']);
         }
 
         $this->validatedFacture($facture);
@@ -76,6 +124,8 @@ class RegulationController extends Controller
      */
     public function update(Request $request, Regulation $regulation)
     {
+        $centreId = $request->header('centre');
+
         if ($regulation->state == StatusRegulation::CANCELLED->value) {
             return response()->json([
                 'message' => 'La regulation est annulée'
@@ -102,6 +152,17 @@ class RegulationController extends Controller
             'reference' => $request->input('reference'),
         ]);
 
+        $sessionElement = SessionElement::where('regulation_id', $regulation->id)
+            ->where('centre_id', $centreId)
+            ->first();
+
+        if ($sessionElement) {
+            $sessionElement->update([
+                'montant' => $regulation->amount,
+                'regulation_method_id' => $regulation->regulation_method_id,
+            ]);
+        }
+
         $this->validatedFacture($regulation->facture, false, true);
 
         return response()->json([
@@ -119,11 +180,40 @@ class RegulationController extends Controller
      */
     public function cancel(Regulation $regulation, Request $request)
     {
+        $auth = $request->user();
+        $centreId = $request->header('centre');
+
         $request->validate([
             'reason' => 'required|string|max:255',
         ]);
 
-        $regulation->update(['state' => StatusRegulation::CANCELLED, 'reason' => $request->input('reason')]);
+        // 🔹 Mettre à jour la regulation
+        $regulation->update([
+            'state' => StatusRegulation::CANCELLED,
+            'reason' => $request->input('reason')
+        ]);
+
+        // 🔹 Récupérer le SessionElement correspondant au centre
+        $sessionElement = \App\Models\SessionElement::where('regulation_id', $regulation->id)
+            ->where('centre_id', $centreId)
+            ->first();
+
+        if ($sessionElement) {
+            $session = \App\Models\SessionCaisse::find($sessionElement->session_id);
+
+            if ($session && $session->centre_id == $centreId) {
+                // 🔹 Décrémenter le solde
+                $session->decrement('solde', $sessionElement->montant);
+
+                Log::info('Solde de la session mis à jour après annulation', [
+                    'session_id' => $session->id,
+                    'nouveau_solde' => $session->solde - $sessionElement->montant,
+                ]);
+            }
+
+            // 🔹 Supprimer l'élément de session
+            $sessionElement->delete();
+        }
 
         $this->validatedFacture($regulation->facture, false, true);
 
@@ -149,7 +239,7 @@ class RegulationController extends Controller
             'start_date' => ['required', 'date'],
             'end_date' => ['required', 'date'],
             'number_piece' => ['required'],
-            'comment' => ['required', 'string', 'max:255'],
+            'comment' => ['nullable', 'string', 'max:255'],
             'date_piece' => ['required', 'date'],
             'factures' => ['required_if:allFacture,false', 'array'],
             'allFacture' => ['required', 'boolean'],
@@ -159,6 +249,9 @@ class RegulationController extends Controller
             'factures.*.items' => ['array'],
             'factures.*.amount' => ['required'],
             'type' => ['required', 'in:client,assureur'],
+            'total_ir_amount' => ['nullable', 'numeric'],
+            'ir_rate' => ['nullable', 'numeric'],
+            'net_to_pay' => ['required', 'numeric'],
         ]);
 
         DB::beginTransaction();
@@ -182,11 +275,7 @@ class RegulationController extends Controller
                 ->exists();
 
             if ($existing) {
-                DB::rollBack();
-                return response()->json([
-                    'status' => 'info',
-                    'message' => 'Une facture pour cet assureur et cette période existe déjà. Aucune nouvelle facture créée.'
-                ]);
+                \Log::info('Facturation déjà existante pour cette période, ignorée.');
             }
 
             SpecialRegulation::create([
@@ -206,6 +295,9 @@ class RegulationController extends Controller
                 'assurance' => Assureur::class,
                 'facture_number' => $request->input('number_piece'),
                 'amount' => $request->input('amount'),
+                'price_after_application_hr' => $request->input('total_ir_amount'),
+                'price_after_application_tva' => 0,
+                'net_to_pay' => $request->input('net_to_pay'),
                 'created_by' => $auth->id,
                 'updated_by' => $auth->id,
                 'assurance_id' => $regulateId,
@@ -356,6 +448,7 @@ class RegulationController extends Controller
      */
     protected function validatedFacture(Facture $facture, bool $forcePaid = false, bool $update = false)
     {
+        $auth = auth()->user();
         if ($facture->state == StateFacture::PAID && !$update) {
             return;
         }
@@ -372,12 +465,17 @@ class RegulationController extends Controller
         }
 
         $amount = $facture->regulations()
-            ->where('regulations.state', '!=', StatusRegulation::CANCELLED->value)
-            ->sum('regulations.amount');
+            ->where('state', '!=', StatusRegulation::CANCELLED->value)
+            ->sum('amount');
 
-        $amountValidate = ($amount / 100) == $facture->amount_client + $facture->amount_pc;
+        $totalExpected = $facture->amount_client + $facture->amount_pc;
+
+        $amountValidate = abs($amount - $totalExpected) < 1;
+
         $facture->update([
-            'state' => $amountValidate ? StateFacture::PAID : StateFacture::IN_PROGRESS
+            'state' => $amountValidate
+                ? StateFacture::PAID
+                : StateFacture::IN_PROGRESS
         ]);
 
         if ($amountValidate) {
@@ -389,6 +487,7 @@ class RegulationController extends Controller
                 'regulated' => 1,
             ]);
         }
+
     }
 
     /**

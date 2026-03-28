@@ -20,6 +20,7 @@ use Symfony\Component\HttpFoundation\Response as ResponseAlias;
 
 /**
  * @permission_category Gestion des examens
+ * @permission_module Gestion du laboratoire
  */
 class ExamenController extends Controller
 {

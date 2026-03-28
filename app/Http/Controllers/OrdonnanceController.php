@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Log;
 
 /**
  * @permission_category Gestion des ordonnances
+ * @permission_module Gestion des prestations
  */
 class OrdonnanceController extends Controller
 {

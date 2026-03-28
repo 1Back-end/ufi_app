@@ -254,4 +254,9 @@ class Client extends Model
     {
         return $this->morphMany(FactureAssociate::class, 'facturable');
     }
+
+    public function prestations()
+    {
+        return $this->hasMany(Prestation::class);
+    }
 }

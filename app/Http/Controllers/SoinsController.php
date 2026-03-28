@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * @permission_category Gestion des soins
+ * @permission_module Paramètres Facturations
  */
 
 class SoinsController extends Controller

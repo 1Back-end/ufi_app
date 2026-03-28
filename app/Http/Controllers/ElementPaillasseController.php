@@ -8,6 +8,7 @@ use Illuminate\Http\JsonResponse;
 
 /**
  * @permission_category Gestion des éléments de paillasse d'examen
+ * @permission_module Gestion du laboratoire
  */
 class ElementPaillasseController extends Controller
 {

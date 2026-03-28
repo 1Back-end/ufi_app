@@ -8,6 +8,7 @@ use App\Enums\TypePrestation;
 use App\Http\Requests\PrestationRequest;
 use App\Models\Acte;
 use App\Models\Assureur;
+use App\Models\Caisse;
 use App\Models\Centre;
 use App\Models\Client;
 use App\Models\Consultant;
@@ -47,6 +48,8 @@ use Throwable;
 
 /**
  * @permission_category Gestion des prestations
+ * @permission_module Gestion des prestations
+ * @permission_module Gestion du laboratoire
  */
 class PrestationController extends Controller
 {
@@ -233,6 +236,34 @@ class PrestationController extends Controller
         ]);
     }
 
+
+    private function checkUserPrestationsNotRegulated(int $userId, int $centreId)
+    {
+        $dateLimit = Carbon::now()->subDays(3);
+
+        $prestations = Prestation::where('created_by', $userId)
+            ->where('centre_id', $centreId)
+            ->where('created_at', '>=', $dateLimit)
+            ->whereDoesntHave('factures')
+            ->get();
+
+        if ($prestations->isNotEmpty()) {
+            $count = $prestations->count();
+            $codes = $prestations->pluck('id')->implode(', ');
+
+            return [
+                'status' => false,
+                'count' => $count,
+                'codes' => $prestations->pluck('id')->values(),
+                'message' => "Vous avez {$count} prestation(s) sans facture sur les 3 derniers jours : {$codes}. Veuillez créer leurs factures avant de continuer."
+            ];
+        }
+
+        return [
+            'status' => true
+        ];
+    }
+
     /**
      * @param PrestationRequest $request
      * @return JsonResponse
@@ -243,12 +274,53 @@ class PrestationController extends Controller
      */
     public function store(PrestationRequest $request)
     {
+        $auth = auth()->user();
+
+
         $centre = $request->header('centre');
+
+        $check = $this->checkUserPrestationsNotRegulated($auth->id, $centre);
+
+        if (!$check['status']) {
+            return response()->json([
+                'message' => $check['message'],
+                'codes' => $check['codes']
+            ], Response::HTTP_FORBIDDEN);
+        }
+
+        if (!$centre) {
+            return response()->json([
+                'message' => __("Vous devez vous connecter à un centre !")
+            ], Response::HTTP_UNAUTHORIZED);
+        }
+
+        $caisse = Caisse::where('user_id', $auth->id)
+            ->where('centre_id', $centre)
+            ->first();
+
+        if (!$caisse) {
+            return response()->json([
+                'message' => __("Aucune caisse assignée à cet utilisateur pour ce centre !")
+            ], Response::HTTP_FORBIDDEN);
+        }
+
+        if ($caisse->position === 'close') {
+            return response()->json([
+                'message' => __("Votre caisse est fermée ! Vous ne pouvez pas créer de prestation.")
+            ], Response::HTTP_FORBIDDEN);
+        }
+
+        if ($caisse->position === 'in_pause') {
+            return response()->json([
+                'message' => __("Votre caisse est en pause ! Vous ne pouvez pas créer de prestation.")
+            ], Response::HTTP_FORBIDDEN);
+        }
+
         $data = array_merge($request->validated(), ['centre_id' => $centre]);
         $centreModel = Centre::find($centre);
         $type = $request->input('type');
 
-        if (in_array($type, [TypePrestation::ACTES->value, TypePrestation::CAMPAGNE->value, TypePrestation::CONSULTATIONS->value, TypePrestation::HOSPITALISATION->value])) {
+        if (in_array($type, [TypePrestation::ACTES->value, TypePrestation::SOINS->value, TypePrestation::CAMPAGNE->value, TypePrestation::CONSULTATIONS->value, TypePrestation::HOSPITALISATION->value])) {
             if ($centreModel->short_name !== 'CMGT') {
                 return response()->json([
                     'message' => 'Cette prestation ne peut être créé que dans le Centre Médical.'
@@ -366,7 +438,47 @@ class PrestationController extends Controller
      */
     public function update(PrestationRequest $request, Prestation $prestation)
     {
+        $auth = auth()->user();
+
         $centre = $request->header('centre');
+
+        $check = $this->checkUserPrestationsNotRegulated($auth->id, $centre);
+
+        if (!$check['status']) {
+            return response()->json([
+                'message' => $check['message'],
+                'codes' => $check['codes']
+            ], Response::HTTP_FORBIDDEN);
+        }
+
+        if (!$centre) {
+            return response()->json([
+                'message' => __("Vous devez vous connecter à un centre !")
+            ], Response::HTTP_UNAUTHORIZED);
+        }
+
+        $caisse = Caisse::where('user_id', $auth->id)
+            ->where('centre_id', $centre)
+            ->first();
+
+        if (!$caisse) {
+            return response()->json([
+                'message' => __("Aucune caisse assignée à cet utilisateur pour ce centre !")
+            ], Response::HTTP_FORBIDDEN);
+        }
+
+        if ($caisse->position === 'close') {
+            return response()->json([
+                'message' => __("Votre caisse est fermée ! Vous ne pouvez pas créer de prestation.")
+            ], Response::HTTP_FORBIDDEN);
+        }
+
+        if ($caisse->position === 'in_pause') {
+            return response()->json([
+                'message' => __("Votre caisse est en pause ! Vous ne pouvez pas créer de prestation.")
+            ], Response::HTTP_FORBIDDEN);
+        }
+
         $centreModel = Centre::find($centre);
         $type = $request->input('type');
 
@@ -504,6 +616,7 @@ class PrestationController extends Controller
      */
     public function saveFacture(Prestation $prestation, Request $request)
     {
+        $auth = auth()->user();
         $request->validate([
             'proforma' => 'required|in:1,2',
         ]);
@@ -563,66 +676,186 @@ class PrestationController extends Controller
     public function getFacturesInProgress(Request $request)
     {
         $request->validate([
-            'assurance' => ['', 'exists:assureurs,id'],
-            'payable_by' => ['', 'exists:clients,id'],
+            'assurance' => ['nullable', 'exists:assureurs,id'],
+            'payable_by' => ['nullable', 'exists:clients,id'],
             'start_date' => ['required', 'date'],
             'end_date' => ['required', 'date'],
         ]);
 
-        $lastFactures = false;
-        $dateLatestFacture = '';
-
-        $latestPrestations = Prestation::filterInProgress(
+        // On récupère uniquement les prestations dont les factures sont dans la plage
+        $prestations = Prestation::filterInProgress(
             startDate: $request->input('start_date'),
             endDate: $request->input('end_date'),
             assurance: $request->input('assurance'),
             payableBy: $request->input('payable_by'),
-            latestFacture: true
+            search: $request->input('search')
         )->paginate(
             perPage: $request->input('per_page', 25),
             page: $request->input('page', 1)
         );
 
-        if ($latestPrestations->isEmpty()) {
-            $prestations = Prestation::filterInProgress(
-                startDate: $request->input('start_date'),
-                endDate: $request->input('end_date'),
-                assurance: $request->input('assurance'),
-                payableBy: $request->input('payable_by'),
-                search: $request->input('search'),
-            )
-                ->paginate(
-                    perPage: $request->input('per_page', 25),
-                    page: $request->input('page', 1)
-                );
-        } else {
-            $lastFactures = true;
-            $dateLatestFacture = $latestPrestations->first()->factures->first()->date_fact;
-            $prestations = $latestPrestations;
-        }
-
         $column = $request->input('assurance') ? 'amount_pc' : 'amount_client';
+
         $totalAmount = DB::table('factures')
             ->join('prestations', 'factures.prestation_id', '=', 'prestations.id')
             ->where('factures.type', 2)
-            ->whereIn('factures.state', [StateFacture::IN_PROGRESS->value,StateFacture::CREATE->value])
-            ->when($lastFactures, fn($query) => $query->whereDate('prestations.created_at', '<', $request->input('start_date')))
+            ->whereIn('factures.state', [StateFacture::IN_PROGRESS->value, StateFacture::CREATE->value])
+            ->whereBetween('factures.date_fact', [$request->input('start_date'), $request->input('end_date')])
             ->where('prestations.centre_id', $request->header('centre'))
-            ->when($request->input('assurance'), fn($q) => $q->where('prise_en_charges.assureur_id', $request->input('assurance')))
+            ->when($request->input('assurance'), function($q) use ($request) {
+                return $q->join('prise_en_charges', 'prestations.prise_charge_id', '=', 'prise_en_charges.id')
+                    ->where('prise_en_charges.assureur_id', $request->input('assurance'));
+            })
             ->when($request->input('payable_by'), fn($q) => $q->where('prestations.payable_by', $request->input('payable_by')))
-            ->when($request->input('payable_by'), fn($q) => $q->join('clients', 'prestations.payable_by', '=', 'clients.id'))
-            ->when($request->input('assurance'), fn($q) => $q->join('prise_en_charges', 'prestations.prise_charge_id', '=', 'prise_en_charges.id'))
             ->selectRaw("SUM(factures.$column) / 100 as total")
             ->value('total');
 
         return response()->json([
             'prestations' => $prestations,
-            'regulation_methods' => RegulationMethod::get()->toArray(),
-            'last_factures' => $lastFactures,
-            'date_latest_facture' => $dateLatestFacture,
-            'total_amount' => round($totalAmount, 2)
+            'regulation_methods' => RegulationMethod::all(),
+            'total_amount' => round($totalAmount ?? 0, 2)
         ]);
     }
+
+
+
+    public function calculateFactureAmounts(Request $request)
+    {
+        $request->validate([
+            'factures' => 'required|array',
+            'factures.*.id' => 'required|exists:factures,id',
+            'factures.*.amount_init' => 'required|numeric|min:1',
+            'factures.*.plurata' => 'required|numeric|min:1',
+            'factures.*.montant_consteste' => 'nullable|numeric|min:0',
+            'total_amount' => 'required|numeric|min:0',
+        ]);
+
+        $factures = collect($request->input('factures'));
+        $totalAmount = $request->input('total_amount');
+
+        // 🔹 Factures saisies par l'utilisateur (montant_consteste > 0)
+        $filledFactures = $factures
+            ->filter(fn($f) => isset($f['montant_consteste']) && $f['montant_consteste'] > 0)
+            ->keyBy('id');
+
+        // 🔹 Cas spécial : une seule facture saisie → elle prend tout
+        if ($filledFactures->count() === 1) {
+            $fullId = $filledFactures->keys()->first();
+
+            $facturesCalculated = $factures->map(function($f) use ($fullId, $totalAmount) {
+                $montant_consteste = ($f['id'] == $fullId) ? $totalAmount : 0;
+
+                return [
+                    'id' => $f['id'],
+                    'amount_init' => $f['amount_init'],
+                    'plurata' => round($f['plurata'], 2),
+                    'montant_consteste' => round($montant_consteste, 2),
+                    'restant' => round($f['amount_init'] - $montant_consteste, 2),
+                ];
+            });
+        } else {
+            // 🔹 Plusieurs factures saisies → répartir le reste proportionnellement
+            $reste = $totalAmount - $filledFactures->sum('montant_consteste');
+            $totalInitNonFilled = $factures
+                ->filter(fn($f) => !isset($filledFactures[$f['id']]))
+                ->sum('amount_init');
+
+            $facturesCalculated = $factures->map(function($f) use ($filledFactures, $totalAmount, $factures) {
+                if (isset($filledFactures[$f['id']])) {
+                    // Facture modifiée par l'utilisateur → garder la saisie
+                    $montant_consteste = round($filledFactures[$f['id']]['montant_consteste'], 2);
+                } else {
+                    // Facture non modifiée → calcul automatique proportionnel
+                    $totalInitNonFilled = $factures->filter(fn($x) => !isset($filledFactures[$x['id']]))->sum('amount_init');
+                    $reste = max($totalAmount - $filledFactures->sum('montant_consteste'), 0);
+
+                    $montant_consteste = $totalInitNonFilled > 0
+                        ? round(($f['amount_init'] / $totalInitNonFilled) * $reste, 2)
+                        : 0;
+                }
+
+                return [
+                    'id' => $f['id'],
+                    'amount_init' => $f['amount_init'],
+                    'plurata' => round($f['plurata'], 2),
+                    'montant_consteste' => $montant_consteste,
+                    'restant' => round($f['amount_init'] - $montant_consteste, 2),
+                ];
+            });
+        }
+
+        return response()->json([
+            'factures' => $facturesCalculated,
+            'total_consteste' => round($facturesCalculated->sum('montant_consteste'), 2),
+            'total_restant' => round($facturesCalculated->sum('restant'), 2),
+        ]);
+    }
+
+
+
+//    public function getFacturesInProgress(Request $request)
+//    {
+//        $request->validate([
+//            'assurance' => ['', 'exists:assureurs,id'],
+//            'payable_by' => ['', 'exists:clients,id'],
+//            'start_date' => ['required', 'date'],
+//            'end_date' => ['required', 'date'],
+//        ]);
+//
+//        $lastFactures = false;
+//        $dateLatestFacture = '';
+//
+//        $latestPrestations = Prestation::filterInProgress(
+//            startDate: $request->input('start_date'),
+//            endDate: $request->input('end_date'),
+//            assurance: $request->input('assurance'),
+//            payableBy: $request->input('payable_by'),
+//            latestFacture: true
+//        )->paginate(
+//            perPage: $request->input('per_page', 25),
+//            page: $request->input('page', 1)
+//        );
+//
+//        if ($latestPrestations->isEmpty()) {
+//            $prestations = Prestation::filterInProgress(
+//                startDate: $request->input('start_date'),
+//                endDate: $request->input('end_date'),
+//                assurance: $request->input('assurance'),
+//                payableBy: $request->input('payable_by'),
+//                search: $request->input('search'),
+//            )
+//                ->paginate(
+//                    perPage: $request->input('per_page', 25),
+//                    page: $request->input('page', 1)
+//                );
+//        } else {
+//            $lastFactures = true;
+//            $dateLatestFacture = $latestPrestations->first()->factures->first()->date_fact;
+//            $prestations = $latestPrestations;
+//        }
+//
+//        $column = $request->input('assurance') ? 'amount_pc' : 'amount_client';
+//        $totalAmount = DB::table('factures')
+//            ->join('prestations', 'factures.prestation_id', '=', 'prestations.id')
+//            ->where('factures.type', 2)
+//            ->whereIn('factures.state', [StateFacture::IN_PROGRESS->value,StateFacture::CREATE->value])
+//            ->when($lastFactures, fn($query) => $query->whereDate('prestations.created_at', '<', $request->input('start_date')))
+//            ->where('prestations.centre_id', $request->header('centre'))
+//            ->when($request->input('assurance'), fn($q) => $q->where('prise_en_charges.assureur_id', $request->input('assurance')))
+//            ->when($request->input('payable_by'), fn($q) => $q->where('prestations.payable_by', $request->input('payable_by')))
+//            ->when($request->input('payable_by'), fn($q) => $q->join('clients', 'prestations.payable_by', '=', 'clients.id'))
+//            ->when($request->input('assurance'), fn($q) => $q->join('prise_en_charges', 'prestations.prise_charge_id', '=', 'prise_en_charges.id'))
+//            ->selectRaw("SUM(factures.$column) / 100 as total")
+//            ->value('total');
+//
+//        return response()->json([
+//            'prestations' => $prestations,
+//            'regulation_methods' => RegulationMethod::get()->toArray(),
+//            'last_factures' => $lastFactures,
+//            'date_latest_facture' => $dateLatestFacture,
+//            'total_amount' => round($totalAmount, 2)
+//        ]);
+//    }
 
     protected function attachElementWithPrestation(PrestationRequest $request, Prestation $prestation, bool $update = false)
     {
@@ -1036,13 +1269,11 @@ class PrestationController extends Controller
             'status' => ['required', new Enum(StateExamen::class)],
         ]);
 
-        $prestationables = Prestationable::whereIn('prestation_id', $request->prestation_ids)->get();
+        $prestationables = Prestationable::whereIn('prestation_id', $request->prestation_ids)
+            ->where('status_examen', StateExamen::VALIDATED->value)
+            ->get();
 
         $prestationables->each(function ($prestationable) use ($request) {
-            if ($prestationable->status_examen == StateExamen::DELIVERED->value) {
-                return;
-            }
-
             $prestationable->update([
                 'status_examen' => $request->input('status')
             ]);

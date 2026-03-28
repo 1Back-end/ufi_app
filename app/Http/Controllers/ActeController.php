@@ -17,6 +17,7 @@ use Maatwebsite\Excel\Facades\Excel;
 
 /**
  * @permission_category Gestion des actes
+ * @permission_module Paramètres Facturations
  */
 class ActeController extends Controller
 {

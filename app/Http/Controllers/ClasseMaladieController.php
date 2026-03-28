@@ -10,6 +10,7 @@ use Maatwebsite\Excel\Facades\Excel;
 
 /**
  * @permission_category Gestion des classes maladies
+ * @permission_module Paramètres Applicatifs
  */
 class ClasseMaladieController extends Controller
 {

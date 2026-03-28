@@ -14,6 +14,7 @@ use Maatwebsite\Excel\Facades\Excel;
 
 /**
  * @permission_category Gestion des examens physiques
+ * @permission_module Gestion des prestations
  */
 class ExamenPhysiqueController extends Controller
 {

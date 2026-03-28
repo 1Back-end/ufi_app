@@ -50,4 +50,13 @@ class Permission extends \Spatie\Permission\Models\Permission
     {
         return $this->belongsTo(Menu::class, 'menu_id');
     }
+    public function modules()
+    {
+        return $this->belongsToMany(
+            ModuleApplications::class,
+            'module_permission', // table pivot
+            'permission_id',
+            'module_id'
+        );
+    }
 }

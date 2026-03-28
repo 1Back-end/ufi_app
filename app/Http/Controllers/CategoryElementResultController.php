@@ -8,6 +8,7 @@ use Illuminate\Http\JsonResponse;
 
 /**
  * @permission_category Gestion des catégories d'éléments de résultat
+ * @permission_module Gestion du laboratoire
  */
 class CategoryElementResultController extends Controller
 {

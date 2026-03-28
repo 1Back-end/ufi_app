@@ -13,6 +13,7 @@ use Maatwebsite\Excel\Facades\Excel;
 
 /**
  * @permission_category Gestion des motifs de consultation
+ * @permission_module Gestion des prestations
  */
 class OpsTblMotifConsultationController extends Controller
 {

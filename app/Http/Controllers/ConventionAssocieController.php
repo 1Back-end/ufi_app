@@ -9,6 +9,7 @@ use Illuminate\Http\JsonResponse;
 
 /**
  * @permission_category Gestion des conventions
+ * @permission_module Paramètres applicatifs
  */
 class ConventionAssocieController extends Controller
 {

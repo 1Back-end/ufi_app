@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 
 /**
  * @permission_category Gestion des diagnostics
+ * @permission_module Gestion des prestations
  */
 class DiagnosticController extends Controller
 {

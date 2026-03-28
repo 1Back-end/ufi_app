@@ -10,6 +10,7 @@ use App\Models\Titre;
 
 /**
  * @permission_category Gestion des titres de consultants
+ * @permission_module Paramètres Applicatifs
  */
 
 class TitreController extends Controller

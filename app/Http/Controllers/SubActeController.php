@@ -4,6 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Models\SubActe;
 use Illuminate\Http\Request;
+/**
+ * @permission_category Gestion des des sous-catégories d'actes
+ * @permission_module Paramètres Applicatifs
+ */
 
 class SubActeController extends Controller
 {

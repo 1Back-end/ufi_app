@@ -11,6 +11,7 @@ use Symfony\Component\HttpFoundation\Response;
 
 /**
  * @permission_category Gestion des types de document
+ * @permission_module Paramètres Applicatifs
  */
 class TypeDocumentController extends Controller
 {

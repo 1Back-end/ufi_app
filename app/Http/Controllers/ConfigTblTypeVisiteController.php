@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 
 /**
  * @permission_category Gestion des types de visites
+ * @permission_module Paramètres Applicatifs
  */
 class ConfigTblTypeVisiteController extends Controller
 {

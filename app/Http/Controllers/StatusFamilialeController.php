@@ -11,6 +11,7 @@ use Symfony\Component\HttpFoundation\Response;
 
 /**
  * @permission_category Gestion des status familiaux
+ * @permission_module Paramètres Applicatifs
  */
 class StatusFamilialeController extends Controller
 {

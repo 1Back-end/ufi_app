@@ -10,6 +10,7 @@ use App\Models\Consultant;
 
 /**
  * @permission_category Gestion des services hospitaliers
+ * @permission_module Paramètres Applicatifs
  */
 class ServiceHopitalController extends Controller
 {

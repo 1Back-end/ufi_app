@@ -26,7 +26,10 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Spatie\Browsershot\Exceptions\CouldNotTakeBrowsershot;
 use Throwable;
-
+/**
+ * @permission_category Gestion des rapports
+ * @permission_module Gestion des prestations
+ */
 class FacturationsController extends Controller
 {
 

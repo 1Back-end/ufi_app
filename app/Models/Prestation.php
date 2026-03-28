@@ -68,7 +68,39 @@ class Prestation extends Model
         'state_examen',
         'prelevement',
         'last_prelevement',
+        'validated_printed_count'
     ];
+
+    protected function validatedPrintedCount(): Attribute
+    {
+        return Attribute::make(
+            get: function () {
+                // 1. Utiliser la relation déjà chargée (ou la charger avec pivot)
+                // On s'assure que 'status_examen' est bien récupéré de la table pivot
+                $examens = $this->relationLoaded('examens')
+                    ? $this->examens
+                    : $this->examens()->get();
+
+                $total = $examens->count();
+
+                if ($total === 0) {
+                    return '0/0';
+                }
+
+                $validatedPrinted = $examens->filter(function($examen) {
+                    $status = $examen->pivot?->status_examen;
+                    $value = $status instanceof \UnitEnum ? $status->value : $status;
+
+                    return in_array($value, [
+                        StateExamen::VALIDATED->value,
+                        StateExamen::PRINTED->value
+                    ]);
+                })->count();
+
+                return "{$validatedPrinted}/{$total}";
+            }
+        );
+    }
 
     protected function typeLabel(): Attribute
     {
@@ -183,43 +215,82 @@ class Prestation extends Model
         );
     }
 
-    public function scopeFilterInProgress(Builder $query, $startDate, $endDate, $assurance = null, $payableBy = null, bool $latestFacture = false, $search = ''): Builder
-    {
+    public function scopeFilterInProgress(
+        Builder $query,
+                $startDate,
+                $endDate,
+                $assurance = null,
+                $payableBy = null,
+                $search = ''
+    ): Builder {
         $centreId = request()->header('centre');
 
-        $factureFilter = function ($query) use ($startDate, $endDate, $latestFacture, $search) {
-            $query->where('factures.type', 2)
-                ->whereIn('factures.state', [StateFacture::IN_PROGRESS->value,StateFacture::CREATE->value])
+        $factureFilter = function ($q) use ($startDate, $endDate, $search) {
+            $q->where('factures.type', 2)
+                ->whereIn('factures.state', [StateFacture::IN_PROGRESS->value, StateFacture::CREATE->value])
                 ->when($search, fn($q) => $q->where('factures.code', 'like', "%$search%"))
-                ->when(
-                    $latestFacture,
-                    fn($q) => $q->whereDate('factures.date_fact', '<', $startDate),
-                    fn($q) => $q->whereBetween('factures.date_fact', [$startDate, $endDate])
-                );
+                // Strictement entre les deux dates
+                ->whereBetween('factures.date_fact', [$startDate, $endDate])
+                ->orderBy('factures.date_fact', 'asc');
         };
 
         return $query->where('prestations.centre_id', $centreId)
             ->whereHas('factures', $factureFilter)
             ->with([
-                'factures' => fn($q) => $q->where('factures.type', 2),
-                'actes',
-                'soins',
-                'consultations',
-                'hospitalisations',
-                'products',
-                'examens',
-                'client',
-                'priseCharge',
-                'priseCharge.assureur',
-                'payableBy'
+                'factures' => $factureFilter,
+                'actes', 'soins', 'consultations', 'hospitalisations',
+                'products', 'examens', 'client', 'priseCharge.assureur', 'payableBy'
             ])
-            ->when($assurance, function ($query) use ($assurance) {
-                $query->whereHas('priseCharge.assureur', fn($q) => $q->where('id', $assurance));
-            })
-            ->when($payableBy, function ($query) use ($payableBy) {
-                $query->where('payable_by', $payableBy);
-            });
+            ->when($assurance, fn($q) => $q->whereHas('priseCharge.assureur', fn($q) => $q->where('id', $assurance)))
+            ->when($payableBy, fn($q) => $q->where('payable_by', $payableBy));
     }
+
+
+//    public function scopeFilterInProgress(
+//        Builder $query,
+//                $startDate,
+//                $endDate,
+//                $assurance = null,
+//                $payableBy = null,
+//        bool $latestFacture = false,
+//                $search = ''
+//    ): Builder {
+//        $centreId = request()->header('centre');
+//
+//        // Filtre des factures
+//        $factureFilter = function ($q) use ($startDate, $endDate, $latestFacture, $search) {
+//            $q->where('factures.type', 2)
+//                ->whereIn('factures.state', [StateFacture::IN_PROGRESS->value, StateFacture::CREATE->value])
+//                ->when($search, fn($q) => $q->where('factures.code', 'like', "%$search%"))
+//                ->when(
+//                    $latestFacture,
+//                    fn($q) => $q->whereDate('factures.date_fact', '<', $startDate),
+//                    fn($q) => $q->whereBetween('factures.date_fact', [$startDate, $endDate])
+//                )
+//                ->orderByRaw("
+//              CASE WHEN factures.date_fact < ? THEN 0 ELSE 1 END ASC
+//          ", [$startDate])
+//                ->orderBy('factures.date_fact', 'asc');
+//        };
+//
+//        return $query->where('prestations.centre_id', $centreId)
+//            ->whereHas('factures', $factureFilter)
+//            ->with([
+//                'factures' => $factureFilter, // applique le tri directement
+//                'actes',
+//                'soins',
+//                'consultations',
+//                'hospitalisations',
+//                'products',
+//                'examens',
+//                'client',
+//                'priseCharge',
+//                'priseCharge.assureur',
+//                'payableBy'
+//            ])
+//            ->when($assurance, fn($q) => $q->whereHas('priseCharge.assureur', fn($q) => $q->where('id', $assurance)))
+//            ->when($payableBy, fn($q) => $q->where('payable_by', $payableBy));
+//    }
 
     protected function paid(): Attribute
     {

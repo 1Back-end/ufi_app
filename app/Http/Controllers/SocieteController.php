@@ -11,6 +11,7 @@ use Symfony\Component\HttpFoundation\Response;
 
 /**
  * @permission_category Gestion des sociétés
+ * @permission_module Paramètres Applicatifs
  */
 class SocieteController extends Controller
 {

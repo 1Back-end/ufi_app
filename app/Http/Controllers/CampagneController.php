@@ -9,7 +9,10 @@ use App\Models\Proforma;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\Response;
-
+/**
+ * @permission_category Gestion des campagnes
+ * @permission_module Gestion des prestations
+ */
 class CampagneController extends Controller
 {
     /**

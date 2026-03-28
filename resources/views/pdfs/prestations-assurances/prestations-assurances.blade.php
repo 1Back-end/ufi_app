@@ -146,9 +146,13 @@
                         ->filter(fn($f) => $f->regulations && $f->regulations->where('state', 1)->count() > 0)
                         ->first();
 
-                    $regulation = $factureReglee ? $factureReglee->regulations->first() : null;
+                    // Total des règlements validés
+                    $regulationAmount = $factureReglee
+                        ? $factureReglee->regulations->where('state', 1)->sum('amount')
+                        : 0;
 
-                    $restAPayer = ($factureReglee ? $factureReglee->amount_client : 0) - ($regulation ? $regulation->amount : 0);
+                    // Calcul du reste à payer
+                    $restAPayer = ($factureReglee ? $factureReglee->amount_client : 0) - $regulationAmount;
                 @endphp
 
                 <tr>
@@ -195,7 +199,7 @@
                     <td>{{ \App\Helpers\FormatPrice::format(optional($facture)->amount) }}</td>
                     <td>{{ \App\Helpers\FormatPrice::format(optional($facture)->amount_pc) }}</td>
                     <td>{{ \App\Helpers\FormatPrice::format(optional($facture)->amount_client) }}</td>
-                    <td>{{ \App\Helpers\FormatPrice::format(optional($regulation)->amount) }}</td>
+                    <td>{{ \App\Helpers\FormatPrice::format($regulationAmount) }}</td>
                     <td>{{ \App\Helpers\FormatPrice::format(optional($facture)->amount_remise) }}</td>
                     <td>{{ \App\Helpers\FormatPrice::format($restAPayer) }}</td>
 

@@ -12,7 +12,15 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response;
-
+/**
+ * @permission_category Gestion des permissions
+ * @permission_module Gestion des prestations
+ * @permission_module Gestion des caisses
+ * @permission_module Gestion du laboratoire
+ * @permission_module Gestion des stocks
+ * @permission_module Paramètres Facturations
+ * @permission_module Paramètres Applicatifs
+ */
 class PermissionController extends Controller
 {
     /**
@@ -56,20 +64,25 @@ class PermissionController extends Controller
         $search = $request->input('search');
 
         $categories = CategoryPermission::where('name', '!=', 'Autres')
-            ->with(['permissions' => function($q) use ($search) {
+            ->with(['permissions' => function($query) use ($search) {
+                // Tri des permissions par nom au niveau de la base de données
+                $query->orderBy('name', 'asc');
+
                 if ($search) {
-                    $q->where(function($query) use ($search) {
-                        $query->where('name', 'like', "%{$search}%")
+                    $query->where(function($q) use ($search) {
+                        $q->where('name', 'like', "%{$search}%")
                             ->orWhere('description', 'like', "%{$search}%");
                     });
                 }
-                $q->orderBy('name', 'asc');
             }])
-            ->when($search, function($q) use ($search) {
-                $q->where('libelle', 'like', "%{$search}%")
-                    ->orWhere('description', 'like', "%{$search}%");
+            ->when($search, function($query) use ($search) {
+                $query->where(function($q) use ($search) {
+                    $q->where('name', 'like', "%{$search}%")
+                        ->orWhere('description', 'like', "%{$search}%");
+                });
             })
-            ->orderBy('created_at', 'desc')->get();
+            ->orderBy('name', 'asc') // Tri des catégories par libelle
+            ->get();
 
         return response()->json([
             'categories' => $categories,
@@ -249,4 +262,6 @@ class PermissionController extends Controller
             'message' => __("La permission a été " . $activate ? 'activée' : 'désactivée' . " avec succès pour cet utilisateur !"),
         ]);
     }
+
+
 }

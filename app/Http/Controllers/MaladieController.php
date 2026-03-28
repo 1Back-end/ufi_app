@@ -9,6 +9,7 @@ use Maatwebsite\Excel\Facades\Excel;
 
 /**
  * @permission_category Gestion des Maladies.
+ * @permission_module Gestion du laboratoire
  */
 class MaladieController extends Controller
 {

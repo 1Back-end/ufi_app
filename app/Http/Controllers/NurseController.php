@@ -15,6 +15,7 @@ use Maatwebsite\Excel\Facades\Excel;
 
 /**
  * @permission_category Gestion des infirmières.
+ * @permission_module Paramètres applicatifs
  */
 class NurseController extends Controller
 {

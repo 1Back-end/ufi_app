@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * @permission_category Gestion des hospitalisations
+ * @permission_module Paramètres Facturations
  */
 class OpsTblHospitalisationController extends Controller
 {

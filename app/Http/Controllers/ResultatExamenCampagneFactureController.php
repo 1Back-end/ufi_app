@@ -11,7 +11,10 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\Response;
-
+/**
+ * @permission_category Gestion des resultats des campagnes
+ * @permission_module Gestion des prestations
+ */
 class ResultatExamenCampagneFactureController extends Controller
 {
     /**

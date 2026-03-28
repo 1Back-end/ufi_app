@@ -9,7 +9,10 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-
+/**
+ * @permission_category Gestion des listes prédéfinies
+ * @permission_module Gestion du laboratoire
+ */
 class CatPredefinedListController extends Controller
 {
     /**

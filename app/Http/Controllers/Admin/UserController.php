@@ -14,6 +14,15 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response;
 
+/**
+ * @permission_category Gestion des utilisateurs
+ * @permission_module Gestion des prestations
+ * @permission_module Gestion des caisses
+ * @permission_module Gestion du laboratoire
+ * @permission_module Gestion des stocks
+ * @permission_module Paramètres Facturations
+ * @permission_module Paramètres Applicatifs
+ */
 class UserController extends Controller
 {
     /**

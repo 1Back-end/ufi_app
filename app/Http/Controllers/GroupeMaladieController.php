@@ -11,6 +11,7 @@ use Maatwebsite\Excel\Facades\Excel;
 
 /**
  * @permission_category Gestion des classes de maladies
+ * @permission_module Paramètres Applicatifs
  */
 
 class GroupeMaladieController extends Controller

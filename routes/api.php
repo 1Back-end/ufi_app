@@ -125,6 +125,44 @@ Route::middleware(['activity'])->group(function () {
         Route::patch('/sub_act_categories/{id}/is_active', [\App\Http\Controllers\SubActeController::class, 'updateStatus']);
         Route::get('/permissions_by_category', [PermissionController::class, 'permissionsByCategory']);
 
+        Route::get('consolidation_caisses', [\App\Http\Controllers\CaisseController::class, 'getConsolidationCaisse']);
+        Route::get('mini_caisses', [\App\Http\Controllers\CaisseController::class, 'getBigCaisse']);
+        Route::get('getBigCaisseByCentre', [\App\Http\Controllers\CaisseController::class, 'getBigCaisseByCentre']);
+        Route::get('getBigCaisseByCentreForMiniTransaction', [\App\Http\Controllers\CaisseController::class, 'getBigCaisseByCentreForMiniTransaction']);
+        Route::apiResource('caisses', \App\Http\Controllers\CaisseController::class);
+        Route::patch('/caisses/{id}/is_active', [\App\Http\Controllers\CaisseController::class, 'updateStatus']);
+        Route::patch('/caisses/{id}/position', [\App\Http\Controllers\CaisseController::class, 'updatePosition']);
+        Route::get('myCaisseStatus', [\App\Http\Controllers\CaisseController::class,'myCaisseStatus']);
+        Route::patch('pauseMyCaisse', [\App\Http\Controllers\CaisseController::class,'pauseMyCaisse']);
+        Route::patch('OpenMyCaisse', [\App\Http\Controllers\CaisseController::class,'OpenMyCaisse']);
+        Route::patch('CloseMyCaisse', [\App\Http\Controllers\CaisseController::class,'CloseMyCaisse']);
+        Route::post('transfertAmountInMyCaisse', [\App\Http\Controllers\CaisseController::class,'initTransfer']);
+        Route::patch('ValidTranfertAmount/{id}/validate', [\App\Http\Controllers\CaisseController::class,'validateTransfer']);
+        Route::patch('RejectTranfertAmount/{id}/reject', [\App\Http\Controllers\CaisseController::class,'rejectTransfer']);
+        Route::post('/caisses/change_secret_code', [\App\Http\Controllers\CaisseController::class, 'changeSecretCode']);
+        Route::post('caisses/change_secret_code_in_users', [\App\Http\Controllers\CaisseController::class, 'change_secret_code']);
+        Route::post('caisses/forgot_secret_code_for_my_caisses', [\App\Http\Controllers\CaisseController::class, 'forgot_secret_code_for_my_caisses']);
+        Route::get('print_data_caisses_by_centre', [\App\Http\Controllers\CaisseController::class, 'print_data_caisses_by_centre']);
+
+        Route::get('sessions_caisses/list_transferts_caisses', [\App\Http\Controllers\SessionCaisseController::class,'get_transfert_caisse']);
+        Route::get('sessions_caisses/get_transfert_caisse_virtuel', [\App\Http\Controllers\SessionCaisseController::class,'get_transfert_caisse_virtuel']);
+        Route::apiResource('sessions_caisses', \App\Http\Controllers\SessionCaisseController::class);
+
+        Route::apiResource('mouvements_caisses', \App\Http\Controllers\MouvementCaisseController::class);
+        Route::post('store_transaction_between_big_caisses', [\App\Http\Controllers\MouvementCaisseController::class,'store_transaction_between_big_caisses']);
+        Route::patch('validateTransferBetweenBigCaisses/{id}/validate', [\App\Http\Controllers\MouvementCaisseController::class,'validateTransferBetweenBigCaisses']);
+        Route::get('get_transfert_big_caisse_virtuel', [\App\Http\Controllers\MouvementCaisseController::class,'get_transfert_big_caisse_virtuel']);
+        Route::patch('rejectTransferBetweenBigCaisses/{id}/reject', [\App\Http\Controllers\MouvementCaisseController::class,'rejectTransferBetweenBigCaisses']);
+        Route::get('/permissions_by_category', [PermissionController::class, 'permissionsByCategory']);
+
+
+        Route::apiResource('module_applications', \App\Http\Controllers\ModuleApplicationsController::class);
+        Route::get('/modules/{uuid}/permissions', [\App\Http\Controllers\ModuleApplicationsController::class, 'get_permissions_by_module']);
+        Route::patch('module_applications/{uuid}/is_active', [\App\Http\Controllers\ModuleApplicationsController::class, 'toggleActive']);
+
+        Route::apiResource('facture_assurances_store', \App\Http\Controllers\ReglementAssuranceController::class);
+
+
 
         // Gestion des centres
         Route::controller(CentreController::class)->prefix('centres')->group(function () {
@@ -175,11 +213,13 @@ Route::middleware(['activity'])->group(function () {
         Route::post('prestations/{prestation}', [PrestationController::class, 'update']);
         Route::post('prestations/{prestation}/facture', [PrestationController::class, 'saveFacture']);
         Route::patch('prestations/{prestation}/change-state', [PrestationController::class, 'changeState']);
+
         Route::apiResource('regulation-methods', RegulationMethodController::class)->except(['show', 'destroy']);
         Route::patch('regulation-methods/{regulationMethod}/activate', [RegulationMethodController::class, 'activate']);
         Route::apiResource('regulations', RegulationController::class)->except(['show', 'index', 'destroy']);
         Route::post('/regulations/{regulation}', [RegulationController::class, 'cancel']);
         Route::get("/factures/in-progress", [PrestationController::class, 'getFacturesInProgress']);
+        Route::post('/factures/calculate', [PrestationController::class, 'calculateFactureAmounts']);
         Route::post('/special-regulations', [RegulationController::class, 'specialRegulation']);
         Route::post('/ignore-factures', [RegulationController::class, 'ignoreFacture']);
         Route::post('/print-facture-assurance', [PrestationController::class, 'printFactureAssurance']);

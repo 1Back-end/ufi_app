@@ -18,6 +18,7 @@ use Symfony\Component\HttpFoundation\Response;
 
 /**
  * @permission_category Gestion des dossiers de consultations
+ * @permission_module Gestion des prestations
  */
 
 class DossierConsultationController extends Controller

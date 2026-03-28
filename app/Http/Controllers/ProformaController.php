@@ -12,6 +12,7 @@ use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\Response;
 /**
  * @permission_category Gestion des proformas
+ * @permission_module Gestion des prestations
  */
 class ProformaController extends Controller
 {
