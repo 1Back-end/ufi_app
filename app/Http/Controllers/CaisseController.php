@@ -925,7 +925,7 @@ class CaisseController extends Controller
 
         if ($session) {
             // 🔹 Mettre à jour l'état de la session si elle est en pause
-            if ($session->etat === 'PAUSE') {
+            if ($session->etat === 'EN_PAUSE') {
                 $session->update([
                     'etat' => 'OUVERTE',
                     'updated_by' => $auth->id
