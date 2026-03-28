@@ -634,7 +634,15 @@ class CaisseController extends Controller
     public function updatePosition(Request $request, $id)
     {
         $auth = auth()->user();
-        $centreId = $request->input('centre_id'); // 🔹 Centre spécifique
+
+        // 🔥 sécuriser centre_id
+        $centreId = $request->input('centre_id') ?? $request->header('centre');
+
+        if (!$centreId) {
+            return response()->json([
+                'message' => 'centre_id manquant'
+            ], Response::HTTP_BAD_REQUEST);
+        }
 
         $request->validate([
             'position' => 'required|in:open,close,in_pause'
@@ -654,7 +662,7 @@ class CaisseController extends Controller
             $today = now()->toDateString();
             $alertMessage = null;
 
-            // 🔹 Session du jour pour ce centre
+            // 🔹 Session du jour
             $session = SessionCaisse::where('user_id', $caisse->user_id)
                 ->where('caisse_id', $caisse->id)
                 ->where('centre_id', $centreId)
@@ -677,12 +685,11 @@ class CaisseController extends Controller
                         ]);
                     } else {
                         return response()->json([
-                            'message' => "Une session est déjà ouverte aujourd'hui pour ce centre."
+                            'message' => "Une session est déjà ouverte aujourd'hui."
                         ], Response::HTTP_FORBIDDEN);
                     }
                 } else {
 
-                    // 🔹 Dernière session fermée pour ce centre
                     $lastSession = SessionCaisse::where('caisse_id', $caisse->id)
                         ->where('user_id', $caisse->user_id)
                         ->where('centre_id', $centreId)
@@ -690,11 +697,10 @@ class CaisseController extends Controller
                         ->latest('fermeture_ts')
                         ->first();
 
-                    $fondsOuverture = 0;
+                    $fondsOuverture = $lastSession?->fonds_fermeture ?? 0;
 
-                    if ($lastSession && $lastSession->fonds_fermeture > 0) {
-                        $fondsOuverture = $lastSession->fonds_fermeture;
-                        $alertMessage = "⚠️ Solde reporté de la session précédente : "
+                    if ($fondsOuverture > 0) {
+                        $alertMessage = "⚠️ Solde reporté : "
                             . number_format($fondsOuverture, 0, ',', ' ') . " FCFA";
                     }
 
@@ -716,12 +722,28 @@ class CaisseController extends Controller
             // ⏸️ PAUSE
             // ============================
             if ($newPosition === 'in_pause') {
-                if (!$session || $session->etat !== 'OUVERTE') {
+
+                if (!$session) {
                     return response()->json([
-                        'message' => 'Aucune session ouverte à mettre en pause pour ce centre.'
-                    ], Response::HTTP_NOT_FOUND);
+                        'message' => 'Aucune session trouvée.'
+                    ], 404);
                 }
 
+                // 🔥 Si déjà en pause → on bloque proprement
+                if ($session->etat === 'EN_PAUSE') {
+                    return response()->json([
+                        'message' => 'La session est déjà en pause.'
+                    ], 400);
+                }
+
+                // 🔥 Autoriser uniquement si ouverte
+                if ($session->etat !== 'OUVERTE') {
+                    return response()->json([
+                        'message' => 'Impossible de mettre en pause une session non ouverte.'
+                    ], 400);
+                }
+
+                // ✅ Mise en pause
                 $session->update([
                     'etat'           => 'EN_PAUSE',
                     'pause_ts'       => now(),
@@ -734,23 +756,26 @@ class CaisseController extends Controller
             // 🔒 FERMETURE
             // ============================
             if ($newPosition === 'close') {
+
                 if (!$session) {
                     return response()->json([
-                        'message' => 'Aucune session ouverte à fermer pour ce centre.'
+                        'message' => 'Aucune session à fermer.'
                     ], Response::HTTP_NOT_FOUND);
                 }
 
+                $total = $session->fonds_ouverture + $session->solde;
+
                 $session->update([
-                    'fermeture_ts'    => now(),
-                    'etat'            => 'FERMEE',
-                    'fonds_fermeture' => $session->fonds_ouverture + $session->solde,
-                    'fonds_fermeture_exactly' => $session->fonds_ouverture + $session->solde,
-                    'solde'           => $session->fonds_ouverture + $session->solde,
-                    'updated_by'      => $auth->id,
+                    'fermeture_ts'              => now(),
+                    'etat'                      => 'FERMEE',
+                    'fonds_fermeture'           => $total,
+                    'fonds_fermeture_exactly'   => $total,
+                    'solde'                     => $total,
+                    'updated_by'                => $auth->id,
                 ]);
             }
 
-            // 🔄 Update caisse pour ce centre
+            // 🔄 Update caisse
             $caisse->update([
                 'position'   => $newPosition,
                 'updated_by' => $auth->id
@@ -759,7 +784,7 @@ class CaisseController extends Controller
             DB::commit();
 
             return response()->json([
-                'message'     => "Caisse en position '{$newPosition}' pour le centre.",
+                'message'     => "Caisse en position '{$newPosition}'",
                 'session_id'  => $session?->id,
                 'alert'       => $alertMessage
             ], Response::HTTP_OK);
@@ -823,24 +848,26 @@ class CaisseController extends Controller
     public function pauseMyCaisse(Request $request)
     {
         $auth = auth()->user();
-        $centreId = $request->header('centre'); // 🔹 Filtrage par centre
+        $centreId = $request->header('centre');
 
-        // 🔹 Chercher la caisse active de l'utilisateur pour ce centre
+        // 🔹 Vérifier la caisse ouverte
         $caisse = Caisse::where('user_id', $auth->id)
             ->where('centre_id', $centreId)
-            ->where('is_active', true)
+            ->where('position', 'open')
             ->first();
 
         if (!$caisse) {
             return response()->json([
-                'message' => 'Aucune caisse active associée à cet utilisateur dans ce centre.'
-            ], Response::HTTP_NOT_FOUND);
+                'message' => 'Aucune caisse ouverte à mettre en pause.'
+            ], 404);
         }
 
-        // 🔹 Préparer la mise à jour de la position
-        $request->merge(['position' => 'in_pause']);
+        // 🔹 Envoyer les bonnes données
+        $request->merge([
+            'position' => 'in_pause',
+            'centre_id' => $centreId
+        ]);
 
-        // 🔹 Appel à la fonction générique de mise à jour
         return $this->updatePosition($request, $caisse->id);
     }
 
