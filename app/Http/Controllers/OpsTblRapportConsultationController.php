@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 
 /**
  * @permission_category Gestion des rapports de consultations
+ * @permission_module Gestion des prestations
  */
 class OpsTblRapportConsultationController extends Controller
 {

@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Validator;
 
 /**
  * @permission_category Gestion des referres médicaux
+ * @permission_module Gestion des prestations
  */
 class OpsTblReferreMedicalController extends Controller
 {

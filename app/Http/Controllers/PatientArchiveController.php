@@ -4,7 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Models\PatientArchive;
 use Illuminate\Http\Request;
-
+/**
+ * @permission_category Gestion des patients archivés
+ * @permission_module Gestion des prestations
+ */
 class PatientArchiveController extends Controller
 {
 

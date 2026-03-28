@@ -8,6 +8,7 @@ use App\Models\Quotation;
 
 /**
  * @permission_category Gestion des cotations
+ * @permission_module Paramètres Applicatifs
  */
 class QuotationController extends Controller
 {

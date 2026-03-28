@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 
 /**
  * @permission_category Gestion des paramètres systèmes
+ * @permission_module Paramètres Applicatifs
  */
 class SettingController extends Controller
 {

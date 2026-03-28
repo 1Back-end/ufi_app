@@ -16,7 +16,10 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Throwable;
-
+/**
+ * @permission_category Gestion des résultats d'examens
+ * @permission_module Gestion du laboratoire
+ */
 class ResultController extends Controller
 {
     /**
@@ -57,7 +60,29 @@ class ResultController extends Controller
                         ->first();
 
                     if ($element->typeResult->type != InputType::COMMENT->value) {
-                        if ($prestationable->status_examen != StateExamen::VALIDATED->value) {
+
+                        if ($resultExist) {
+                            // Comparer ancienne et nouvelle valeur
+                            $oldValue = $resultExist->result_machine;
+                            $newValue = $result['result_machine'];
+
+                            // Si la valeur a changé → remettre à PENDING, même si VALIDATED ou PRINTED
+                            if ($oldValue != $newValue) {
+                                $prestationable->update([
+                                    'status_examen' => StateExamen::PENDING->value,
+                                ]);
+                            }
+
+                            // Mettre à jour le résultat
+                            $resultExist->update($result);
+                            continue;
+                        }
+
+                        // Si le résultat n'existait pas encore, on met PENDING seulement si ce n'est pas validé/imprimé
+                        if (!in_array($prestationable->status_examen, [
+                            StateExamen::VALIDATED->value,
+                            StateExamen::PRINTED->value
+                        ])) {
                             $prestationable->update([
                                 'status_examen' => StateExamen::PENDING->value,
                             ]);
@@ -157,14 +182,18 @@ class ResultController extends Controller
                     ->where('prestationable_type', Examen::class)
                     ->where('prestationable_id', $examen_id)
                     ->first();
-                $prestationable->update([
-                    'status_examen' => "validated"
-                ]);
+
+                // On ne met à validated que si le statut actuel est PENDING
+                if ($prestationable->status_examen === StateExamen::PENDING->value) {
+                    $prestationable->update([
+                        'status_examen' => StateExamen::VALIDATED->value
+                    ]);
+                }
             }
         }
 
         return response()->json([
-            "message" => __("Le resultat a été valider avec succès !")
+            "message" => __("Le(s) résultat(s) a été validé(s) avec succès !")
         ], 202);
     }
 

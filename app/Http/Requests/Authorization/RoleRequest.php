@@ -18,9 +18,12 @@ class RoleRequest extends FormRequest
         return [
             'name' => ['required', $uniqueRule],
             'description' => ['required'],
-            'confidential' => ['boolean'],
+            'confidential' => ['nullable', 'boolean'],
             'accueil_url' => ['nullable'],
-            'permissions' => ['array']
+            'permissions' => ['nullable', 'array'],
+            'permissions.*.id' => ['required', 'exists:permissions,id'],
+            'permissions.*.centres' => ['nullable', 'array'],
+            'permissions.*.centres.*.id' => ['required_with:permissions.*.centres', 'exists:centres,id'],
         ];
     }
 }

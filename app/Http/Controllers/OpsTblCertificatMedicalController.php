@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * @permission_category Gestion des certificats médicaux
+ * @permission_module Gestion des prestations
  */
 class OpsTblCertificatMedicalController extends Controller
 {

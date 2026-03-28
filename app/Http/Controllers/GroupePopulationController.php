@@ -11,7 +11,8 @@ use Illuminate\Http\Response;
 
 
 /**
- * @permission_category Gestion des groupes de population.
+ * @permission_category Gestion des groupes de population
+ * @permission_module Gestion du laboratoire
  */
 
 class GroupePopulationController extends Controller

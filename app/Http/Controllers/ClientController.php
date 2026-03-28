@@ -36,6 +36,7 @@ use Throwable;
 
 /**
  * @permission_category Gestion des clients
+ * @permission_module Gestion des prestations
  */
 class ClientController extends Controller
 {
@@ -203,7 +204,12 @@ class ClientController extends Controller
      */
     public function destroy(Client $client)
     {
-        // Supprime le client
+        if ($client->prestations()->exists()) {
+            return response()->json([
+                'message' => "Impossible de supprimer ce client : des prestations sont déjà enregistrées."
+            ], Response::HTTP_FORBIDDEN);
+        }
+
         $client->delete();
 
         return response()->json([

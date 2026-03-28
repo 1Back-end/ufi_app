@@ -12,6 +12,7 @@ use Symfony\Component\HttpFoundation\Response;
 
 /**
  * @permission_category Gestion des sexes
+ * @permission_module Paramètres Applicatifs
  */
 
 class SexeController extends Controller

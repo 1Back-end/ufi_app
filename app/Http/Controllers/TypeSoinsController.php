@@ -8,6 +8,7 @@ use Sabberworm\CSS\Rule\Rule;
 
 /**
  * @permission_category Gestion des types de soins
+ * @permission_module Paramètres Applicatifs
  */
 
 class TypeSoinsController extends Controller

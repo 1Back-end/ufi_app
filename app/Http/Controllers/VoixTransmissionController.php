@@ -9,6 +9,7 @@ use App\Models\User;
 
 /**
  * @permission_category Gestion voix d'administrations des produits
+ * @permission_module Gestion des stocks
  */
 
 class VoixTransmissionController extends Controller

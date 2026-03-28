@@ -18,6 +18,7 @@ use Symfony\Component\HttpFoundation\Response;
 
 /**
  * @permission_category Gestion des Assureurs
+ * @permission_module Gestion des prestations
  */
 class AssureurController extends Controller
 

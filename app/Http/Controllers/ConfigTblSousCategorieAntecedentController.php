@@ -9,6 +9,7 @@ use App\Models\User;
 
 /**
  * @permission_category Gestion des sous catégories antécédants
+ * @permission_module Paramètres Applicatifs
  */
 class ConfigTblSousCategorieAntecedentController extends Controller
 {

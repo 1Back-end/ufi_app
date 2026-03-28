@@ -14,6 +14,7 @@ use Maatwebsite\Excel\Facades\Excel;
 
 /**
  * @permission_category Gestion des fournisseurs
+ * @permission_module Gestion des stocks
  */
 
 
@@ -23,7 +24,7 @@ class FournisseurController extends Controller
     /**
      * Display a listing of the resource.
      * @permission FournisseurController::index
-     * @permission_desc Afficher la liste des fournisseurs avec pagination
+     * @permission_desc Afficher la liste des fournisseurs
      */
     public function index(Request $request){
         $perPage = $request->input('limit', 25);  // Par défaut, 10 éléments par page

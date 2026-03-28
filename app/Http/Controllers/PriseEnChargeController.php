@@ -17,6 +17,7 @@ use Maatwebsite\Excel\Facades\Excel;
 
 /**
  * @permission_category Gestion des prises en charges
+ * @permission_module Gestion des prestations
  */
 class PriseEnChargeController extends Controller
 {

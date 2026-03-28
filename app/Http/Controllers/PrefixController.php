@@ -11,6 +11,7 @@ use Symfony\Component\HttpFoundation\Response;
 
 /**
  * @permission_category Gestion des préfixes
+ * @permission_module Paramètres Applicatifs
  */
 class PrefixController extends Controller
 {

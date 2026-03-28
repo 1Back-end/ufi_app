@@ -19,6 +19,7 @@ use Illuminate\Support\Carbon;
 use Spatie\Browsershot\Exceptions\CouldNotTakeBrowsershot;
 /**
  * @permission_category Gestion du bilan des actes
+ * @permission_module Gestion des prestations
  */
 
 

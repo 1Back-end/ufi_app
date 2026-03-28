@@ -14,7 +14,10 @@ use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\Response;
-
+/**
+ * @permission_category Gestion des campagnes facturées
+ * @permission_module Gestion des prestations
+ */
 class CampagneFactureController extends Controller
 {
     /**

@@ -8,6 +8,7 @@ use Illuminate\Http\JsonResponse;
 
 /**
  * @permission_category Gestion des prélèvements.
+ * @permission_module Gestion du laboratoire
  */
 class KbPrelevementController extends Controller
 {

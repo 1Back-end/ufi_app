@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 
 /**
  * @permission_category Gestion des types consultations
+ * @permission_module Paramètres Applicatifs
  */
 class TypeconsultationController extends Controller
 {

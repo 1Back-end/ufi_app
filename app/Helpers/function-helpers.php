@@ -12,6 +12,8 @@ use App\Models\Facture;
 use App\Models\Media;
 use App\Models\Prestation;
 use App\Models\Result;
+use App\Models\SessionCaisse;
+use App\Models\SessionElement;
 use App\Models\Soins;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
@@ -367,6 +369,43 @@ if (!function_exists('save_facture')) {
             ]);
         }
 
+//        $auth = auth()->user();
+//
+////        Log::info('Utilisateur connecté', [
+////            'user_id' => $auth->id,
+////            'caisse_id_auth' => $auth->caisse_id
+////        ]);
+//
+//
+//        $session = SessionCaisse::where('user_id', $auth->id)
+//            ->where('etat', 'OUVERTE')
+//            ->latest('ouverture_ts')
+//            ->first();
+//
+//        if (!$session) {
+////            Log::warning('Aucune session ouverte trouvée pour cet utilisateur');
+//            throw new \Exception("Votre caisse n'est pas ouverte !");
+//        }
+//
+////        Log::info('Session trouvée', [
+////            'session_id' => $session->id,
+////            'etat' => $session->etat,
+////            'caisse_id' => $session->caisse_id,
+////            'ouverture_ts' => $session->ouverture_ts
+////        ]);
+//
+//        SessionElement::create([
+//            'session_id' => $session->id,
+//            'facture_id' => $facture->id,
+//            'montant'    => $facture->amount_client,
+//            'caisse_id'  => $session->caisse_id,
+//            'centre_id'  => $centre_id,
+//            'created_by' => $auth->id,
+//            'updated_by' => $auth->id,
+//        ]);
+//
+//        $session->increment('solde', $facture->amount_client);
+
         return $facture;
     }
 }
@@ -484,16 +523,26 @@ if (!function_exists('showExamHasResult')) {
      */
     function showExamHasResult(Prestation $prestation, Examen $examen): bool
     {
-        if (! in_array($examen->pivot->status_examen->value, StateExamen::validated())) {
+        // 🔥 sécurisation pivot + status
+        if (!isset($examen->pivot) || !isset($examen->pivot->status_examen)) {
             return false;
         }
+        $status = $examen->pivot->status_examen;
+
+        // 🔥 gérer enum ou valeur brute
+        $statusValue = is_object($status) ? $status->value : $status;
+
+        if (!in_array($statusValue, StateExamen::validated())) {
+            return false;
+        }
+        // 🔥 optimisation (évite requêtes répétées)
+        $resultIds = $prestation->results->pluck('element_paillasse_id')->toArray();
 
         foreach ($examen->elementPaillasses as $elementPaillasse) {
-            if (in_array($elementPaillasse->id, $prestation->results()->pluck('element_paillasse_id')->toArray())) {
+            if (in_array($elementPaillasse->id, $resultIds)) {
                 return true;
             }
         }
-
         return false;
     }
 }

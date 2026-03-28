@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 
 /**
  * @permission_category Gestion des mises en observation
+ * @permission_module Gestion des prestations
  */
 class OpsTblMiseEnObservationHospitalisationController extends Controller
 {

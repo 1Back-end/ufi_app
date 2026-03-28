@@ -16,6 +16,7 @@ use Maatwebsite\Excel\Facades\Excel;
 
 /**
  * @permission_category Gestion des rendez vous
+ * @permission_module Gestion des prestations
  */
 
 class RendezVousController extends Controller

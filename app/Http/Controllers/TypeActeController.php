@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 
 /**
  * @permission_category Gestion des types d'actes
+ * @permission_module Paramètres Applicatifs
  */
 class TypeActeController extends Controller
 {

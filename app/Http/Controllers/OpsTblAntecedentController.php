@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 
 /**
  * @permission_category Gestion des antécédants.
+ * @permission_module Gestion des prestations
  */
 class OpsTblAntecedentController extends Controller
 {

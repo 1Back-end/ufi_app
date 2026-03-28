@@ -11,6 +11,7 @@ use Illuminate\Validation\Rule;
 
 /**
  * @permission_category Gestion des catégories d'antécédants
+ * @permission_module Paramètres Applicatifs
  */
 class CategorieAntecedentController extends Controller
 {

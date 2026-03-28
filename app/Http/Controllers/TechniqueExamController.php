@@ -8,6 +8,7 @@ use Illuminate\Http\JsonResponse;
 
 /**
  * @permission_category Gestion des analyses techniques
+ * @permission_module Gestion du laboratoire
  */
 class TechniqueExamController extends Controller
 {

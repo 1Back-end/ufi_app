@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 
 /**
  * @permission_category Gestion des Types de diagnostics
+ * @permission_module Paramètres Applicatifs
  */
 class ConfigTblTypeDiagnosticController extends Controller
 {

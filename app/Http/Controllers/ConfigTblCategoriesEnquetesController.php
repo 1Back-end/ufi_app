@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 
 /**
  * @permission_category Gestion des catégories d'enquetes
+ * @permission_module Paramètres Applicatifs
  */
 
 class ConfigTblCategoriesEnquetesController extends Controller

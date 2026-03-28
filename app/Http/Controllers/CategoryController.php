@@ -10,6 +10,7 @@ use App\Models\Category;
 
 /**
  * @permission_category Gestion des catégorie des produits
+ * @permission_module Gestion des stocks
  */
 class CategoryController extends Controller
 {

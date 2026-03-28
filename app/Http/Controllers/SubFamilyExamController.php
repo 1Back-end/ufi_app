@@ -8,6 +8,7 @@ use Illuminate\Http\JsonResponse;
 
 /**
  * @permission_category Gestion des sous familles d'examen
+ * @permission_module Gestion du laboratoire
  */
 
 class SubFamilyExamController extends Controller

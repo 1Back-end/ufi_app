@@ -13,6 +13,7 @@ use Illuminate\Http\Request;
 
 /**
  * @permission_category Gestion des prix uniques d’un assureur pour différents éléments dans le système
+ * @permission_module Gestion des prestations
  */
 
 class AssurableController extends Controller

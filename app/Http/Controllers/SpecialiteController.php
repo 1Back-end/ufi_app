@@ -10,6 +10,7 @@ use function Pest\Laravel\json;
 
 /**
  * @permission_category Gestion des spécialités des consultants
+ * @permission_module Paramètres Applicatifs
  */
 
 class SpecialiteController extends Controller

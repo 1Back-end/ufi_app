@@ -13,7 +13,15 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Log;
 use Symfony\Component\HttpFoundation\Response;
-
+/**
+ * @permission_category Gestion des roles
+ * @permission_module Gestion des prestations
+ * @permission_module Gestion des caisses
+ * @permission_module Gestion du laboratoire
+ * @permission_module Gestion des stocks
+ * @permission_module Paramètres Facturations
+ * @permission_module Paramètres Applicatifs
+ */
 class RoleController extends Controller
 {
     /**
@@ -22,15 +30,42 @@ class RoleController extends Controller
      * @permission RoleController::index
      * @permission_desc Liste de tous les roles
      */
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
-        return response()->json([
-            'roles' => Role::with([
-                'createdBy:id,nom_utilisateur',
-                'updatedBy:id,nom_utilisateur',
-                'permissions:id,name,description',
-            ])->get(),
+        $auth = auth()->user();
+        $perPage = $request->input('limit', 5);
+        $page = $request->input('page', 1);
+
+        $query = Role::with([
+            'createdBy:id,nom_utilisateur',
+            'updatedBy:id,nom_utilisateur',
+            'permissions:id,name,description',
         ]);
+
+        if ($search = trim($request->input('search'))) {
+            $query->where(function ($q) use ($search) {
+                $q->where('id', 'like', "%{$search}%")
+                    ->orWhere('name', 'like', "%{$search}%")
+                    ->orWhere('guard_name', 'like', "%{$search}%")
+
+                    // 🔹 Permissions
+                    ->orWhereHas('permissions', function ($qw) use ($search) {
+                        $qw->where('id', 'like', "%{$search}%")
+                            ->orWhere('name', 'like', "%{$search}%")
+                            ->orWhere('description', 'like', "%{$search}%");
+                    });
+            });
+        }
+
+        $data = $query->latest()->paginate($perPage, ['*'], 'page', $page);
+
+        return response()->json([
+            'data'         => $data->items(),
+            'current_page' => $data->currentPage(),
+            'last_page'    => $data->lastPage(),
+            'total'        => $data->total(),
+        ]);
+
     }
 
     /**
@@ -44,39 +79,50 @@ class RoleController extends Controller
     public function store(RoleRequest $request)
     {
         DB::beginTransaction();
-        try {
-            $role = Role::create($request->validated());
 
-            if ($request->input('permissions')) {
-                foreach ($request->input('permissions') as $permission) {
-                    if ($permission['centres']) {
-                        foreach ($permission['centres'] as $centre) {
-                            $role->permissions()->attach($permission['id'], [
-                                'created_by' => auth()->id(),
-                                'updated_by' => auth()->id(),
-                                'centre_id' => $centre['id'],
-                            ]);
-                        }
-                    } else {
-                        $role->permissions()->attach($permission['id'], [
+        try {
+            $data = $request->validated();
+            $permissions = $data['permissions'] ?? [];
+            unset($data['permissions']);
+
+            $role = Role::create($data);
+
+            foreach ($permissions as $permission) {
+                $permissionId = $permission['id'];
+                $centres = $permission['centres'] ?? [];
+
+                if (!empty($centres)) {
+                    foreach ($centres as $centre) {
+                        $centreId = is_array($centre) ? $centre['id'] : $centre;
+
+                        $role->permissions()->attach($permissionId, [
                             'created_by' => auth()->id(),
                             'updated_by' => auth()->id(),
+                            'centre_id' => $centreId,
                         ]);
                     }
+                } else {
+                    $role->permissions()->attach($permissionId, [
+                        'created_by' => auth()->id(),
+                        'updated_by' => auth()->id(),
+                        'centre_id' => null,
+                    ]);
                 }
             }
+
+            DB::commit();
+
+            return response()->json([
+                'message' => __("Rôle créé avec succès !")
+            ], Response::HTTP_CREATED);
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error($e->getMessage());
+
             return response()->json([
-                'message' => __("Une erreur s'est produite lors de la création du role !")
+                'message' => __("Une erreur s'est produite lors de la création du rôle !")
             ], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
-        DB::commit();
-
-        return response()->json([
-            'message' => __("Role a été crée avec succès !")
-        ], Response::HTTP_CREATED);
     }
 
     /**
@@ -105,47 +151,58 @@ class RoleController extends Controller
     public function update(RoleRequest $request, Role $role)
     {
         DB::beginTransaction();
+
         try {
             $data = $request->validated();
+
             if ($role->id === 1) {
-                $data = $request->except('name');
+                unset($data['name']);
             }
 
             $role->update($data);
 
-            if ($request->input('permissions')) {
-                $role->permissions()->detach();
-                foreach ($request->input('permissions') as $permission) {
-                    if ($permission['centres']) {
-                        foreach ($permission['centres'] as $centre) {
-                            $role->permissions()->attach($permission['id'], [
-                                'created_by' => auth()->id(),
-                                'updated_by' => auth()->id(),
-                                'centre_id' => $centre['id'],
-                            ]);
-                        }
-                    } else {
-                        $role->permissions()->attach($permission['id'], [
+            $permissions = $request->input('permissions', []);
+
+            $role->permissions()->detach();
+
+            foreach ($permissions as $permission) {
+                $permissionId = $permission['id'];
+                $centres = $permission['centres'] ?? [];
+
+                if (!empty($centres)) {
+                    foreach ($centres as $centre) {
+                        $centreId = is_array($centre) ? $centre['id'] : $centre;
+
+                        $role->permissions()->attach($permissionId, [
                             'created_by' => auth()->id(),
                             'updated_by' => auth()->id(),
+                            'centre_id' => $centreId,
                         ]);
                     }
+                } else {
+                    $role->permissions()->attach($permissionId, [
+                        'created_by' => auth()->id(),
+                        'updated_by' => auth()->id(),
+                        'centre_id' => null,
+                    ]);
                 }
             }
+
+            DB::commit();
+
+            return response()->json([
+                'message' => __("Mise à jour du rôle avec succès !"),
+                'role' => $role->load('permissions'),
+                'validated' => $data
+            ]);
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error($e->getMessage());
+
             return response()->json([
-                'message' => __("Une erreur s'est produite lors de la création du role !")
+                'message' => __("Une erreur s'est produite lors de la mise à jour du rôle !")
             ], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
-        DB::commit();
-
-        return \response()->json([
-            'message' => __("Mise à jour du role avec succès lkoj!"),
-            'role' => $role,
-            'validated' => $request->validated()
-        ]);
     }
 
     /**

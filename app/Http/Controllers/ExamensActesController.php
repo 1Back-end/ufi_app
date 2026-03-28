@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 
 /**
  * @permission_category Gestion des examens au rapport de consultation d'un client
+ * @permission_module Gestion des prestations
  */
 class ExamensActesController extends Controller
 {

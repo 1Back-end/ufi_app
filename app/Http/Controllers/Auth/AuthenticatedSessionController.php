@@ -22,12 +22,14 @@ class AuthenticatedSessionController extends Controller
     {
         $request->authenticate();
         $user = $request->user();
+        $caisse = \App\Models\Caisse::where('user_id', $user->id)->where('is_active', true)->first();
         if (!$user->status) {
             return response()->json([
                 "status" => "error",
                 "message" => "Votre compte est désactivé !"
             ], \Symfony\Component\HttpFoundation\Response::HTTP_UNAUTHORIZED);
         }
+
 
         $centre = $user->centres()->select(['centres.id', 'centres.name', 'centres.reference'])->wherePivot('default', true)->first();
 
@@ -55,7 +57,8 @@ class AuthenticatedSessionController extends Controller
             'permissions' => $permissions,
             'centres' => $centres,
             'centre_default' => $centre,
-            'user' => $user
+            'user' => $user,
+            'caisse'         => $caisse,
         ]);
     }
 

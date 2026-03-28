@@ -8,6 +8,7 @@ use Illuminate\Http\JsonResponse;
 
 /**
  * @permission_category Gestion des tubes de prélèvements
+ * @permission_module Gestion du laboratoire
  */
 
 class TubePrelevementController extends Controller

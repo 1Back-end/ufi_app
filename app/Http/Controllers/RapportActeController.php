@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 
 /**
  * @permission_category Gestion du rapport des actes
+ * @permission_module Gestion des prestations
  */
 
 class RapportActeController extends Controller

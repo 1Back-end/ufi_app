@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 
 /**
  * @permission_category Gestion des catégories d'examen physique
+ * @permission_module Paramètres Applicatifs
  */
 class ConfigTblCategoriesExamenPhysiqueController extends Controller
 {

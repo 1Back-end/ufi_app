@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 
 /**
  * @permission_category Gestion des unités de produits
+ * @permission_module Gestion des stocks
  */
 
 class UniteProduitController extends Controller

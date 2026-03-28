@@ -15,6 +15,7 @@ use Symfony\Component\HttpFoundation\Response;
 
 /**
  * @permission_category Gestion des centres
+ * @permission_module Paramètres applicatifs
  */
 class CentreController extends Controller
 {

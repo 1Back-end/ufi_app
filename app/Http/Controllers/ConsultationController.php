@@ -12,6 +12,7 @@ use Illuminate\Validation\Rule;
 
 /**
  * @permission_category Gestion des consultations
+ * @permission_module Paramètres Facturations
  */
 class ConsultationController extends Controller
 {

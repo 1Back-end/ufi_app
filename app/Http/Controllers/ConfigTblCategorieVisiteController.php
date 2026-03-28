@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 
 /**
  * @permission_category Gestion des catégories de visites
+ * @permission_module Paramètres Applicatifs
  */
 class ConfigTblCategorieVisiteController extends Controller
 {

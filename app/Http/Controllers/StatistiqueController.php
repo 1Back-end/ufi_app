@@ -23,6 +23,7 @@ use Illuminate\Support\Facades\Log;
 
 /**
  * @permission_category Gestion des statistiques
+ * @permission_module Gestion des prestations
  */
 
 class StatistiqueController extends Controller

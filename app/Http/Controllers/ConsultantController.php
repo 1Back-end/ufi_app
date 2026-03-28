@@ -27,6 +27,7 @@ use Maatwebsite\Excel\Facades\Excel;
 use Symfony\Component\HttpFoundation\Response;
 /**
  * @permission_category Gestion des consultants
+ * @permission_module Gestion des prestations
  */
 class ConsultantController extends Controller
 {

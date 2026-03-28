@@ -8,6 +8,7 @@ use App\Models\Paillasse;
 
 /**
  * @permission_category Gestion des paillasses
+ * @permission_module Gestion du laboratoire
  */
 class PaillasseController extends Controller
 {
