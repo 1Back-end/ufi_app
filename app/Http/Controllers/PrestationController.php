@@ -329,9 +329,9 @@ class PrestationController extends Controller
         }
 
         if (in_array($type, [TypePrestation::LABORATOIR->value])) {
-            if ($centreModel->short_name !== 'GTLABO') {
+            if (!in_array($centreModel->short_name, ['GTLABO', 'AM_TSG'])) {
                 return response()->json([
-                    'message' => 'Cette prestation ne peut être créé que dans le Centre GTLABO.'
+                    'message' => 'Cette prestation ne peut être créée que dans les Centres GTLABO ou à l\'ANCIENNE MAIRIE TSINGA.'
                 ], Response::HTTP_BAD_REQUEST);
             }
         }
@@ -491,9 +491,9 @@ class PrestationController extends Controller
         }
 
         if (in_array($type, [TypePrestation::LABORATOIR->value])) {
-            if ($centreModel->short_name !== 'GTLABO') {
+            if (!in_array($centreModel->short_name, ['GTLABO', 'AM_TSG'])) {
                 return response()->json([
-                    'message' => 'Cette prestation ne peut être créé que dans le Centre GTLABO.'
+                    'message' => 'Cette prestation ne peut être créée que dans les Centres GTLABO ou à l\'ANCIENNE MAIRIE TSINGA.'
                 ], Response::HTTP_BAD_REQUEST);
             }
         }
