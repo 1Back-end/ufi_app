@@ -68,8 +68,13 @@ class AuthenticatedSessionController extends Controller
      */
     public function getPermissionByCenter(Centre $centre)
     {
+        $caisse = $centre->caisses()
+            ->where('is_active', true)
+            ->get(['id', 'code', 'name', 'solde_caisse', 'type_caisse']);
+
         return response()->json([
-            'permissions' => load_permissions(\auth()->user(), $centre)
+            'permissions' => load_permissions(\auth()->user(), $centre),
+            'caisse'     => $caisse,
         ]);
     }
 
