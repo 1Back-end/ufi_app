@@ -39,7 +39,7 @@ class ExtractPermissions extends Command
             'modules' => ['Paramètres Facturations','Autres Modules'],
         ],
         'view_access_for_first_settings_of_laboratoire' => [
-            'description' => 'Afficher le menu principal des configurations du laboratoire',
+            'description' => 'Afficher le menu principal de saisie des résultats du laboratoire',
             'category' => 'Permissions supplémentaires',
             'modules' => ['Gestion du laboratoire','Autres Modules'],
         ],
@@ -114,6 +114,12 @@ class ExtractPermissions extends Command
             'category' => 'Permissions supplémentaires',
             'modules' => ['Paramètres Applicatifs','Autres Modules'],
         ],
+        'view_access_for_first_config_of_laboratoire' => [
+            'description' => 'Afficher le menu principal des configurations du laboratoire',
+            'category' => 'Permissions supplémentaires',
+            'modules' => ['Gestion du laboratoire','Autres Modules'],
+        ],
+
 
 
 
