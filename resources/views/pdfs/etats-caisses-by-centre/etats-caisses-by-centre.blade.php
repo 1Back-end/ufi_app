@@ -112,11 +112,8 @@
     <div class="mb-2 w-100" style="border-top: 1px double rgb(0, 0, 0, 0.75);"></div>
 
 
-    @php
-        $caisse = $result->first()->caisse ?? null;
-    @endphp
     <h1 class="fs-3 fw-bold text-center text-uppercase">
-        ETAT DE LA  {{ $caisse->name ?? '-' }}
+        ETAT DE LA  CAISSE
         DU {{ $centre->name }}
     </h1>
 
