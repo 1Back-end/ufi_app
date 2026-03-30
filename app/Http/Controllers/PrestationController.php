@@ -231,7 +231,7 @@ class PrestationController extends Controller
 
         return response()->json([
             'prestations' => $prestations,
-            'regulation_methods' => RegulationMethod::get()->toArray(),
+            'regulation_methods' => RegulationMethod::all(),
             'anteririorResult' => $anteririorResult,
         ]);
     }
@@ -631,6 +631,10 @@ class PrestationController extends Controller
         try {
             $centre = $request->header('centre');
             $facture = save_facture($prestation, $centre, $request->input('proforma'));
+            $prestation->update([
+                'regulated' => 5
+            ]);
+
         } catch (\Throwable $th) {
             DB::rollBack();
             return response()->json([
