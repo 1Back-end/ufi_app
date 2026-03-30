@@ -3,7 +3,7 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>ETATS DE CAISSES</title>
+    <title>ETATS DE CAISSES PAR CENTRE</title>
 
     <style>
         {!! $bootstrap !!}
@@ -117,19 +117,18 @@
     @endphp
     <h1 class="fs-3 fw-bold text-center text-uppercase">
         ETAT DE LA  {{ $caisse->name ?? '-' }}
-        GÉRÉE PAR {{ $caisse->user->nom_utilisateur ?? '-' }}
+        DU {{ $centre->name }}
     </h1>
 
     <p class="fst-italic text-end">Date d'impression: {{ now()->format('d/m/Y H:i') }}</p>
 
     @if(isset($start) && isset($end))
-    <h2 class="fw-bold text-center fs-5 text-uppercase">
-        <strong>Période :</strong>
-        du {{ \Carbon\Carbon::parse($start)->format('d/m/Y') }}
-        au {{ \Carbon\Carbon::parse($end)->format('d/m/Y') }}
-    </h2>
+        <h2 class="fw-bold text-center fs-5 text-uppercase">
+            <strong>Période :</strong>
+            du {{ \Carbon\Carbon::parse($start)->format('d/m/Y') }}
+            au {{ \Carbon\Carbon::parse($end)->format('d/m/Y') }}
+        </h2>
     @endif
-
 
     <div class="mt-2 w-100">
         <table class="table table-bordered table-striped" style="font-size: 12px;">

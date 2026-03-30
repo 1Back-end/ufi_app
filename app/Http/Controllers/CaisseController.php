@@ -1373,6 +1373,12 @@ class CaisseController extends Controller
     }
 
 
+    /**
+     * @return JsonResponse
+     *
+     * @permission CaisseController::print_data_caisses_by_centre
+     * @permission_desc Imprimer les états de caisses par utilisateur
+     */
     public function print_data_caisses_by_centre(Request $request)
     {
         try {
@@ -1397,7 +1403,7 @@ class CaisseController extends Controller
             $end_date = \Illuminate\Support\Carbon::parse($request->input('end_date'))->endOfDay();
 
             // 🔹 Query propre
-            $query = SessionElement::with([ 'centre', 'creator', 'updater', 'facture', 'caisse', 'regulation_method' ])
+            $query = SessionElement::with([ 'centre', 'creator', 'updater', 'facture.prestation.client', 'caisse', 'regulation_method' ])
                 ->where('centre_id', $centreId) ->where('caisse_id', $request->caisse_id)
                 ->whereBetween('created_at', [$start_date, $end_date]);
 
@@ -1432,6 +1438,118 @@ class CaisseController extends Controller
 
             save_browser_shot_pdf(
                 view: 'pdfs.etats-caisses.etats-caisses',
+                data: $data,
+                folderPath: $folderPath,
+                path: $filePath,
+                margins: [15, 10, 15, 10],
+                footer: 'pdfs.reports.factures.footer',
+                format: 'A4',
+                direction: 'landscape'
+            );
+
+            if (!file_exists($filePath)) {
+                return response()->json([
+                    'message' => 'Le fichier PDF n\'a pas été généré.'
+                ], 500);
+            }
+
+            // 🔹 Encodage
+            $pdfContent = file_get_contents($filePath);
+            $base64 = base64_encode($pdfContent);
+
+            return response()->json([
+                'result' => $result,
+                'base64' => $base64,
+                'url' => $filePath,
+                'filename' => $fileName,
+            ], 200);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+
+            return response()->json([
+                'error' => 'Erreur de validation',
+                'messages' => $e->errors()
+            ], 422);
+
+        } catch (\Exception $e) {
+
+            return response()->json([
+                'error'   => 'Une erreur est survenue',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+
+
+    /**
+     * @return JsonResponse
+     *
+     * @permission CaisseController::print_data_caisses_by_centre_id
+     * @permission_desc Imprimer les états de caisses par centre
+     */
+    public function print_data_caisses_by_centre_id(Request $request)
+    {
+        try {
+
+            $centreId = $request->header('centre');
+
+            if (!$centreId) {
+                return response()->json([
+                    'message' => 'Centre non fourni'
+                ], 400);
+            }
+
+            $start_date = \Illuminate\Support\Carbon::parse($request->input('start_date'))->startOfDay();
+            $end_date = \Illuminate\Support\Carbon::parse($request->input('end_date'))->endOfDay();
+
+            // 🔹 Query avec ou sans filtre caisse
+            $query = SessionElement::with([
+                'centre',
+                'creator',
+                'updater',
+                'facture.prestation.client',
+                'caisse',
+                'regulation_method'
+            ])
+                ->where('centre_id', $centreId)
+                ->whereBetween('created_at', [$start_date, $end_date]);
+
+            // Si un filtre caisse est fourni, on l'applique
+            if ($request->filled('caisse_id')) {
+                $query->where('caisse_id', $request->caisse_id);
+            }
+
+            $result = $query->orderBy('created_at', 'ASC')->get();
+
+            if ($result->isEmpty()) {
+                return response()->json([
+                    'message' => 'Aucune donnée trouvée.'
+                ], 404);
+            }
+
+            $centre = Centre::find($centreId);
+            $media = $centre?->medias()->where('name', 'logo')->first();
+
+            $data = [
+                'result' => $result,
+                'logo' => $media ? 'storage/' . $media->path . '/' . $media->filename : '',
+                'centre' => $centre,
+                'start' => $start_date,
+                'end' => $end_date
+            ];
+
+            // 🔹 Génération PDF
+            $fileName = 'etats-caisses-by-centre' . now()->format('YmdHis') . '.pdf';
+            $folderPath = 'storage/etats-caisses-by-centre';
+            $filePath = $folderPath . '/' . $fileName;
+
+            if (!file_exists($folderPath)) {
+                mkdir($folderPath, 0755, true);
+            }
+
+            save_browser_shot_pdf(
+                view: 'pdfs.etats-caisses-by-centre.etats-caisses-by-centre',
                 data: $data,
                 folderPath: $folderPath,
                 path: $filePath,

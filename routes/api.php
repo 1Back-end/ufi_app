@@ -143,6 +143,8 @@ Route::middleware(['activity'])->group(function () {
         Route::post('caisses/change_secret_code_in_users', [\App\Http\Controllers\CaisseController::class, 'change_secret_code']);
         Route::post('caisses/forgot_secret_code_for_my_caisses', [\App\Http\Controllers\CaisseController::class, 'forgot_secret_code_for_my_caisses']);
         Route::get('print_data_caisses_by_centre', [\App\Http\Controllers\CaisseController::class, 'print_data_caisses_by_centre']);
+        Route::get('print_data_caisses_by_centreId', [\App\Http\Controllers\CaisseController::class, 'print_data_caisses_by_centre_id']);
+
 
         Route::get('sessions_caisses/list_transferts_caisses', [\App\Http\Controllers\SessionCaisseController::class,'get_transfert_caisse']);
         Route::get('sessions_caisses/get_transfert_caisse_virtuel', [\App\Http\Controllers\SessionCaisseController::class,'get_transfert_caisse_virtuel']);
