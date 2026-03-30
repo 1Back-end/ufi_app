@@ -9,8 +9,14 @@ use Illuminate\Support\Str;
 
 /**
  * @permission_category Gestion des modules d'applications
+ * @permission_module Gestion des prestations
  * @permission_module Gestion des caisses
+ * @permission_module Gestion du laboratoire
+ * @permission_module Gestion des stocks
+ * @permission_module Paramètres Facturations
+ * @permission_module Paramètres Applicatifs
  */
+
 class ModuleApplicationsController extends Controller
 {
     /**
