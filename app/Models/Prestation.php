@@ -68,7 +68,8 @@ class Prestation extends Model
         'state_examen',
         'prelevement',
         'last_prelevement',
-        'validated_printed_count'
+        'validated_printed_count',
+        'is_all_examens_validated',
     ];
 
     protected function validatedPrintedCount(): Attribute
@@ -98,6 +99,36 @@ class Prestation extends Model
                 })->count();
 
                 return "{$validatedPrinted}/{$total}";
+            }
+        );
+    }
+
+    protected function isAllExamensValidated(): Attribute
+    {
+        return Attribute::make(
+            get: function () {
+                $examens = $this->relationLoaded('examens')
+                    ? $this->examens
+                    : $this->examens()->get();
+
+                $total = $examens->count();
+
+                if ($total === 0) {
+                    return false;
+                }
+
+                $validatedCount = $examens->filter(function ($examen) {
+                    $status = $examen->pivot?->status_examen;
+                    $value = $status instanceof \UnitEnum ? $status->value : $status;
+
+                    return in_array($value, [
+                        StateExamen::VALIDATED->value,
+                        StateExamen::PRINTED->value
+                    ]);
+                })->count();
+
+                // ✅ PARTIEL seulement si entre 1 et total-1
+                return $validatedCount > 0 && $validatedCount < $total;
             }
         );
     }

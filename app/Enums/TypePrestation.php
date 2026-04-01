@@ -39,4 +39,17 @@ enum TypePrestation: int
             self::CAMPAGNE => 'Campagne',
         };
     }
+
+    public static function relationPivot($value): ?string
+    {
+        return match ($value) {
+            self::ACTES => 'actes',
+            self::CONSULTATIONS => 'consultations',
+            self::SOINS => 'soins',
+            self::LABORATOIR => 'examens',
+            self::PRODUITS => 'products',
+            self::HOSPITALISATION => 'hospitalisations',
+            default => null,
+        };
+    }
 }

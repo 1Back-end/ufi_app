@@ -31,7 +31,13 @@ class Facture extends Model
         'amount_prelevement',
         'amount_prelevement_pc',
         'description_bay_by_assurance',
-        'price_bay_by_assurance'
+        'price_bay_by_assurance',
+        'amount_contested',
+        'amount_paid',
+        'amount_ir',
+        'amount_received',
+        'amount_prorate',
+        'others_amount_excluded'
     ];
 
     protected function casts(): array

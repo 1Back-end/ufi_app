@@ -241,6 +241,7 @@ class RegulationController extends Controller
             'number_piece' => ['required'],
             'comment' => ['nullable', 'string', 'max:255'],
             'date_piece' => ['required', 'date'],
+            'date_reception' => ['required', 'date'],
             'factures' => ['required_if:allFacture,false', 'array'],
             'allFacture' => ['required', 'boolean'],
             'facture_ids' => ['array'],
@@ -252,6 +253,13 @@ class RegulationController extends Controller
             'total_ir_amount' => ['nullable', 'numeric'],
             'ir_rate' => ['nullable', 'numeric'],
             'net_to_pay' => ['required', 'numeric'],
+
+            'factures.*.amount_contested' => ['nullable', 'numeric'],
+            'factures.*.amount_paid' => ['nullable', 'numeric'],
+            'factures.*.amount_ir' => ['nullable', 'numeric'],
+            'factures.*.amount_received' => ['nullable', 'numeric'],
+            'factures.*.amount_prorate' => ['nullable', 'numeric'],
+            'factures.*.others_amount_excluded' => ['nullable', 'numeric'],
         ]);
 
         DB::beginTransaction();
@@ -287,6 +295,7 @@ class RegulationController extends Controller
                 'end_date' => $request->input('end_date'),
                 'number_piece' => $request->input('number_piece'),
                 'date_piece' => $request->input('date_piece'),
+                'date_reception' => $request->input('date_reception'),
             ]);
 
             FacturationAssurance::create([
@@ -378,6 +387,15 @@ class RegulationController extends Controller
                     'particular' => true,
                 ]);
 
+                $facture->update([
+                    'amount_prorate' => $factureData['amount_prorate'] ?? 0,
+                    'amount_contested' => $factureData['amount_contested'] ?? 0,
+                    'amount_paid' => $factureData['amount_paid'] ?? 0,
+                    'amount_ir' => $factureData['amount_ir'] ?? 0,
+                    'amount_received' => $factureData['amount_received'] ?? 0,
+                    'others_amount_excluded' => $factureData['others_amount_excluded'] ?? 0,
+                ]);
+
                 if ($request->type == 'client' && $factureData['amount'] < $facture->amount_client) {
                     $facture->update([
                         'contentieux' => true,
@@ -436,6 +454,72 @@ class RegulationController extends Controller
         return response()->json([
             'message' => 'Enregistrement effectué avec succès'
         ], 201);
+    }
+
+
+    public function updateSpecialRegulationItems(Request $request)
+    {
+        $request->validate([
+            'factures' => ['required', 'array'],
+            'factures.*.id' => ['required', 'exists:factures,id'],
+            'factures.*.items' => ['required', 'array'],
+            'factures.*.items.*.id' => ['required'],
+            'factures.*.items.*.amount' => ['required', 'numeric'],
+            'factures.*.items.*.amount_prorate' => ['nullable', 'numeric'],
+            'factures.*.items.*.amount_contested' => ['nullable', 'numeric'],
+        ]);
+
+        DB::beginTransaction();
+        try {
+            foreach ($request->factures as $factureData) {
+                $facture = Facture::find($factureData['id']);
+                $this->validatedFacture($facture, true);
+
+                foreach ($factureData['items'] as $item) {
+                    $prestation = $facture->prestation;
+                    $pivotData = [
+                        'amount_regulate' => $item['amount'] * 100,
+                        'amount_prorate' => $item['amount_prorate'] ?? 0,
+                        'amount_contested' => $item['amount_contested'] ?? 0,
+                    ];
+
+                    switch ($prestation->type) {
+                        case TypePrestation::ACTES:
+                            $prestation->actes()->updateExistingPivot($item['id'], $pivotData);
+                            break;
+                        case TypePrestation::CONSULTATIONS:
+                            $prestation->consultations()->updateExistingPivot($item['id'], $pivotData);
+                            break;
+                        case TypePrestation::SOINS:
+                            $prestation->soins()->updateExistingPivot($item['id'], $pivotData);
+                            break;
+                        case TypePrestation::LABORATOIR:
+                            $prestation->examens()->updateExistingPivot($item['id'], $pivotData);
+                            break;
+                        case TypePrestation::PRODUITS:
+                            $prestation->products()->updateExistingPivot($item['id'], $pivotData);
+                            break;
+                        case TypePrestation::HOSPITALISATION:
+                            $prestation->hospitalisations()->updateExistingPivot($item['id'], $pivotData);
+                            break;
+                        default:
+                            \Log::warning("Type de prestation non implémenté: {$prestation->type}");
+                            break;
+                    }
+                }
+            }
+
+            DB::commit();
+            return response()->json([
+                'message' => 'Montants des items mis à jour avec succès'
+            ], 200);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'message' => $e->getMessage()
+            ], $e->getCode() === 0 ? Response::HTTP_INTERNAL_SERVER_ERROR : Response::HTTP_BAD_REQUEST);
+        }
     }
 
     /**

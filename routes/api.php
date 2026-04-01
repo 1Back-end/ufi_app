@@ -223,6 +223,7 @@ Route::middleware(['activity'])->group(function () {
         Route::get("/factures/in-progress", [PrestationController::class, 'getFacturesInProgress']);
         Route::post('/factures/calculate', [PrestationController::class, 'calculateFactureAmounts']);
         Route::post('/special-regulations', [RegulationController::class, 'specialRegulation']);
+        Route::post('/factures/regulates_items_for_facture', [RegulationController::class, 'updateSpecialRegulationItems']);
         Route::post('/ignore-factures', [RegulationController::class, 'ignoreFacture']);
         Route::post('/print-facture-assurance', [PrestationController::class, 'printFactureAssurance']);
 
