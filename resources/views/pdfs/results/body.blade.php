@@ -139,8 +139,8 @@
                 </tr>
 
                 <tr>
-                    <td class="">Age du patient:</td>
-                    <td class="ps-3 fw-bold">{{ $prestation->client->age }} ans</td>
+                    <td class="">Date de naissance du patient:</td>
+                    <td class="ps-3 fw-bold">{{ $prestation->client->age }}</td>
                 </tr>
 
                 <tr>
