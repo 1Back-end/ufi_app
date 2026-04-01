@@ -18,6 +18,7 @@ use App\Models\Examen;
 use App\Models\FacturationAssurance;
 use App\Models\Facture;
 use App\Models\FactureAssociate;
+use App\Models\FactureAssuranceByCentre;
 use App\Models\Media;
 use App\Models\OpsTblHospitalisation;
 use App\Models\Prestation;
@@ -1131,121 +1132,92 @@ class PrestationController extends Controller
      */
     public function printFactureAssurance(Request $request)
     {
-        $auth = auth()->user();
         $request->validate([
-            'assurance' => ['required_if:client,null', 'exists:assureurs,id'],
-            'client' => ['required_if:assurance,null', 'exists:clients,id'],
+            'assurance' => ['required', 'exists:assureurs,id'],
             'start_date' => ['required', 'date'],
             'end_date' => ['required', 'date'],
-            'actualize' => ["boolean"],
         ]);
+
         $assurance = Assureur::find($request->assurance);
-        $client = Client::find($request->client);
-
-        $ref = $client ? $client->ref_cli : $assurance->ref;
-
         $startDate = Carbon::createFromTimeString($request->input("start_date"));
         $endDate = Carbon::createFromTimeString($request->input("end_date"));
-        $fileName = $ref . '-' . $startDate->format('d-m-Y') . '-' . $endDate->format('d-m-Y') . '.pdf';
+        $fileName = strtoupper('FACTURE-' . $assurance->nom . '-' . $startDate->format('d-m-Y') . '-' . $endDate->format('d-m-Y') . '.pdf');
 
-        $mediaFacture = Media::where('filename', $fileName)->first();
+        $folderPath = 'storage/facture-assurance';
+        $filePath   = $folderPath . '/' . $fileName;
+        $footer = 'pdfs.reports.factures.footer';
 
-        if ($mediaFacture) {
-            $path = 'storage/' . $mediaFacture->path;
-        } else {
-            $prestations = Prestation::filterInProgress(
-                startDate: $request->input('start_date'),
-                endDate: $request->input('end_date'),
-                assurance: $request->input('assurance'),
-                payableBy: $request->input('client'),
-            )
-                ->get();
-
-            $centre = Centre::find($request->header('centre'));
-            $code = Str::padLeft((FactureAssociate::max('id') ? FactureAssociate::max('id') + 1 : 1), 4, 0) . '/' . Str::upper($centre->reference) . '/' . now()->format('y');
-            $media = $centre->medias()->where('name', 'logo')->first();
-
-            $data = [
-                'assurance' => $assurance,
-                'client' => $client,
-                'prestations' => $prestations,
-                'code' => $code,
-                'centre' => $centre,
-                'logo' => $media ? 'storage/' . $media->path . '/' . $media->filename : '',
-                "start_date" => $startDate,
-                "end_date" => $endDate,
-            ];
-
-            $view = $client ? 'pdfs.factures.clients.facture-client-associate' : 'pdfs.factures.assurances.facture-assurance';
-            $footer = $client ? 'pdfs.factures.clients.footer' : 'pdfs.factures.assurances.footer';
-            $folderPath = $client ? 'storage/facture-clients' : 'storage/facture-assurance';
-            $path = $client ? 'storage/facture-clients/' : 'storage/facture-assurance/';
-
-            try {
-                save_browser_shot_pdf(
-                    view: $view,
-                    data: $data,
-                    folderPath: $folderPath,
-                    path: $path . $fileName,
-                    footer: $footer,
-                    margins: [15, 10, 15, 10]
-                );
-            } catch (CouldNotTakeBrowsershot | Throwable $e) {
-                Log::error($e->getMessage());
-
-                return \response()->json([
-                    'message' => __("Un erreur inattendue est survenu.")
-                ], 400);
-            }
-
-
-            $column = $request->input('assurance') ? 'amount_client' : 'amount_pc';
-            $totalAmount = DB::table('factures')
-                ->join('prestations', 'factures.prestation_id', '=', 'prestations.id')
-                ->where('factures.type', 2)
-                ->where('factures.state', StateFacture::IN_PROGRESS->value)
-                ->where('prestations.centre_id', $request->header('centre'))
-                ->when($request->input('assurance'), fn($q) => $q->where('prise_en_charges.assureur_id', $request->input('assurance')))
-                ->when($request->input('client'), fn($q) => $q->where('prestations.payable_by', $request->input('client')))
-                ->when($request->input('client'), fn($q) => $q->join('clients', 'prestations.payable_by', '=', 'clients.id'))
-                ->when($request->input('assurance'), fn($q) => $q->join('prise_en_charges', 'prestations.prise_charge_id', '=', 'prise_en_charges.id'))
-                ->selectRaw("SUM(factures.$column) / 100 as total")
-                ->value('total');
-
-            if ($request->input('client')) {
-                $facture = $client->factures()->create([
-                    'start_date' => $request->input('start_date'),
-                    'end_date' => $request->input('end_date'),
-                    'code' => $code,
-                    'amount' => $totalAmount,
-                    'date' => now(),
-                ]);
-            } else {
-                $facture = $assurance->factures()->create([
-                    'start_date' => $request->input('start_date'),
-                    'end_date' => $request->input('end_date'),
-                    'code' => $code,
-                    'amount' => $totalAmount,
-                    'date' => now(),
-                ]);
-            }
-
-
-            $path = $client ? 'facture-clients/' . $fileName : 'facture-assurance/' . $fileName;
-
-            $facture->medias()->create([
-                'name' => "FACTURE-ASSOCIATE",
-                'disk' => 'public',
-                'path' => $path,
-                'filename' => $fileName,
-                'mimetype' => 'pdf',
-                'extension' => 'pdf',
-            ]);
-
-            $path = 'storage/' . $path;
+        if (!is_dir($folderPath)) {
+            mkdir($folderPath, 0755, true);
         }
 
-        $pdfContent = file_get_contents($path);
+        // Récupération des prestations filtrées par date et assureur
+        $prestations = Prestation::filterInProgress(
+            startDate: $request->input('start_date'),
+            endDate: $request->input('end_date'),
+            assurance: $request->input('assurance'),
+        )->get();
+
+        $centre = Centre::find($request->header('centre'));
+        $factureAssurance = FactureAssuranceByCentre::where('centre_id', $centre->id)->first();
+        $numero = FactureAssociate::max('id') ? FactureAssociate::max('id') + 1 : 1;
+        $numeroPad = Str::padLeft((string) $numero, 4, '0');
+        $month = now()->format('m');
+        $year = now()->format('Y');
+        $code = 'N°' . $numeroPad . $month . '/' . Str::upper($centre->reference) . '/' . $year;
+        $media = $centre->medias()->where('name', 'logo')->first();
+
+        $data = [
+            'assurance' => $assurance,
+            'prestations' => $prestations,
+            'code' => $code,
+            'centre' => $centre,
+            'logo' => $media ? 'storage/' . $media->path . '/' . $media->filename : '',
+            'start_date' => $startDate,
+            'end_date' => $endDate,
+            'factureAssurance' => $factureAssurance
+        ];
+
+        try {
+            save_browser_shot_pdf(
+                view: 'pdfs.factures.assurances.facture-assurance',
+                data: $data,
+                folderPath: $folderPath,
+                path: $filePath,
+                footer: $footer,
+                margins: [15, 10, 15, 10]
+            );
+        } catch (CouldNotTakeBrowsershot | Throwable $e) {
+            Log::error($e->getMessage());
+            return response()->json([
+                'message' => __("Une erreur inattendue est survenue lors de la génération du PDF.")
+            ], 400);
+        }
+
+        // Calcul du montant total pour l'assureur
+        $totalAmount = $prestations->sum(function ($prest) {
+            return $prest->factures()->where('type', 2)->sum('amount_pc') / 100;
+        });
+
+        $facture = $assurance->factures()->create([
+            'start_date' => $request->input('start_date'),
+            'end_date' => $request->input('end_date'),
+            'code' => $code,
+            'amount' => $totalAmount,
+            'date' => now(),
+        ]);
+
+        // Sauvegarde du PDF dans la table medias
+        $facture->medias()->create([
+            'name' => "FACTURE-ASSOCIATE",
+            'disk' => 'public',
+            'path' => 'facture-assurance/' . $fileName,
+            'filename' => $fileName,
+            'mimetype' => 'pdf',
+            'extension' => 'pdf',
+        ]);
+
+        $pdfContent = file_get_contents($filePath);
         $base64 = base64_encode($pdfContent);
 
         return response()->json([

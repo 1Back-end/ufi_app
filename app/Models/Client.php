@@ -55,7 +55,7 @@ class Client extends Model
         'religion',
     ];
 
-    protected $appends = ['age', 'validity_card', 'age_month', 'fullname'];
+    protected $appends = ['age', 'validity_card', 'age_month', 'fullname','age_client'];
 
     protected function fullname(): Attribute
     {
@@ -145,14 +145,14 @@ class Client extends Model
         );
     }
 
-//    protected function age(): Attribute
-//    {
-//        return Attribute::make(
-//            get: fn() => Carbon::parse($this->date_naiss_cli)->age,
-//        );
-//    }
-
     protected function age(): Attribute
+    {
+        return Attribute::make(
+            get: fn() => Carbon::parse($this->date_naiss_cli)->age,
+        );
+    }
+
+    protected function ageClient(): Attribute
     {
         return Attribute::make(
             get: fn() => Carbon::parse($this->date_naiss_cli)->format('d/m/Y'),

@@ -18,6 +18,7 @@ class SpecialRegulation extends Model
         'regulation_method_id',
         'number_piece',
         'date_piece',
+        'date_reception'
     ];
 
     protected function casts(): array
@@ -26,6 +27,7 @@ class SpecialRegulation extends Model
             'start_date' => 'date',
             'end_date' => 'date',
             'date_piece' => 'date',
+            'date_reception' => 'date',
         ];
     }
 
