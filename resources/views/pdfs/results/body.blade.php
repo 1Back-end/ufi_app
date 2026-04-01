@@ -184,9 +184,9 @@
     <div class="d-flex justify-content-between fw-bold size">
         <span>&nbsp;</span>
         <span style="font-size: 10px">
-                {{ in_array($prestation->state_examen, [8, 9, 10]) ? 'Compte rendu partiel' : 'Compte rendu complet' }}
-                ({{ $prestation->validated_printed_count }})
-            </span>
+            {{ $prestation->is_all_examens_validated ? 'Compte rendu partiel' : 'Compte rendu complet' }}
+            ({{ $prestation->validated_printed_count }})
+        </span>
     </div>
 
     <table id="results" class="table border border-black" style="border-color: rgb(0, 0, 0, 0.5)">
