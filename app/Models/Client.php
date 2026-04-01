@@ -145,10 +145,17 @@ class Client extends Model
         );
     }
 
+//    protected function age(): Attribute
+//    {
+//        return Attribute::make(
+//            get: fn() => Carbon::parse($this->date_naiss_cli)->age,
+//        );
+//    }
+
     protected function age(): Attribute
     {
         return Attribute::make(
-            get: fn() => Carbon::parse($this->date_naiss_cli)->age,
+            get: fn() => Carbon::parse($this->date_naiss_cli)->format('d/m/Y'),
         );
     }
 
