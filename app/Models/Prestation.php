@@ -188,26 +188,33 @@ class Prestation extends Model
                     && $this->examens()->wherePivotNull('prelevements')->count() > 0
                 ) {
                     return 1; // return "En cours de prélèvement";
-                } elseif (
-                    $this->examens()->wherePivotNull('status_examen')->count() == $this->examens()->count()
+                } elseif ($this->examens()->wherePivotNull('status_examen')->count() == $this->examens()->count()
                     && $this->examens()->wherePivotNotNull('prelevements')->count() == $this->examens()->count()
                     || ($this->examens()->count() && !$this->results()->count() && ($this->examens()->wherePivot('status_examen', StateExamen::PENDING->value)->count() || $this->examens()->wherePivot('status_examen', StateExamen::CREATED->value)->count()))
                 ) {
                     return 2; // return "En attente de résultats";
-                } elseif ($this->results()->count() >= $elt && $this->examens()->wherePivot('status_examen', StateExamen::PENDING->value)->count()) {
+                } elseif ($this->examens()->wherePivot('status_examen', StateExamen::PENDING->value)->count() > 0) {
                     return 3; // return "Résultat en attente de validation";
-                } elseif ($this->results()->count() >= $elt && $this->examens()->wherePivot('status_examen', StateExamen::VALIDATED->value)->count()) {
-                    return 4; // return "Résultat validé";
-                } elseif ($this->results()->count() >= $elt && $this->examens()->wherePivot('status_examen', StateExamen::PRINTED->value)->count()) {
-                    return 5; // return "Résultat déjà imprimé";
+                } elseif ($this->examens()->wherePivot('status_examen', StateExamen::PRINTED->value)->count() === $this->examens()->count()) {
+                    return 5; // Résultat déjà imprimé
+                }elseif ($this->examens()->whereIn('status_examen', [StateExamen::VALIDATED->value, StateExamen::PRINTED->value])->count() === $this->examens()->count()) {
+                    return 4; // Résultat validé (mix VALIDATED + PRINTED)
+                } elseif ($this->examens()->wherePivot('status_examen', StateExamen::PRINTED->value)->count() === $this->examens()->count()) {
+                    return 5; // Résultat déjà imprimé
                 } elseif ($this->results()->count() >= $elt && $this->examens()->wherePivot('status_examen', StateExamen::DELIVERED->value)->count()) {
                     return 6; // return "Résultat distribué";
                 } elseif ($this->results()->count() && $this->results()->count() < $elt && $this->examens()->wherePivot('status_examen', StateExamen::PENDING->value)->count() && !$this->examens()->wherePivot('status_examen', StateExamen::VALIDATED->value)->count()) {
                     return 7; // return "Résultat partiel en attente de validation"
-                } elseif ($this->results()->count() < $elt && $this->examens()->wherePivot('status_examen', StateExamen::VALIDATED->value)->count()) {
-                    return 8; // return "Résultat partiel validé";
-                } elseif ($this->results()->count() < $elt && $this->examens()->wherePivot('status_examen', StateExamen::PRINTED->value)->count()) {
-                    return 9; // return "Résultat partiel imprimé";
+                } elseif (
+                    $this->examens()->wherePivot('status_examen', StateExamen::VALIDATED->value)->count() > 0
+                    && $this->examens()->wherePivot('status_examen', StateExamen::VALIDATED->value)->count() < $this->examens()->count()
+                ) {
+                    return 8; // Résultat partiel validé
+                } elseif (
+                    $this->examens()->wherePivot('status_examen', StateExamen::PRINTED->value)->count() > 0
+                ) {
+                    return 9;
+                // return "Résultat partiel imprimé";
                 } elseif ($this->results()->count() < $elt && $this->examens()->wherePivot('status_examen', StateExamen::DELIVERED->value)->count()) {
                     return 10; // return "Résultat partiel distribué";
                 } elseif ($this->results()->count() >= $elt && $this->examens()->wherePivot('status_examen', StateExamen::CREATED->value)->count()) {
