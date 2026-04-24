@@ -59,6 +59,39 @@ class PrestationController extends Controller
         return TypePrestation::toArray();
     }
 
+
+    /**
+     * @param Request $request
+     * @return JsonResponse
+     *
+     * @permission PrestationController::changeConsultant
+     * @permission_desc Changer le consultant d'une prestation
+     */
+    public function changeConsultant(Request $request, string $id)
+    {
+        $auth = auth()->user();
+        $request->validate([
+            'consultant_id' => 'required|integer|exists:consultants,id',
+        ]);
+
+        $prestation = Prestation::find($id);
+
+        if (!$prestation) {
+            return response()->json([
+                'message' => 'Prestation introuvable'
+            ], 404);
+        }
+
+        $prestation->update([
+            'consultant_id' => $request->consultant_id,
+            'updated_by'          => $auth->id,
+        ]);
+
+        return response()->json([
+            'message' => 'Consultant modifié avec succès'
+        ]);
+    }
+
     /**
      * @param Request $request
      * @return JsonResponse
