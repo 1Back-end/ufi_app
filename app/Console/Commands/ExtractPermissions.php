@@ -23,6 +23,11 @@ class ExtractPermissions extends Command
             'category' => 'Permissions supplémentaires',
             'modules' => ['Gestion des caisses','Autres Modules'],
         ],
+        'view_access_amount_for_open_caisses' => [
+            'description' => 'Afficher le solde d\'ouverture des caisses',
+            'category' => 'Permissions supplémentaires',
+            'modules' => ['Gestion des caisses','Autres Modules'],
+        ],
         'view_access_for_prestations_and_facturations' => [
             'description' => 'Afficher le menu principal de gestion des prestations et des facturations',
             'category' => 'Permissions supplémentaires',
@@ -108,7 +113,6 @@ class ExtractPermissions extends Command
             'category' => 'Permissions supplémentaires',
             'modules' => ['Gestion des prestations','Autres Modules'],
         ],
-
         'ELC' => [
             'description' => 'Afficher le menu principal des éléments courants',
             'category' => 'Permissions supplémentaires',

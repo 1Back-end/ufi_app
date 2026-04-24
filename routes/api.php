@@ -137,8 +137,9 @@ Route::middleware(['activity'])->group(function () {
         Route::patch('OpenMyCaisse', [\App\Http\Controllers\CaisseController::class,'OpenMyCaisse']);
         Route::patch('CloseMyCaisse', [\App\Http\Controllers\CaisseController::class,'CloseMyCaisse']);
         Route::post('transfertAmountInMyCaisse', [\App\Http\Controllers\CaisseController::class,'initTransfer']);
-        Route::patch('ValidTranfertAmount/{id}/validate', [\App\Http\Controllers\CaisseController::class,'validateTransfer']);
-        Route::patch('RejectTranfertAmount/{id}/reject', [\App\Http\Controllers\CaisseController::class,'rejectTransfer']);
+        Route::patch('/transferts/validate_multiple', [\App\Http\Controllers\CaisseController::class,'validateTransfer']);
+        Route::patch('/transferts/revalidate_multiple', [\App\Http\Controllers\CaisseController::class,'revalidateTransfer']);
+        Route::patch('/transferts/reject_multiple', [\App\Http\Controllers\CaisseController::class,'rejectTransfer']);
         Route::post('/caisses/change_secret_code', [\App\Http\Controllers\CaisseController::class, 'changeSecretCode']);
         Route::post('caisses/change_secret_code_in_users', [\App\Http\Controllers\CaisseController::class, 'change_secret_code']);
         Route::post('caisses/forgot_secret_code_for_my_caisses', [\App\Http\Controllers\CaisseController::class, 'forgot_secret_code_for_my_caisses']);
@@ -215,6 +216,7 @@ Route::middleware(['activity'])->group(function () {
         Route::post('prestations/{prestation}', [PrestationController::class, 'update']);
         Route::post('prestations/{prestation}/facture', [PrestationController::class, 'saveFacture']);
         Route::patch('prestations/{prestation}/change-state', [PrestationController::class, 'changeState']);
+        Route::patch('/prestations/{id}/change_consultant', [PrestationController::class, 'changeConsultant']);
 
         Route::apiResource('regulation-methods', RegulationMethodController::class)->except(['show', 'destroy']);
         Route::patch('regulation-methods/{regulationMethod}/activate', [RegulationMethodController::class, 'activate']);

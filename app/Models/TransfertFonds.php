@@ -41,13 +41,15 @@ class TransfertFonds extends Model
 
     public static function generateCode(): string
     {
-        $datePart = now()->format('Ydm'); // Année, jour, mois → ex: 20252611
-        $prefix = '#' . $datePart;
+        $prefix = '#' . now()->format('Ymd');
 
-        // Chercher le dernier code global (pas par jour)
-        $last = self::withTrashed()->orderBy('created_at', 'desc')->first();
+        $last = self::withTrashed()
+            ->where('code', 'like', $prefix . '%')
+            ->lockForUpdate()
+            ->orderBy('id', 'desc')
+            ->first();
 
-        if ($last && preg_match('/(\d{6})$/', $last->code, $matches)) {
+        if ($last && preg_match('/(\d+)$/', $last->code, $matches)) {
             $number = (int) $matches[1] + 1;
         } else {
             $number = 1;

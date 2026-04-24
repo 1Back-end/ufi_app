@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\Response;
 /**
  * @permission_category Gestion des caisses
@@ -697,7 +698,7 @@ class CaisseController extends Controller
                         ->latest('fermeture_ts')
                         ->first();
 
-                    $fondsOuverture = $lastSession?->fonds_fermeture ?? 0;
+                    $fondsOuverture = $lastSession?->current_sold ?? 0;
 
                     if ($fondsOuverture > 0) {
                         $alertMessage = "⚠️ Solde reporté : "
@@ -747,7 +748,7 @@ class CaisseController extends Controller
                 $session->update([
                     'etat'           => 'EN_PAUSE',
                     'pause_ts'       => now(),
-                    'fonds_en_pause' => $session->fonds_ouverture + $session->solde,
+                    'fonds_en_pause' => $session->fonds_ouverture + $session->current_sold,
                     'updated_by'     => $auth->id,
                 ]);
             }
@@ -763,7 +764,7 @@ class CaisseController extends Controller
                     ], Response::HTTP_NOT_FOUND);
                 }
 
-                $total = $session->fonds_ouverture + $session->solde;
+                $total = $session->fonds_ouverture + $session->current_sold;
 
                 $session->update([
                     'fermeture_ts'              => now(),
@@ -1063,7 +1064,6 @@ class CaisseController extends Controller
             'montant' => ['required', 'integer', 'min:1'],
         ]);
 
-        // 🔹 Récupérer la session active de l'utilisateur dans ce centre
         $session = SessionCaisse::where('user_id', $auth->id)
             ->where('centre_id', $centreId)
             ->whereNull('fermeture_ts')
@@ -1076,7 +1076,6 @@ class CaisseController extends Controller
             ], 403);
         }
 
-        // 🔹 Vérifier la caisse de réception
         $caisseReception = Caisse::where('id', $validated['caisse_reception_id'])
             ->where('is_active', true)
             ->where('centre_id', $centreId) // 🔹 Vérifie le centre
@@ -1088,7 +1087,6 @@ class CaisseController extends Controller
             ], 404);
         }
 
-        // 🔹 Créer le transfert temporaire
         $transfert = TransfertFondsTampon::create([
             'caisse_depart_id' => $session->caisse_id,
             'caisse_reception_id' => $caisseReception->id,
@@ -1101,17 +1099,21 @@ class CaisseController extends Controller
             'created_by' => $auth->id,
         ]);
 
-        // 🔹 Fermer la session
+        $montant = $validated['montant'];
+        if ($montant > $session->solde) {
+            return response()->json([
+                'message' => 'Solde insuffisant dans la caisse.'
+            ], 400);
+        }
+        $session->decrement('current_sold', $montant);
         $session->update([
             'etat' => 'FERMEE',
             'fermeture_ts' => now(),
             'fonds_fermeture' => $session->solde,
             'fonds_fermeture_exactly' => $session->solde,
-            'solde' => $session->solde,
             'updated_by' => $auth->id,
         ]);
 
-        // 🔹 Fermer la caisse
         $caisse = Caisse::find($session->caisse_id);
         $caisse->update([
             'position' => 'close',
@@ -1123,132 +1125,315 @@ class CaisseController extends Controller
         ], 201);
     }
 
-    /**
-     * @return JsonResponse
-     *
-     * @permission CaisseController::validateTransfer
-     * @permission_desc Valider le transfert les fonds de la caisse
-     */
-    public function validateTransfer(Request $request,string $id)
+    private function processValidation($transfert, $auth)
     {
-
-        $auth = auth()->user();
-
-        $request->validate([
-            'password' => 'required|string'
-        ]);
-
-        if (!Hash::check($request->password, $auth->password)) {
-            return response()->json([
-                'status'  => 'error',
-                'message' => 'Mot de passe incorrect.'
-            ], 422);
-        }
-
-        $transfert = TransfertFondsTampon::where('id', $id)
-            ->where('status', 'pending')
-            ->first();
-
-        if (!$transfert) {
-            return response()->json([
-                'message' => 'Transfert introuvable ou déjà traité'
-            ], 404);
-        }
-
-        // 🔎 Dernière session de la caisse de départ (même fermée)
         $session = SessionCaisse::where('caisse_id', $transfert->caisse_depart_id)
             ->latest('created_at')
             ->first();
 
         if (!$session) {
-            return response()->json([
-                'message' => 'Aucune session de caisse trouvée pour la validation'
-            ], 403);
+            throw new \Exception('Aucune session trouvée');
         }
 
         if ($session->solde < $transfert->montant_send) {
-            return response()->json([
-                'message' => 'Solde insuffisant dans la session sélectionnée'
-            ], 403);
+            throw new \Exception('Solde insuffisant');
         }
 
         $caisseDepart = $session->caisse;
         $caisseReception = Caisse::find($transfert->caisse_reception_id);
 
         if (!$caisseReception) {
+            throw new \Exception('Caisse de réception introuvable');
+        }
+
+        // 🔻 Débit
+        $caisseDepart->decrement('solde_caisse', $transfert->montant_send);
+
+        // 🔺 Crédit
+        $caisseReception->increment('solde_caisse', $transfert->montant_send);
+
+        // 🔹 update transfert
+        $transfert->update([
+            'status' => 'validated',
+            'validated_by' => $auth->id,
+            'validated_at' => now(),
+            'session_id' => $session->id,
+        ]);
+
+        // 🔹 historique
+        TransfertFonds::create([
+            'code' => $transfert->code,
+            'caisse_depart_id' => $transfert->caisse_depart_id,
+            'caisse_reception_id' => $transfert->caisse_reception_id,
+            'montant_send' => $transfert->montant_send,
+            'status' => 'validated',
+            'type' => 'debit',
+            'send_by' => $transfert->send_by,
+            'validated_by' => $auth->id,
+            'centre_id' => $transfert->centre_id,
+            'created_by' => $auth->id,
+        ]);
+
+        MouvementCaisse::create([
+            'type' => 'transfert',
+            'caisse_depart_id' => $transfert->caisse_depart_id,
+            'caisse_arrivee_id' => $transfert->caisse_reception_id,
+            'montant' => $transfert->montant_send,
+            'description' => "Transfert validé: {$transfert->code}",
+            'status' => 'validated',
+            'created_by' => $auth->id,
+            'updated_by' => $auth->id,
+            'centre_id' => $transfert->centre_id,
+        ]);
+    }
+
+    /**
+     * @return JsonResponse
+     *
+     * @permission CaisseController::validateTransfer
+     * @permission_desc Valider le transfert les fonds de la caisse
+     */
+    public function validateTransfer(Request $request)
+    {
+        $auth = auth()->user();
+
+        $request->validate([
+            'password' => 'required|string',
+            'ids' => 'required|array|min:1',
+            'ids.*' => 'integer'
+        ]);
+
+        if (!Hash::check($request->password, $auth->password)) {
             return response()->json([
-                'message' => 'Caisse de réception introuvable'
-            ], 404);
+                'status' => 'error',
+                'message' => 'Mot de passe incorrect.'
+            ], 422);
         }
 
         DB::beginTransaction();
 
         try {
 
-            // 🔻 Débit de la session (même si fermée)
-            $session->solde -= $transfert->montant_send;
-            $session->solde = max(0, $session->solde);
-            $session->save();
+            $transferts = TransfertFondsTampon::whereIn('id', $request->ids)
+                ->where('status', 'pending')
+                ->lockForUpdate()
+                ->get();
 
-            if (!is_null($session->fonds_fermeture)) {
-                $session->fonds_fermeture -= $transfert->montant_send;
-                $session->fonds_fermeture = max(0, $session->fonds_fermeture);
+            if ($transferts->count() !== count($request->ids)) {
+                throw new \Exception("Certains transferts sont invalides ou déjà traités");
             }
 
-            $session->save();
+            /**
+             * =========================
+             * 🔥 VALIDATION
+             * =========================
+             */
+            foreach ($transferts as $transfert) {
 
-            $caisseDepart->solde_caisse -= $transfert->montant_send;
-            $caisseDepart->solde_caisse = max(0, $caisseDepart->solde_caisse);
-            $caisseDepart->save();
+                $session = SessionCaisse::find($transfert->session_id);
 
-            $caisseReception->solde_caisse += $transfert->montant_send;
-            $caisseReception->save();
+                if (!$session) {
+                    throw new \Exception("Session introuvable pour {$transfert->code}");
+                }
 
-            $transfert->update([
-                'status'       => 'validated',
-                'validated_by' => $auth->id,
-                'validated_at' => now(),
-                'session_id'   => $session->id, // on garde la session liée
-            ]);
+                Log::info('SESSION DEBUG', [
+                    'code' => $transfert->code,
+                    'session_solde' => $session->solde,
+                    'montant' => $transfert->montant_send,
+                ]);
 
-            // 🔹 Créer le transfert officiel
-            TransfertFonds::create([
-                'code' => $transfert->code,
-                'caisse_depart_id' => $transfert->caisse_depart_id,
-                'caisse_reception_id' => $transfert->caisse_reception_id,
-                'montant_send' => $transfert->montant_send,
-                'status' => 'validated',
-                'type' => 'debit',
-                'send_by' => $transfert->send_by,
-                'validated_by' => $auth->id,
-                'centre_id' => $transfert->centre_id,
-                'created_by' => $auth->id,
-            ]);
+                // 🔥 SOLDE SESSION (IMPORTANT)
+                if ((float)$session->solde < (float)$transfert->montant_send) {
+                    throw new \Exception(
+                        "Solde insuffisant pour {$transfert->code}. " .
+                        "Solde session: {$session->solde}, Montant: {$transfert->montant_send}"
+                    );
+                }
 
-            MouvementCaisse::create([
-                'type' => 'transfert',
-                'caisse_depart_id' => $transfert->caisse_depart_id,
-                'caisse_arrivee_id' => $transfert->caisse_reception_id,
-                'montant' => $transfert->montant_send,
-                'description' => "Transfert validé: {$transfert->code}",
-                'status' => 'validated',
-                'created_by' => $auth->id,
-                'updated_by' => $auth->id,
-                'centre_id' => $transfert->centre_id,
-            ]);
+                $caisseReception = Caisse::find($transfert->caisse_reception_id);
+
+                if (!$caisseReception) {
+                    throw new \Exception("Caisse de réception introuvable pour {$transfert->code}");
+                }
+            }
+
+            /**
+             * =========================
+             * 🔥 EXECUTION
+             * =========================
+             */
+            foreach ($transferts as $transfert) {
+
+                $session = SessionCaisse::find($transfert->session_id);
+                $caisseReception = Caisse::find($transfert->caisse_reception_id);
+                // 🔺 ON CREDIT CAISSE RECEPTION
+                $caisseReception->increment('solde_caisse', $transfert->montant_send);
+
+                // 🔹 update transfert
+                $transfert->update([
+                    'status' => 'validated',
+                    'validated_by' => $auth->id,
+                    'validated_at' => now(),
+                    'session_id' => $session->id,
+                ]);
+
+                // 🔹 historique
+                TransfertFonds::create([
+                    'code' => $transfert->code,
+                    'caisse_depart_id' => $transfert->caisse_depart_id,
+                    'caisse_reception_id' => $transfert->caisse_reception_id,
+                    'montant_send' => $transfert->montant_send,
+                    'status' => 'validated',
+                    'type' => 'debit',
+                    'send_by' => $transfert->send_by,
+                    'validated_by' => $auth->id,
+                    'centre_id' => $transfert->centre_id,
+                    'created_by' => $auth->id,
+                ]);
+
+                MouvementCaisse::create([
+                    'type' => 'transfert',
+                    'caisse_depart_id' => $transfert->caisse_depart_id,
+                    'caisse_arrivee_id' => $transfert->caisse_reception_id,
+                    'montant' => $transfert->montant_send,
+                    'description' => "Validation groupée: {$transfert->code}",
+                    'status' => 'validated',
+                    'created_by' => $auth->id,
+                    'updated_by' => $auth->id,
+                    'centre_id' => $transfert->centre_id,
+                ]);
+            }
 
             DB::commit();
 
             return response()->json([
-                'message' => 'Transfert validé avec succès'
+                'message' => count($transferts) . " transfert(s) validé(s) avec succès"
+            ]);
+
+        } catch (\Throwable $e) {
+
+            DB::rollBack();
+
+            return response()->json([
+                'status' => 'error',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+
+
+    /**
+     * @return JsonResponse
+     *
+     * @permission CaisseController::revalidateTransfer
+     * @permission_desc Revalider le transfert les fonds de la caisse
+     */
+    public function revalidateTransfer(Request $request)
+    {
+        $auth = auth()->user();
+
+        $request->validate([
+            'reason' => 'required',
+            'ids' => 'required|array|min:1',
+            'ids.*' => 'integer'
+        ]);
+
+        DB::beginTransaction();
+
+        try {
+            // 2. On récupère uniquement les transferts annulés (cancelled)
+            $transferts = TransfertFondsTampon::whereIn('id', $request->ids)
+                ->where('status', 'cancelled')
+                ->lockForUpdate()
+                ->get();
+
+            if ($transferts->count() !== count($request->ids)) {
+                throw new \Exception("Certains transferts ne sont pas annulés ou sont introuvables.");
+            }
+
+            /**
+             * =========================
+             * 🔥 ETAPE 1 : VERIFICATION DES SOLDES
+             * =========================
+             */
+            foreach ($transferts as $transfert) {
+                $session = SessionCaisse::find($transfert->session_id);
+
+                if (!$session) {
+                    throw new \Exception("Session introuvable pour le transfert {$transfert->code}");
+                }
+
+                // Vérification du solde (car il a pu changer depuis l'annulation)
+                if ((float)$session->solde < (float)$transfert->montant_send) {
+                    throw new \Exception(
+                        "Solde insuffisant pour revalider {$transfert->code}. " .
+                        "Disponible: {$session->solde}, Requis: {$transfert->montant_send}"
+                    );
+                }
+
+                if (!Caisse::where('id', $transfert->caisse_reception_id)->exists()) {
+                    throw new \Exception("Caisse de réception introuvable pour {$transfert->code}");
+                }
+            }
+
+            /**
+             * =========================
+             * 🔥 ETAPE 2 : EXECUTION ET HISTORIQUE
+             * =========================
+             */
+            foreach ($transferts as $transfert) {
+                $caisseReception = Caisse::find($transfert->caisse_reception_id);
+                $caisseReception->increment('solde_caisse', $transfert->montant_send);
+
+                // 🔹 Update transfert tampon (On nettoie la raison d'annulation et on valide)
+                $transfert->update([
+                    'status'       => 'validated',
+                    'validated_by' => $auth->id,
+                    'validated_at' => now(),
+                    'reason'       => 'Revalidé : ' . $request->reason, // On trace pourquoi on a revalidé
+                    'rejected_by'  => null, // On vide les infos de rejet
+                    'rejected_at'  => null,
+                ]);
+
+                // 🔹 Création dans l'historique officiel
+                TransfertFonds::create([
+                    'caisse_depart_id'    => $transfert->caisse_depart_id,
+                    'caisse_reception_id' => $transfert->caisse_reception_id,
+                    'montant_send'        => $transfert->montant_send,
+                    'status'              => 'validated',
+                    'type'                => 'debit',
+                    'send_by'             => $transfert->send_by,
+                    'validated_by'        => $auth->id,
+                    'centre_id'           => $transfert->centre_id,
+                    'created_by'          => $auth->id,
+                ]);
+
+                // 🔹 Création du mouvement de caisse
+                MouvementCaisse::create([
+                    'type'              => 'transfert',
+                    'caisse_depart_id'  => $transfert->caisse_depart_id,
+                    'caisse_arrivee_id' => $transfert->caisse_reception_id,
+                    'montant'           => $transfert->montant_send,
+                    'description'       => "Revalidation après rejet: {$transfert->code}. Motif: {$request->reason}",
+                    'status'            => 'validated',
+                    'created_by'        => $auth->id,
+                    'updated_by'        => $auth->id,
+                    'centre_id'         => $transfert->centre_id,
+                ]);
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'message' => count($transferts) . " transfert(s) revalidé(s) avec succès"
             ]);
 
         } catch (\Throwable $e) {
             DB::rollBack();
-
             return response()->json([
-                'message' => 'Erreur lors de la validation',
-                'error' => $e->getMessage()
+                'status'  => 'error',
+                'message' => $e->getMessage()
             ], 500);
         }
     }
@@ -1259,49 +1444,67 @@ class CaisseController extends Controller
      * @permission CaisseController::rejectTransfer
      * @permission_desc Rejetter le transfert les fonds de la caisse
      */
-    public function rejectTransfer(Request $request, string $id)
+    public function rejectTransfer(Request $request)
     {
         $auth = auth()->user();
 
         // 🔹 Validation
         $request->validate([
             'reason' => ['required', 'string', 'max:255'],
+            'ids' => ['required', 'array', 'min:1'],
+            'ids.*' => ['integer', 'exists:transfert_fonds_tampons,id'],
         ]);
-
-        $transfert = TransfertFondsTampon::where('id', $id)
-            ->where('status', 'pending')
-            ->first();
-
-        if (!$transfert) {
-            return response()->json([
-                'message' => 'Transfert introuvable ou déjà traité'
-            ], 404);
-        }
 
         DB::beginTransaction();
 
         try {
 
-            $transfert->update([
-                'status'        => 'cancelled',
-                'reason'        => $request->reason,
-                'rejected_by'  => $auth->id,
-                'rejected_at'  => now(),
-                'updated_by'    => $auth->id,
-            ]);
+            $transferts = TransfertFondsTampon::whereIn('id', $request->ids)
+                ->where('status', 'pending')
+                ->lockForUpdate()
+                ->get();
+
+            // 🚨 sécurité : vérifier cohérence
+            if ($transferts->count() !== count($request->ids)) {
+                throw new \Exception("Certains transferts sont invalides ou déjà traités");
+            }
+
+            $results = [];
+            $rejectedCount = 0;
+
+            foreach ($transferts as $transfert) {
+
+                $transfert->update([
+                    'status'       => 'cancelled',
+                    'reason'       => $request->reason,
+                    'rejected_by'  => $auth->id,
+                    'rejected_at'  => now(),
+                    'updated_by'   => $auth->id,
+                ]);
+
+                $results[] = [
+                    'id' => $transfert->id,
+                    'code' => $transfert->code,
+                    'status' => 'rejected'
+                ];
+
+                $rejectedCount++;
+            }
 
             DB::commit();
 
             return response()->json([
-                'message' => 'Transfert annulé avec succès'
-            ], 200);
+                'message' => "{$rejectedCount} transfert(s) rejeté(s) avec succès",
+                'results' => $results
+            ]);
 
         } catch (\Throwable $e) {
+
             DB::rollBack();
 
             return response()->json([
-                'message' => 'Erreur lors de l’annulation',
-                'error'   => $e->getMessage()
+                'status' => 'error',
+                'message' => $e->getMessage()
             ], 500);
         }
     }

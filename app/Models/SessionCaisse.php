@@ -27,7 +27,8 @@ class SessionCaisse extends Model
         'fonds_en_pause',
         'solde',
         'etat',
-        'pause_ts'
+        'pause_ts',
+        'current_sold'
     ];
 
     protected $casts = [

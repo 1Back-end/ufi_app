@@ -105,6 +105,7 @@ class RegulationController extends Controller
             ]);
 
             $session->increment('solde', $reg['amount']);
+            $session->increment('current_sold', $reg['amount']);
         }
 
         $this->validatedFacture($facture);
@@ -204,7 +205,7 @@ class RegulationController extends Controller
             if ($session && $session->centre_id == $centreId) {
                 // 🔹 Décrémenter le solde
                 $session->decrement('solde', $sessionElement->montant);
-
+                $session->decrement('current_sold', $sessionElement->montant);
                 Log::info('Solde de la session mis à jour après annulation', [
                     'session_id' => $session->id,
                     'nouveau_solde' => $session->solde - $sessionElement->montant,
