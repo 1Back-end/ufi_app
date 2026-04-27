@@ -116,9 +116,30 @@
         $caisse = $result->first()->caisse ?? null;
     @endphp
     <h1 class="fs-3 fw-bold text-center text-uppercase">
-        ETAT DE LA  {{ $caisse->name ?? '-' }}
+        ETAT DE LA {{ $caisse->name ?? '-' }}
         GÉRÉE PAR {{ $caisse->user->nom_utilisateur ?? '-' }}
     </h1>
+
+    <h5 class="fs-4 fw-bold text-center text-uppercase" style="margin-top: 20px;">
+        OUVERTURE :
+        <span style="color: #007bff;">
+        {{ $session ? \App\Helpers\FormatPrice::format($session->fonds_ouverture) : '0' }}
+    </span>
+
+        <span style="margin: 0 15px;">|</span>
+
+        @if($session && $session->etat === 'FERMEE')
+            FERMETURE :
+            <span style="color: #dc3545;">
+            {{ \App\Helpers\FormatPrice::format($session->fonds_fermeture) }}
+        </span>
+        @else
+            SOLDE ACTUEL :
+            <span style="color: #28a745;">
+            {{ $session ? \App\Helpers\FormatPrice::format($session->solde) : '0' }}
+        </span>
+        @endif
+    </h5>
 
     <p class="fst-italic text-end">Date d'impression: {{ now()->format('d/m/Y H:i') }}</p>
 

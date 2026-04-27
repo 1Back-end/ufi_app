@@ -1621,12 +1621,20 @@ class CaisseController extends Controller
 
             $centre = Centre::find($centreId);
             $media = $centre?->medias()->where('name', 'logo')->first();
+            $caisse = Caisse::with(['user', 'sessions' => function($q) use ($start_date, $end_date) {
+                $q->whereBetween('created_at', [$start_date, $end_date])
+                    ->orderBy('created_at', 'desc');
+            }])->find($caisseId);
+
+            $session = $caisse->sessions->first();
 
             $data = [
                 'result' => $result,
                 'logo' => $media ? 'storage/' . $media->path . '/' . $media->filename : '',
                 'centre' => $centre,
                 'start' => $start_date,
+                'caisse' => $caisse,
+                'session' => $session,
                 'end' => $end_date
             ];
 

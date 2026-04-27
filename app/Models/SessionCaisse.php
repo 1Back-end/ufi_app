@@ -8,10 +8,10 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class SessionCaisse extends Model
 {
-    use HasFactory, softDeletes;
+    use HasFactory, SoftDeletes;
 
 
-    protected $table = 'session_caisse'; // 🔹 nom exact
+    protected $table = 'session_caisse';
 
     protected $fillable = [
         'user_id',

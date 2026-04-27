@@ -28,8 +28,10 @@ use App\Models\Product;
 use App\Models\RegulationMethod;
 use App\Models\RendezVous;
 use App\Models\Result;
+use App\Models\SessionElement;
 use App\Models\Setting;
 use App\Models\Soins;
+use App\Models\SessionCaisse;
 use App\Notifications\SendRdvNotification;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -603,39 +605,59 @@ class PrestationController extends Controller
      */
     public function destroy(Request $request, Prestation $prestation)
     {
-        // Validation de la raison de suppression
+        $auth = auth()->user();
+        $centreId = $request->header('centre');
+
         $request->validate([
             'reason_for_delete' => 'required|string',
         ]);
 
         DB::beginTransaction();
         try {
-            // Remplir le champ reason_for_delete
+            // 1. Marquer la raison et supprimer la prestation (SoftDelete)
             $prestation->reason_for_delete = $request->reason_for_delete;
             $prestation->save();
-
-            // Supprimer la prestation (soft delete si applicable)
             $prestation->delete();
 
-            // Supprimer toutes les factures liées
+            // 2. Parcourir les factures liées
             foreach ($prestation->factures as $facture) {
+
+                // 3. Gérer les éléments de session (Paiements/Mouvements)
+                // Assurez-vous que la relation 'sessionElements' est définie dans le modèle Facture
+                foreach ($facture->sessionElements as $element) {
+                    $sessionCaisse = SessionCaisse::where('caisse_id', $element->caisse_id)
+                        ->where('centre_id', $centreId)
+                        ->where('etat', 'OUVERTE')
+                        ->first();
+
+                    if ($sessionCaisse) {
+                        $sessionCaisse->decrement('solde', $element->montant);
+                        $sessionCaisse->decrement('current_sold', $element->montant);
+                    }
+                    $element->update(['is_deleted' => true]);
+                    $element->delete();
+                }
+
+                // 4. Supprimer les régulations associées à la facture
                 foreach ($facture->regulations as $regulation) {
                     $regulation->delete();
                 }
 
+                // 5. Supprimer la facture elle-même
                 $facture->delete();
             }
 
             DB::commit();
 
             return response()->json([
-                'message' => __("Prestation supprimée avec succès !")
+                'message' => __("Prestation supprimée, factures annulées et solde de caisse mis à jour avec succès !")
             ]);
+
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json([
-                'message' => $e->getMessage()
-            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+                'message' => "Erreur lors de la suppression : " . $e->getMessage()
+            ], 500);
         }
     }
 
