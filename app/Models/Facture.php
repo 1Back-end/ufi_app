@@ -153,4 +153,8 @@ class Facture extends Model
     {
         return $this->hasMany(Regulation::class, 'facture_id');
     }
+    // Dans Facture.php
+    public function sessionElements() {
+        return $this->hasMany(SessionElement::class, 'facture_id');
+    }
 }

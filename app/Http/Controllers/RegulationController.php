@@ -201,9 +201,7 @@ class RegulationController extends Controller
 
         if ($sessionElement) {
             $session = \App\Models\SessionCaisse::find($sessionElement->session_id);
-
             if ($session && $session->centre_id == $centreId) {
-                // 🔹 Décrémenter le solde
                 $session->decrement('solde', $sessionElement->montant);
                 $session->decrement('current_sold', $sessionElement->montant);
                 Log::info('Solde de la session mis à jour après annulation', [
@@ -211,11 +209,8 @@ class RegulationController extends Controller
                     'nouveau_solde' => $session->solde - $sessionElement->montant,
                 ]);
             }
-
-            // 🔹 Supprimer l'élément de session
             $sessionElement->delete();
         }
-
         $this->validatedFacture($regulation->facture, false, true);
 
         return response()->json([], 202);

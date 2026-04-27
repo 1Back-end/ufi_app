@@ -82,4 +82,12 @@ class Caisse extends Model
     {
         return $this->belongsTo(User::class, 'user_id');
     }
+    public function sessions()
+    {
+        return $this->hasMany(SessionCaisse::class, 'caisse_id');
+    }
+    public function sessionOuverte()
+    {
+        return $this->hasOne(SessionCaisse::class, 'caisse_id')->where('etat', 'OUVERTE');
+    }
 }
