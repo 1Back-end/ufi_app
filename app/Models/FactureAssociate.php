@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 
@@ -39,4 +40,9 @@ class FactureAssociate extends Model
     {
         return $this->morphMany(Media::class, 'mediable');
     }
+    public function prestation(): BelongsTo
+    {
+        return $this->belongsTo(Prestation::class, 'prestation_id');
+    }
+
 }

@@ -23,6 +23,22 @@ class ExtractPermissions extends Command
             'category' => 'Permissions supplémentaires',
             'modules' => ['Gestion des caisses','Autres Modules'],
         ],
+        'view_settings_for_caisses' => [
+            'description' => 'Afficher le menu de configuration des caisses',
+            'category' => 'Permissions supplémentaires',
+            'modules' => ['Gestion des caisses','Autres Modules'],
+        ],
+        'AUTO_CLOSE_CASH_SESSIONS' => [
+            'description' => 'Autoriser la fermeture automatique des sessions de caisses',
+            'category' => 'Permissions supplémentaires',
+            'modules' => ['Gestion des caisses','Autres Modules'],
+        ],
+        'MANAGE_CASH_CUMULS' => [
+            'description' => 'Activer ou désactiver le calcul automatique des totaux journaliers des sessions de caisses',
+            'category' => 'Permissions supplémentaires',
+            'modules' => ['Gestion des caisses','Autres Modules'],
+        ],
+
         'view_access_amount_for_open_caisses' => [
             'description' => 'Afficher le solde d\'ouverture des caisses',
             'category' => 'Permissions supplémentaires',

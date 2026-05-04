@@ -212,7 +212,8 @@ class SessionCaisseController extends Controller
         $query = TransfertFondsTampon::with([
                 'creator', 'updater', 'centre', 'caisse_depart', 'caisse_reception', 'sender','session'
         ])
-            ->where('centre_id', $centreId);
+            ->where('centre_id', $centreId)
+            ->where('status', '!=', 'validated');
 
         // --- LOGIQUE DES PERMISSIONS ET LOGS ---
         if (!$user->can('view_all_transferts')) {

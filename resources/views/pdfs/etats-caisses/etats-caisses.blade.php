@@ -120,13 +120,21 @@
         GÉRÉE PAR {{ $caisse->user->nom_utilisateur ?? '-' }}
     </h1>
 
-    <h5 class="fs-4 fw-bold text-center text-uppercase" style="margin-top: 20px;">
+    <h5 class="fs-6 fw-bold text-center text-uppercase" style="margin-top: 20px;">
         OUVERTURE :
         <span style="color: #007bff;">
         {{ $session ? \App\Helpers\FormatPrice::format($session->fonds_ouverture) : '0' }}
     </span>
 
-        <span style="margin: 0 15px;">|</span>
+        <span class="text-muted" style="margin: 0 10px;">|</span>
+
+        PETITE MONNAIE :
+        <span style="color: #007bff;">
+        {{ $session ? \App\Helpers\FormatPrice::format($caisse->small_change) : '0' }}
+    </span>
+
+        <span class="text-muted" style="margin: 0 10px;">|</span>
+
 
         @if($session && $session->etat === 'FERMEE')
             FERMETURE :
@@ -153,7 +161,7 @@
 
 
     <div class="mt-2 w-100">
-        <table class="table table-bordered table-striped" style="font-size: 12px;">
+        <table class="table table-bordered table-striped table-sm" style="font-size: 12px;">
             <thead>
             <tr class="bg-dark text-white">
                 <th>#</th>
@@ -162,39 +170,47 @@
                 <th>Montant facture</th>
                 <th>Règlement</th>
                 <th>Mode</th>
+                <th>Référence</th>
                 <th>Date</th>
-                <th>Etat</th>
             </tr>
             </thead>
             <tbody>
             @php
                 $total_facture_global = 0;
                 $total_encaisse_global = 0;
+                $repartition_modes = [];
             @endphp
 
             @forelse($result->groupBy('facture_id') as $facture_id => $items)
                 @php
                     $facture = $items->first()->facture;
                     $montant_facture = ($facture->amount_client ?? 0) + ($facture->amount_pc ?? 0);
-                    $montant_encaisse_facture = $items->where('is_deleted', false)->sum('montant');
+
+                    $reglements_valides = $items->where('is_deleted', false);
+                    $montant_encaisse_facture = $reglements_valides->sum('montant');
+
                     $reste_facture = max($montant_facture - $montant_encaisse_facture, 0);
 
-                    // Cumul pour le footer hors tableau
                     $total_facture_global += $montant_facture;
                     $total_encaisse_global += $montant_encaisse_facture;
+
+                    foreach ($reglements_valides as $reglement) {
+                        $modeName = $reglement->regulation_method->name ?? 'Indéfini';
+                        $repartition_modes[$modeName] = ($repartition_modes[$modeName] ?? 0) + $reglement->montant;
+                    }
                 @endphp
 
                 <tr style="background-color: #f8f9fa;">
                     <th colspan="8" class="py-2 px-3" style="border-left: 4px solid #333;">
                         <div class="d-flex justify-content-between align-items-center">
+                        <span>
+                            <strong>FACTURE N°{{ $facture->code ?? '-' }}</strong>
+                        </span>
                             <span>
-                                <strong>FACTURE N°{{ $facture->code ?? '-' }}</strong>
-                            </span>
-                            <span>
-                                Total: <strong>{{ \App\Helpers\FormatPrice::format($montant_facture) }}</strong> |
-                                Encaissé: <strong class="text-success">{{ \App\Helpers\FormatPrice::format($montant_encaisse_facture) }}</strong> |
-                                Reste: <strong class="{{ $reste_facture > 0 ? 'text-danger' : 'text-dark' }}">{{ \App\Helpers\FormatPrice::format($reste_facture) }}</strong>
-                            </span>
+                            Total: <strong>{{ \App\Helpers\FormatPrice::format($montant_facture) }}</strong> |
+                            Encaissé: <strong class="text-success">{{ \App\Helpers\FormatPrice::format($montant_encaisse_facture) }}</strong> |
+                            Reste: <strong class="{{ $reste_facture > 0 ? 'text-danger' : 'text-dark' }}">{{ \App\Helpers\FormatPrice::format($reste_facture) }}</strong>
+                        </span>
                         </div>
                     </th>
                 </tr>
@@ -207,12 +223,11 @@
                         <td class="font-weight-bold">{{ \App\Helpers\FormatPrice::format($montant_facture) }}</td>
                         <td class="font-weight-bold">{{ \App\Helpers\FormatPrice::format($item->montant) }}</td>
                         <td>{{ $item->regulation_method->name ?? '-' }}</td>
-                        <td>{{ \Carbon\Carbon::parse($item->created_at)->format('d/m/Y H:i') }}</td>
-                        <td>
-                            <span class="badge {{ $item->is_deleted ? 'badge-danger' : 'badge-success' }}">
-                                {{ $item->is_deleted ? 'Annulée' : '' }}
-                            </span>
+                        <td class="text-uppercase text-primary" style="font-weight: 500;">
+                            {{ $item->regulation->reference ?? 'Aucune référence' }}
                         </td>
+                        <td>{{ \Carbon\Carbon::parse($item->created_at)->format('d/m/Y H:i') }}</td>
+
                     </tr>
                 @endforeach
             @empty
@@ -250,6 +265,32 @@
                 </div>
             </div>
         </div>
+
+        @if(count($repartition_modes) > 0)
+            <div class="mt-4">
+                <h6 class="fw-bold text-uppercase small text-muted mb-3 text-center">Répartition par mode de règlement</h6>
+
+                <!-- Utilisation de row-cols-md-4 pour forcer 4 colonnes par ligne -->
+                <div class="row row-cols-1 row-cols-sm-2 row-cols-md-4 g-3 justify-content-center">
+                    @foreach($repartition_modes as $mode => $montant)
+                        <div class="col">
+                            <div class="card border-success shadow-sm h-100" style="border-radius: 10px; border-left: 4px solid #28a745 !important;">
+                                <div class="card-body py-3 px-2 text-center">
+                                    <!-- Label du mode -->
+                                    <div class="text-uppercase text-muted mb-2" style="font-size: 11px; letter-spacing: 0.5px; height: 20px; overflow: hidden;">
+                                        {{ $mode }}
+                                    </div>
+                                    <!-- Montant -->
+                                    <div class="fw-bold text-primary fs-5">
+                                        {{ \App\Helpers\FormatPrice::format($montant) }}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+            </div>
+        @endif
     </div>
 </div>
 </body>

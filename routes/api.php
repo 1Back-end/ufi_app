@@ -145,6 +145,14 @@ Route::middleware(['activity'])->group(function () {
         Route::post('caisses/forgot_secret_code_for_my_caisses', [\App\Http\Controllers\CaisseController::class, 'forgot_secret_code_for_my_caisses']);
         Route::get('print_data_caisses_by_centre', [\App\Http\Controllers\CaisseController::class, 'print_data_caisses_by_centre']);
         Route::get('print_data_caisses_by_centreId', [\App\Http\Controllers\CaisseController::class, 'print_data_caisses_by_centre_id']);
+        Route::post('caisses/auto_close_cash_sessions', [\App\Http\Controllers\CaisseController::class, 'autoCloseSessions']);
+        Route::post('/sessions/auto_close', function () {app(\App\Services\SessionCaisseService::class)->autoClose(auth()->id());
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Fermeture exécutée après activation'
+            ]);
+        });
+        Route::post('/caisses/control_session', [\App\Http\Controllers\CaisseController::class, 'controlSession']);
 
 
         Route::get('sessions_caisses/list_transferts_caisses', [\App\Http\Controllers\SessionCaisseController::class,'get_transfert_caisse']);
@@ -228,6 +236,7 @@ Route::middleware(['activity'])->group(function () {
         Route::post('/factures/regulates_items_for_facture', [RegulationController::class, 'updateSpecialRegulationItems']);
         Route::post('/ignore-factures', [RegulationController::class, 'ignoreFacture']);
         Route::post('/print-facture-assurance', [PrestationController::class, 'printFactureAssurance']);
+        Route::post('/ventilate_assurance/{assureur_id}', [RegulationController::class, 'get_ventilate_assurance']);
 
         Route::controller(ConsultantController::class)->prefix('consultants')->group(function () {
             Route::get('/list', 'index');  // Afficher la liste des consultants

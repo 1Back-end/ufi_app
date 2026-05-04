@@ -9,6 +9,7 @@ enum StateFacture: int
     case IN_PROGRESS = 2;
     case PAID = 3;
     case CANCELLED = 4;
+    case ASSURANCE = 5;
 
      public static function name(self $value): string
      {
@@ -17,6 +18,7 @@ enum StateFacture: int
              self::IN_PROGRESS => 'En cours',
              self::PAID => 'Soldé',
              self::CANCELLED => 'Annulé',
+             self::ASSURANCE => 'Règlement assurance',
          };
      }
 

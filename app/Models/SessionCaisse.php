@@ -12,7 +12,6 @@ class SessionCaisse extends Model
 
 
     protected $table = 'session_caisse';
-
     protected $fillable = [
         'user_id',
         'caisse_id',
@@ -28,7 +27,8 @@ class SessionCaisse extends Model
         'solde',
         'etat',
         'pause_ts',
-        'current_sold'
+        'current_sold',
+        'sold_without_small_change'
     ];
 
     protected $casts = [

@@ -56,5 +56,9 @@ class SessionElement extends Model
     {
         return $this->belongsTo(RegulationMethod::class, 'regulation_method_id');
     }
+    public function regulation()
+    {
+        return $this->belongsTo(Regulation::class, 'regulation_id');
+    }
     //
 }
