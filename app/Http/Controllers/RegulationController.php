@@ -10,6 +10,7 @@ use App\Http\Requests\RegulationRequest;
 use App\Models\Acte;
 use App\Models\Assureur;
 use App\Models\Caisse;
+use App\Models\Centre;
 use App\Models\Client;
 use App\Models\Consultation;
 use App\Models\FacturationAssurance;
@@ -105,6 +106,7 @@ class RegulationController extends Controller
             ]);
 
             $session->increment('solde', $reg['amount']);
+            $session->increment('sold_without_small_change', $reg['amount']);
             $session->increment('current_sold', $reg['amount']);
         }
 
@@ -204,6 +206,7 @@ class RegulationController extends Controller
             if ($session && $session->centre_id == $centreId) {
                 $session->decrement('solde', $sessionElement->montant);
                 $session->decrement('current_sold', $sessionElement->montant);
+                $session->decrement('sold_without_small_change', $sessionElement->montant);
                 Log::info('Solde de la session mis à jour après annulation', [
                     'session_id' => $session->id,
                     'nouveau_solde' => $session->solde - $sessionElement->montant,
@@ -227,9 +230,11 @@ class RegulationController extends Controller
     public function specialRegulation(Request $request)
     {
         $auth = auth()->user();
+        $centreId = $request->header('centre');
         $request->validate([
             'regulation_method_id' => ['required', 'exists:regulation_methods,id'],
             'amount' => ['required'],
+            'amount_waiting' => ['required'],
             'assureur_id' => ['required_if:client_id,null', 'exists:assureurs,id'],
             'client_id' => ['required_if:assureur_id,null', 'exists:clients,id'],
             'start_date' => ['required', 'date'],
@@ -283,10 +288,13 @@ class RegulationController extends Controller
             }
 
             SpecialRegulation::create([
+                'assureur_id' => $request->input('assureur_id'),
+                'centre_id' => $centreId,
                 'regulation_id' => $regulateId,
                 'regulation_type' => $regulateType,
                 'regulation_method_id' => $request->input('regulation_method_id'),
                 'amount' => $request->input('amount'),
+                'amount_waiting' => $request->input('amount_waiting'),
                 'start_date' => $request->input('start_date'),
                 'end_date' => $request->input('end_date'),
                 'number_piece' => $request->input('number_piece'),
@@ -317,125 +325,98 @@ class RegulationController extends Controller
                     payableBy: $request->input('client_id')
                 )->get();
 
+                $processedFactures = [];
+
                 foreach ($prestations as $prestation) {
-                    $facture = $prestation->factures()->where('factures.type', 2)->where('factures.state', StateFacture::IN_PROGRESS->value)->first();
 
-                    if (!in_array($facture->id, $request->input('facture_ids'))) {
-                        $this->validatedFacture($facture, true);
+                    $facture = $prestation->factures()
+                        ->where('factures.type', 2)
+                        ->where('factures.state', StateFacture::IN_PROGRESS->value)
+                        ->first();
 
-                        $facture->regulations()->create([
-                            'regulation_method_id' => $request->input('regulation_method_id'),
-                            'amount' => $facture->amount_pc,
-                            'date' => now(),
-                            'type' => $request->type == 'client' ? 3 : 2,
-                            'comment' => $request->input('comment'),
-                            'particular' => true,
-                        ]);
-
-                        switch ($prestation->type) {
-                            case TypePrestation::ACTES:
-                                $prestation->actes->each(function (Acte $acte) use ($prestation) {
-                                    $prestation->actes()->updateExistingPivot($acte->id, ['amount_regulate' => $acte->pivot->b * $acte->pivot->k_modulateur * 100]);
-                                });
-                                break;
-                            case TypePrestation::CONSULTATIONS:
-                                $prestation->consultations->each(function (Consultation $consultation) use ($prestation) {
-                                    $prestation->consultations()->updateExistingPivot($consultation->id, ['amount_regulate' => $consultation->pivot->pu * 100]);
-                                });
-                                break;
-                            case TypePrestation::SOINS:
-                                $prestation->soins->each(function (Soins $soins) use ($prestation) {
-                                    $prestation->soins()->updateExistingPivot($soins->id, ['amount_regulate' => $soins->pivot->pu * 100]);
-                                });
-                                break;
-                            case TypePrestation::LABORATOIR:
-                                $prestation->examens->each(function ($examen) use ($prestation) {
-                                    $prestation->examens()->updateExistingPivot($examen->id, ['amount_regulate' => $examen->pivot->pu * 100]);
-                                });
-                                break;
-                            case TypePrestation::PRODUITS:
-                                $prestation->products->each(function ($product) use ($prestation) {
-                                    $prestation->products()->updateExistingPivot($product->id, ['amount_regulate' => $product->pivot->pu * 100]);
-                                });
-                                break;
-                            case TypePrestation::HOSPITALISATION:
-                                $prestation->hospitalisations->each(function (OpsTblHospitalisation $hospitalisation) use ($prestation) {
-                                    $prestation->hospitalisations()->updateExistingPivot($hospitalisation->id, ['amount_regulate' => $hospitalisation->pivot->pu * 100]);
-                                });
-                                break;
-                            default:
-                                throw new \Exception('To be implemented');
-                        }
+                    if (!$facture) {
+                        continue;
                     }
+
+                    // ❗ skip si déjà dans la liste ignorée
+                    if (in_array($facture->id, $request->input('facture_ids', []))) {
+                        continue;
+                    }
+
+                    // ❗ anti doublon global
+                    if (isset($processedFactures[$facture->id])) {
+                        continue;
+                    }
+
+                    $this->processFactureRegulation($facture, $request);
+
+                    $this->updatePrestationPivot($prestation,$facture);
+
+                    $processedFactures[$facture->id] = true;
                 }
             }
 
             foreach ($request->input('factures') as $factureData) {
                 $facture = Facture::find($factureData['id']);
+
+                if (!$facture) {
+                    \Log::warning("Facture introuvable: {$factureData['id']}");
+                    continue;
+                }
+
                 $this->validatedFacture($facture, true);
 
+                // 🔹 création du règlement
                 $facture->regulations()->create([
                     'regulation_method_id' => $request->input('regulation_method_id'),
                     'amount' => $factureData['amount'],
                     'date' => now(),
-                    'type' => $request->type == 'client' ? 3 : 2,
+                    'type' => $request->type === 'client' ? 3 : 2,
                     'comment' => $request->input('comment'),
                     'particular' => true,
                 ]);
 
-                $facture->update([
+                // 🔹 mise à jour du state + champs (UNE SEULE FOIS)
+                $facture->update(array_merge([
+                    'state' => StateFacture::ASSURANCE->value,
+                ], [
                     'amount_prorate' => $factureData['amount_prorate'] ?? 0,
                     'amount_contested' => $factureData['amount_contested'] ?? 0,
                     'amount_paid' => $factureData['amount_paid'] ?? 0,
                     'amount_ir' => $factureData['amount_ir'] ?? 0,
                     'amount_received' => $factureData['amount_received'] ?? 0,
                     'others_amount_excluded' => $factureData['others_amount_excluded'] ?? 0,
-                ]);
+                ]));
 
-                if ($request->type == 'client' && $factureData['amount'] < $facture->amount_client) {
-                    $facture->update([
-                        'contentieux' => true,
-                    ]);
+                // 🔹 contentieux
+                if (
+                    ($request->type === 'client' && $factureData['amount'] < $facture->amount_client) ||
+                    ($request->type === 'assureur' && $factureData['amount'] < $facture->amount_pc)
+                ) {
+                    $facture->update(['contentieux' => true]);
                 }
 
-                if ($request->type == 'assureur' && $factureData['amount'] < $facture->amount_pc) {
-                    $facture->update([
-                        'contentieux' => true,
-                    ]);
-                }
+                // 🔹 items update pivot
+                foreach ($factureData['items'] ?? [] as $item) {
+                    $amount = $item['amount'] * 100;
 
-                foreach ($factureData['items'] as $item) {
-                    switch ($facture->prestation->type) {
-                        case TypePrestation::ACTES:
-                            $facture->prestation->actes()
-                                ->updateExistingPivot($item['id'], ['amount_regulate' => $item['amount'] * 100]);
-                            break;
-                        case TypePrestation::CONSULTATIONS:
-                            $facture->prestation->consultations()
-                                ->updateExistingPivot($item['id'], ['amount_regulate' => $item['amount'] * 100]);
-                            break;
-                        case TypePrestation::SOINS:
-                            $facture->prestation->soins()
-                                ->updateExistingPivot($item['id'], ['amount_regulate' => $item['amount'] * 100]);
-                            break;
-                        case TypePrestation::LABORATOIR:
-                            $facture->prestation->examens()
-                                ->updateExistingPivot($item['id'], ['amount_regulate' => $item['amount'] * 100]);
-                            break;
-                        case TypePrestation::PRODUITS:
-                            $facture->prestation->products()
-                                ->updateExistingPivot($item['id'], ['amount_regulate' => $item['amount'] * 100]);
-                            break;
-                        case TypePrestation::HOSPITALISATION:
-                            $facture->prestation->hospitalisations()
-                                ->updateExistingPivot($item['id'], ['amount_regulate' => $item['amount'] * 100]);
-                            break;
-                        default:
-                            // Ignorer ou logger le type non implémenté
-                            \Log::warning("Type de prestation non implémenté: {$facture->prestation->type}");
-                            break;
+                    $relation = match ($facture->prestation->type) {
+                        TypePrestation::ACTES => $facture->prestation->actes(),
+                        TypePrestation::CONSULTATIONS => $facture->prestation->consultations(),
+                        TypePrestation::SOINS => $facture->prestation->soins(),
+                        TypePrestation::LABORATOIR => $facture->prestation->examens(),
+                        TypePrestation::PRODUITS => $facture->prestation->products(),
+                        TypePrestation::HOSPITALISATION => $facture->prestation->hospitalisations(),
+                        default => null,
+                    };
+
+                    if ($relation) {
+                        $relation->updateExistingPivot($item['id'], [
+                            'amount_regulate' => $amount
+                        ]);
+                    } else {
+                        \Log::warning("Type prestation non géré: {$facture->prestation->type}");
                     }
-
                 }
             }
 
@@ -450,6 +431,103 @@ class RegulationController extends Controller
         return response()->json([
             'message' => 'Enregistrement effectué avec succès'
         ], 201);
+    }
+
+
+    protected function updatePrestationPivot($prestation, $facture): void
+    {
+        if (!$prestation || !$facture || !$prestation->type) {
+            return;
+        }
+
+        switch ($prestation->type) {
+
+            case TypePrestation::ACTES:
+                $prestation->actes->each(function ($acte) use ($prestation) {
+                    $prestation->actes()
+                        ->updateExistingPivot(
+                            $acte->id,
+                            ['amount_regulate' => $acte->pivot->b * $acte->pivot->k_modulateur * 100]
+                        );
+                });
+                break;
+
+            case TypePrestation::CONSULTATIONS:
+                $prestation->consultations->each(function ($consultation) use ($prestation) {
+                    $prestation->consultations()
+                        ->updateExistingPivot(
+                            $consultation->id,
+                            ['amount_regulate' => $consultation->pivot->pu * 100]
+                        );
+                });
+                break;
+
+            case TypePrestation::SOINS:
+                $prestation->soins->each(function ($soins) use ($prestation) {
+                    $prestation->soins()
+                        ->updateExistingPivot(
+                            $soins->id,
+                            ['amount_regulate' => $soins->pivot->pu * 100]
+                        );
+                });
+                break;
+
+            case TypePrestation::LABORATOIR:
+                $prestation->examens->each(function ($examen) use ($prestation) {
+                    $prestation->examens()
+                        ->updateExistingPivot(
+                            $examen->id,
+                            ['amount_regulate' => $examen->pivot->pu * 100]
+                        );
+                });
+                break;
+
+            case TypePrestation::PRODUITS:
+                $prestation->products->each(function ($product) use ($prestation) {
+                    $prestation->products()
+                        ->updateExistingPivot(
+                            $product->id,
+                            ['amount_regulate' => $product->pivot->pu * 100]
+                        );
+                });
+                break;
+
+            case TypePrestation::HOSPITALISATION:
+                $prestation->hospitalisations->each(function ($hospitalisation) use ($prestation) {
+                    $prestation->hospitalisations()
+                        ->updateExistingPivot(
+                            $hospitalisation->id,
+                            ['amount_regulate' => $hospitalisation->pivot->pu * 100]
+                        );
+                });
+                break;
+
+            default:
+                \Log::warning("Type de prestation non géré: {$prestation->type}");
+                break;
+        }
+    }
+
+    private function processFactureRegulation(Facture $facture, Request $request): void
+    {
+        if (!$facture || $facture->state === StateFacture::ASSURANCE) {
+            return;
+        }
+
+        $this->validatedFacture($facture, true);
+
+        $facture->regulations()->create([
+            'regulation_method_id' => $request->input('regulation_method_id'),
+            'amount' => $facture->amount_pc,
+            'date' => now(),
+            'type' => $request->type === 'client' ? 3 : 2,
+            'comment' => $request->input('comment'),
+            'particular' => true,
+        ]);
+
+        $facture->update([
+            'state' => StateFacture::ASSURANCE->value,
+        ]);
     }
 
 
@@ -598,4 +676,123 @@ class RegulationController extends Controller
             'message' => __('Operation effectuee avec succes ')
         ], 202);
     }
+
+
+
+    /**
+     * @param Request $request
+     * @return JsonResponse
+     *
+     * @permission RegulationController::get_ventilate_assurance
+     * @permission_desc Imprimer les factures des assurances dejà réglées
+     */
+    public function get_ventilate_assurance(Request $request, $assureur_id)
+    {
+        try {
+            $centreId = $request->header('centre');
+
+            if (!$centreId) {
+                return response()->json([
+                    'message' => 'Centre non fourni'
+                ], 400);
+            }
+
+            $request->validate([
+                'start_date' => ['required', 'date'],
+                'end_date' => ['required', 'date'],
+            ]);
+
+            $query = SpecialRegulation::with([
+                'regulationMethod:id,name',
+                'assureur',
+                'centre',
+                'assurance.priseEnCharges.prestations.client',
+                'assurance.priseEnCharges.prestations.factures' => function ($q) {
+                    $q->where('state', StateFacture::ASSURANCE->value);
+                }
+            ])
+                ->where('assureur_id', $assureur_id)
+                ->where('centre_id', $centreId)
+                ->whereBetween('created_at', [
+                    $request->start_date . ' 00:00:00',
+                    $request->end_date . ' 23:59:59'
+                ])
+                ->whereHas('assurance.priseEnCharges.prestations', function ($p) {
+                    $p->whereHas('factures', function ($f) {
+                        $f->where('state', StateFacture::ASSURANCE->value);
+                    });
+                });
+
+            $result = $query->orderBy('created_at', 'ASC')->get();
+
+            if ($result->isEmpty()) {
+                return response()->json([
+                    'message' => 'Aucune donnée trouvée.'
+                ], 404);
+            }
+
+            $centre = Centre::find($centreId);
+            $media = $centre?->medias()->where('name', 'logo')->first();
+            $assureur = Assureur::find($assureur_id);
+
+            $data = [
+                'result' => $result,
+                'logo' => $media ? 'storage/' . $media->path . '/' . $media->filename : '',
+                'centre' => $centre,
+                'assureur' => $assureur,
+                'start' => $request->start_date,
+                'end' => $request->end_date
+            ];
+            $fileName = 'etats-des-factures-assurances-reglees' . now()->format('YmdHis') . '.pdf';
+            $folderPath = 'storage/etats-des-factures-assurances-reglees';
+            $filePath = $folderPath . '/' . $fileName;
+
+            if (!file_exists($folderPath)) {
+                mkdir($folderPath, 0755, true);
+            }
+            save_browser_shot_pdf(
+                view: 'pdfs.etats-des-factures-assurances-reglees.etats-des-factures-assurances-reglees',
+                data: $data,
+                folderPath: $folderPath,
+                path: $filePath,
+                margins: [15, 10, 15, 10],
+                footer: 'pdfs.reports.factures.footer',
+                format: 'A5',
+                direction: 'landscape'
+            );
+
+            if (!file_exists($filePath)) {
+                return response()->json([
+                    'message' => 'Le fichier PDF n\'a pas été généré.'
+                ], 500);
+            }
+
+            // 🔹 Encodage
+            $pdfContent = file_get_contents($filePath);
+            $base64 = base64_encode($pdfContent);
+
+            return response()->json([
+                'result' => $result,
+                'base64' => $base64,
+                'url' => $filePath,
+                'filename' => $fileName,
+            ], 200);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+
+            return response()->json([
+                'error' => 'Erreur de validation',
+                'messages' => $e->errors()
+            ], 422);
+
+        } catch (\Exception $e) {
+
+            return response()->json([
+                'error' => 'Une erreur est survenue',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+
 }

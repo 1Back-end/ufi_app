@@ -27,8 +27,11 @@ class Caisse extends Model
         'type_caisse',
         'secret_code',
         'solde_caisse',
-        'is_default_secret_code'
-
+        'is_default_secret_code',
+        'can_start_session',
+        'session_control_expires_at',
+        'session_control_status',
+        'small_change'
     ];
     protected $hidden = [
         'secret_code',

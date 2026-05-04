@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 class SpecialRegulation extends Model
@@ -18,7 +19,10 @@ class SpecialRegulation extends Model
         'regulation_method_id',
         'number_piece',
         'date_piece',
-        'date_reception'
+        'date_reception',
+        'assureur_id',
+        'centre_id',
+        'amount_waiting'
     ];
 
     protected function casts(): array
@@ -61,5 +65,13 @@ class SpecialRegulation extends Model
     public function client(): MorphTo
     {
         return $this->morphTo(Client::class, 'regulation');
+    }
+    public function assurance()
+    {
+        return $this->belongsTo(Assureur::class, 'assureur_id');
+    }
+    public function centre(): BelongsTo
+    {
+        return $this->belongsTo(Centre::class, 'centre_id');
     }
 }

@@ -203,6 +203,7 @@ class MouvementCaisseController extends Controller
             'caisse_arrivee_id' => ['required', 'exists:caisses,id'],
             'montant' => ['required', 'integer', 'min:1'],
             'description' => ['nullable', 'string'],
+            'montant_type' => ['required', 'in:small_change,other'],
         ]);
 
         DB::beginTransaction();
@@ -210,22 +211,20 @@ class MouvementCaisseController extends Controller
         try {
 
             $caisseDepart = \App\Models\Caisse::findOrFail($validated['caisse_depart_id']);
+            $caisseArrivee = \App\Models\Caisse::findOrFail($validated['caisse_arrivee_id']);
 
-            // 🔹 Vérifier que ce n'est pas la même caisse
             if ($validated['caisse_depart_id'] == $validated['caisse_arrivee_id']) {
                 return response()->json([
                     'message' => 'La caisse de départ et la caisse d\'arrivée doivent être différentes.'
                 ], 422);
             }
 
-            // 🔹 Vérification du solde uniquement
             if ($caisseDepart->solde_caisse < $validated['montant']) {
                 return response()->json([
                     'message' => 'Solde insuffisant dans la caisse de départ.'
                 ], 403);
             }
 
-            // 🔹 Création du transfert tampon
             $transfert = \App\Models\TransfertGrandeCaisse::create([
                 'caisse_depart_id' => $validated['caisse_depart_id'],
                 'caisse_reception_id' => $validated['caisse_arrivee_id'],
@@ -239,6 +238,11 @@ class MouvementCaisseController extends Controller
                 'created_by' => $auth->id,
                 'updated_by' => $auth->id,
             ]);
+
+            if ($validated['montant_type'] === 'small_change') {
+                $caisseDepart->decrement('solde_caisse', $validated['montant']);
+                $caisseArrivee->increment('small_change', $validated['montant']);
+            }
 
             DB::commit();
 

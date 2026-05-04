@@ -633,6 +633,7 @@ class PrestationController extends Controller
                     if ($sessionCaisse) {
                         $sessionCaisse->decrement('solde', $element->montant);
                         $sessionCaisse->decrement('current_sold', $element->montant);
+                        $sessionCaisse->decrement('sold_without_small_change', $element->montant);
                     }
                     $element->update(['is_deleted' => true]);
                     $element->delete();

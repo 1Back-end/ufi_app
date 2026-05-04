@@ -28,7 +28,8 @@ class TransfertFondsTampon extends Model
         'validated_at',
         'rejected_by',
         'rejected_at',
-        'reason'
+        'reason',
+        'small_change'
 
     ];
 

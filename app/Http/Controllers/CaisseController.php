@@ -698,7 +698,8 @@ class CaisseController extends Controller
                         ->latest('fermeture_ts')
                         ->first();
 
-                    $fondsOuverture = $lastSession?->current_sold ?? 0;
+                    $fondsOuverture = ($lastSession?->current_sold ?? 0) + ($caisse->small_change ?? 0);
+                    $fondsWithoutSold = $lastSession?->current_sold ?? 0;
 
                     if ($fondsOuverture > 0) {
                         $alertMessage = "⚠️ Solde reporté : "
@@ -715,6 +716,7 @@ class CaisseController extends Controller
                         'etat'            => 'OUVERTE',
                         'created_by'      => $auth->id,
                         'updated_by'      => $auth->id,
+                        'sold_without_small_change' => $fondsWithoutSold
                     ]);
                 }
             }
@@ -748,7 +750,8 @@ class CaisseController extends Controller
                 $session->update([
                     'etat'           => 'EN_PAUSE',
                     'pause_ts'       => now(),
-                    'fonds_en_pause' => $session->fonds_ouverture + $session->current_sold,
+                    'sold_without_small_change' => $fondsWithoutSold,
+                    'fonds_en_pause' => ($session->fonds_ouverture ?? 0) + ($session->current_sold ?? 0) + ($session->small_change ?? 0),
                     'updated_by'     => $auth->id,
                 ]);
             }
@@ -764,13 +767,14 @@ class CaisseController extends Controller
                     ], Response::HTTP_NOT_FOUND);
                 }
 
-                $total = $session->fonds_ouverture + $session->current_sold;
+                $total = ($session->fonds_ouverture ?? 0) + ($session->current_sold ?? 0) + ($session->small_change ?? 0);
 
                 $session->update([
                     'fermeture_ts'              => now(),
                     'etat'                      => 'FERMEE',
                     'fonds_fermeture'           => $total,
                     'fonds_fermeture_exactly'   => $total,
+                    'sold_without_small_change' => $fondsWithoutSold,
                     'solde'                     => $total,
                     'updated_by'                => $auth->id,
                 ]);
@@ -903,7 +907,12 @@ class CaisseController extends Controller
             ], Response::HTTP_FORBIDDEN);
         }
 
-        // 🔹 Vérifier si le code secret est personnalisé
+        if (!$caisse->can_start_session || $caisse->session_control_status === 'blocked') {
+            return response()->json([
+                'status' => 'error',
+                'message' => "Ouverture de caisse bloquée par l'administration. Veuillez contacter le super administrateur."
+            ], 403);
+        }
         if (!$caisse->is_default_secret_code) {
             return response()->json([
                 'message' => 'Vous devez d’abord changer le code secret avant d’ouvrir la caisse.'
@@ -1062,6 +1071,7 @@ class CaisseController extends Controller
         $validated = $request->validate([
             'caisse_reception_id' => ['required', 'integer'],
             'montant' => ['required', 'integer', 'min:1'],
+            'include_small_change' => ['nullable', 'boolean'],
         ]);
 
         $session = SessionCaisse::where('user_id', $auth->id)
@@ -1078,8 +1088,9 @@ class CaisseController extends Controller
 
         $caisseReception = Caisse::where('id', $validated['caisse_reception_id'])
             ->where('is_active', true)
-            ->where('centre_id', $centreId) // 🔹 Vérifie le centre
+            ->where('centre_id', $centreId)
             ->first();
+
 
         if (!$caisseReception) {
             return response()->json([
@@ -1087,10 +1098,42 @@ class CaisseController extends Controller
             ], 404);
         }
 
+        $caisseDepart = Caisse::findOrFail($session->caisse_id);
+        $useSmallChange = $request->boolean('include_small_change');
+
+        $cash = (int) ($session->current_sold ?? 0);
+        $smallChange = (int) ($caisseDepart->small_change ?? 0);
+
+        if (!$useSmallChange) {
+            if ((int)$validated['montant'] !== $cash) {
+                return response()->json([
+                    'message' => "Vous devez transférer exactement {$cash} FCFA."
+                ], 400);
+            }
+
+            $montantTotalTransfert = $cash;
+            $smallChangeToSend = 0;
+        }
+
+        else {
+
+            $expected = $cash + $smallChange;
+
+            if ((int)$validated['montant'] !== $expected) {
+                return response()->json([
+                    'message' => "Vous devez transférer exactement {$expected} FCFA (cash + petite monnaie)."
+                ], 400);
+            }
+
+            $montantTotalTransfert = $expected;
+            $smallChangeToSend = $smallChange;
+        }
+
         $transfert = TransfertFondsTampon::create([
             'caisse_depart_id' => $session->caisse_id,
             'caisse_reception_id' => $caisseReception->id,
-            'montant_send' => $validated['montant'],
+            'montant_send' => $montantTotalTransfert,
+            'small_change' => $smallChangeToSend,
             'status' => 'pending',
             'type' => 'debit',
             'send_by' => $auth->id,
@@ -1105,12 +1148,14 @@ class CaisseController extends Controller
                 'message' => 'Solde insuffisant dans la caisse.'
             ], 400);
         }
-        $session->decrement('current_sold', $montant);
+
         $session->update([
             'etat' => 'FERMEE',
             'fermeture_ts' => now(),
             'fonds_fermeture' => $session->solde,
             'fonds_fermeture_exactly' => $session->solde,
+            'current_sold' => 0,
+            'sold_without_small_change' => 0,
             'updated_by' => $auth->id,
         ]);
 
@@ -1120,8 +1165,9 @@ class CaisseController extends Controller
         ]);
 
         return response()->json([
-            'message' => 'Transfert initié avec succès. La caisse et la session sont maintenant fermées.',
+            'message' => 'Transfert initié avec succès (incluant la petite monnaie). La session est clôturée.',
             'transfert' => $transfert,
+            'montant_total' => $montantTotalTransfert
         ], 201);
     }
 
@@ -1266,8 +1312,12 @@ class CaisseController extends Controller
 
                 $session = SessionCaisse::find($transfert->session_id);
                 $caisseReception = Caisse::find($transfert->caisse_reception_id);
-                // 🔺 ON CREDIT CAISSE RECEPTION
+                $caisseDepart = Caisse::find($transfert->caisse_depart_id);
                 $caisseReception->increment('solde_caisse', $transfert->montant_send);
+
+                if (!empty($transfert->small_change) && $transfert->small_change > 0) {
+                    $caisseDepart->decrement('small_change', $transfert->small_change);
+                }
 
                 // 🔹 update transfert
                 $transfert->update([
@@ -1606,7 +1656,7 @@ class CaisseController extends Controller
             $end_date = \Illuminate\Support\Carbon::parse($request->input('end_date'))->endOfDay();
 
             // 🔹 Query propre
-            $query = SessionElement::with([ 'centre', 'creator', 'updater', 'facture.prestation.client', 'caisse', 'regulation_method' ])
+            $query = SessionElement::with([ 'centre', 'creator', 'updater', 'facture.prestation.client', 'caisse', 'regulation_method','regulation'])
                 ->where('centre_id', $centreId) ->where('caisse_id', $request->caisse_id)
                 ->whereBetween('created_at', [$start_date, $end_date]);
 
@@ -1801,6 +1851,95 @@ class CaisseController extends Controller
                 'message' => $e->getMessage()
             ], 500);
         }
+    }
+
+
+    public function autoCloseSessions()
+    {
+        $auth = auth()->user();
+
+        DB::beginTransaction();
+
+        try {
+
+            $sessions = SessionCaisse::whereNull('fermeture_ts')
+                ->where('etat', 'OUVERTE')
+                ->where('ouverture_ts', '<=', Carbon::now()->subMinutes(2))
+                ->get();
+
+            foreach ($sessions as $session) {
+
+                $grandeCaisse = Caisse::where('centre_id', $session->centre_id)
+                    ->where('is_primary', true)
+                    ->first();
+
+                if (!$grandeCaisse) {
+                    continue;
+                }
+
+                $montant = $session->current_sold ?? 0;
+
+                TransfertFondsTampon::create([
+                    'caisse_depart_id' => $session->caisse_id,
+                    'caisse_reception_id' => $grandeCaisse->id,
+                    'session_id' => $session->id,
+                    'status' => 'pending',
+                    'montant_send' => $montant,
+                    'send_by' => $auth->id,
+                    'created_by' => $auth->id,
+                    'centre_id' => $session->centre_id,
+                    'type' => 'AUTO_CLOSE',
+                    'validated_by' => $auth->id,
+                    'validated_at' => now(),
+                ]);
+
+
+                $session->update([
+                    'fermeture_ts' => now(),
+                    'fonds_fermeture' => $montant,
+                    'fonds_fermeture_exactly' => $montant,
+                    'etat' => 'FERMEE',
+                    'updated_by' => $auth->id
+                ]);
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Sessions clôturées automatiquement avec succès'
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            return response()->json([
+                'status' => 'error',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function controlSession(Request $request)
+    {
+        $request->validate([
+            'enabled' => 'required|boolean'
+        ]);
+
+        $enabled = $request->enabled;
+
+        $count = Caisse::where('is_active', true)->update([
+            'can_start_session' => $enabled,
+            'session_control_status' => $enabled ? 'active' : 'blocked',
+            'session_control_expires_at' => now()->addDay(),
+        ]);
+
+        return response()->json([
+            'status' => 'success',
+            'message' => $enabled
+                ? "Ouverture autorisée pour $count caisses (24h)"
+                : "Ouverture bloquée pour $count caisses (24h)"
+        ]);
     }
 
 

@@ -38,13 +38,11 @@
 
     @php
         $i = 1;
+        $totalReclame = 0;
+        $totalModerateur = 0;
     @endphp
-    <div class="d-flex justify-content-center mt-2">
-        @php
-            $totalReclame = 0;
-            $totalModerateur = 0;
-        @endphp
 
+    <div class="d-flex justify-content-center mt-2">
         <table class="table border-dark table-bordered">
             <thead>
             <tr>
@@ -54,13 +52,17 @@
                 <th>Code facture</th>
                 <th>Montant Réclamé</th>
                 <th>Modérateur</th>
+                <th>Montant à régler</th>
             </tr>
             </thead>
             <tbody>
             @foreach($prestations as $prestation)
                 @foreach($prestation->factures as $facture)
                     @php
-                        // On accumule les montants à chaque passage
+                        // Calcul du reste à payer pour cette ligne
+                        $resteAPayer = $facture->amount - $facture->amount_client;
+
+                        // Accumulation pour le pied de page
                         $totalReclame += $facture->amount;
                         $totalModerateur += $facture->amount_client;
                     @endphp
@@ -71,19 +73,18 @@
                         <td>{{ $facture->code }}</td>
                         <td>{{ \App\Helpers\FormatPrice::format($facture->amount) }}</td>
                         <td>{{ \App\Helpers\FormatPrice::format($facture->amount_client) }}</td>
+                        <td>{{ \App\Helpers\FormatPrice::format($resteAPayer) }}</td>
                     </tr>
                 @endforeach
             @endforeach
             </tbody>
+            {{-- Le tfoot est sorti de la boucle pour n'apparaître qu'une seule fois --}}
             <tfoot>
             <tr class="fw-bold bg-light">
-                <td colspan="4" class="text-end">Montant net ttc</td>
-                <td>
-                    {{ \App\Helpers\FormatPrice::format($totalReclame) }}
-                </td>
-                <td>
-                    {{ \App\Helpers\FormatPrice::format($totalModerateur) }}
-                </td>
+                <td colspan="4" class="text-end">TOTAUX</td>
+                <td>{{ \App\Helpers\FormatPrice::format($totalReclame) }}</td>
+                <td>{{ \App\Helpers\FormatPrice::format($totalModerateur) }}</td>
+                <td>{{ \App\Helpers\FormatPrice::format($totalReclame - $totalModerateur) }}</td>
             </tr>
             </tfoot>
         </table>
@@ -93,10 +94,9 @@
         $montantNet = $totalReclame - $totalModerateur;
         $f = new NumberFormatter("fr", NumberFormatter::SPELLOUT);
         $montantEnLettres = ucfirst($f->format($montantNet));
+        // Remplacer les tirets par des espaces pour une lecture plus fluide
         $montantEnLettres = str_replace('-', ' ', $montantEnLettres);
     @endphp
-
-    <p>{{ $montantEnLettres }} francs CFA</p>
 
     <div class="mt-4">
         <p style="font-size: 14px;">
@@ -107,20 +107,16 @@
 
     <div class="mt-4" style="line-height: 1.6;">
         @if($factureAssurance?->mode_of_payment)
-            <p class="mb-1">
-                Mode de paiement : {{ $factureAssurance->mode_of_payment }}
-            </p>
+            <p class="mb-1">Mode de paiement : {{ $factureAssurance->mode_of_payment }}</p>
         @endif
 
         @if($factureAssurance?->compte_or_payment)
-            <p class="mb-1">
-                compte {{ $factureAssurance->compte_or_payment }}
-            </p>
+            <p class="mb-1">Compte : {{ $factureAssurance->compte_or_payment }}</p>
         @endif
 
         @if($factureAssurance?->number_for_compte)
             <p class="mb-1" style="font-size: 14px;">
-                <strong>N°{{ $factureAssurance->number_for_compte }}</strong>
+                <strong>N° {{ $factureAssurance->number_for_compte }}</strong>
             </p>
         @endif
 
@@ -128,7 +124,6 @@
             {{ $factureAssurance->text_of_remerciement ?? 'Merci de votre confiance.' }}
         </p>
     </div>
-
 
 
 
