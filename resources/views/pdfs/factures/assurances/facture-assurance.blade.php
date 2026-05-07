@@ -78,7 +78,6 @@
                 @endforeach
             @endforeach
             </tbody>
-            {{-- Le tfoot est sorti de la boucle pour n'apparaître qu'une seule fois --}}
             <tfoot>
             <tr class="fw-bold bg-light">
                 <td colspan="4" class="text-end">TOTAUX</td>

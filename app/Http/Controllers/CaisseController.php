@@ -1657,7 +1657,7 @@ class CaisseController extends Controller
             $end_date = \Illuminate\Support\Carbon::parse($request->input('end_date'))->endOfDay();
 
             // 🔹 Query propre
-            $query = SessionElement::with([ 'centre', 'creator', 'updater', 'facture.prestation.client', 'caisse', 'regulation_method','regulation'])
+            $query = SessionElement::with(['centre', 'creator', 'updater', 'facture.prestation.client', 'caisse', 'regulation_method','regulation'])
                 ->where('centre_id', $centreId) ->where('caisse_id', $request->caisse_id)
                 ->whereBetween('created_at', [$start_date, $end_date]);
 

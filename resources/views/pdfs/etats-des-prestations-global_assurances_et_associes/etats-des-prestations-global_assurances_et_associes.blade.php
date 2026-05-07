@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>ETATS DES TYPES DE PRESTATIONS FACTURES</title>
+    <title>ETATS PRESTATIONS DES ASSURANCES</title>
 
     <style>
         {!! $bootstrap !!}
@@ -103,11 +103,6 @@
     <div class="mt-2 w-100" style="border-top: 1px double rgb(0, 0, 0, 0.75); margin-bottom: 2px"></div>
     <div class="mb-2 w-100" style="border-top: 1px double rgb(0, 0, 0, 0.75);"></div>
 
-
-    <h1 class="fs-3 fw-bold text-center text-uppercase">
-        État des prestations facturées par type
-    </h1>
-
     <p class="fst-italic text-end">Date d'impression: {{ now()->format('d/m/Y H:i') }}</p>
 
     <h2 class="fw-bold text-center fs-5 text-uppercase">
@@ -161,7 +156,7 @@
 
                     // Calcul du reste à payer
                     $restAPayer = ($factureReglee ? $factureReglee->amount_client : 0) - $regulationAmount;
-                     $totalAmount += optional($facture)->amount ?? 0;
+                    $totalAmount += optional($facture)->amount ?? 0;
                     $totalAmountPc += optional($facture)->amount_pc ?? 0;
                     $totalAmountClient += optional($facture)->amount_client ?? 0;
                     $totalRegulation += $regulationAmount;
@@ -277,7 +272,7 @@
             </div>
 
         </div>
-</div>
+    </div>
 </div>
 
 </body>

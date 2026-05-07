@@ -181,6 +181,8 @@
                 $total_facture_global = 0;
                 $total_encaisse_global = 0;
                 $repartition_modes = [];
+                $factures_seen = [];
+                $reste_jour_global = 0;
             @endphp
 
             @forelse($result->groupBy('facture_id') as $facture_id => $items)
@@ -188,27 +190,65 @@
                 @php
                     $facture = optional($items->first())->facture;
 
-                    if (!$facture) continue;
+                if (!$facture) continue;
 
-                    $montant_facture = $facture->amount_client ?? 0;
+                $montant_facture = $facture->amount_client ?? 0;
 
-                    // 🔥 IMPORTANT : on prend directement la relation DB
-                    $session_elements = $facture->sessionElements()
-                        ->where('is_deleted', false)
-                        ->orderBy('created_at')
-                        ->get();
+                /**
+                 * 🔥 TOUS les mouvements (affichage)
+                 */
+                $session_elements_all = $facture->sessionElements()
+                    ->where('is_deleted', false)
+                    ->orderBy('created_at')
+                    ->get();
 
-                    $montant_encaisse_facture = $session_elements->sum('montant');
+                /**
+                 * 🔥 MOUVEMENTS DE LA PÉRIODE
+                 */
+                $session_elements_filtered = $facture->sessionElements()
+                    ->where('is_deleted', false)
+                    ->whereBetween('created_at', [
+                        \Carbon\Carbon::parse($start)->startOfDay(),
+                        \Carbon\Carbon::parse($end)->endOfDay(),
+                    ])
+                    ->orderBy('created_at')
+                    ->get();
 
-                    $reste_facture = max($montant_facture - $montant_encaisse_facture, 0);
+                /**
+                 * 💰 encaissé sur période
+                 */
+                $montant_encaisse_facture = $session_elements_filtered->sum('montant');
 
-                    $total_facture_global += $montant_facture;
-                    $total_encaisse_global += $montant_encaisse_facture;
+                /**
+                 * 🔥 TOTAL ENCAISSÉ GLOBAL (OK)
+                 */
+                $total_encaisse_global += $montant_encaisse_facture;
 
-                    foreach ($session_elements as $item) {
-                        $modeName = optional($item->regulation_method)->name ?? 'Indéfini';
-                        $repartition_modes[$modeName] = ($repartition_modes[$modeName] ?? 0) + $item->montant;
-                    }
+                /**
+                 * 🔥 FACTURE comptée UNE SEULE FOIS si mouvement dans période
+                 */
+                if ($session_elements_filtered->isNotEmpty()) {
+                    $factures_seen[$facture->id] = $montant_facture;
+                }
+                $total_facture_global = array_sum($factures_seen);
+
+                /**
+                 * 💡 RESTE DU JOUR (IMPORTANT CORRECTION)
+                 * 👉 basé sur les mouvements du jour uniquement
+                 */
+                $montant_encaisse_total_facture = $session_elements_all->sum('montant');
+
+                $reste_facture = max($montant_facture - $montant_encaisse_total_facture,0);
+
+                $reste_jour_global = ($reste_jour_global ?? 0) + $reste_facture;
+
+                /**
+                 * 🔥 RÉPARTITION MODES (période uniquement)
+                 */
+                foreach ($session_elements_filtered as $item) {
+                    $modeName = optional($item->regulation_method)->name ?? 'Indéfini';
+                    $repartition_modes[$modeName] = ($repartition_modes[$modeName] ?? 0) + $item->montant;
+                }
                 @endphp
 
                 {{-- HEADER FACTURE --}}
@@ -241,7 +281,7 @@
                     $reste = $montant_facture;
                 @endphp
 
-                @foreach($session_elements as $index => $item)
+                @foreach($session_elements_all as $index => $item)
 
                     @php
                         $paiement = $item->montant;
@@ -308,14 +348,10 @@
             </div>
 
             <div class="col-md-4">
-                @php
-                    $reste_global = max($total_facture_global - $total_encaisse_global, 0);
-                @endphp
-
                 <div class="card border-danger shadow-sm">
                     <div class="card-body p-3 text-center">
                         <h6 class="text-danger uppercase small font-weight-bold">Reste à Recouvrer</h6>
-                        <h3 class="mb-0 text-danger">{{ \App\Helpers\FormatPrice::format($reste_global) }}</h3>
+                        <h3 class="mb-0 text-danger">{{ \App\Helpers\FormatPrice::format($reste_jour_global) }}</h3>
                     </div>
                 </div>
             </div>

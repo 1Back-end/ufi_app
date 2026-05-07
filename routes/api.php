@@ -174,6 +174,7 @@ Route::middleware(['activity'])->group(function () {
         Route::apiResource('facture_assurances_store', \App\Http\Controllers\ReglementAssuranceController::class);
         Route::get('/get_facture_paid', [\App\Http\Controllers\ReportController::class, 'print_data_validated']);
         Route::get('/get_facture_not_paid', [\App\Http\Controllers\ReportController::class, 'print_data_not_close']);
+        Route::get('/print_data_not_assurance_with_associate', [\App\Http\Controllers\ReportController::class, 'print_data_not_assurance_with_associate']);
 
 
         Route::controller(CentreController::class)->prefix('centres')->group(function () {
