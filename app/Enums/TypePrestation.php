@@ -52,4 +52,16 @@ enum TypePrestation: int
             default => null,
         };
     }
+    public function tvaRate(): float
+    {
+        return 19.25;
+    }
+
+    public function irRate(): float
+    {
+        return match ($this) {
+            self::LABORATOIR => 2.2,
+            default => 5.5,
+        };
+    }
 }

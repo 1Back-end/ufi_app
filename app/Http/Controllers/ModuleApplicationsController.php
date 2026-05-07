@@ -15,6 +15,7 @@ use Illuminate\Support\Str;
  * @permission_module Gestion des stocks
  * @permission_module Paramètres Facturations
  * @permission_module Paramètres Applicatifs
+ * @permission_module Gestion des rapports
  */
 
 class ModuleApplicationsController extends Controller

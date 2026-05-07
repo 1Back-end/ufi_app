@@ -117,12 +117,17 @@ class ExtractPermissions extends Command
         'Authorizations' => [
             'description' => 'Paramètres d\'autorisations' ,
             'category' => 'Permissions supplémentaires',
-            'modules' => ['Paramètres Applicatifs','Gestion des prestations','Paramètres Facturations','Autres Modules','Gestion des caisses','Gestion des stocks','Gestion du laboratoire'],
+            'modules' => ['Gestion des rapports','Paramètres Applicatifs','Gestion des prestations','Paramètres Facturations','Autres Modules','Gestion des caisses','Gestion des stocks','Gestion du laboratoire'],
         ],
         'ReportAccess' => [
-            'description' => 'Afficher le menu principal des rapports',
+            'description' => 'Afficher le menu des rapports de factures',
             'category' => 'Permissions supplémentaires',
-            'modules' => ['Gestion des prestations','Autres Modules'],
+            'modules' => ['Gestion des rapports','Autres Modules'],
+        ],
+        'OthersReports' => [
+            'description' => 'Afficher le menu principal des rapports supplémentaires',
+            'category' => 'Permissions supplémentaires',
+            'modules' => ['Gestion des rapports','Autres Modules'],
         ],
         'ConfigurationsRendezVous' => [
             'description' => 'Afficher le menu principal des rendez vous',

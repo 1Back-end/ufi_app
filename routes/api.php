@@ -172,10 +172,10 @@ Route::middleware(['activity'])->group(function () {
         Route::patch('module_applications/{uuid}/is_active', [\App\Http\Controllers\ModuleApplicationsController::class, 'toggleActive']);
 
         Route::apiResource('facture_assurances_store', \App\Http\Controllers\ReglementAssuranceController::class);
+        Route::get('/get_facture_paid', [\App\Http\Controllers\ReportController::class, 'print_data_validated']);
+        Route::get('/get_facture_not_paid', [\App\Http\Controllers\ReportController::class, 'print_data_not_close']);
 
 
-
-        // Gestion des centres
         Route::controller(CentreController::class)->prefix('centres')->group(function () {
             Route::get('/', 'index');
             Route::post('/', 'store');
