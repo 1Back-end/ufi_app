@@ -70,6 +70,8 @@ class Prestation extends Model
         'last_prelevement',
         'validated_printed_count',
         'is_all_examens_validated',
+        'tva_rate',
+        'ir_rate',
     ];
 
     protected function validatedPrintedCount(): Attribute
@@ -137,6 +139,18 @@ class Prestation extends Model
     {
         return Attribute::make(
             get: fn() => TypePrestation::label($this->type),
+        );
+    }
+    protected function tvaRate(): Attribute
+    {
+        return Attribute::make(
+            get: fn () => $this->type?->tvaRate(),
+        );
+    }
+    protected function irRate(): Attribute
+    {
+        return Attribute::make(
+            get: fn () => $this->type?->irRate(),
         );
     }
 
@@ -271,7 +285,6 @@ class Prestation extends Model
                 ->whereBetween('factures.date_fact', [$startDate, $endDate])
                 ->orderBy('factures.date_fact', 'asc');
         };
-
         return $query->where('prestations.centre_id', $centreId)
             ->whereHas('factures', $factureFilter)
             ->with([

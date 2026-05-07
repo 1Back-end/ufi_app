@@ -746,6 +746,7 @@ class CaisseController extends Controller
                     ], 400);
                 }
 
+                $fondsWithoutSold = $lastSession?->current_sold ?? 0;
                 // ✅ Mise en pause
                 $session->update([
                     'etat'           => 'EN_PAUSE',
