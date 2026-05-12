@@ -150,9 +150,7 @@
                         ->first();
 
                     // Total des règlements validés
-                    $regulationAmount = $factureReglee
-                        ? $factureReglee->regulations->where('state', 1)->sum('amount')
-                        : 0;
+                    $regulationAmount = $factureReglee ? $factureReglee->regulations->where('state', 1)->sum('amount') : 0;
 
                     // Calcul du reste à payer
                     $restAPayer = ($factureReglee ? $factureReglee->amount_client : 0) - $regulationAmount;
