@@ -52,7 +52,6 @@ class RegulationController extends Controller
         $centreId = $request->header('centre');
         $facture = Facture::find($request->input('facture_id'));
 
-        // 🔹 Récupérer la caisse active pour cet utilisateur et ce centre
         $caisse = Caisse::where('user_id', $auth->id)
             ->where('centre_id', $centreId)
             ->where('is_active', true)
@@ -64,7 +63,6 @@ class RegulationController extends Controller
             ], 403);
         }
 
-        // 🔹 Chercher la session ouverte pour cette caisse et ce centre
         $session = SessionCaisse::where('user_id', $auth->id)
             ->where('caisse_id', $caisse->id)
             ->where('centre_id', $centreId)
@@ -92,7 +90,6 @@ class RegulationController extends Controller
                 'reference' => $reg['reference'] ?? null,
             ]);
 
-            // 🔹 Créer l'entrée SessionElement
             $sessionElement = \App\Models\SessionElement::create([
                 'session_id' => $session->id,
                 'facture_id' => $facture->id,

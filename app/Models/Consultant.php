@@ -154,6 +154,11 @@ class Consultant extends Model
     {
         return $this->hasMany(ConsultantDisponibilite::class);
     }
+    public function prestations()
+    {
+        return $this->hasMany(ConsultantPrestationShare::class, 'consultant_id')
+            ->with('prestationType');
+    }
 
 
 

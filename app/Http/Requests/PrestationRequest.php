@@ -213,7 +213,6 @@ class PrestationRequest extends FormRequest
                 if ($errorConflit) {
                     return $errorConflit;
                 }
-
                 break;
             case TypePrestation::HOSPITALISATION->value:
                 $prestations = Prestation::whereRegulated(0)

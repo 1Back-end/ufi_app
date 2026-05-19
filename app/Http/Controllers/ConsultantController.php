@@ -48,7 +48,8 @@ class ConsultantController extends Controller
             'disponibilites',
             'user',
             'creator',
-            'updater'
+            'updater',
+            'prestations'
         ])
             ->where('is_deleted', false);
 
@@ -179,7 +180,8 @@ class ConsultantController extends Controller
                 'code_specialite',
                 'code_titre',
                 'code_service_hopi',
-                'disponibilites'
+                'disponibilites',
+                'prestations'
             ])
             ->findOrFail($id);
         return response()->json($consultant);

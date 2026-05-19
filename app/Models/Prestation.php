@@ -43,7 +43,9 @@ class Prestation extends Model
         'campagne_id',
         'is_campagne',
         'reason_for_delete',
-        'reason_for_cancel'
+        'reason_for_cancel',
+        'consultant_amount',
+        'consultant_amount_status'
     ];
 
     protected function casts(): array

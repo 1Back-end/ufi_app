@@ -8,6 +8,7 @@ use App\Http\Controllers\CatPredefinedListController;
 use App\Http\Controllers\CentreController;
 use App\Http\Controllers\ClientController;
 use App\Http\Controllers\ConsultantController;
+use App\Http\Controllers\ConsultantPrestationShareController;
 use App\Http\Controllers\ConventionAssocieController;
 use App\Http\Controllers\CountryController;
 use App\Http\Controllers\ElementPaillasseController;
@@ -18,6 +19,7 @@ use App\Http\Controllers\GroupePopulationController;
 use App\Http\Controllers\HopitalController;
 use App\Http\Controllers\KbPrelevementController;
 use App\Http\Controllers\PaillasseController;
+use App\Http\Controllers\PaymentAccountController;
 use App\Http\Controllers\PrefixController;
 use App\Http\Controllers\ProformaController;
 use App\Http\Controllers\RegulationController;
@@ -752,6 +754,17 @@ Route::middleware(['activity'])->group(function () {
         Route::post('/prestations/examens/validate', [ResultController::class, 'validate']);
         Route::post('/prestations/examens/cancel', [ResultController::class, 'cancel']);
         Route::apiResource('results', ResultController::class)->only(['store', 'index']);
+
+
+        // Gestion des commissions des consultants
+        Route::get('/get_all_prestations_type', [ConsultantPrestationShareController::class, 'get_all_prestations_type']);
+        Route::post('/save_commisions_for_consultants', [ConsultantPrestationShareController::class, 'save_commisions_for_consultants']);
+        Route::get('commissions/{consultant_id}/paiements', [ConsultantPrestationShareController::class, 'get_all_paiement_for_consultants']);
+
+        // Gestion des comptes de paiements
+        Route::apiResource('accounts_payments', PaymentAccountController::class);
+        Route::patch('accounts_payments/{id}/is_active', [PaymentAccountController::class, 'updateStatus']);
+        Route::get('get_account_payment_status', [\App\Http\Controllers\PaymentAccountController::class, 'get_account_payment_status']);
 
         // Gestion des catégories de listes prédéfinies
         Route::apiResource('cat-predefined-lists', CatPredefinedListController::class);
