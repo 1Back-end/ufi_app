@@ -26,4 +26,4 @@
 #GET http://localhost:8000/api/statistics/clients-statistics
 GET http://localhost:8000/api/statistics/factures-statistiques
 
-
+php artisan db:seed --class=TypePrestationSeeder

@@ -12,7 +12,8 @@ class Prestationable extends Model
     protected $fillable = [
         'prestation_id', 'prestationable_id', 'prestationable_type', 'remise', 'quantity',
         'date_rdv', 'date_rdv_end', 'nbr_days', 'type_salle', 'honoraire', 'created_at', 'updated_at',
-        'amount_regulate', 'pu', 'b', 'k_modulateur', 'prelevements', 'status_examen','amount_prorate','amount_contested'
+        'amount_regulate', 'pu', 'b', 'k_modulateur', 'prelevements', 'status_examen','amount_prorate','amount_contested','amount_contested',
+        'consultant_amount_status'
     ];
 
     protected $casts = [

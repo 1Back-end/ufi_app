@@ -318,17 +318,26 @@ if (!function_exists('save_facture')) {
      */
     function save_facture(Prestation $prestation, int $centre_id, int $type): Facture
     {
+        if ((int) $prestation->centre_id !== (int) $centre_id) {
+            throw new \Exception("Cette prestation n'appartient pas à ce centre");
+        }
+
         [$amount, $amount_pc, $amount_remise, $amount_client, $amount_prelevement, $amount_prelevement_pc] = calculate_amount_facture($prestation);
 
         $latestFacture = Facture::whereType($type)
             ->where('centre_id', $centre_id)
             ->whereYear('created_at', now()->year)
             ->latest()->first();
+
         $sequence = $latestFacture ? $latestFacture->sequence + 1 : 1;
 
         // Log::info($amount_prelevement);
 
-        $facture = $prestation->factures()->where('type', $type)->first();
+        $facture = $prestation->factures()
+            ->where('type', $type)
+            ->where('centre_id', $centre_id)
+            ->first();
+
         if (!$facture) {
             $state = $prestation->payable_by || $amount_client <= 0 ? StateFacture::IN_PROGRESS->value : StateFacture::CREATE->value;
 
@@ -368,44 +377,6 @@ if (!function_exists('save_facture')) {
                 'amount' => $convention->amount + $facture->amount_client
             ]);
         }
-
-//        $auth = auth()->user();
-//
-////        Log::info('Utilisateur connecté', [
-////            'user_id' => $auth->id,
-////            'caisse_id_auth' => $auth->caisse_id
-////        ]);
-//
-//
-//        $session = SessionCaisse::where('user_id', $auth->id)
-//            ->where('etat', 'OUVERTE')
-//            ->latest('ouverture_ts')
-//            ->first();
-//
-//        if (!$session) {
-////            Log::warning('Aucune session ouverte trouvée pour cet utilisateur');
-//            throw new \Exception("Votre caisse n'est pas ouverte !");
-//        }
-//
-////        Log::info('Session trouvée', [
-////            'session_id' => $session->id,
-////            'etat' => $session->etat,
-////            'caisse_id' => $session->caisse_id,
-////            'ouverture_ts' => $session->ouverture_ts
-////        ]);
-//
-//        SessionElement::create([
-//            'session_id' => $session->id,
-//            'facture_id' => $facture->id,
-//            'montant'    => $facture->amount_client,
-//            'caisse_id'  => $session->caisse_id,
-//            'centre_id'  => $centre_id,
-//            'created_by' => $auth->id,
-//            'updated_by' => $auth->id,
-//        ]);
-//
-//        $session->increment('solde', $facture->amount_client);
-
         return $facture;
     }
 }

@@ -12,6 +12,7 @@ use App\Models\Caisse;
 use App\Models\Centre;
 use App\Models\Client;
 use App\Models\Consultant;
+use App\Models\ConsultantPrestationShare;
 use App\Models\Consultation;
 use App\Models\ConventionAssocie;
 use App\Models\Examen;
@@ -686,10 +687,19 @@ class PrestationController extends Controller
 
         DB::beginTransaction();
         try {
-            $centre = $request->header('centre');
+            $centre = (int) $request->header('centre');
+
+            if ($prestation->centre_id !== $centre) {
+                return response()->json([
+                    'message' => "Cette prestation n'appartient pas à ce centre"
+                ], 403);
+            }
+
             $facture = save_facture($prestation, $centre, $request->input('proforma'));
+            $isBlocked = $prestation->priseCharge || $prestation->payable_by;
             $prestation->update([
-                'regulated' => 5
+                'regulated' => 5,
+                'consultant_amount_status' => $isBlocked ? 'cancelled' : 'available'
             ]);
 
         } catch (\Throwable $th) {
@@ -931,12 +941,24 @@ class PrestationController extends Controller
                 if ($update) {
                     $prestation->actes()->detach();
                 }
-
+                $totalConsultantAmount = 0;
                 foreach ($request->post('actes') as $item) {
                     $pu = $item['pu'];
                     $b = $item['b'];
                     $kModulateur = $item['k_modulateur'];
+                    $consultantAmount = 0;
 
+                    $consultantShare = ConsultantPrestationShare::where('consultant_id', $request->input('consultant_id'))
+                        ->where('prestation_type_id', 1)->where('is_active', true)->first();
+
+                    if (!$prestation->priseCharge && !$prestation->payable_by && $consultantShare) {
+                        if (!empty($consultantShare->price) && $consultantShare->price > 0) {
+                            $consultantAmount = $consultantShare->price;
+                        } else {
+                            $consultantAmount = ($pu * ($consultantShare->share_rate ?? 0)) / 100;
+                        }
+                    }
+                    $isBlocked = $prestation->priseCharge || $prestation->payable_by;
                     $prestation->actes()->attach($item['id'], [
                         'remise' => $item['remise'],
                         'quantity' => $item['quantity'],
@@ -944,77 +966,158 @@ class PrestationController extends Controller
                         'date_rdv_end' => Carbon::createFromTimeString($item['date_rdv'])->addMinutes((int)$prestationDuration),
                         'b' => $b,
                         'k_modulateur' => $kModulateur,
-                        'pu' => $prestation->priseCharge ? $b * $kModulateur : $pu
+                        'pu' => $prestation->priseCharge ? $b * $kModulateur : $pu,
+                        'consultant_amount' => $consultantAmount,
+                        'consultant_amount_status' => $isBlocked ? 'cancelled' : 'pending',
                     ]);
-
+                    $totalConsultantAmount += $consultantAmount;
                     $this->createRdv($prestation, $request->input('consultant_id'), $request->input('client_id'), $item['date_rdv']);
                 }
+                $prestation->update([
+                    'consultant_amount' => $totalConsultantAmount,
+                    'consultant_amount_status' => ($prestation->priseCharge || $prestation->payable_by)
+                        ? 'cancelled'
+                        : 'pending',
+                ]);
                 break;
             case TypePrestation::SOINS->value:
                 if ($update) {
                     $prestation->soins()->detach();
                 }
+                $totalConsultantAmount = 0;
 
                 foreach ($request->post('soins') as $item) {
                     $pu = $item['pu'];
+                    $consultantAmount = 0;
+
+                    $consultantShare = ConsultantPrestationShare::where('consultant_id', $request->input('consultant_id'))
+                        ->where('prestation_type_id', 3)->where('is_active', true)->first();
+                    if (!$prestation->priseCharge && !$prestation->payable_by && $consultantShare) {
+                        if (!empty($consultantShare->price) && $consultantShare->price > 0) {
+                            $consultantAmount = $consultantShare->price;
+                        } else {
+                            $consultantAmount = ($pu * ($consultantShare->share_rate ?? 0)) / 100;
+                        }
+                    }
+                    $isBlocked = $prestation->priseCharge || $prestation->payable_by;
 
                     $prestation->soins()->attach($item['id'], [
                         'remise' => $item['remise'],
                         'nbr_days' => $item['nbr_days'],
                         'type_salle' => $item['type_salle'],
                         'honoraire' => $item['honoraire'],
-                        'pu' => $pu
+                        'pu' => $pu,
+                        'consultant_amount' => $consultantAmount,
+                        'consultant_amount_status' => $isBlocked ? 'cancelled' : 'pending',
                     ]);
+                    $totalConsultantAmount += $consultantAmount;
                 }
+                $prestation->update([
+                    'consultant_amount' => $totalConsultantAmount,
+                    'consultant_amount_status' => ($prestation->priseCharge || $prestation->payable_by)
+                        ? 'cancelled'
+                        : 'pending',
+                ]);
                 break;
             case TypePrestation::CONSULTATIONS->value:
                 if ($update) {
                     $prestation->consultations()->detach();
                 }
+                $totalConsultantAmount = 0;
 
                 foreach ($request->post('consultations') as $item) {
                     $pu = $item['pu'];
+                    $consultantAmount = 0;
+                    $consultantShare = \App\Models\ConsultantPrestationShare::where('consultant_id', $request->input('consultant_id'))
+                        ->where('prestation_type_id', 2)->where('is_active', true)->first();
 
+                    $isBlocked = $prestation->priseCharge || $prestation->payable_by;
+
+                    if (!$isBlocked && $consultantShare) {
+                        if (!empty($consultantShare->price) && $consultantShare->price > 0) {
+                            $consultantAmount = $consultantShare->price;
+                        } else {
+                            $consultantAmount = ($pu * ($consultantShare->share_rate ?? 0)) / 100;
+                        }
+                    }
+                    $isBlocked = $prestation->priseCharge || $prestation->payable_by;
                     $prestation->consultations()->attach($item['id'], [
                         'date_rdv' => $item['date_rdv'],
                         'remise' => $item['remise'],
                         'quantity' => $item['quantity'],
                         'date_rdv_end' => Carbon::createFromTimeString($item['date_rdv'])->addMinutes((int)$prestationDuration),
-                        'pu' => $pu
+                        'pu' => $pu,
+                        'consultant_amount' => $consultantAmount,
+                        'consultant_amount_status' => $isBlocked ? 'cancelled' : 'pending',
                     ]);
+                    $totalConsultantAmount += $consultantAmount;
 
                     $this->createRdv($prestation, $request->input('consultant_id'), $request->input('client_id'), $item['date_rdv']);
                 }
+                $prestation->update([
+                    'consultant_amount' => $totalConsultantAmount,
+                    'consultant_amount_status' => $isBlocked ? 'cancelled' : 'pending',
+                ]);
                 break;
+
             case TypePrestation::HOSPITALISATION->value:
                 if ($update) {
                     $prestation->hospitalisations()->detach();
                 }
+                $totalConsultantAmount = 0;
 
                 foreach ($request->post('hospitalisations') as $item) {
                     $pu = $item['pu'];
-
+                    $consultantAmount = 0;
+                    $consultantShare = \App\Models\ConsultantPrestationShare::where('consultant_id', $request->input('consultant_id'))
+                        ->where('prestation_type_id', 6)->where('is_active', true)->first();
+                    $isBlocked = $prestation->priseCharge || $prestation->payable_by;
+                    if (!$isBlocked && $consultantShare) {
+                        if (!empty($consultantShare->price) && $consultantShare->price > 0) {
+                            $consultantAmount = $consultantShare->price;
+                        } else {
+                            $consultantAmount = ($pu * ($consultantShare->share_rate ?? 0)) / 100;
+                        }
+                    }
                     $prestation->hospitalisations()->attach($item['id'], [
                         'date_rdv' => $item['date_rdv'],
                         'remise' => $item['remise'],
                         'quantity' => $item['quantity'],
                         'date_rdv_end' => Carbon::createFromTimeString($item['date_rdv'])->addMinutes((int)$prestationDuration),
-                        'pu' => $pu
+                        'pu' => $pu,
+                        'consultant_amount' => $consultantAmount,
+                        'consultant_amount_status' => $isBlocked ? 'cancelled' : 'pending',
                     ]);
-
+                    $totalConsultantAmount += $consultantAmount;
                     $this->createRdv($prestation, $request->input('consultant_id'), $request->input('client_id'), $item['date_rdv']);
                 }
+                $prestation->update([
+                    'consultant_amount' => $totalConsultantAmount,
+                    'consultant_amount_status' => $isBlocked ? 'cancelled' : 'pending',
+                ]);
                 break;
             case TypePrestation::LABORATOIR->value:
                 if ($update) {
                     $prestation->examens()->detach();
                 }
+                $totalConsultantAmount = 0;
 
                 foreach ($request->input('examens') as $item) {
                     $pu = $item['price'];
                     $b = $item['b'];
+                    $consultantAmount = 0;
                     if ($prestation->priseCharge) {
                         $pu = $b * $prestation->priseCharge->quotation->taux;
+                    }
+                    $consultantShare = \App\Models\ConsultantPrestationShare::where('consultant_id', $request->input('consultant_id'))
+                        ->where('prestation_type_id', 5)->where('is_active', true)->first();
+                    $isBlocked = $prestation->priseCharge || $prestation->payable_by;
+                    if (!$isBlocked && $consultantShare) {
+                        if (!empty($consultantShare->price) && $consultantShare->price > 0) {
+                            $consultantAmount = $consultantShare->price;
+                        } else {
+                            $consultantAmount = ($pu * ($consultantShare->share_rate ?? 0)) / 100;
+                        }
                     }
 
                     $prestation->examens()->attach($item['id'], [
@@ -1022,8 +1125,15 @@ class PrestationController extends Controller
                         'quantity' => $item['quantity'],
                         'pu' => $pu,
                         'b' => $b,
+                        'consultant_amount' => $consultantAmount,
+                        'consultant_amount_status' => $isBlocked ? 'cancelled' : 'pending',
                     ]);
+                    $totalConsultantAmount += $consultantAmount;
                 }
+                $prestation->update([
+                    'consultant_amount' => $totalConsultantAmount,
+                    'consultant_amount_status' => $isBlocked ? 'cancelled' : 'pending',
+                ]);
                 break;
             case TypePrestation::PRODUITS->value:
                 if ($update) {
