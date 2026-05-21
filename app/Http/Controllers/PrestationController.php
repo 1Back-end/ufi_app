@@ -696,10 +696,12 @@ class PrestationController extends Controller
             }
 
             $facture = save_facture($prestation, $centre, $request->input('proforma'));
-            $isBlocked = $prestation->priseCharge || $prestation->payable_by;
+
             $prestation->update([
                 'regulated' => 5,
-                'consultant_amount_status' => $isBlocked ? 'cancelled' : 'available'
+                'consultant_amount_status' => $prestation->consultant_amount_status === 'pending'
+                    ? 'available'
+                    : $prestation->consultant_amount_status,
             ]);
 
         } catch (\Throwable $th) {
@@ -941,24 +943,52 @@ class PrestationController extends Controller
                 if ($update) {
                     $prestation->actes()->detach();
                 }
+                $consultantShare = ConsultantPrestationShare::where('consultant_id', $request->input('consultant_id'))
+                    ->where('prestation_type_id', 1)
+                    ->where('is_active', true)
+                    ->first();
+
                 $totalConsultantAmount = 0;
+
                 foreach ($request->post('actes') as $item) {
                     $pu = $item['pu'];
                     $b = $item['b'];
                     $kModulateur = $item['k_modulateur'];
+
                     $consultantAmount = 0;
+                    $canCalculate = false;
 
-                    $consultantShare = ConsultantPrestationShare::where('consultant_id', $request->input('consultant_id'))
-                        ->where('prestation_type_id', 1)->where('is_active', true)->first();
+                    if ($consultantShare) {
+                        $isCarepriseCharge = (bool) ($prestation->priseCharge);
+                        $isCarepayable_by = (bool) ($prestation->payable_by);
 
-                    if (!$prestation->priseCharge && !$prestation->payable_by && $consultantShare) {
-                        if (!empty($consultantShare->price) && $consultantShare->price > 0) {
-                            $consultantAmount = $consultantShare->price;
-                        } else {
-                            $consultantAmount = ($pu * ($consultantShare->share_rate ?? 0)) / 100;
+                        $applyOnClients = (int) $consultantShare->apply_on_clients === 1;
+                        $applyOnCare = (int) $consultantShare->apply_on_care === 1;
+                        $applyOnAllClients = (int) $consultantShare->apply_on_all_clients === 1;
+
+                        if ($applyOnAllClients && !$isCarepriseCharge && !$isCarepayable_by) {
+                            $canCalculate = true;
+                        }
+
+                        if ($isCarepriseCharge && $applyOnCare) {
+                            $canCalculate = true;
+                        }
+
+                        if ($isCarepayable_by && $applyOnClients) {
+                            $canCalculate = true;
                         }
                     }
-                    $isBlocked = $prestation->priseCharge || $prestation->payable_by;
+
+                    if ($canCalculate && $consultantShare) {
+                        if (!empty($consultantShare->price) && (float) $consultantShare->price > 0) {
+                            $consultantAmount = (float) $consultantShare->price;
+                        } else {
+                            $consultantAmount = ($pu * (float) ($consultantShare->share_rate ?? 0)) / 100;
+                        }
+                    }
+
+                    $finalStatus = $canCalculate ? 'pending' : 'cancelled';
+
                     $prestation->actes()->attach($item['id'], [
                         'remise' => $item['remise'],
                         'quantity' => $item['quantity'],
@@ -968,16 +998,15 @@ class PrestationController extends Controller
                         'k_modulateur' => $kModulateur,
                         'pu' => $prestation->priseCharge ? $b * $kModulateur : $pu,
                         'consultant_amount' => $consultantAmount,
-                        'consultant_amount_status' => $isBlocked ? 'cancelled' : 'pending',
+                        'consultant_amount_status' => $finalStatus,
                     ]);
+
                     $totalConsultantAmount += $consultantAmount;
                     $this->createRdv($prestation, $request->input('consultant_id'), $request->input('client_id'), $item['date_rdv']);
                 }
                 $prestation->update([
                     'consultant_amount' => $totalConsultantAmount,
-                    'consultant_amount_status' => ($prestation->priseCharge || $prestation->payable_by)
-                        ? 'cancelled'
-                        : 'pending',
+                    'consultant_amount_status' => $finalStatus,
                 ]);
                 break;
             case TypePrestation::SOINS->value:
@@ -1023,24 +1052,46 @@ class PrestationController extends Controller
                 if ($update) {
                     $prestation->consultations()->detach();
                 }
+                $consultantShare = \App\Models\ConsultantPrestationShare::where('consultant_id', $request->input('consultant_id'))
+                    ->where('prestation_type_id', 2)->where('is_active', true)->first();
                 $totalConsultantAmount = 0;
-
                 foreach ($request->post('consultations') as $item) {
                     $pu = $item['pu'];
                     $consultantAmount = 0;
-                    $consultantShare = \App\Models\ConsultantPrestationShare::where('consultant_id', $request->input('consultant_id'))
-                        ->where('prestation_type_id', 2)->where('is_active', true)->first();
+                    $canCalculate = false;
 
-                    $isBlocked = $prestation->priseCharge || $prestation->payable_by;
+                    if ($consultantShare) {
+                        $isCarepriseCharge = (bool) ($prestation->priseCharge);
+                        $isCarepayable_by = (bool) ($prestation->payable_by);
 
-                    if (!$isBlocked && $consultantShare) {
-                        if (!empty($consultantShare->price) && $consultantShare->price > 0) {
-                            $consultantAmount = $consultantShare->price;
-                        } else {
-                            $consultantAmount = ($pu * ($consultantShare->share_rate ?? 0)) / 100;
+                        $applyOnClients = (int) $consultantShare->apply_on_clients === 1;
+                        $applyOnCare = (int) $consultantShare->apply_on_care === 1;
+                        $applyOnAllClients = (int) $consultantShare->apply_on_all_clients === 1;
+
+                        if ($applyOnAllClients && !$isCarepriseCharge && !$isCarepayable_by) {
+                            $canCalculate = true;
+                        }
+
+                        if ($isCarepriseCharge && $applyOnCare) {
+                            $canCalculate = true;
+                        }
+
+                        if ($isCarepayable_by && $applyOnClients) {
+                            $canCalculate = true;
                         }
                     }
-                    $isBlocked = $prestation->priseCharge || $prestation->payable_by;
+
+                    if ($canCalculate && $consultantShare) {
+                        if (!empty($consultantShare->price) && (float) $consultantShare->price > 0) {
+                            $consultantAmount = (float) $consultantShare->price;
+                        } else {
+                            $consultantAmount = ($pu * (float) ($consultantShare->share_rate ?? 0)) / 100;
+                        }
+                    }
+
+                    $finalStatus = $canCalculate ? 'pending' : 'cancelled';
+
+
                     $prestation->consultations()->attach($item['id'], [
                         'date_rdv' => $item['date_rdv'],
                         'remise' => $item['remise'],
@@ -1048,7 +1099,7 @@ class PrestationController extends Controller
                         'date_rdv_end' => Carbon::createFromTimeString($item['date_rdv'])->addMinutes((int)$prestationDuration),
                         'pu' => $pu,
                         'consultant_amount' => $consultantAmount,
-                        'consultant_amount_status' => $isBlocked ? 'cancelled' : 'pending',
+                        'consultant_amount_status' => $finalStatus,
                     ]);
                     $totalConsultantAmount += $consultantAmount;
 
@@ -1056,7 +1107,7 @@ class PrestationController extends Controller
                 }
                 $prestation->update([
                     'consultant_amount' => $totalConsultantAmount,
-                    'consultant_amount_status' => $isBlocked ? 'cancelled' : 'pending',
+                    'consultant_amount_status' => $finalStatus,
                 ]);
                 break;
 
@@ -1071,6 +1122,7 @@ class PrestationController extends Controller
                     $consultantAmount = 0;
                     $consultantShare = \App\Models\ConsultantPrestationShare::where('consultant_id', $request->input('consultant_id'))
                         ->where('prestation_type_id', 6)->where('is_active', true)->first();
+
                     $isBlocked = $prestation->priseCharge || $prestation->payable_by;
                     if (!$isBlocked && $consultantShare) {
                         if (!empty($consultantShare->price) && $consultantShare->price > 0) {
@@ -1100,25 +1152,49 @@ class PrestationController extends Controller
                 if ($update) {
                     $prestation->examens()->detach();
                 }
+                $consultantShare = \App\Models\ConsultantPrestationShare::where('consultant_id', $request->input('consultant_id'))
+                    ->where('prestation_type_id', 5)->where('is_active', true)->first();
                 $totalConsultantAmount = 0;
 
                 foreach ($request->input('examens') as $item) {
                     $pu = $item['price'];
                     $b = $item['b'];
-                    $consultantAmount = 0;
                     if ($prestation->priseCharge) {
                         $pu = $b * $prestation->priseCharge->quotation->taux;
                     }
-                    $consultantShare = \App\Models\ConsultantPrestationShare::where('consultant_id', $request->input('consultant_id'))
-                        ->where('prestation_type_id', 5)->where('is_active', true)->first();
-                    $isBlocked = $prestation->priseCharge || $prestation->payable_by;
-                    if (!$isBlocked && $consultantShare) {
-                        if (!empty($consultantShare->price) && $consultantShare->price > 0) {
-                            $consultantAmount = $consultantShare->price;
-                        } else {
-                            $consultantAmount = ($pu * ($consultantShare->share_rate ?? 0)) / 100;
+                    $consultantAmount = 0;
+                    $canCalculate = false;
+
+                    if ($consultantShare) {
+                        $isCarepriseCharge = (bool) ($prestation->priseCharge);
+                        $isCarepayable_by = (bool) ($prestation->payable_by);
+
+                        $applyOnClients = (int) $consultantShare->apply_on_clients === 1;
+                        $applyOnCare = (int) $consultantShare->apply_on_care === 1;
+                        $applyOnAllClients = (int) $consultantShare->apply_on_all_clients === 1;
+
+                        if ($applyOnAllClients && !$isCarepriseCharge && !$isCarepayable_by) {
+                            $canCalculate = true;
+                        }
+
+                        if ($isCarepriseCharge && $applyOnCare) {
+                            $canCalculate = true;
+                        }
+
+                        if ($isCarepayable_by && $applyOnClients) {
+                            $canCalculate = true;
                         }
                     }
+
+                    if ($canCalculate && $consultantShare) {
+                        if (!empty($consultantShare->price) && (float) $consultantShare->price > 0) {
+                            $consultantAmount = (float) $consultantShare->price;
+                        } else {
+                            $consultantAmount = ($pu * (float) ($consultantShare->share_rate ?? 0)) / 100;
+                        }
+                    }
+
+                    $finalStatus = $canCalculate ? 'pending' : 'cancelled';
 
                     $prestation->examens()->attach($item['id'], [
                         'remise' => $item['remise'],
@@ -1126,13 +1202,13 @@ class PrestationController extends Controller
                         'pu' => $pu,
                         'b' => $b,
                         'consultant_amount' => $consultantAmount,
-                        'consultant_amount_status' => $isBlocked ? 'cancelled' : 'pending',
+                        'consultant_amount_status' => $finalStatus,
                     ]);
                     $totalConsultantAmount += $consultantAmount;
                 }
                 $prestation->update([
                     'consultant_amount' => $totalConsultantAmount,
-                    'consultant_amount_status' => $isBlocked ? 'cancelled' : 'pending',
+                    'consultant_amount_status' => $finalStatus,
                 ]);
                 break;
             case TypePrestation::PRODUITS->value:
@@ -1479,14 +1555,15 @@ class PrestationController extends Controller
                                 'elementPaillasse',
                                 'elementPaillasse.typeResult'
                             ])
-                                ->where('created_at', '<', $prestation->created_at)
                                 ->where('element_paillasse_id', $elementPaillasse->id)
                                 ->whereNotIn('prestation_id', [$prestation->id])
                                 ->whereHas('prestation', function ($query) use ($prestation) {
-                                    $query->where('client_id', request()->input('client_id'));
+                                    $query->where('client_id', $prestation->client_id);
                                 })
                                 ->latest()
                                 ->first();
+
+                            Log::info($result);
 
                             if ($result) {
                                 $anteriorityResult[] = [
@@ -1498,6 +1575,12 @@ class PrestationController extends Controller
                         }
                     }
                 }
+
+                Log::info('RESULT QUERY', [
+                    'element_paillasse_id' => $elementPaillasse->id,
+                    'found' => $result ? true : false,
+                    'result' => $result
+                ]);
 
                 $centre = $prestation->centre;
                 $media = $centre->medias()->where('name', 'logo')->first();
@@ -1519,6 +1602,7 @@ class PrestationController extends Controller
                     'anteriorities' => $anteriorityResult,
                     'filename' => $fileName
                 ];
+
 
                 save_browser_shot_pdf(
                     view: 'pdfs.results.body',

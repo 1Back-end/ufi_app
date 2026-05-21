@@ -233,9 +233,10 @@
                                 @foreach($anteriorities as $anteriority)
                                     @if($anteriority['element_paillasse_id'] == showResultExamen($prestation, $examen)->elementPaillasse->id)
                                         <div class="fst-italic" style="font-size: 0.8rem">
-                                            {{ $anteriority->result->result_client }}
-                                            {{ showResultExamen($prestation, $examen)->elementPaillasse->unit }}
-                                            ({{ $anteriority->result?->created_at?->format('d/m/Y') }})
+                                            {{ $anteriority['result']->result_client ?? '' }}
+                                            {{ showResultExamen($prestation, $examen)->elementPaillasse->unit ?? '' }}
+
+                                            ({{ optional($anteriority['result']->created_at)->format('d/m/Y') }})
                                         </div>
                                     @endif
                                 @endforeach
@@ -320,8 +321,10 @@
                                                 @foreach($anteriorities as $anteriority)
                                                     @if($anteriority['element_paillasse_id'] == $elementPaillasse->id)
                                                         <div class="fst-italic" style="font-size: 0.8rem">
-                                                            {{ $anteriority->result->result_client }} {{ $elementPaillasse->unit }}
-                                                            ({{ $anteriority->result?->created_at?->format('d/m/Y') }})
+                                                            {{ $anteriority['result']->result_client ?? '' }}
+                                                            {{ $elementPaillasse->unit }}
+
+                                                            ({{ \Carbon\Carbon::parse($anteriority['result']->created_at)->format('d/m/Y') }})
                                                         </div>
                                                     @endif
                                                 @endforeach

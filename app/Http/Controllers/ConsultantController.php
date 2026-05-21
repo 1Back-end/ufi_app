@@ -181,7 +181,9 @@ class ConsultantController extends Controller
                 'code_titre',
                 'code_service_hopi',
                 'disponibilites',
-                'prestations'
+                'prestations.prestationType',
+                'prestations.account',
+                'account'
             ])
             ->findOrFail($id);
         return response()->json($consultant);
@@ -300,49 +302,60 @@ class ConsultantController extends Controller
         try {
             $auth = auth()->user();
 
+            // Validation
             $data = $request->validate([
                 'code_hopi' => 'required|exists:hopitals,id',
                 'code_service_hopi' => 'required|exists:service__hopitals,id',
                 'code_specialite' => 'required|exists:specialites,id',
                 'code_titre' => 'required|exists:titres,id',
+
                 'nom' => 'required|string',
-                'prenom' => 'required|string',
+                'prenom' => 'nullable|string',
+
                 'tel' => 'required|string|unique:consultants,tel',
                 'tel1' => 'nullable|string|unique:consultants,tel1',
-                'email' => 'required|email|unique:consultants,email',
+                'email' => 'nullable|email|unique:consultants,email',
+
                 'type' => ['required', new Enum(TypeConsultEnum::class)],
-                'TelWhatsApp' => 'nullable|in:Oui,Non',
+
+                'TelWhatsApp' => 'nullable|boolean',
+                'is_used_commission' => 'nullable|boolean',
+
                 'jours' => 'nullable|array',
             ]);
 
+            // 🔥 Normalisation des booléens (important)
+            $data['TelWhatsApp'] = $request->boolean('TelWhatsApp');
+            $data['is_used_commission'] = $request->boolean('is_used_commission');
 
-            $titre = Titre::find($data['code_titre']);
-            $data['nomcomplet'] = $titre->nom_titre . ' ' . $data['nom'] . ' ' . $data['prenom'];
-            $data['ref'] = 'C' . now()->format('ymdHis') . mt_rand(10, 99);
             $data['created_by'] = $auth->id;
 
-            // ✅ Création du consultant
+            // Création consultant
             $consultant = Consultant::create($data);
 
+            // 🔥 Mapping jours
+            $joursMap = [
+                'Lundi' => 1,
+                'Mardi' => 2,
+                'Mercredi' => 3,
+                'Jeudi' => 4,
+                'Vendredi' => 5,
+                'Samedi' => 6,
+                'Dimanche' => 7,
+            ];
+
+            // Disponibilités (seulement interne)
             if ($data['type'] === 'Interne' && !empty($request->jours)) {
-                // Mapping des jours en entier
-                $joursMap = [
-                    'Lundi' => 1,
-                    'Mardi' => 2,
-                    'Mercredi' => 3,
-                    'Jeudi' => 4,
-                    'Vendredi' => 5,
-                    'Samedi' => 6,
-                    'Dimanche' => 7,
-                ];
 
                 foreach ($request->jours as $jourNom => $plages) {
+
                     $jourInt = $joursMap[$jourNom] ?? null;
-                    if (!$jourInt) continue; // Ignore si jour inconnu
+                    if (!$jourInt) continue;
 
                     foreach ($plages as $plage) {
-                        if (!isset($plage['heure_debut'], $plage['heure_fin'])) {
-                            continue; // Ignore les plages incomplètes
+
+                        if (empty($plage['heure_debut']) || empty($plage['heure_fin'])) {
+                            continue;
                         }
 
                         ConsultantDisponibilite::create([
@@ -356,21 +369,25 @@ class ConsultantController extends Controller
                     }
                 }
             }
+
             return response()->json([
                 'message' => 'Consultant et disponibilités enregistrés avec succès.',
                 'consultant' => $consultant->load('disponibilites'),
             ], 201);
 
         } catch (\Illuminate\Validation\ValidationException $e) {
+
             return response()->json([
                 'message' => 'Erreur de validation des données.',
                 'errors' => $e->errors(),
             ], 422);
 
         } catch (\Exception $e) {
+
             return response()->json([
-                'message' => 'Une erreur est survenue lors de l’enregistrement.',
+                'message' => 'Une erreur technique est survenue lors de l’enregistrement.',
                 'error' => $e->getMessage(),
+                'line' => $e->getLine(),
             ], 500);
         }
     }
@@ -416,34 +433,55 @@ class ConsultantController extends Controller
         try {
             $auth = auth()->user();
 
-            // Récupérer le consultant
+            // Récupérer consultant
             $consultant = Consultant::findOrFail($id);
 
-            // Validation des données
+            // Validation
             $data = $request->validate([
                 'code_hopi' => 'required|exists:hopitals,id',
                 'code_service_hopi' => 'required|exists:service__hopitals,id',
                 'code_specialite' => 'required|exists:specialites,id',
                 'code_titre' => 'required|exists:titres,id',
+
                 'nom' => 'required|string',
-                'prenom' => 'required|string',
+                'prenom' => 'nullable|string',
+
                 'tel' => 'required|string|unique:consultants,tel,' . $consultant->id,
                 'tel1' => 'nullable|string|unique:consultants,tel1,' . $consultant->id,
-                'email' => 'required|email|unique:consultants,email,' . $consultant->id,
+                'email' => 'nullable|email|unique:consultants,email,' . $consultant->id,
+
                 'type' => ['required', new Enum(TypeConsultEnum::class)],
-                'TelWhatsApp' => 'nullable|in:Oui,Non',
+
+                'TelWhatsApp' => 'nullable|boolean',
+                'is_used_commission' => 'nullable|boolean',
+
                 'jours' => 'nullable|array',
             ]);
 
-            // Mettre à jour le nom complet
+            // 🔥 Normalisation booléens (important)
+            $data['TelWhatsApp'] = $request->boolean('TelWhatsApp');
+            $data['is_used_commission'] = $request->boolean('is_used_commission');
+
+            // 🔥 Titre sécurisé
             $titre = Titre::find($data['code_titre']);
-            $data['nomcomplet'] = $titre->nom_titre . ' ' . $data['nom'] . ' ' . $data['prenom'];
+
+            if (!$titre) {
+                return response()->json([
+                    'message' => 'Titre introuvable',
+                ], 404);
+            }
+
+            // Nom complet
+            $data['nomcomplet'] = trim(
+                $titre->nom_titre . ' ' . $data['nom'] . ' ' . $data['prenom']
+            );
+
             $data['updated_by'] = $auth->id;
 
-            // Mise à jour du consultant
+            // Update consultant
             $consultant->update($data);
 
-            // Mapping des jours en entier
+            // Mapping jours
             $joursMap = [
                 'Lundi' => 1,
                 'Mardi' => 2,
@@ -454,35 +492,32 @@ class ConsultantController extends Controller
                 'Dimanche' => 7,
             ];
 
-            // Mise à jour des disponibilités
-            if ($data['type'] === 'Interne') {
-                // Supprimer les anciennes disponibilités
-                ConsultantDisponibilite::where('consultant_id', $consultant->id)->delete();
+            // 🔥 Toujours reset propre des disponibilités
+            ConsultantDisponibilite::where('consultant_id', $consultant->id)->delete();
 
-                if (!empty($request->jours)) {
-                    foreach ($request->jours as $jourNom => $plages) {
-                        $jourInt = $joursMap[$jourNom] ?? null;
-                        if (!$jourInt) continue;
+            if ($data['type'] === 'Interne' && !empty($request->jours)) {
 
-                        foreach ($plages as $plage) {
-                            if (!isset($plage['heure_debut'], $plage['heure_fin'])) {
-                                continue;
-                            }
+                foreach ($request->jours as $jourNom => $plages) {
 
-                            ConsultantDisponibilite::create([
-                                'consultant_id' => $consultant->id,
-                                'jour' => $jourInt,
-                                'heure_debut' => $plage['heure_debut'],
-                                'heure_fin' => $plage['heure_fin'],
-                                'created_by' => $auth->id,
-                                'updated_by' => $auth->id,
-                            ]);
+                    $jourInt = $joursMap[$jourNom] ?? null;
+                    if (!$jourInt) continue;
+
+                    foreach ($plages as $plage) {
+
+                        if (empty($plage['heure_debut']) || empty($plage['heure_fin'])) {
+                            continue;
                         }
+
+                        ConsultantDisponibilite::create([
+                            'consultant_id' => $consultant->id,
+                            'jour' => $jourInt,
+                            'heure_debut' => $plage['heure_debut'],
+                            'heure_fin' => $plage['heure_fin'],
+                            'created_by' => $auth->id,
+                            'updated_by' => $auth->id,
+                        ]);
                     }
                 }
-            } else {
-                // Si le consultant devient externe, supprimer toutes les disponibilités
-                ConsultantDisponibilite::where('consultant_id', $consultant->id)->delete();
             }
 
             return response()->json([
@@ -491,12 +526,14 @@ class ConsultantController extends Controller
             ], 200);
 
         } catch (\Illuminate\Validation\ValidationException $e) {
+
             return response()->json([
                 'message' => 'Erreur de validation des informations fournies.',
                 'errors' => $e->errors(),
             ], 422);
 
         } catch (\Exception $e) {
+
             return response()->json([
                 'message' => 'Une erreur inattendue est survenue lors de la mise à jour du consultant.',
                 'error' => $e->getMessage(),
