@@ -19,13 +19,21 @@ class ConsultantPrestationShare extends Model
         'is_active',
         'created_by',
         'updated_by',
-        'price'
+        'price',
+        'account_id',
+        'apply_on_care',
+        'apply_on_clients',
+        'apply_on_all_clients'
     ];
 
 
     public function consultant()
     {
-        return $this->belongsTo(Consultant::class);
+        return $this->belongsTo(Consultant::class, 'consultant_id');
+    }
+    public function account()
+    {
+        return $this->belongsTo(PaymentAccount::class, 'account_id');
     }
 
     public function prestationType()
@@ -44,4 +52,5 @@ class ConsultantPrestationShare extends Model
     {
         return $this->belongsTo(User::class, 'updated_by');
     }
+
 }

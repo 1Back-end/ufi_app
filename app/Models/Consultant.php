@@ -32,7 +32,8 @@ class Consultant extends Model
         'updated_by',
         'TelWhatsApp',
         'centre_id',
-        'user_id'
+        'user_id',
+        'is_used_commission'
     ];
 
     protected $appends = ['fullname'];
@@ -87,67 +88,28 @@ class Consultant extends Model
                 $consultant->ref = 'C' . now()->format('ymdHis') . mt_rand(10, 99);
             }
         });
-    }
-    protected static function boot()
-    {
-        parent::boot();
 
         static::creating(function ($consultant) {
             if (empty($consultant->nomcomplet)) {
-                $titreNom = null;
-                if (!empty($consultant->code_titre)) {
-                    $titre = Titre::find($consultant->code_titre);
-                    $titreNom = $titre ? $titre->nom_titre : null;
-                }
-
-                $consultant->nomcomplet = trim("{$titreNom} {$consultant->prenom} {$consultant->nom}");
+                $consultant->nomcomplet = $consultant->genererNomComplet();
             }
         });
 
         static::updating(function ($consultant) {
             if (empty($consultant->nomcomplet)) {
-                $titreNom = null;
-                if (!empty($consultant->code_titre)) {
-                    $titre = Titre::find($consultant->code_titre);
-                    $titreNom = $titre ? $titre->nom_titre : null;
-                }
-
-                $consultant->nomcomplet = trim("{$titreNom} {$consultant->prenom} {$consultant->nom}");
+                $consultant->nomcomplet = $consultant->genererNomComplet();
             }
         });
     }
-    public function isComplete(): bool
+    public function genererNomComplet(): string
     {
-        // Valeurs considérées comme incomplètes
-        $placeholders = ['RAS', null, ''];
-
-        // Vérifie les champs texte
-        $textFields = ['nom', 'prenom', 'nomcomplet', 'type', 'status'];
-        foreach ($textFields as $field) {
-            if (in_array($this->$field, $placeholders)) {
-                return false;
-            }
+        $titreNom = null;
+        if (!empty($this->code_titre)) {
+            $titre = $this->relationLoaded('titre') ? $this->titre : Titre::find($this->code_titre);
+            $titreNom = $titre ? $titre->nom_titre : null;
         }
 
-        // Vérifie les relations/IDs
-        $idFields = ['code_hopi', 'code_service_hopi', 'code_specialite', 'code_titre', 'centre_id'];
-        foreach ($idFields as $field) {
-            if (empty($this->$field)) {
-                return false;
-            }
-        }
-
-        // Vérifie l'email
-        if (empty($this->email) || str_contains($this->email, 'example.com') || str_contains($this->email, 'fake')) {
-            return false;
-        }
-
-        // Vérifie le téléphone : faux téléphone généré par Faker
-        if (empty($this->tel) || preg_match('/^\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}$/', $this->tel)) {
-            return false;
-        }
-
-        return true;
+        return trim("{$titreNom} {$this->prenom} {$this->nom}");
     }
 
     public function disponibilites()
@@ -158,6 +120,11 @@ class Consultant extends Model
     {
         return $this->hasMany(ConsultantPrestationShare::class, 'consultant_id')
             ->with('prestationType');
+    }
+
+    public function account()
+    {
+        return $this->belongsTo(PaymentAccount::class, 'account_id');
     }
 
 

@@ -760,6 +760,7 @@ Route::middleware(['activity'])->group(function () {
         Route::get('/get_all_prestations_type', [ConsultantPrestationShareController::class, 'get_all_prestations_type']);
         Route::post('/save_commisions_for_consultants', [ConsultantPrestationShareController::class, 'save_commisions_for_consultants']);
         Route::get('commissions/{consultant_id}/paiements', [ConsultantPrestationShareController::class, 'get_all_paiement_for_consultants']);
+        Route::post('commissions/paiement', [ConsultantPrestationShareController::class, 'store_paiement_consultant']);
 
         // Gestion des comptes de paiements
         Route::apiResource('accounts_payments', PaymentAccountController::class);
