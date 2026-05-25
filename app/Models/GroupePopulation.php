@@ -27,6 +27,15 @@ class GroupePopulation extends Model
     {
         return Attribute::make(
             get: function ($value, array $attributes) {
+
+                $age = (int) $attributes['agemin'];
+                if ($age >= 0 && $age <= 29) {
+                    if ($age === 0) {
+                        return "0 jour";
+                    }
+                    return $age . ' jour' . ($age > 1 ? 's' : '');
+                }
+
                 $years = floor($attributes['agemin'] / 12);
                 $months = $attributes['agemin'] - $years * 12;
 
@@ -41,8 +50,17 @@ class GroupePopulation extends Model
     {
         return Attribute::make(
             get: function ($value, array $attributes) {
-                if (!$attributes['agemax']) return "";
+                if ($attributes['agemax'] === null) {
+                    return "";
+                }
+                $age = (int) $attributes['agemax'];
+                if ($age >= 0 && $age <= 29) {
 
+                    if ($age === 0) {
+                        return "0 jour";
+                    }
+                    return $age . ' jour' . ($age > 1 ? 's' : '');
+                }
                 $years = floor($attributes['agemax'] / 12);
                 $months = $attributes['agemax'] - $years * 12;
 

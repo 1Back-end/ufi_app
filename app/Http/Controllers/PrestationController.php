@@ -1091,7 +1091,6 @@ class PrestationController extends Controller
 
                     $finalStatus = $canCalculate ? 'pending' : 'cancelled';
 
-
                     $prestation->consultations()->attach($item['id'], [
                         'date_rdv' => $item['date_rdv'],
                         'remise' => $item['remise'],

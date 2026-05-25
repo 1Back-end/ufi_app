@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 /**
  * @permission_category Gestion des prestations
+ * @permission_module Gestion des prestations
  */
 
 class ConsultantPrestationShareController extends Controller
