@@ -230,15 +230,26 @@
 
                             <td class="border border-start-0 border-end-0 border-bottom-0 text-center"
                                 style="border-style: dotted !important; border-color: rgb(0, 0, 0, 0.5) !important; font-family: 'Times New Roman', serif;">
-                                @foreach($anteriorities as $anteriority)
-                                    @if($anteriority['element_paillasse_id'] == showResultExamen($prestation, $examen)->elementPaillasse->id)
-                                        <div class="fst-italic" style="font-size: 0.8rem">
-                                            {{ $anteriority['result']->result_client ?? '' }}
-                                            {{ showResultExamen($prestation, $examen)->elementPaillasse->unit ?? '' }}
+                                @foreach(
+                                    collect($anteriorities)
+                                        ->where(
+                                            'element_paillasse_id',
+                                            showResultExamen($prestation, $examen)->elementPaillasse->id
+                                        )
+                                        ->unique(fn($item) =>
+                                            ($item['result']->id ?? '') . '_' .
+                                            ($item['result']->created_at ?? '')
+                                        )
+                                    as $anteriority
+                                        )
 
-                                            ({{ optional($anteriority['result']->created_at)->format('d/m/Y') }})
-                                        </div>
-                                    @endif
+                                    <div class="fst-italic" style="font-size: 0.8rem">
+                                        {{ $anteriority['result']->result_client ?? '' }}
+                                        {{ showResultExamen($prestation, $examen)->elementPaillasse->unit ?? '' }}
+
+                                        ({{ optional($anteriority['result']->created_at)->format('d/m/Y') }})
+                                    </div>
+
                                 @endforeach
                             </td>
 
@@ -316,18 +327,28 @@
                                                             {{ $elementPaillasse->unit }}</span>
                                             </td>
 
-                                            <td class="border-0 text-center" style="; font-family: 'Times New Roman', serif;"
-                                                style="padding: 0">
-                                                @foreach($anteriorities as $anteriority)
-                                                    @if($anteriority['element_paillasse_id'] == $elementPaillasse->id)
-                                                        <div class="fst-italic" style="font-size: 0.8rem">
-                                                            {{ $anteriority['result']->result_client ?? '' }}
-                                                            {{ $elementPaillasse->unit }}
+                                            <td class="border-0 text-center"
+                                                style="font-family: 'Times New Roman', serif; padding: 0;">
 
-                                                            ({{ \Carbon\Carbon::parse($anteriority['result']->created_at)->format('d/m/Y') }})
-                                                        </div>
-                                                    @endif
+                                                @foreach(
+                                                    collect($anteriorities)
+                                                        ->where('element_paillasse_id', $elementPaillasse->id)
+                                                        ->unique(fn($item) =>
+                                                            ($item['result']->id ?? '') . '_' .
+                                                            ($item['result']->created_at ?? '')
+                                                        )
+                                                    as $anteriority
+                                                )
+
+                                                    <div class="fst-italic" style="font-size: 0.8rem">
+                                                        {{ $anteriority['result']->result_client ?? '' }}
+                                                        {{ $elementPaillasse->unit }}
+
+                                                        ({{ \Carbon\Carbon::parse($anteriority['result']->created_at)->format('d/m/Y') }})
+                                                    </div>
+
                                                 @endforeach
+
                                             </td>
                                         @endif
                                     @endforeach
