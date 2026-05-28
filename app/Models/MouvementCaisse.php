@@ -37,19 +37,21 @@ class MouvementCaisse extends Model
 
     public static function generateCode(): string
     {
-        $datePart = now()->format('Ydm'); // Année, jour, mois → ex: 20252611
-        $prefix = '#' . $datePart;
+        do {
 
-        // Chercher le dernier code global (pas par jour)
-        $last = self::withTrashed()->orderBy('created_at', 'desc')->first();
+            $code =
+                'TRF-' .
+                now()->format('YmdHis') .
+                '-' .
+                rand(1000, 9999);
 
-        if ($last && preg_match('/(\d{6})$/', $last->code, $matches)) {
-            $number = (int) $matches[1] + 1;
-        } else {
-            $number = 1;
-        }
+        } while (
+            self::withTrashed()
+                ->where('code', $code)
+                ->exists()
+        );
 
-        return $prefix . str_pad($number, 6, '0', STR_PAD_LEFT);
+        return $code;
     }
 
 
