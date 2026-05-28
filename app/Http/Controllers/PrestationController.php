@@ -949,16 +949,20 @@ class PrestationController extends Controller
                     ->first();
 
                 $totalConsultantAmount = 0;
+                $globalStatus = 'cancelled';
+                $isFullCoverage = $prestation->priseCharge && (float) $prestation->priseCharge->taux_pc === 100.0;
 
                 foreach ($request->post('actes') as $item) {
                     $pu = $item['pu'];
                     $b = $item['b'];
                     $kModulateur = $item['k_modulateur'];
+                    $acte = Acte::find($item['id']);
+                    $isUsedForCommission = filter_var(data_get($item, 'is_used_for_commission', $acte?->is_used_for_commission), FILTER_VALIDATE_BOOLEAN);
 
                     $consultantAmount = 0;
                     $canCalculate = false;
 
-                    if ($consultantShare) {
+                    if ($isUsedForCommission && $consultantShare) {
                         $isCarepriseCharge = (bool) ($prestation->priseCharge);
                         $isCarepayable_by = (bool) ($prestation->payable_by);
 
@@ -987,7 +991,19 @@ class PrestationController extends Controller
                         }
                     }
 
-                    $finalStatus = $canCalculate ? 'pending' : 'cancelled';
+                    if ($isFullCoverage && $isUsedForCommission && $canCalculate) {
+                        $finalStatus = 'available';
+                    } elseif ($isUsedForCommission && $canCalculate) {
+                        $finalStatus = 'pending';
+                    } else {
+                        $finalStatus = 'cancelled';
+                    }
+
+                    if ($finalStatus === 'pending') {
+                        $globalStatus = 'pending';
+                    } elseif ($isFullCoverage && $globalStatus !== 'pending') {
+                        $globalStatus = 'available';
+                    }
 
                     $prestation->actes()->attach($item['id'], [
                         'remise' => $item['remise'],
@@ -1006,61 +1022,29 @@ class PrestationController extends Controller
                 }
                 $prestation->update([
                     'consultant_amount' => $totalConsultantAmount,
-                    'consultant_amount_status' => $finalStatus,
+                    'consultant_amount_status' => $globalStatus,
                 ]);
                 break;
             case TypePrestation::SOINS->value:
                 if ($update) {
                     $prestation->soins()->detach();
                 }
+
+                $consultantShare = ConsultantPrestationShare::where('consultant_id', $request->input('consultant_id'))
+                    ->where('prestation_type_id', 3)->where('is_active', true)->first();
                 $totalConsultantAmount = 0;
+                $globalStatus = 'cancelled';
+                $isFullCoverage = $prestation->priseCharge && (float) $prestation->priseCharge->taux_pc === 100.0;
 
                 foreach ($request->post('soins') as $item) {
                     $pu = $item['pu'];
-                    $consultantAmount = 0;
+                    $soin = Soins::find($item['id']);
+                    $isUsedForCommission = filter_var(data_get($item, 'is_used_for_commission', $soin?->is_used_for_commission), FILTER_VALIDATE_BOOLEAN);
 
-                    $consultantShare = ConsultantPrestationShare::where('consultant_id', $request->input('consultant_id'))
-                        ->where('prestation_type_id', 3)->where('is_active', true)->first();
-                    if (!$prestation->priseCharge && !$prestation->payable_by && $consultantShare) {
-                        if (!empty($consultantShare->price) && $consultantShare->price > 0) {
-                            $consultantAmount = $consultantShare->price;
-                        } else {
-                            $consultantAmount = ($pu * ($consultantShare->share_rate ?? 0)) / 100;
-                        }
-                    }
-                    $isBlocked = $prestation->priseCharge || $prestation->payable_by;
-
-                    $prestation->soins()->attach($item['id'], [
-                        'remise' => $item['remise'],
-                        'nbr_days' => $item['nbr_days'],
-                        'type_salle' => $item['type_salle'],
-                        'honoraire' => $item['honoraire'],
-                        'pu' => $pu,
-                        'consultant_amount' => $consultantAmount,
-                        'consultant_amount_status' => $isBlocked ? 'cancelled' : 'pending',
-                    ]);
-                    $totalConsultantAmount += $consultantAmount;
-                }
-                $prestation->update([
-                    'consultant_amount' => $totalConsultantAmount,
-                    'consultant_amount_status' => ($prestation->priseCharge || $prestation->payable_by)
-                        ? 'cancelled'
-                        : 'pending',
-                ]);
-                break;
-            case TypePrestation::CONSULTATIONS->value:
-                if ($update) {
-                    $prestation->consultations()->detach();
-                }
-                $consultantShare = \App\Models\ConsultantPrestationShare::where('consultant_id', $request->input('consultant_id'))
-                    ->where('prestation_type_id', 2)->where('is_active', true)->first();
-                $totalConsultantAmount = 0;
-                foreach ($request->post('consultations') as $item) {
-                    $pu = $item['pu'];
                     $consultantAmount = 0;
                     $canCalculate = false;
 
-                    if ($consultantShare) {
+                    if ($isUsedForCommission && $consultantShare) {
                         $isCarepriseCharge = (bool) ($prestation->priseCharge);
                         $isCarepayable_by = (bool) ($prestation->payable_by);
 
@@ -1089,7 +1073,95 @@ class PrestationController extends Controller
                         }
                     }
 
-                    $finalStatus = $canCalculate ? 'pending' : 'cancelled';
+                    if ($isFullCoverage && $isUsedForCommission && $canCalculate) {
+                        $finalStatus = 'available';
+                    } elseif ($isUsedForCommission && $canCalculate) {
+                        $finalStatus = 'pending';
+                    } else {
+                        $finalStatus = 'cancelled';
+                    }
+
+                    if ($finalStatus === 'pending') {
+                        $globalStatus = 'pending';
+                    } elseif ($isFullCoverage && $globalStatus !== 'pending') {
+                        $globalStatus = 'available';
+                    }
+
+                    $prestation->soins()->attach($item['id'], [
+                        'remise' => $item['remise'],
+                        'nbr_days' => $item['nbr_days'],
+                        'type_salle' => $item['type_salle'],
+                        'honoraire' => $item['honoraire'],
+                        'pu' => $pu,
+                        'consultant_amount' => $consultantAmount,
+                        'consultant_amount_status' => $finalStatus,
+                    ]);
+                    $totalConsultantAmount += $consultantAmount;
+                }
+                $prestation->update([
+                    'consultant_amount' => $totalConsultantAmount,
+                    'consultant_amount_status' => $globalStatus,
+                ]);
+                break;
+            case TypePrestation::CONSULTATIONS->value:
+                if ($update) {
+                    $prestation->consultations()->detach();
+                }
+                $consultantShare = \App\Models\ConsultantPrestationShare::where('consultant_id', $request->input('consultant_id'))
+                    ->where('prestation_type_id', 2)->where('is_active', true)->first();
+                $totalConsultantAmount = 0;
+                $globalStatus = 'cancelled';
+                $isFullCoverage = $prestation->priseCharge && (float) $prestation->priseCharge->taux_pc === 100.0;
+
+                foreach ($request->post('consultations') as $item) {
+                    $pu = $item['pu'];
+                    $consultation = Consultation::find($item['id']);
+                    $isUsedForCommission = filter_var(data_get($item, 'is_used_for_commission', $consultation?->is_used_for_commission), FILTER_VALIDATE_BOOLEAN);
+                    $consultantAmount = 0;
+                    $canCalculate = false;
+
+                    if ($isUsedForCommission && $consultantShare) {
+                        $isCarepriseCharge = (bool) ($prestation->priseCharge);
+                        $isCarepayable_by = (bool) ($prestation->payable_by);
+
+                        $applyOnClients = (int) $consultantShare->apply_on_clients === 1;
+                        $applyOnCare = (int) $consultantShare->apply_on_care === 1;
+                        $applyOnAllClients = (int) $consultantShare->apply_on_all_clients === 1;
+
+                        if ($applyOnAllClients && !$isCarepriseCharge && !$isCarepayable_by) {
+                            $canCalculate = true;
+                        }
+
+                        if ($isCarepriseCharge && $applyOnCare) {
+                            $canCalculate = true;
+                        }
+
+                        if ($isCarepayable_by && $applyOnClients) {
+                            $canCalculate = true;
+                        }
+                    }
+
+                    if ($canCalculate && $consultantShare) {
+                        if (!empty($consultantShare->price) && (float) $consultantShare->price > 0) {
+                            $consultantAmount = (float) $consultantShare->price;
+                        } else {
+                            $consultantAmount = ($pu * (float) ($consultantShare->share_rate ?? 0)) / 100;
+                        }
+                    }
+
+                    if ($isFullCoverage && $isUsedForCommission && $canCalculate) {
+                        $finalStatus = 'available';
+                    } elseif ($isUsedForCommission && $canCalculate) {
+                        $finalStatus = 'pending';
+                    } else {
+                        $finalStatus = 'cancelled';
+                    }
+
+                    if ($finalStatus === 'pending') {
+                        $globalStatus = 'pending';
+                    } elseif ($isFullCoverage && $globalStatus !== 'pending') {
+                        $globalStatus = 'available';
+                    }
 
                     $prestation->consultations()->attach($item['id'], [
                         'date_rdv' => $item['date_rdv'],
@@ -1106,7 +1178,7 @@ class PrestationController extends Controller
                 }
                 $prestation->update([
                     'consultant_amount' => $totalConsultantAmount,
-                    'consultant_amount_status' => $finalStatus,
+                    'consultant_amount_status' => $globalStatus,
                 ]);
                 break;
 
@@ -1154,6 +1226,8 @@ class PrestationController extends Controller
                 $consultantShare = \App\Models\ConsultantPrestationShare::where('consultant_id', $request->input('consultant_id'))
                     ->where('prestation_type_id', 5)->where('is_active', true)->first();
                 $totalConsultantAmount = 0;
+                $globalStatus = 'cancelled';
+                $isFullCoverage = $prestation->priseCharge && (float) $prestation->priseCharge->taux_pc === 100.0;
 
                 foreach ($request->input('examens') as $item) {
                     $pu = $item['price'];
@@ -1161,10 +1235,15 @@ class PrestationController extends Controller
                     if ($prestation->priseCharge) {
                         $pu = $b * $prestation->priseCharge->quotation->taux;
                     }
+                    $examen = Examen::find($item['id']);
+                    $isUsedForCommission = filter_var(
+                        data_get($item, 'is_used_for_commission', $examen?->is_used_for_commission),
+                        FILTER_VALIDATE_BOOLEAN
+                    );
                     $consultantAmount = 0;
                     $canCalculate = false;
 
-                    if ($consultantShare) {
+                    if ($isUsedForCommission && $consultantShare) {
                         $isCarepriseCharge = (bool) ($prestation->priseCharge);
                         $isCarepayable_by = (bool) ($prestation->payable_by);
 
@@ -1193,7 +1272,19 @@ class PrestationController extends Controller
                         }
                     }
 
-                    $finalStatus = $canCalculate ? 'pending' : 'cancelled';
+                    if ($isFullCoverage && $isUsedForCommission && $canCalculate) {
+                        $finalStatus = 'available';
+                    } elseif ($isUsedForCommission && $canCalculate) {
+                        $finalStatus = 'pending';
+                    } else {
+                        $finalStatus = 'cancelled';
+                    }
+
+                    if ($finalStatus === 'pending') {
+                        $globalStatus = 'pending';
+                    } elseif ($isFullCoverage && $globalStatus !== 'pending') {
+                        $globalStatus = 'available';
+                    }
 
                     $prestation->examens()->attach($item['id'], [
                         'remise' => $item['remise'],
@@ -1207,7 +1298,7 @@ class PrestationController extends Controller
                 }
                 $prestation->update([
                     'consultant_amount' => $totalConsultantAmount,
-                    'consultant_amount_status' => $finalStatus,
+                    'consultant_amount_status' => $globalStatus,
                 ]);
                 break;
             case TypePrestation::PRODUITS->value:

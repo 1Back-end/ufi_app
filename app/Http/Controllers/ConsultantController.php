@@ -28,6 +28,7 @@ use Symfony\Component\HttpFoundation\Response;
 /**
  * @permission_category Gestion des consultants
  * @permission_module Gestion des prestations
+ * @permission_module Gestion du laboratoire
  */
 class ConsultantController extends Controller
 {

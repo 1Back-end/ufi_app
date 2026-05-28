@@ -1320,7 +1320,6 @@ class CaisseController extends Controller
                     $caisseDepart->decrement('small_change', $transfert->small_change);
                 }
 
-                // 🔹 update transfert
                 $transfert->update([
                     'status' => 'validated',
                     'validated_by' => $auth->id,
@@ -1330,7 +1329,6 @@ class CaisseController extends Controller
 
                 // 🔹 historique
                 TransfertFonds::create([
-                    'code' => $transfert->code,
                     'caisse_depart_id' => $transfert->caisse_depart_id,
                     'caisse_reception_id' => $transfert->caisse_reception_id,
                     'montant_send' => $transfert->montant_send,

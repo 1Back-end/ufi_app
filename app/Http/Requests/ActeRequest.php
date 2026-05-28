@@ -19,6 +19,7 @@ class ActeRequest extends FormRequest
             'pu_assurance' => ['nullable', 'integer'],
             'code' => ['nullable', 'string','unique:actes,code'],
             'sub_act_category_id' => ['nullable', 'exists:sub_act_categories,id'],
+            'is_used_for_commission' => ['nullable', 'boolean'],
         ];
     }
 }

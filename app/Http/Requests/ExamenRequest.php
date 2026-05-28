@@ -12,6 +12,7 @@ class ExamenRequest extends FormRequest
         return [
             'code' => ['required', Rule::unique('examens', 'code')->ignore($this->route('examen'))],
             'name' => ['required'],
+            'is_used_for_commission' => ['nullable', 'boolean'],
             'price' => ['required', 'numeric'],
             'b' => ['required'],
             'b1' => ['required'],

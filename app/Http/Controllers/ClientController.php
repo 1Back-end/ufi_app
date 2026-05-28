@@ -37,6 +37,7 @@ use Throwable;
 /**
  * @permission_category Gestion des clients
  * @permission_module Gestion des prestations
+ * @permission_module Gestion du laboratoire
  */
 class ClientController extends Controller
 {
