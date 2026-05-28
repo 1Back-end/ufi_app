@@ -1270,38 +1270,71 @@ class CaisseController extends Controller
                 throw new \Exception("Certains transferts sont invalides ou déjà traités");
             }
 
+            $validTransferts = collect();
+            $errors = [];
+            $invalidIds = [];
+
+
+
             /**
              * =========================
              * 🔥 VALIDATION
              * =========================
              */
-            foreach ($transferts as $transfert) {
+            foreach ($request->ids as $id) {
+
+                $transfert = $transferts->firstWhere('id', $id);
+
+                // ❌ introuvable
+                if (!$transfert) {
+                    $errors[] = "Transfert ID {$id} introuvable ou déjà traité";
+
+                    TransfertFondsTampon::where('id', $id)->update([
+                        'status' => 'failed'
+                    ]);
+
+                    continue;
+                }
 
                 $session = SessionCaisse::find($transfert->session_id);
 
+                // ❌ session inexistante
                 if (!$session) {
-                    throw new \Exception("Session introuvable pour {$transfert->code}");
+                    $errors[] = "Session introuvable pour {$transfert->code}";
+
+                    $transfert->update([
+                        'status' => 'failed'
+                    ]);
+
+                    continue;
                 }
 
-                Log::info('SESSION DEBUG', [
-                    'code' => $transfert->code,
-                    'session_solde' => $session->solde,
-                    'montant' => $transfert->montant_send,
-                ]);
+                // ❌ solde insuffisant
+                if ((float) $session->solde < (float) $transfert->montant_send) {
+                    $errors[] = "Solde insuffisant pour {$transfert->code}";
 
-                // 🔥 SOLDE SESSION (IMPORTANT)
-                if ((float)$session->solde < (float)$transfert->montant_send) {
-                    throw new \Exception(
-                        "Solde insuffisant pour {$transfert->code}. " .
-                        "Solde session: {$session->solde}, Montant: {$transfert->montant_send}"
-                    );
+                    $transfert->update([
+                        'status' => 'failed'
+                    ]);
+
+                    continue;
                 }
 
                 $caisseReception = Caisse::find($transfert->caisse_reception_id);
 
+                // ❌ caisse introuvable
                 if (!$caisseReception) {
-                    throw new \Exception("Caisse de réception introuvable pour {$transfert->code}");
+                    $errors[] = "Caisse réception introuvable pour {$transfert->code}";
+
+                    $transfert->update([
+                        'status' => 'failed'
+                    ]);
+
+                    continue;
                 }
+
+                // ✅ valide
+                $validTransferts->push($transfert);
             }
 
             /**
@@ -1309,7 +1342,7 @@ class CaisseController extends Controller
              * 🔥 EXECUTION
              * =========================
              */
-            foreach ($transferts as $transfert) {
+            foreach ($validTransferts as $transfert) {
 
                 $session = SessionCaisse::find($transfert->session_id);
                 $caisseReception = Caisse::find($transfert->caisse_reception_id);
@@ -1401,29 +1434,68 @@ class CaisseController extends Controller
                 throw new \Exception("Certains transferts ne sont pas annulés ou sont introuvables.");
             }
 
+            $validTransferts = collect();
+            $errors = [];
+
             /**
              * =========================
              * 🔥 ETAPE 1 : VERIFICATION DES SOLDES
              * =========================
              */
-            foreach ($transferts as $transfert) {
+            foreach ($request->ids as $id) {
+
+                $transfert = $transferts->firstWhere('id', $id);
+
+                // ❌ introuvable
+                if (!$transfert) {
+                    $errors[] = "Transfert ID {$id} introuvable ou déjà traité";
+
+                    TransfertFondsTampon::where('id', $id)->update([
+                        'status' => 'failed'
+                    ]);
+
+                    continue;
+                }
+
                 $session = SessionCaisse::find($transfert->session_id);
 
+                // ❌ session inexistante
                 if (!$session) {
-                    throw new \Exception("Session introuvable pour le transfert {$transfert->code}");
+                    $errors[] = "Session introuvable pour {$transfert->code}";
+
+                    $transfert->update([
+                        'status' => 'failed'
+                    ]);
+
+                    continue;
                 }
 
-                // Vérification du solde (car il a pu changer depuis l'annulation)
-                if ((float)$session->solde < (float)$transfert->montant_send) {
-                    throw new \Exception(
-                        "Solde insuffisant pour revalider {$transfert->code}. " .
-                        "Disponible: {$session->solde}, Requis: {$transfert->montant_send}"
-                    );
+                // ❌ solde insuffisant
+                if ((float) $session->solde < (float) $transfert->montant_send) {
+                    $errors[] = "Solde insuffisant pour {$transfert->code}";
+
+                    $transfert->update([
+                        'status' => 'failed'
+                    ]);
+
+                    continue;
                 }
 
-                if (!Caisse::where('id', $transfert->caisse_reception_id)->exists()) {
-                    throw new \Exception("Caisse de réception introuvable pour {$transfert->code}");
+                $caisseReception = Caisse::find($transfert->caisse_reception_id);
+
+                // ❌ caisse introuvable
+                if (!$caisseReception) {
+                    $errors[] = "Caisse réception introuvable pour {$transfert->code}";
+
+                    $transfert->update([
+                        'status' => 'failed'
+                    ]);
+
+                    continue;
                 }
+
+                // ✅ valide
+                $validTransferts->push($transfert);
             }
 
             /**
@@ -1431,7 +1503,7 @@ class CaisseController extends Controller
              * 🔥 ETAPE 2 : EXECUTION ET HISTORIQUE
              * =========================
              */
-            foreach ($transferts as $transfert) {
+            foreach ($validTransferts as $transfert) {
                 $caisseReception = Caisse::find($transfert->caisse_reception_id);
                 $caisseReception->increment('solde_caisse', $transfert->montant_send);
 
