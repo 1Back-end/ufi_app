@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Enums\TypePrestation;
 use App\Models\Caisse;
+use App\Models\Centre;
+use App\Models\Consultant;
 use App\Models\ConsultantPaymentPrestation;
 use App\Models\ConsultantPrestationShare;
 use App\Models\Prestation;
@@ -156,7 +158,7 @@ class ConsultantPrestationShareController extends Controller
 
     /**
      * @permission ConsultantPrestationShareController::get_all_paiement_for_consultants
-     * @permission_desc Enregistrer le paiement des prestations d'un consultant
+     * @permission_desc Afficher la liste des prestations d'un consultant sur une période
      */
     public function get_all_paiement_for_consultants(Request $request, $consultant_id)
     {
@@ -222,6 +224,10 @@ class ConsultantPrestationShareController extends Controller
     }
 
 
+    /**
+     * @permission ConsultantPrestationShareController::store_paiement_consultant
+     * @permission_desc Enregistrer le paiement des prestations d'un consultant par une secrétaire
+     */
     public function store_paiement_consultant(Request $request)
     {
         $auth = auth()->user();
@@ -334,6 +340,323 @@ class ConsultantPrestationShareController extends Controller
         }
     }
 
+
+    /**
+     * @permission ConsultantPrestationShareController::store_paiement_consultant_before_center
+     * @permission_desc Enregistrer le paiement des prestations par un décisionnel
+     */
+    public function store_paiement_consultant_before_center(Request $request)
+    {
+        $auth = auth()->user();
+
+        $centreId = $request->header('centre');
+
+        if (!$centreId) {
+            return response()->json([
+                'message' => 'Centre non fourni'
+            ], 400);
+        }
+
+        $request->validate([
+            'consultant_id' => 'required|integer|exists:consultants,id',
+            'start_date' => 'required|date',
+            'end_date' => 'required|date',
+            'description' => 'required',
+            'amount' => 'required|numeric|min:1',
+            'prestation_ids' => 'required|array',
+            'prestation_ids.*' => 'integer|exists:prestations,id',
+        ]);
+
+        DB::beginTransaction();
+
+        try {
+
+            $consultantShare = ConsultantPrestationShare::where('consultant_id', $request->consultant_id)->first();
+            $accountId = $consultantShare?->account_id;
+
+            if (!$accountId) {
+                return response()->json([
+                    'message' => 'Aucun compte de paiement configuré pour ce consultant.'
+                ], 422);
+            }
+
+            Log::info($accountId);
+            Log::info($consultantShare);
+            Log::info($centreId);
+            Log::info($auth->id);
+
+
+            $caisse = Caisse::where('centre_id', $centreId)
+                ->where('type_caisse', 'consolidation_caisse')
+                ->first();
+
+            if (!$caisse) {
+                return response()->json([
+                    'message' => 'Caisse introuvable dans ce centre.'
+                ], 404);
+            }
+
+            if ((float) $caisse->solde_caisse < (float) $request->amount) {
+                return response()->json([
+                    'message' => 'Solde insuffisant dans la caisse de ce centre.'
+                ], 422);
+            }
+
+            $payment = ConsultantPaymentPrestation::create([
+                'consultant_id' => $request->consultant_id,
+                'account_id' => $accountId,
+                'start_date' => $request->start_date,
+                'end_date' => $request->end_date,
+                'description' => $request->description,
+                'amount' => $request->amount,
+                'caisse_id' => $caisse->id,
+                'centre_id' => $centreId,
+                'created_by' => $auth->id,
+            ]);
+
+            $caisse->update([
+                'solde_caisse' => max(0, (float) $caisse->solde_caisse - (float) $request->amount)
+            ]);
+
+            $updated = Prestation::whereIn('id', $request->prestation_ids)
+                ->where('consultant_id', $request->consultant_id)
+                ->where('consultant_amount_status', 'available')
+                ->update([
+                    'consultant_amount_status' => 'paid'
+                ]);
+
+            DB::commit();
+
+            return response()->json([
+                'message' => 'Paiement consultant effectué avec succès.',
+                'updated_prestations' => $updated,
+                'data' => $payment
+            ], 201);
+
+        } catch (\Throwable $th) {
+
+            DB::rollBack();
+
+            return response()->json([
+                'message' => 'Erreur lors du paiement consultant.',
+                'error' => $th->getMessage()
+            ], 500);
+        }
+    }
+
+
+    /**
+     * @permission ConsultantPrestationShareController::get_consultant_paid
+     * @permission_desc Imprimer l'état des prestations d'un consultant déjà reglées
+     */
+    public function get_consultant_paid(Request $request, $consultant_id)
+    {
+        $centreId = $request->header('centre');
+
+        if (!$centreId) {
+            return response()->json([
+                'message' => 'Centre non fourni'
+            ], 400);
+        }
+
+        $start_date = \Illuminate\Support\Carbon::parse($request->input('start_date'))->startOfDay();
+        $end_date = \Illuminate\Support\Carbon::parse($request->input('end_date'))->endOfDay();
+
+        // ✅ Query optimisée
+        $query = Prestation::with([
+            'centre',
+            'factures',
+            'client',
+            'consultant',
+            'payableBy',
+            'actes',
+            'soins',
+            'consultations',
+            'hospitalisations',
+            'products',
+            'examens',
+            'prestationables'
+        ])
+            ->where('centre_id', $centreId)
+            ->where('consultant_id', $consultant_id)
+            ->where('consultant_amount_status', 'paid')
+            ->where('consultant_amount', '>', 0)
+            ->whereBetween('created_at', [$start_date, $end_date]);
+
+        $result = $query->orderBy('created_at', 'ASC')->get();
+
+        logger()->info('📊 CONSULTANT PAID RESULT DEBUG', [
+            'count' => $result->count(),
+            'ids' => $result->pluck('id'),
+            'first_item' => $result->first(),
+        ]);
+
+        if ($result->isEmpty()) {
+            return response()->json([
+                'message' => 'Aucune donnée trouvée.'
+            ], 404);
+        }
+
+        $centre = Centre::find($centreId);
+        $media = $centre?->medias()->where('name', 'logo')->first();
+        $consultant = Consultant::find($consultant_id);
+
+        $data = [
+            'result' => $result,
+            'logo' => $media ? 'storage/' . $media->path . '/' . $media->filename : '',
+            'centre' => $centre,
+            'start' => $start_date,
+            'end' => $end_date,
+            'consultant' => $consultant,
+        ];
+
+        $fileName = 'ETATS-DU-CONSULTANTS-' . now()->format('YmdHis') . '.pdf';
+
+        $folderPath = 'storage/prestations-consultants-paids';
+        $filePath = $folderPath . '/' . $fileName;
+
+        if (!file_exists($folderPath)) {
+            mkdir($folderPath, 0755, true);
+        }
+        $footer = 'pdfs.reports.factures.footer';
+
+        if (!file_exists($filePath)) {
+            save_browser_shot_pdf(
+                view: 'pdfs.prestations-consultants-paids.prestations-consultants-paids',
+                data: $data,
+                folderPath: $folderPath,
+                path: $filePath,
+                margins: [5, 5, 5, 5],
+                footer: $footer,
+                format: 'A5',
+                direction: 'landscape'
+            );
+        }
+
+        if (!file_exists($filePath)) {
+            return response()->json([
+                'message' => 'Le fichier PDF n\'a pas été généré.'
+            ], 500);
+        }
+
+        // 🔹 Base64
+        $pdfContent = file_get_contents($filePath);
+        $base64 = base64_encode($pdfContent);
+
+        return response()->json([
+            'result' => $result,
+            'base64' => $base64,
+            'url' => $filePath,
+            'filename' => $fileName,
+        ], 200);
+    }
+
+
+    /**
+     * @permission ConsultantPrestationShareController::get_consultant_not_paid
+     * @permission_desc Imprimer l'état des prestations d'un consultant non reglées
+     */
+    public function get_consultant_not_paid(Request $request, $consultant_id)
+    {
+        $centreId = $request->header('centre');
+
+        if (!$centreId) {
+            return response()->json([
+                'message' => 'Centre non fourni'
+            ], 400);
+        }
+
+        $start_date = \Illuminate\Support\Carbon::parse($request->input('start_date'))->startOfDay();
+        $end_date = \Illuminate\Support\Carbon::parse($request->input('end_date'))->endOfDay();
+
+        // ✅ Query optimisée
+        $query = Prestation::with([
+            'centre',
+            'factures',
+            'client',
+            'consultant',
+            'payableBy',
+            'actes',
+            'soins',
+            'consultations',
+            'hospitalisations',
+            'products',
+            'examens',
+            'prestationables'
+        ])
+            ->where('centre_id', $centreId)
+            ->where('consultant_id', $consultant_id)
+            ->whereIn('consultant_amount_status', ['available', 'pending'])
+            ->where('consultant_amount', '>', 0)
+            ->whereBetween('created_at', [$start_date, $end_date]);
+
+        $result = $query->orderBy('created_at', 'ASC')->get();
+
+        logger()->info('📊 CONSULTANT PAID RESULT DEBUG', [
+            'count' => $result->count(),
+            'ids' => $result->pluck('id'),
+            'first_item' => $result->first(),
+        ]);
+
+        if ($result->isEmpty()) {
+            return response()->json([
+                'message' => 'Aucune donnée trouvée.'
+            ], 404);
+        }
+
+        $centre = Centre::find($centreId);
+        $media = $centre?->medias()->where('name', 'logo')->first();
+        $consultant = Consultant::find($consultant_id);
+
+        $data = [
+            'result' => $result,
+            'logo' => $media ? 'storage/' . $media->path . '/' . $media->filename : '',
+            'centre' => $centre,
+            'start' => $start_date,
+            'end' => $end_date,
+            'consultant' => $consultant,
+        ];
+
+        $fileName = 'ETATS-DU-CONSULTANTS-' . now()->format('YmdHis') . '.pdf';
+
+        $folderPath = 'storage/prestations-consultants-not-paids';
+        $filePath = $folderPath . '/' . $fileName;
+
+        if (!file_exists($folderPath)) {
+            mkdir($folderPath, 0755, true);
+        }
+        $footer = 'pdfs.reports.factures.footer';
+
+        if (!file_exists($filePath)) {
+            save_browser_shot_pdf(
+                view: 'pdfs.prestations-consultants-not-paids.prestations-consultants-not-paids',
+                data: $data,
+                folderPath: $folderPath,
+                path: $filePath,
+                margins: [5, 5, 5, 5],
+                footer: $footer,
+                format: 'A5',
+                direction: 'landscape'
+            );
+        }
+
+        if (!file_exists($filePath)) {
+            return response()->json([
+                'message' => 'Le fichier PDF n\'a pas été généré.'
+            ], 500);
+        }
+
+        // 🔹 Base64
+        $pdfContent = file_get_contents($filePath);
+        $base64 = base64_encode($pdfContent);
+
+        return response()->json([
+            'result' => $result,
+            'base64' => $base64,
+            'url' => $filePath,
+            'filename' => $fileName,
+        ], 200);
+    }
 
 
 }

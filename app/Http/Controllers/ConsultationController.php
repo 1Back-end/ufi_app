@@ -38,9 +38,9 @@ class ConsultationController extends Controller
 
         return response()->json([
             'data' => $consultations->items(),
-            'current_page' => $consultations->currentPage(),  // Page courante
-            'last_page' => $consultations->lastPage(),  // Dernière page
-            'total' => $consultations->total(),  // Nombre total d'éléments
+            'current_page' => $consultations->currentPage(),
+            'last_page' => $consultations->lastPage(),
+            'total' => $consultations->total(),
         ]);
         //
     }
@@ -63,28 +63,29 @@ class ConsultationController extends Controller
     public function store(Request $request)
     {
         $auth = auth()->user();
-            $data = $request->validate([
-                'typeconsultation_id'=> ['required', 'exists:typeconsultations,id'],
-                'pu_default' => 'required|integer', // Prix par défaut pour les assurances
-                'pu' => [
-                    'required',
-                    'integer',
-                    Rule::unique('consultations')->where(function ($query) use ($request) {
-                        return $query->where('name', $request->name);
-                    }),
-                ],
-                'name' => 'required|string|unique:consultations,name',
-                'validation_date' => 'required|integer',
-            ]);
-            $data['created_by'] = $auth->id;
-            $consultation = Consultation::create($data);
 
-            return response()->json([
-                'data' => $consultation,
-                'message' => 'Consultation enregistrée succès'
-            ]);
+        $data = $request->validate([
+            'typeconsultation_id' => ['required', 'exists:typeconsultations,id'],
 
-        //
+            'pu_default' => ['required', 'integer'],
+
+            'pu' => ['required', 'integer'],
+
+            'name' => ['required', 'string', 'unique:consultations,name'],
+
+            'validation_date' => ['required', 'integer'],
+
+            'is_used_for_commission' => ['nullable', 'boolean'],
+        ]);
+
+        $data['created_by'] = $auth->id;
+
+        $consultation = Consultation::create($data);
+
+        return response()->json([
+            'data' => $consultation,
+            'message' => 'Consultation enregistrée avec succès'
+        ]);
     }
 
     /**
@@ -137,32 +138,29 @@ class ConsultationController extends Controller
     {
         $auth = auth()->user();
 
-        // Validation des données de la requête
         $data = $request->validate([
-            'typeconsultation_id' => 'required|exists:typeconsultations,id',
-            'pu' => [
-                'required',
-                'integer',
-                Rule::unique('consultations')->where(function ($query) use ($request) {
-                    return $query->where('name', $request->name);
-                })->ignore($id), // Ignore l'enregistrement actuel
-            ],
-            'pu_default' => 'required|integer',
+            'typeconsultation_id' => ['required', 'exists:typeconsultations,id'],
+
+            'pu' => ['required', 'integer'],
+
+            'pu_default' => ['required', 'integer'],
+
             'name' => [
                 'required',
                 'string',
-                Rule::unique('consultations', 'name')->ignore($id), // Ignore l'enregistrement actuel
+                Rule::unique('consultations', 'name')->ignore($id),
             ],
-            'validation_date' => 'required|integer',
+
+            'validation_date' => ['required', 'integer'],
+
+            'is_used_for_commission' => ['nullable', 'boolean'],
         ]);
 
-        // Récupération de la consultation à mettre à jour
-        $consultation = Consultation::where('is_deleted', false)->findOrFail($id);
+        $consultation = Consultation::where('is_deleted', false)
+            ->findOrFail($id);
 
-        // Ajout de l'ID de l'utilisateur qui a effectué la mise à jour
         $data['updated_by'] = $auth->id;
 
-        // Mise à jour des données
         $consultation->update($data);
 
         return response()->json([

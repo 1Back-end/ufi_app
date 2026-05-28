@@ -22,6 +22,7 @@ class Consultation extends Model
         'created_by',
         'updated_by',
         'is_deleted',
+        'is_used_for_commission'
     ];
 
     protected function puDefault(): Attribute

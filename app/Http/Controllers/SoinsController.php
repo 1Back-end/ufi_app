@@ -72,9 +72,10 @@ class SoinsController extends Controller
         try {
             $data = $request->validate([
                 'type_soin_id' => 'exists:type_soins,id',
-                'pu' => 'required|integer', // prix réel
-                'pu_default' => 'required|integer', // Prix par défaut pour les assureurs
+                'pu' => 'required|integer',
+                'pu_default' => 'required|integer',
                 'name' => 'required|string|unique:soins,name',
+                'is_used_for_commission' => 'nullable|boolean',
             ]);
 
             $data['created_by'] = $auth->id;
@@ -155,6 +156,7 @@ class SoinsController extends Controller
                 'name' => 'required|string',
                 'status' => 'nullable|string|in:Actif,Inactif',
                 'pu_default' => 'required|integer',
+                'is_used_for_commission' => 'nullable|boolean',
             ]);
 
             $soins = Soins::where('is_deleted', false)->findOrFail($id);

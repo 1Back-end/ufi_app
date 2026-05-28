@@ -30,7 +30,8 @@ class Acte extends Model
         'b1',
         'pu_assurance',
         'code',
-        'sub_act_category_id'
+        'sub_act_category_id',
+        'is_used_for_commission'
     ];
 
     protected function casts(): array

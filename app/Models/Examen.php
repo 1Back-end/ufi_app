@@ -32,6 +32,7 @@ class Examen extends Model
         'sub_family_exam_id',
         'kb_prelevement_id',
         'code_exam',
+        'is_used_for_commission'
     ];
 
     protected $withCount = ['elementPaillasses'];
