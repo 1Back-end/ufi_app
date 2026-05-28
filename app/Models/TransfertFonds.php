@@ -41,21 +41,21 @@ class TransfertFonds extends Model
 
     public static function generateCode(): string
     {
-        $prefix = '#' . now()->format('Ymd');
+        do {
 
-        $last = self::withTrashed()
-            ->where('code', 'like', $prefix . '%')
-            ->lockForUpdate()
-            ->orderBy('id', 'desc')
-            ->first();
+            $code =
+                'TRF-' .
+                now()->format('YmdHis') .
+                '-' .
+                rand(1000, 9999);
 
-        if ($last && preg_match('/(\d+)$/', $last->code, $matches)) {
-            $number = (int) $matches[1] + 1;
-        } else {
-            $number = 1;
-        }
+        } while (
+            self::withTrashed()
+                ->where('code', $code)
+                ->exists()
+        );
 
-        return $prefix . str_pad($number, 6, '0', STR_PAD_LEFT);
+        return $code;
     }
 
     // 🔹 Relations
