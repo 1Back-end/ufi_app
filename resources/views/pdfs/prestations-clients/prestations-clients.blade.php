@@ -10,12 +10,6 @@
     </style>
 
     <style>
-        @page {
-            size: A4 portrait;
-            margin: 10mm;
-            counter-reset: page;
-        }
-
         body, html {
             height: 100%;
             margin: 0;
@@ -189,7 +183,7 @@
                     <td>{{ \App\Helpers\FormatPrice::format(optional($facture)->amount_remise) }}</td>
                     <td>{{ \App\Helpers\FormatPrice::format(optional($facture)->amount_client) }}</td>
 
-                    @php                    
+                    @php
                         $modeSelectionne = request('mode_reglement');
 
                         $factureStart = request('facture_start')
