@@ -147,6 +147,7 @@ Route::middleware(['activity'])->group(function () {
         Route::post('caisses/forgot_secret_code_for_my_caisses', [\App\Http\Controllers\CaisseController::class, 'forgot_secret_code_for_my_caisses']);
         Route::get('print_data_caisses_by_centre', [\App\Http\Controllers\CaisseController::class, 'print_data_caisses_by_centre']);
         Route::get('print_data_caisses_by_centreId', [\App\Http\Controllers\CaisseController::class, 'print_data_caisses_by_centre_id']);
+        Route::get('/print_sold_by_day/{caisse_id}', [\App\Http\Controllers\CaisseController::class, 'get_sold_caisse_by_day']);
         Route::post('caisses/auto_close_cash_sessions', [\App\Http\Controllers\CaisseController::class, 'autoCloseSessions']);
         Route::post('/sessions/auto_close', function () {app(\App\Services\SessionCaisseService::class)->autoClose(auth()->id());
             return response()->json([
@@ -155,6 +156,7 @@ Route::middleware(['activity'])->group(function () {
             ]);
         });
         Route::post('/caisses/control_session', [\App\Http\Controllers\CaisseController::class, 'controlSession']);
+        Route::get('/prestations/print_by_centre', [\App\Http\Controllers\CaisseController::class, 'print_prestations_by_centre']);
 
 
         Route::get('sessions_caisses/list_transferts_caisses', [\App\Http\Controllers\SessionCaisseController::class,'get_transfert_caisse']);
@@ -764,6 +766,10 @@ Route::middleware(['activity'])->group(function () {
         Route::post('commissions/store_paiement_consultant_before_center', [ConsultantPrestationShareController::class, 'store_paiement_consultant_before_center']);
         Route::get('commissions/{consultant_id}/consultants_paid', [ConsultantPrestationShareController::class, 'get_consultant_paid']);
         Route::get('commissions/{consultant_id}/consultants_not_paid', [ConsultantPrestationShareController::class, 'get_consultant_not_paid']);
+
+
+        // Fiche de caisse journalières
+
 
         // Gestion des comptes de paiements
         Route::apiResource('accounts_payments', PaymentAccountController::class);

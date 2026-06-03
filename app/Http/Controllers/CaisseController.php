@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Caisse;
 use App\Models\Centre;
 use App\Models\MouvementCaisse;
+use App\Models\Prestation;
 use App\Models\SessionCaisse;
 use App\Models\SessionElement;
 use App\Models\TransfertFonds;
@@ -2011,6 +2012,245 @@ class CaisseController extends Controller
                 ? "Ouverture autorisée pour $count caisses (24h)"
                 : "Ouverture bloquée pour $count caisses (24h)"
         ]);
+    }
+
+
+
+    /**
+     * @return JsonResponse
+     *
+     * @permission CaisseController::get_sold_caisse_by_day
+     * @permission_desc Imprimer le solde journalier des caisses
+     */
+    public function get_sold_caisse_by_day(Request $request, $caisse_id)
+    {
+        try {
+
+            $centreId = $request->header('centre');
+
+            if (!$centreId) {
+                return response()->json([
+                    'message' => 'Centre non fourni'
+                ], 400);
+            }
+
+            $start_date = Carbon::parse($request->start_date)->startOfDay();
+            $end_date = Carbon::parse($request->end_date)->endOfDay();
+
+            $query = SessionCaisse::with([
+                'centre',
+                'creator',
+                'updator',
+                'utilisateur',
+                'caisse',
+            ])
+                ->where('centre_id', $centreId)
+                ->whereBetween('created_at', [$start_date, $end_date])
+                ->when($caisse_id, fn($q) => $q->where('caisse_id', $caisse_id));
+
+            \Log::info('COUNT SESSIONS', [
+                'count' => $query->count()
+            ]);
+
+            $result = $query->orderBy('created_at', 'ASC')->get();
+
+            if ($result->isEmpty()) {
+                return response()->json([
+                    'message' => 'Aucune donnée trouvée.'
+                ], 404);
+            }
+            $caisse = Caisse::where('id', $caisse_id)->first();
+            \Log::info('CAISSE TROUVÉE', [
+                'caisse' => $caisse
+            ]);
+
+            $centre = Centre::find($centreId);
+            $media = $centre?->medias()->where('name', 'logo')->first();
+
+            $data = [
+                'caisse' => $caisse,
+                'result' => $result,
+                'logo' => $media ? 'storage/' . $media->path . '/' . $media->filename : '',
+                'centre' => $centre,
+                'start' => $start_date,
+                'end' => $end_date
+            ];
+
+            // 🔥 NOM FICHIER PROPRE
+            $fileName = Str::upper('SOLDE-JOURNALIE-CAISSES') . '-' . now()->format('YmdHis') . '.pdf';
+            $folderPath = 'storage/solde-journaliers-caisses';
+            $filePath = $folderPath . '/' . $fileName;
+
+            if (!file_exists($folderPath)) {
+                mkdir($folderPath, 0755, true);
+            }
+
+            // 🔥 GENERATION PDF
+            save_browser_shot_pdf(
+                view: 'pdfs.solde-journaliers-caisses.solde-journaliers-caisses',
+                data: $data,
+                folderPath: $folderPath,
+                path: $filePath,
+                margins: [15, 10, 15, 10],
+                footer: 'pdfs.reports.factures.footer',
+                format: 'A4',
+                direction: 'landscape'
+            );
+
+            if (!file_exists($filePath)) {
+                return response()->json([
+                    'message' => 'Le fichier PDF n\'a pas été généré.'
+                ], 500);
+            }
+
+            // 🔥 BASE64
+            $pdfContent = file_get_contents($filePath);
+            $base64 = base64_encode($pdfContent);
+
+            return response()->json([
+                'result' => $result,
+                'base64' => $base64,
+                'url' => $filePath,
+                'filename' => $fileName,
+            ], 200);
+
+        } catch (\Exception $e) {
+
+            \Log::error('get_sold_caisse_by_day error', [
+                'message' => $e->getMessage()
+            ]);
+
+            return response()->json([
+                'message' => 'Erreur serveur',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+
+    public function print_prestations_by_centre(Request $request)
+    {
+        $centreId = $request->header('centre');
+
+        if (!$centreId) {
+            return response()->json([
+                'message' => 'Centre non fourni'
+            ], 400);
+        }
+
+        $start_date = Carbon::parse($request->input('start_date'))->startOfDay();
+        $end_date = Carbon::parse($request->input('end_date'))->endOfDay();
+
+        $prestations = Prestation::with([
+            'createdBy',
+            'factures.regulations.regulationMethod'
+        ])
+            ->where('centre_id', $centreId)
+            ->whereBetween('created_at', [$start_date, $end_date])
+            ->get();
+
+        if ($prestations->isEmpty()) {
+            return response()->json([
+                'message' => 'Aucune donnée trouvée'
+            ], 404);
+        }
+
+        $groupedByByCreator = $prestations->groupBy(function ($prestation) {
+            return $prestation->createdBy?->id ?? 'unknown';
+        });
+
+        $result = [];
+
+        foreach ($groupedByByCreator as $creatorId => $userPrestations) {
+            $user = $userPrestations->first()->createdBy;
+            $userName = $user ? ($user->nom_utilisateur) : 'Inconnu';
+
+            $prestationsData = [];
+            $userTotalGeneral = 0;
+
+            $groupedByType = $userPrestations->groupBy(function ($prestation) {
+                return $prestation->type ? \App\Enums\TypePrestation::label($prestation->type) : 'AUTRES';
+            });
+
+            foreach ($groupedByType as $typeName => $typePrestations) {
+                $paymentMethods = [];
+                $typeTotal = 0;
+
+                foreach ($typePrestations as $prestation) {
+                    foreach ($prestation->factures as $facture) {
+                        foreach ($facture->regulations as $regulation) {
+                            // Utilisation de regulationMethod en camelCase
+                            $methodName = strtoupper($regulation->regulationMethod?->name ?? 'ESPECE');
+                            $amount = $regulation->amount ?? 0;
+
+                            if (!isset($paymentMethods[$methodName])) {
+                                $paymentMethods[$methodName] = 0;
+                            }
+                            $paymentMethods[$methodName] += $amount;
+                            $typeTotal += $amount;
+                        }
+                    }
+                }
+                $userTotalGeneral += $typeTotal;
+                $prestationsData[$typeName] = [
+                    'modes' => $paymentMethods,
+                    'total_type' => $typeTotal
+                ];
+            }
+
+            $result[] = [
+                'user_id' => $creatorId,
+                'user_name' => $userName,
+                'prestations' => $prestationsData,
+                'total_general' => $userTotalGeneral
+            ];
+        }
+
+        $centre = Centre::find($centreId);
+        $media = $centre?->medias()->where('name', 'logo')->first();
+
+        $data = [
+            'result' => $result,
+            'logo' => $media ? 'storage/' . $media->path . '/' . $media->filename : '',
+            'centre' => $centre,
+            'start' => $start_date,
+            'end' => $end_date
+        ];
+
+        $fileName = \Illuminate\Support\Str::upper('FEUILLE-ROUTE-JOURNALIERE-CAISSE') . '-' . now()->format('YmdHis') . '.pdf';
+        $folderPath = 'storage/feuille-route-journaliere-caisse';
+        $filePath = $folderPath . '/' . $fileName;
+
+        if (!file_exists($folderPath)) {
+            mkdir($folderPath, 0755, true);
+        }
+
+        save_browser_shot_pdf(
+            view: 'pdfs.feuille-route-journaliere.feuille-route-journaliere',
+            data: $data,
+            folderPath: $folderPath,
+            path: $filePath,
+            margins: [10, 10, 10, 10],
+            footer: 'pdfs.reports.factures.footer',
+            format: 'A5',
+            direction: 'landscape'
+        );
+
+        if (!file_exists($filePath)) {
+            return response()->json([
+                'message' => 'Le fichier PDF n\'a pas été généré.'
+            ], 500);
+        }
+
+        $pdfContent = file_get_contents($filePath);
+        $base64 = base64_encode($pdfContent);
+
+        return response()->json([
+            'result' => $result,
+            'base64' => $base64,
+            'url' => $filePath,
+            'filename' => $fileName,
+        ], 200);
     }
 
 
