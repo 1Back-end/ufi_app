@@ -2128,6 +2128,12 @@ class CaisseController extends Controller
     }
 
 
+    /**
+     * @return JsonResponse
+     *
+     * @permission CaisseController::print_prestations_by_centre
+     * @permission_desc Imprimer la feuille journalière des caisses
+     */
     public function print_prestations_by_centre(Request $request)
     {
         $centreId = $request->header('centre');
