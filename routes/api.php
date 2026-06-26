@@ -320,7 +320,17 @@ Route::middleware(['activity'])->group(function () {
         });
 
         Route::apiResource('fournisseurs',FournisseurController::class);
-        Route::patch('fournisseurs/{id}/status', [FournisseurController::class, 'update_status']);
+        Route::patch('fournisseurs/{id}/is_active', [FournisseurController::class, 'update_status']);
+
+        Route::apiResource('emplacements_products',\App\Http\Controllers\EmplacementsProductController::class);
+        Route::patch('emplacements_products/{id}/is_active', [\App\Http\Controllers\EmplacementsProductController::class, 'update_status']);
+
+
+        Route::apiResource('products',ProduitController::class);
+        Route::patch('products/{id}/is_active', [ProduitController::class, 'updateStatus']);
+
+        Route::apiResource('lots_products',\App\Http\Controllers\LotProductController::class);
+
 
         Route::controller(PriseEnChargeController::class)->prefix('prise_en_charges')->group(function () {
             Route::get('/list', 'index');
@@ -374,19 +384,9 @@ Route::middleware(['activity'])->group(function () {
             Route::get('/get_data', 'listIdName');
             Route::get('/{group_product_id}/categories', 'getCategories');
         });
-        Route::controller(ProduitController::class)->prefix('products')->group(function () {
-            Route::get('/list', 'index');
-            Route::post('/create', 'store');
-            Route::get('/get_by_id/{id}', 'show');
-            Route::put('/edit/{id}', 'update');
-            Route::delete('/delete/{id}', 'destroy');
-            Route::put('update_status/{id}/status/{status}', 'updateStatus');
-            Route::get('/search', 'search');
-            Route::get('/export', 'export');
-            Route::get('/search-and-export', 'searchAndExport');
-            Route::post('/import', 'import');
-            Route::post('/import_others_products', 'import_others_products');
-        });
+
+
+
         Route::controller(ConsultationController::class)->prefix('consultations')->group(function () {
             route::get('/list', 'index');
             Route::post('/create', 'store');
