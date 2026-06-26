@@ -565,8 +565,15 @@ class ConsultantController extends Controller
     }
 
 
-    public function PlanningConsultant()
+    public function PlanningConsultant(Request $request)
     {
+        $centreId = $request->header('centre');
+
+        if (!$centreId) {
+            return response()->json([
+                'message' => 'Centre non fourni'
+            ], 400);
+        }
         try {
             DB::beginTransaction();
 
@@ -577,13 +584,18 @@ class ConsultantController extends Controller
                 ->orderBy('created_at', 'desc')
                 ->get();
 
+
+            $centre = Centre::find($centreId);
+            $media = $centre?->medias()->where('name', 'logo')->first();
+
             $data = [
+                'logo' => $media ? 'storage/' . $media->path . '/' . $media->filename : '',
+                'centre' => $centre,
                 'consultants' => $consultants,
             ];
 
-            // Chemin du fichier PDF
             $fileName   = 'planning-consultants-' . now()->format('YmdHis') . '.pdf';
-            $folderPath = 'storage/planning-consultants'; // chemin absolu
+            $folderPath = 'storage/planning-consultants';
             $filePath   = $folderPath . '/' . $fileName;
 
             if (!file_exists($folderPath)) {
@@ -593,7 +605,7 @@ class ConsultantController extends Controller
             // Génération du PDF
             save_browser_shot_pdf(
                 view: 'pdfs.planning-consultants.planning-consultants',
-                data: ['consultants' => $consultants], // clair et simple
+                data: $data,
                 folderPath: $folderPath,
                 path: $filePath,
                 margins: [10, 10, 10, 10]

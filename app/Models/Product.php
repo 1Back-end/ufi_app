@@ -4,22 +4,32 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\SoftDeletes;
+
 class Product extends Model
 {
-    use HasFactory;
-
+    use SoftDeletes, HasFactory;
     protected $fillable = [
         'ref',
         'name',
+        'generic_name',
+        'manufacturer_reference',
+        'product_type',
         'dosage',
+        'laboratory_family',
+        'storage_unit',
+        'consumption_unit',
+        'conversion_factor',
+        'alert_threshold',
+        'minimum_threshold',
+        'storage_temperature',
+        'purchase_price',
+        'price',
         'facturable',
         'voix_transmissions_id',
-        'price',
         'unite_produits_id',
         'group_products_id',
         'categories_id',
-        'unite_par_emballage',
-        'condition_par_unite_emballage',
         'fournisseurs_id',
         'Dosage_defaut',
         'schema_administration',
@@ -27,6 +37,7 @@ class Product extends Model
         'updated_by',
         'is_deleted',
         'status',
+        'is_active'
     ];
     public function categories()
     {
@@ -66,5 +77,12 @@ class Product extends Model
             ->withPivot('quantite')
             ->withTimestamps();
     }
-    //
+    public function lots()
+    {
+        return $this->hasOne(LotProduit::class, 'id_produit');
+    }
+    public function emplacements()
+    {
+        return $this->hasMany(\App\Models\EmplacementProduit::class, 'id_produit');
+    }
 }

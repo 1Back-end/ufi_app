@@ -4,56 +4,63 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Fournisseurs extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     protected $table = 'fournisseurs';
 
     protected $fillable = [
-        'nom',
-        'adresse',
-        'tel',
+        'full_name',
+        'company_name',
+        'address',
+        'phone_number',
+        'second_phone_number',
         'email',
-        'status',               // "actif" ou "inactif"
-        'is_deleted',
+        'business_registration_number',
+        'website',
+        'city',
+        'country',
+        'tax_number',
+        'contact_person',
+        'contact_person_phone',
+        'is_active',
         'created_by',
         'updated_by',
-        'registre_commerce',
-        'nui',
-        'personne_contact_1',
-        'telephone_contact_1',
-        'personne_contact_2',
-        'telephone_contact_2',
-        'directeur_general',
     ];
 
-    public function fournisseurs()
+    protected $casts = [
+        'is_active' => 'boolean',
+    ];
+    public function setFullNameAttribute($value)
     {
-        return $this->belongsToMany(Fournisseurs::class, 'product_fournisseur');
-    }
-    public function products()
-    {
-        return $this->belongsToMany(Product::class, 'product_fournisseur');
+        $this->attributes['full_name'] = mb_strtoupper($value, 'UTF-8');
     }
 
-    // Relations (par exemple, pour 'created_by' et 'updated_by' avec l'utilisateur)
+    public function products()
+    {
+        return $this->belongsToMany(
+            Product::class,
+            'product_fournisseur',
+            'fournisseur_id',
+            'product_id'
+        );
+    }
+
     public function creator()
     {
         return $this->belongsTo(User::class, 'created_by');
     }
-    // Dans le modèle Fournisseurs
 
-
-    public function updator()
+    public function updater()
     {
         return $this->belongsTo(User::class, 'updated_by');
     }
 
-    // Vous pouvez aussi ajouter des méthodes pour manipuler la suppression logique
-    public function scopeNotDeleted($query)
+    public function scopeActive($query)
     {
-        return $query->where('is_deleted', false);
+        return $query->where('is_active', true);
     }
 }

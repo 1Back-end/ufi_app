@@ -1,150 +1,208 @@
-<!DOCTYPE html>
+@php use Carbon\Carbon; @endphp
+    <!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>PLANNING DES CONSULTANTS</title>
+    <title>ETATS DE CAISSES</title>
 
     <style>
         {!! $bootstrap !!}
     </style>
 
     <style>
-        body {
-            font-size: 13px;
-            font-family: "Rubik", sans-serif;
-            margin: 10px 15px 20px 15px;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 20px;
-        }
-        th, td {
-            border: 1px solid #ddd;
-            padding: 5px;
-            text-align: left;
+        @page {
+            size: A4 portrait;
+            margin: 10mm;
+            counter-reset: page;
         }
 
-        .page-break {
-            page-break-before: always;
+        body, html {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            font-size: 3mm !important;
+            font-family: "Times New Roman", serif;
         }
 
-        footer {
+        .print-wrapper {
+            position: relative;
+        }
+
+        .print-footer {
             position: fixed;
             bottom: 0;
             left: 0;
             right: 0;
-            height: 25px;
-            border-top: 1px solid #ddd;
+            height: 10mm;
             text-align: center;
-            font-size: 10px;
-            padding-top: 5px;
         }
 
         .page-number:before {
-            content: "Page " counter(page);
+            content: "Page " counter(page) " / " counter(pages);
         }
 
-        @page {
-            margin: 15mm 10mm 20mm 10mm;
-            counter-increment: page;
+        h1 {
+            font-size: 5mm !important;
+        }
+
+        table {
+            page-break-inside: auto;
+            width: 100%;
+        }
+
+        thead {
+            display: table-header-group; /* Garde l'en-tête sur chaque page */
+        }
+
+        tfoot {
+            display: table-footer-group;
+        }
+
+        tr {
+            page-break-inside: avoid;
+            page-break-after: auto;
+        }
+
+        img {
+            width: auto;
+            height: auto;
         }
     </style>
+
 </head>
 <body>
 
-<div class="col-md-12 p-0">
-    <!-- Logo et infos -->
-    <div class="mb-2 d-flex justify-content-between align-items-center">
-        <div class="mb-0 mx-2">
-            <img src="{{ public_path('certificats/logo.png') }}" class="img-fluid" width="150" height="150">
+<div class="col-lg-12 col-sm-12 p-0 print-wrapper">
+
+
+    <header class="d-flex align-items-center size" style="font-family: 'Times New Roman', serif">
+        <div class="w-25">
+            <img src="data:image/png;base64,{{ base64_encode(file_get_contents(public_path($logo))) }}" alt=""
+                 class="img-fluid w-50">
         </div>
-        <div>
-            <h5 class="text-uppercase text-center" style="color: #00b050;font-size: 25px;">CENTRE MEDICAL GT</h5>
-            <small style="font-size: 9px;color: #00b050">
-                Sis en face du Camp SIC Tsinga – Ouvert de Lundi à Samedi : 7H30 – 18H<br>
-                B.P. 6107 Yaoundé - Tél : +237 653 01 01 / 691 53 42 28 / 691 53 03 21
-            </small>
+
+        <div class="text-center" style="line-height: 18px">
+            <div class="fs-3 text-uppercase fw-bold">
+                {{ $centre->name }}
+            </div>
+
+            <div class="">
+                - {{ $centre->address }} - {{ $centre->town }}
+            </div>
+
+            <div class="">
+                BP: {{ $centre->postal_code }} {{ $centre->town }} -
+                Tél. {{ $centre->tel }} {{ $centre->tel2 ? '/' . $centre->tel2 : '' }}
+                / Fax: {{ $centre->fax ?? '' }}
+            </div>
+
+            <div class="">
+                Email: {{ $centre->email }}
+            </div>
+
+            <div class="">
+                Autorisation n° {{ $centre->autorisation }}
+                NIU: {{ $centre->contribuable }}
+            </div>
+        </div>
+    </header>
+
+
+    <div class="mt-2 w-100" style="border-top: 1px double rgb(0, 0, 0, 0.75); margin-bottom: 2px"></div>
+    <div class="mb-2 w-100" style="border-top: 1px double rgb(0, 0, 0, 0.75);"></div>
+
+
+    <h1 class="fs-3 fw-bold text-center text-uppercase">
+        PLANNING DES CONSULTANTS INTERNE
+    </h1>
+
+
+    <p class="text-end small">Date d'impression : {{ now() }}</p>
+
+    <div class="card shadow-sm border-0 mt-3">
+        <div class="table-responsive">
+            <table class="table table-bordered table-striped table-sm" style="font-size: 12px;">
+                <thead class="bg-dark text-white">
+                <tr>
+                    <th class="ps-3" style="width: 5%">#</th>
+                    <th style="width: 20%">Nom complet</th>
+                    <th style="width: 15%">Téléphone</th>
+                    <th style="width: 20%">Email</th>
+                    <th style="width: 10%">Type</th>
+                    <th class="pe-3" style="width: 30%">Disponibilités</th>
+                </tr>
+                </thead>
+                <tbody>
+                @foreach($consultants as $consultant)
+                    @if($consultant->disponibilites->isNotEmpty())
+                        <tr>
+                            <td class="ps-3 text-muted fw-bold">{{ $consultant->id }}</td>
+                            <td>
+                                <div class="fw-bold text-dark text-uppercase">{{ $consultant->nomcomplet }}</div>
+                            </td>
+                            <td>
+                                <span class="text-nowrap"><i class="bi bi-telephone text-muted me-1"></i>{{ $consultant->tel }}</span>
+                            </td>
+                            <td>
+                                <span class="text-muted">{{ $consultant->email }}</span>
+                            </td>
+                            <td>
+                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-2.5 py-1 text-capitalize">
+                            {{ $consultant->type }}
+                        </span>
+                            </td>
+                            <td class="pe-3">
+                                @php
+                                    $disposGrouped = [];
+                                    foreach($consultant->disponibilites as $d) {
+                                        // 🌟 FIX ICI : Ajout de (int) pour contrer la comparaison stricte de match()
+                                        $jourNom = match((int) $d->jour) {
+                                            1 => 'Lundi',
+                                            2 => 'Mardi',
+                                            3 => 'Mercredi',
+                                            4 => 'Jeudi',
+                                            5 => 'Vendredi',
+                                            6 => 'Samedi',
+                                            7 => 'Dimanche',
+                                            default => 'Inconnu',
+                                        };
+
+                                        // Sécurité pour le formatage de l'heure (Carbon ou String)
+                                        $debut = $d->heure_debut instanceof \Carbon\Carbon ? $d->heure_debut->format('H:i') : substr($d->heure_debut, 0, 5);
+                                        $fin = $d->heure_fin instanceof \Carbon\Carbon ? $d->heure_fin->format('H:i') : substr($d->heure_fin, 0, 5);
+
+                                        $disposGrouped[$jourNom][] = $debut . ' - ' . $fin;
+                                    }
+                                @endphp
+
+                                <div class="d-flex flex-column gap-2 my-1">
+                                    @foreach($disposGrouped as $jour => $creneaux)
+                                        <div class="d-flex align-items-center flex-wrap">
+                                    <span class="badge bg-secondary text-white me-2 text-center" style="width: 75px; font-size: 11px;">
+                                        {{ $jour }}
+                                    </span>
+                                            <div class="d-flex flex-wrap gap-1">
+                                                @foreach($creneaux as $creneau)
+                                                    <span class="badge bg-light text-dark border px-2 py-1 fw-normal" style="font-size: 11px;">
+                                                <i class="bi bi-clock text-muted me-1" style="font-size: 10px;"></i>{{ $creneau }}
+                                            </span>
+                                                @endforeach
+                                            </div>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            </td>
+                        </tr>
+                    @endif
+                @endforeach
+                </tbody>
+            </table>
         </div>
     </div>
-
-    <!-- Titre -->
-    <div class="mb-lg-3 mt-5 text-center">
-        <h5 class="text-uppercase text-center" style="color: #00b050;font-size: 25px;">Planning des consultants internes</h5>
-    </div>
-
-    @php
-        use Carbon\Carbon;
-        $today = Carbon::now()->format('d-m-Y');
-    @endphp
-
-    <p class="text-end small">Date d'impression : {{ $today }}</p>
-
-    <table class="table table-bordered text-center table-striped">
-        <thead>
-        <tr>
-            <th>#</th>
-            <th>Nom complet</th>
-            <th>Téléphone</th>
-            <th>Email</th>
-            <th>Type</th>
-            <th>Disponibilités</th>
-        </tr>
-        </thead>
-        <tbody>
-        @foreach($consultants as $index => $consultant)
-            @if($consultant->disponibilites->isNotEmpty())
-            <tr>
-                <td>{{ $consultant->id }}</td>
-                <td class="text-uppercase">{{ $consultant->nomcomplet }}</td>
-                <td>{{ $consultant->tel }}</td>
-                <td>{{ $consultant->email }}</td>
-                <td>{{ $consultant->type }}</td>
-                <td>
-                    @php
-                        $disposGrouped = [];
-                        foreach($consultant->disponibilites as $d) {
-                            $jourNom = match($d->jour) {
-                                1 => 'Lundi',
-                                2 => 'Mardi',
-                                3 => 'Mercredi',
-                                4 => 'Jeudi',
-                                5 => 'Vendredi',
-                                6 => 'Samedi',
-                                7 => 'Dimanche',
-                                default => 'Inconnu',
-                            };
-                            $disposGrouped[$jourNom][] = $d->heure_debut->format('H:i') . ' - ' . $d->heure_fin->format('H:i');
-                        }
-                    @endphp
-
-                    @foreach($disposGrouped as $jour => $creneaux)
-                        <div class="mb-2 text-center">
-                            <strong>{{ $jour }}</strong><br>
-                            @foreach($creneaux as $creneau)
-                                <span class="d-block">{{ $creneau }}</span>
-                            @endforeach
-                        </div>
-                    @endforeach
-                </td>
-            </tr>
-            @endif
-        @endforeach
-        </tbody>
-
-    </table>
-
 
 
 </div>
 
-<div class="footer text-center">
-    <small  style="font-size: 8px;color: #00b050">
-        Médecine générale – Médecine interne – Cardiologie – Dermatologie – Diabétologie – Endocrinologie – Gériatrie – <br>
-        Neurologie – Pneumologie – Rhumatologie – Gynécologie – Consultations prénatales – Médecine du Travail – ORL – Urologie <br>
-        – Neuropsychologie – Diététique et Nutrition – Imagerie médicale - Kinésithérapie
-    </small>
-</div>
 
 </body>
 </html>

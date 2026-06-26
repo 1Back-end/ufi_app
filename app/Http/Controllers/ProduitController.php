@@ -29,34 +29,43 @@ class ProduitController extends Controller
      */
     public function index(Request $request)
     {
-        $perPage = $request->input('limit', 10);   // Nombre d'éléments par page (par défaut 10)
-        $page = $request->input('page', 1);        // Page courante
-        $search = $request->input('search');       // Terme de recherche
+        $perPage = $request->input('limit', 25);
+        $page = $request->input('page', 1);
+        $search = $request->input('search');
 
-        $products = Product::where('is_deleted', false)
-            ->with([
+        $products = Product::with([
                 'voieTransmission:id,name',
                 'uniteProduit:id,name',
                 'groupProduct:id,name',
                 'categories:id,name',
-                'fournisseurs:id,nom'
+                'fournisseurs:id,full_name',
+                'creator',
+                'updater',
+                'lots',
+                'emplacements.emplacement'
             ])
             ->when($search, function ($query, $search) {
-                $query->where(function ($query) use ($search) {
-                    $query->where('name', 'like', '%' . $search . '%')
-                    ->orWhere('dosage', 'like', '%' . $search . '%')
-                        ->orWhere('price', 'like', '%' . $search . '%')
-                        ->orWhere('unite_par_emballage', 'like', '%' . $search . '%')
-                        ->orWhere('condition_par_unite_emballage', 'like', '%' . $search . '%');
+                $query->where(function ($q) use ($search) {
 
-                    // Ajoute d'autres champs ici si besoin
+                    $q->where('ref', 'like', "%{$search}%")
+                        ->orWhere('name', 'like', "%{$search}%")
+                        ->orWhere('generic_name', 'like', "%{$search}%")
+                        ->orWhere('manufacturer_reference', 'like', "%{$search}%")
+                        ->orWhere('product_type', 'like', "%{$search}%")
+                        ->orWhere('dosage', 'like', "%{$search}%")
+                        ->orWhere('laboratory_family', 'like', "%{$search}%")
+                        ->orWhere('storage_unit', 'like', "%{$search}%")
+                        ->orWhere('consumption_unit', 'like', "%{$search}%")
+                        ->orWhere('storage_temperature', 'like', "%{$search}%")
+                        ->orWhere('price', 'like', "%{$search}%")
+                        ->orWhere('purchase_price', 'like', "%{$search}%");
                 });
             })
-            ->when($request->input('facturable'), function ($query) {
-                $query->where('facturable', request('facturable'));
+            ->when($request->filled('facturable'), function ($query) use ($request) {
+                $query->where('facturable', $request->facturable);
             })
             ->latest()
-            ->paginate(perPage: $perPage, page: $page);
+            ->paginate($perPage, ['*'], 'page', $page);
 
         return response()->json([
             'data' => $products->items(),
@@ -70,167 +79,158 @@ class ProduitController extends Controller
     /**
      * Display a listing of the resource.
      * @permission ProduitController::updateStatus
-     * @permission_desc Changer le statut des produits
+     * @permission_desc Activer/Désactiver un produit
      */
 
-    public function updateStatus(Request $request, $id, $status)
+    public function updateStatus(Request $request, string $id)
     {
-        // Find the assureur by ID
-        $products = Product::find($id);
-        if (!$products) {
-            return response()->json(['message' => 'Produit non trouvé'], 404);
-        }
-
-        // Check if the assureur is deleted
-        if ($products->is_deleted) {
-            return response()->json(['message' => 'Impossible de mettre à jour un produit supprimé'], 400);
-        }
-
-        // Validate the status
-        if (!in_array($status, ['Actif', 'Inactif'])) {
-            return response()->json(['message' => 'Statut invalide'], 400);
-        }
-
-        // Update the status
-        $products->status = $status;  // Ensure the correct field name
-        $products->save();
-
-        // Return the updated assureur
+        $auth = auth()->user();
+        $request->validate([
+            'is_active' => 'required|boolean',
+        ],[
+            'is_active.required' => 'Le statut est obligatoire.',
+        ]);
+        $type = Product::where('id', $id)->first();
+        $type->is_active = $request->is_active;
+        $type->updated_by = $auth->id;
+        $type->save();
         return response()->json([
-            'message' => 'Statut mis à jour avec succès',
-            'products' => $products  // Corrected to $assureur
-        ], 200);
+            'success' => true,
+            "message" => "Statut modifié avec succès"
+        ]);
     }
 
-
-
-
-    /**
-     * Show the form for creating a new resource.
-     */
-    public function create()
-    {
-        //
-    }
 
     /**
      * Display a listing of the resource.
      * @permission ProduitController::store
-     * @permission_desc Créer  des produits
+     * @permission_desc Créer un produit
      */
     public function store(Request $request)
     {
         $auth = auth()->user();
 
         try {
+
             $data = $request->validate([
                 'name' => 'required|string|unique:products,name',
+                'product_type' => 'required|string',
                 'dosage' => 'required|string',
-                'voix_transmissions_id' => 'required|exists:voix_transmissions,id',
-                'price' => 'required|numeric',
-                'unite_produits_id' => 'required|exists:unite_produits,id',
-                'group_products_id' => 'required|exists:group_products,id',
-                'categories_id' => 'required|array',
-                'categories_id.*' => 'exists:categories,id',
-                'fournisseurs_id' => 'required|array',
+
+                'generic_name' => 'nullable|string',
+                'manufacturer_reference' => 'nullable|string',
+                'laboratory_family' => 'nullable|string',
+                'storage_unit' => 'nullable|string',
+                'consumption_unit' => 'nullable|string',
+                'conversion_factor' => 'nullable|numeric|min:1',
+                'alert_threshold' => 'nullable|numeric|min:0',
+                'minimum_threshold' => 'nullable|numeric|min:0',
+                'storage_temperature' => 'nullable|string',
+
+                'purchase_price' => 'nullable|numeric|min:0',
+                'price' => 'nullable|numeric|min:0',
+
+                'facturable' => 'nullable|boolean',
+
+                'fournisseurs_id' => 'nullable|array',
                 'fournisseurs_id.*' => 'exists:fournisseurs,id',
-                'unite_par_emballage' => 'required|integer',
-                'condition_par_unite_emballage' => 'required|string',
-                'Dosage_defaut' => 'required|string',
-                'schema_administration' => 'required|string',
-                'facturable' => 'required|boolean', // <- ici
+
+                'emplacements_id' => 'nullable|array',
+                'emplacements_id.*' => 'exists:emplacements_products,id',
+
+                'numero_lot_fabricant' => 'nullable|string',
+                'date_reception' => 'nullable|date',
+                'date_peremption' => 'nullable|date',
+                'quantite_actuelle' => 'nullable|numeric|min:0',
+
+                'Dosage_defaut' => 'nullable|string',
+                'schema_administration' => 'nullable|string',
             ]);
 
-            $categories = $data['categories_id'];
-            $fournisseurs = $data['fournisseurs_id'];
-            unset($data['categories_id'], $data['fournisseurs_id']);
+            $fournisseurs = $data['fournisseurs_id'] ?? [];
+            $emplacements = $data['emplacements_id'] ?? [];
 
-            $data['ref'] = 'PROD' . now()->format('ymdHis') . mt_rand(10, 99);
+            unset($data['fournisseurs_id'], $data['emplacements_id']);
+
+            $data['ref'] = 'PROD' . now()->format('ymdHis') . rand(100, 999);
+            $data['name'] = strtoupper($data['name']);
             $data['created_by'] = $auth->id;
+            $data['facturable'] = $data['facturable'] ?? false;
+            $data['status'] = $data['status'] ?? 'ACTIVE';
 
             $product = Product::create($data);
 
-            $product->categories()->sync($categories);
             $product->fournisseurs()->sync($fournisseurs);
 
+            if (!empty($emplacements)) {
+                foreach ($emplacements as $emplacementId) {
+                    \App\Models\EmplacementProduit::create([
+                        'id_produit' => $product->id,
+                        'id_emplacement' => $emplacementId,
+                        'created_by' => $auth->id,
+                    ]);
+                }
+            }
+
+            if (!empty($data['numero_lot_fabricant']) || !empty($data['quantite_actuelle'])) {
+                \App\Models\LotProduit::create([
+                    'numero_lot_fabricant' => $data['numero_lot_fabricant'] ?? null,
+                    'date_reception' => $data['date_reception'] ?? null,
+                    'date_peremption' => $data['date_peremption'] ?? null,
+                    'quantite_actuelle' => $data['quantite_actuelle'] ?? 0,
+                    'id_produit' => $product->id,
+                    'id_emplacement' => $emplacements[0] ?? null,
+                    'created_by' => $auth->id,
+                ]);
+            }
+
             return response()->json([
-                'data' => $product->load(['categories', 'fournisseurs']),
-                'message' => 'Produit créé avec succès.'
+                'success' => true,
+                'message' => 'Produit créé avec succès.',
+                'data' => $product->load(['fournisseurs'])
             ], 201);
 
         } catch (\Illuminate\Validation\ValidationException $e) {
+
             return response()->json([
-                'error' => 'Erreur de validation',
-                'details' => $e->errors()
+                'success' => false,
+                'message' => 'Erreur de validation',
+                'errors' => $e->errors()
             ], 422);
+
         } catch (\Exception $e) {
+
             return response()->json([
-                'error' => 'Une erreur est survenue',
-                'message' => $e->getMessage()
+                'success' => false,
+                'message' => 'Une erreur est survenue',
+                'error' => $e->getMessage()
             ], 500);
         }
     }
-    /**
-     * Display a listing of the resource.
-     * @permission ProduitController::search
-     * @permission_desc Rechercher des produits
-     */
-    public function search(Request $request)
-    {
-        $request->validate([
-            'query' => 'nullable|string|max:255',
-        ]);
-
-        $searchQuery = $request->input('query', '');
-
-        $query = Product::where('is_deleted', false);
-
-        if ($searchQuery) {
-            $query->where(function($query) use ($searchQuery) {
-                $query->where('name', 'like', '%' . $searchQuery . '%')
-                    ->orWhere('dosage', 'like', '%' . $searchQuery . '%')
-                    ->orWhere('price', 'like', '%' . $searchQuery . '%')
-                    ->orWhere('unite_par_emballage', 'like', '%' . $searchQuery . '%')
-                    ->orWhere('condition_par_unite_emballage', 'like', '%' . $searchQuery . '%');
-            });
-        }
-
-        $products= $query
-            ->with([
-                'voieTransmission:id,name',
-                'uniteProduit:id,name',
-                'groupProduct:id,name',
-                'categories:id,name',
-                'fournisseurs:id,nom',
-            ]) // chargement des relations
-            ->get();
-
-        return response()->json([
-            'data' => $products,
-        ]);
-    }
-
 
     /**
      * Display a listing of the resource.
      * @permission ProduitController::show
-     * @permission_desc Afficher les détails produits
+     * @permission_desc Afficher les détails  d'un produits
      */
     public function show(string $id)
     {
         try {
-            $product = Product::where('is_deleted', false)
-                ->with([
-                    'voieTransmission:id,name',
-                    'uniteProduit:id,name',
-                    'groupProduct:id,name',
-                    'categories:id,name',
-                    'fournisseurs:id,nom',
-                ])
+            $products = Product::with([
+                'voieTransmission:id,name',
+                'uniteProduit:id,name',
+                'groupProduct:id,name',
+                'categories:id,name',
+                'fournisseurs:id,full_name',
+                'creator',
+                'updater',
+                'lots',
+                'emplacements.emplacement'
+            ])
                 ->findOrFail($id);
 
             return response()->json([
-                'data' => $product,
+                'data' => $products,
                 'message' => 'Détails du produit récupérés avec succès.'
             ], 200);
 
@@ -246,171 +246,124 @@ class ProduitController extends Controller
         }
     }
 
-
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(string $id)
-    {
-        //
-    }
-
-    /**
-     * Display a listing of the resource.
-     * @permission ProduitController::export
-     * @permission_desc Exporter les produits
-     */
-    public function export()
-    {
-        $fileName = 'produits-' . Carbon::now()->format('Y-m-d_H-i-s') . '.xlsx';
-
-        Excel::store(new ProductsExport(), $fileName, 'exportproducts');
-
-        return response()->json([
-            "message" => "Exportation des données effectuée avec succès",
-            "filename" => $fileName,
-            "url" => Storage::disk('exportproducts')->url($fileName)
-        ]);
-    }
-
     /**
      * Display a listing of the resource.
      * @permission ProduitController::update
-     * @permission_desc Mettre à jour produits
+     * @permission_desc Modifier un produit
      */
     public function update(Request $request, $id)
     {
         $auth = auth()->user();
 
         try {
+
             $product = Product::findOrFail($id);
 
             $data = $request->validate([
-                'name' => 'required|string|unique:products,name,' . $product->id,
+                'name' => 'required|string|unique:products,name,' . $id,
+                'product_type' => 'required|string',
                 'dosage' => 'required|string',
-                'voix_transmissions_id' => 'required|exists:voix_transmissions,id',
-                'price' => 'required|numeric',
-                'unite_produits_id' => 'required|exists:unite_produits,id',
-                'group_products_id' => 'required|exists:group_products,id',
-                'categories_id' => 'required|array',
-                'categories_id.*' => 'exists:categories,id',
-                'fournisseurs_id' => 'required|array',
+
+                'generic_name' => 'nullable|string',
+                'manufacturer_reference' => 'nullable|string',
+                'laboratory_family' => 'nullable|string',
+                'storage_unit' => 'nullable|string',
+                'consumption_unit' => 'nullable|string',
+                'conversion_factor' => 'nullable|numeric|min:1',
+                'alert_threshold' => 'nullable|numeric|min:0',
+                'minimum_threshold' => 'nullable|numeric|min:0',
+                'storage_temperature' => 'nullable|string',
+
+                'purchase_price' => 'nullable|numeric|min:0',
+                'price' => 'nullable|numeric|min:0',
+
+                'facturable' => 'nullable|boolean',
+
+                'fournisseurs_id' => 'nullable|array',
                 'fournisseurs_id.*' => 'exists:fournisseurs,id',
-                'unite_par_emballage' => 'required|integer',
-                'condition_par_unite_emballage' => 'required|string',
-                'Dosage_defaut' => 'required|string',
-                'schema_administration' => 'required|string',
-                'facturable' => 'required|boolean', // <- ici
+
+                'emplacements_id' => 'nullable|array',
+                'emplacements_id.*' => 'exists:emplacements_products,id',
+
+                'numero_lot_fabricant' => 'nullable|string',
+                'date_reception' => 'nullable|date',
+                'date_peremption' => 'nullable|date',
+                'quantite_actuelle' => 'nullable|numeric|min:0',
             ]);
 
-            $categories = $data['categories_id'];
-            $fournisseurs = $data['fournisseurs_id'];
-            unset($data['categories_id'], $data['fournisseurs_id']);
+            $fournisseurs = $data['fournisseurs_id'] ?? [];
+            $emplacements = $data['emplacements_id'] ?? [];
 
+            unset($data['fournisseurs_id'], $data['emplacements_id']);
+
+
+            $data['name'] = strtoupper($data['name']);
             $data['updated_by'] = $auth->id;
+            $data['facturable'] = $data['facturable'] ?? false;
 
             $product->update($data);
 
-            $product->categories()->sync($categories);
+
             $product->fournisseurs()->sync($fournisseurs);
 
+
+            \App\Models\EmplacementProduit::where('id_produit', $product->id)->delete();
+
+            foreach ($emplacements as $emplacementId) {
+                \App\Models\EmplacementProduit::create([
+                    'id_produit' => $product->id,
+                    'id_emplacement' => $emplacementId,
+                    'created_by' => $auth->id,
+                    'updated_by' => $auth->id,
+                ]);
+            }
+
+            $lot = \App\Models\LotProduit::where('id_produit', $product->id)
+                ->where('statut', 'Disponible')
+                ->first();
+
+            if ($lot) {
+                $lot->update([
+                    'numero_lot_fabricant' => $data['numero_lot_fabricant'] ?? $lot->numero_lot_fabricant,
+                    'date_reception' => $data['date_reception'] ?? $lot->date_reception,
+                    'date_peremption' => $data['date_peremption'] ?? $lot->date_peremption,
+                    'quantite_actuelle' => $data['quantite_actuelle'] ?? $lot->quantite_actuelle,
+                    'updated_by' => $auth->id,
+                ]);
+            } else {
+                if (!empty($data['numero_lot_fabricant'])) {
+                    \App\Models\LotProduit::create([
+                        'numero_lot_fabricant' => $data['numero_lot_fabricant'],
+                        'date_reception' => $data['date_reception'] ?? null,
+                        'date_peremption' => $data['date_peremption'] ?? null,
+                        'quantite_actuelle' => $data['quantite_actuelle'] ?? 0,
+                        'id_produit' => $product->id,
+                        'id_emplacement' => $emplacements[0] ?? null,
+                        'created_by' => $auth->id,
+                    ]);
+                }
+            }
+
             return response()->json([
-                'data' => $product->load(['categories', 'fournisseurs']),
-                'message' => 'Produit mis à jour avec succès.'
+                'success' => true,
+                'message' => 'Produit mis à jour avec succès.',
+                'data' => $product->load(['fournisseurs'])
             ]);
 
         } catch (\Illuminate\Validation\ValidationException $e) {
+
             return response()->json([
-                'error' => 'Erreur de validation',
-                'details' => $e->errors()
+                'success' => false,
+                'message' => 'Erreur de validation',
+                'errors' => $e->errors()
             ], 422);
+
         } catch (\Exception $e) {
-            return response()->json([
-                'error' => 'Une erreur est survenue',
-                'message' => $e->getMessage()
-            ], 500);
-        }
-    }
-    /**
-     * Display a listing of the resource.
-     * @permission ProduitController::searchAndExport
-     * @permission_desc Rechercher et exporter les produits
-     */
-    public function searchAndExport(Request $request)
-    {
-        $request->validate([
-            'query' => 'nullable|string|max:255',
-        ]);
-
-        $searchQuery = $request->input('query', '');
-
-        $query = Product::where('is_deleted', false);
-
-        if ($searchQuery) {
-            $query->where(function($query) use ($searchQuery) {
-                $query->where('name', 'like', '%' . $searchQuery . '%')
-                    ->orWhere('dosage', 'like', '%' . $searchQuery . '%')
-                    ->orWhere('price', 'like', '%' . $searchQuery . '%')
-                    ->orWhere('unite_par_emballage', 'like', '%' . $searchQuery . '%')
-                    ->orWhere('condition_par_unite_emballage', 'like', '%' . $searchQuery . '%');
-            });
-        }
-
-        $products= $query
-            ->with([
-                'voieTransmission:id,name',
-                'uniteProduit:id,name',
-                'groupProduct:id,name',
-                'categories:id,name',
-                'fournisseurs:id,nom',
-            ]) // chargement des relations
-            ->get();
-
-        if ($products->isEmpty()) {
-            return response()->json([
-                'message' => 'Aucune donnée trouvé pour cette recherche.',
-                'data' => []
-            ]);
-        }
-        $fileName = 'produits-recherches-' . Carbon::now()->format('Y-m-d H:i:s') . '.xlsx';
-
-        Excel::store(new ProductsExportSearch($products), $fileName, 'exportproducts');
-
-        return response()->json([
-            "message" => "Exportation des données effectuée avec succès",
-            "filename" => $fileName,
-            "url" => Storage::disk('exportproducts')->url($fileName)
-        ]);
-
-    }
-
-
-    /**
-     * Display a listing of the resource.
-     * @permission ProduitController::destroy
-     * @permission_desc Supprimer les produits
-     */
-    public function destroy(string $id)
-    {
-        try {
-            $product = Product::where('is_deleted', false)->findOrFail($id);
-
-            $product->update([
-                'is_deleted' => true
-            ]);
 
             return response()->json([
-                'message' => 'Produit supprimé avec succès.'
-            ], 200);
-
-        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
-            return response()->json([
-                'error' => 'Produit non trouvé ou déjà supprimé.'
-            ], 404);
-        } catch (\Exception $e) {
-            return response()->json([
-                'error' => 'Une erreur est survenue.',
-                'message' => $e->getMessage()
+                'success' => false,
+                'message' => 'Une erreur est survenue',
+                'error' => $e->getMessage()
             ], 500);
         }
     }
