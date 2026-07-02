@@ -216,7 +216,7 @@ Route::middleware(['activity'])->group(function () {
         Route::apiResource('type-actes', TypeActeController::class)->except(['show']);
         Route::patch('/type-actes/{typeActe}/activate', [TypeActeController::class, 'changeStatus']);
         // Actes
-        Route::apiResource('actes', ActeController::class)->except(['show']);
+        Route::apiResource('actes', ActeController::class);
         Route::patch('/actes/{acte}/activate', [ActeController::class, 'changeStatus']);
         Route::post('/actes/import', [ActeController::class, 'import']);
         Route::get('/actes/print_rapports', [ActeController::class, 'PrintRapportActes']);
@@ -330,6 +330,14 @@ Route::middleware(['activity'])->group(function () {
         Route::patch('products/{id}/is_active', [ProduitController::class, 'updateStatus']);
 
         Route::apiResource('lots_products',\App\Http\Controllers\LotProductController::class);
+        Route::get('enums/purchaseOrderTypes',[\App\Http\Controllers\EnumController::class,'purchaseOrderTypes']);
+        Route::get('enums/PurchaseOrderStatus',[\App\Http\Controllers\EnumController::class,'PurchaseOrderStatus']);
+
+
+        Route::apiResource('purchase_orders',\App\Http\Controllers\PurchaseOrderController::class);
+        Route::patch('purchase_orders/{id}/cancel', [\App\Http\Controllers\PurchaseOrderController::class, 'cancel']);
+        Route::patch('purchase_orders/{id}/reject', [\App\Http\Controllers\PurchaseOrderController::class, 'reject']);
+        Route::patch('purchase_orders/{id}/validate', [\App\Http\Controllers\PurchaseOrderController::class, 'validate']);
 
 
         Route::controller(PriseEnChargeController::class)->prefix('prise_en_charges')->group(function () {

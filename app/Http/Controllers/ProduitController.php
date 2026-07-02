@@ -18,6 +18,7 @@ use Maatwebsite\Excel\Facades\Excel;
 /**
  * @permission_category Gestion des produits
  * @permission_module Gestion des stocks
+ * @permission_module Gestion des prestations
  */
 
 class ProduitController extends Controller

@@ -325,16 +325,13 @@ class ConsultantController extends Controller
                 'jours' => 'nullable|array',
             ]);
 
-            // 🔥 Normalisation des booléens (important)
             $data['TelWhatsApp'] = $request->boolean('TelWhatsApp');
             $data['is_used_commission'] = $request->boolean('is_used_commission');
 
             $data['created_by'] = $auth->id;
 
-            // Création consultant
             $consultant = Consultant::create($data);
 
-            // 🔥 Mapping jours
             $joursMap = [
                 'Lundi' => 1,
                 'Mardi' => 2,
@@ -345,8 +342,7 @@ class ConsultantController extends Controller
                 'Dimanche' => 7,
             ];
 
-            // Disponibilités (seulement interne)
-            if ($data['type'] === 'Interne' && !empty($request->jours)) {
+            if (($data['type'] === TypeConsultEnum::INTERNE->value || $data['type'] === TypeConsultEnum::SUR_RENDEZ_VOUS->value) && !empty($request->jours)) {
 
                 foreach ($request->jours as $jourNom => $plages) {
 
@@ -493,10 +489,9 @@ class ConsultantController extends Controller
                 'Dimanche' => 7,
             ];
 
-            // 🔥 Toujours reset propre des disponibilités
             ConsultantDisponibilite::where('consultant_id', $consultant->id)->delete();
 
-            if ($data['type'] === 'Interne' && !empty($request->jours)) {
+            if (($data['type'] === TypeConsultEnum::INTERNE->value || $data['type'] === TypeConsultEnum::SUR_RENDEZ_VOUS->value) && !empty($request->jours)) {
 
                 foreach ($request->jours as $jourNom => $plages) {
 
