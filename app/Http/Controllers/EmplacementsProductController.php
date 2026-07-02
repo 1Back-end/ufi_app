@@ -36,6 +36,13 @@ class EmplacementsProductController extends Controller
                     ->orWhere('position_detaillee', 'like', "%{$search}%");
             });
         }
+        if ($request->has('is_active')) {
+            $query->where('is_active', filter_var($request->is_active, FILTER_VALIDATE_BOOLEAN));
+        }
+
+        if ($request->has('is_primary')) {
+            $query->where('is_primary', filter_var($request->is_primary, FILTER_VALIDATE_BOOLEAN));
+        }
         $data = $query->latest()->paginate($perPage, ['*'], 'page', $page);
 
         return response()->json([
@@ -71,13 +78,25 @@ class EmplacementsProductController extends Controller
                 'equipement' => 'nullable|string|max:100',
                 'position_detaillee' => 'nullable|string|max:100',
                 'is_active' => 'sometimes|boolean',
+                'is_primary' => 'sometimes|boolean',
             ]);
+
+            if (!empty($data['is_primary']) && $data['is_primary'] == true) {
+                $existsPrimary = EmplacementsProduct::where('is_primary', true)->exists();
+                if ($existsPrimary) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Un emplacement principal existe déjà.',
+                    ], 422);
+                }
+            }
 
             $emplacement = EmplacementsProduct::create([
                 'zone_stockage' => strtoupper($data['zone_stockage']),
                 'equipement' => $data['equipement'] ?? null,
                 'position_detaillee' => $data['position_detaillee'] ?? null,
                 'is_active' => $data['is_active'] ?? true,
+                'is_primary'          => $data['is_primary'] ?? false,
                 'created_by' => $auth->id,
                 'updated_by' => $auth->id,
             ]);
@@ -130,20 +149,37 @@ class EmplacementsProductController extends Controller
             }
 
             $data = $request->validate([
-                'zone_stockage' => 'required|string|max:100',
-                'equipement' => 'nullable|string|max:100',
-                'position_detaillee' => 'nullable|string|max:100',
-                'is_active' => 'sometimes|boolean',
+                'zone_stockage'       => 'required|string|max:100',
+                'equipement'          => 'nullable|string|max:100',
+                'position_detaillee'  => 'nullable|string|max:100',
+                'is_active'           => 'sometimes|boolean',
+                'is_primary'          => 'sometimes|boolean',
             ]);
+
+            // 🔥 STRICT RULE : si on veut mettre primary
+            if (!empty($data['is_primary']) && $data['is_primary'] == true) {
+
+                $existsPrimary = EmplacementsProduct::where('is_primary', true)
+                    ->where('id', '!=', $emplacement->id)
+                    ->exists();
+
+                if ($existsPrimary) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Un emplacement principal existe déjà.',
+                    ], 422);
+                }
+            }
 
             // 🔥 update
             $emplacement->update([
-                'zone_stockage' => strtoupper($data['zone_stockage']),
-                'equipement' => $data['equipement'] ?? null,
-                'position_detaillee' => $data['position_detaillee'] ?? null,
-                'is_active' => $data['is_active'] ?? $emplacement->is_active,
+                'zone_stockage'       => strtoupper($data['zone_stockage']),
+                'equipement'          => $data['equipement'] ?? null,
+                'position_detaillee'  => $data['position_detaillee'] ?? null,
+                'is_active'           => $data['is_active'] ?? $emplacement->is_active,
+                'is_primary'          => $data['is_primary'] ?? $emplacement->is_primary,
 
-                'updated_by' => $auth->id,
+                'updated_by'          => $auth->id,
             ]);
 
             return response()->json([

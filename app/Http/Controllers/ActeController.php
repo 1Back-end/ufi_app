@@ -93,6 +93,20 @@ class ActeController extends Controller
         ], 202);
     }
 
+    public function show(int $id)
+    {
+        $acte = Acte::with('typeActe')->find($id);
+
+        if (!$acte) {
+            return response()->json([
+                'message' => 'Acte introuvable.'
+            ], 404);
+        }
+        return response()->json([
+            'data' => $acte
+        ], 200);
+    }
+
     /**
      * @param Acte $acte
      * @param Request $request

@@ -6,21 +6,35 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-class EmplacementsProduct extends Model
+class PurchaseOrderItem extends Model
 {
     use HasFactory, SoftDeletes;
 
-    protected $table = 'emplacements_products';
+    protected $table = 'purchase_order_items';
 
     protected $fillable = [
-        'zone_stockage',
-        'equipement',
-        'position_detaillee',
-        'is_active',
+        'purchase_order_id',
+        'product_id',
+        'quantity',
+        'already_received_quantity',
+        'remaining_quantity',
+        'unit_price',
+        'total_price',
+        'description',
         'created_by',
         'updated_by',
-        'is_primary'
     ];
+
+    protected $casts = [
+        'quantity' => 'integer',
+        'unit_price' => 'decimal:2',
+        'total_price' => 'decimal:2',
+    ];
+
+    public function purchaseOrder()
+    {
+        return $this->belongsTo(PurchaseOrder::class, 'purchase_order_id');
+    }
 
     public function product()
     {
@@ -35,10 +49,5 @@ class EmplacementsProduct extends Model
     public function updater()
     {
         return $this->belongsTo(User::class, 'updated_by');
-    }
-
-    public function scopeActive($query)
-    {
-        return $query->where('is_active', true);
     }
 }

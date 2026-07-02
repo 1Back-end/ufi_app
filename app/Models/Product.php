@@ -85,4 +85,8 @@ class Product extends Model
     {
         return $this->hasMany(\App\Models\EmplacementProduit::class, 'id_produit');
     }
+    public function purchaseOrderItems()
+    {
+        return $this->hasMany(PurchaseOrderItem::class, 'product_id');
+    }
 }
