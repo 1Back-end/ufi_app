@@ -78,7 +78,7 @@ class ClientController extends Controller
      */
     public function index(Request $request)
     {
-        // Search clients by name, first name, second name, reference, email and phone numbers.
+
         $clients = client_filter(
             ClientFilterData::fromRequest($request)
         );
@@ -105,13 +105,56 @@ class ClientController extends Controller
         }
 
         $dataValidated = $request->validated();
+        $dataValidated['site_id'] = $request->header('centre');
 
-        $dataValidated['enfant_cli'] = Carbon::parse($dataValidated['date_naiss_cli'])->age <= 14;
+        // 1. Génération de la référence officielle du centre EN AMONT
+        $centre = Centre::find($dataValidated['site_id']);
+
+        $lastEntryUserForThisYear = DB::table('user_centre')
+            ->where('centre_id', $centre->id)
+            ->whereYear('created_at', now()->year)
+            ->orderBy('sequence', 'desc')
+            ->first();
+
+        $id = $lastEntryUserForThisYear ? $lastEntryUserForThisYear->sequence + 1 : 1;
+        $refCli = $centre->reference . now()->year . Str::padLeft($id, 6, '0');
+
+        $dataValidated['ref_cli'] = $refCli;
+
+        if (!empty($dataValidated['client_anonyme_cli'])) {
+            $nomSaisi = $dataValidated['nom_cli'] ?? 'XXX';
+            $initiales = strtoupper(substr(preg_replace('/[^A-Za-z]/', '', $nomSaisi), 0, 3));
+            if (strlen($initiales) < 3) {
+                $initiales = Str::padRight($initiales, 3, 'X');
+            }
+
+            $genre = ($dataValidated['sexe_id'] == 1) ? 'M' : 'F';
+
+            $dataValidated['nom_cli'] = $dataValidated['nom_cli'] ?? 'XXX';
+
+            $dataValidated['nomcomplet_client'] = $genre . '-' . $initiales . '-' . $refCli;
+
+            $dataValidated['tel_cli'] = '00000000';
+            $dataValidated['prenom_cli'] = null;
+            $dataValidated['secondprenom_cli'] = null;
+            $dataValidated['email'] = null;
+            $dataValidated['addresse_cli'] = null;
+            $dataValidated['nom_conjoint_cli'] = null;
+            $dataValidated['prenom_conjoint_cli'] = null;
+            $dataValidated['document_number_cli'] = null;
+        } else {
+            $nom = $dataValidated['nom_cli'] ?? '';
+            $prenom = $dataValidated['prenom_cli'] ?? '';
+            $dataValidated['nomcomplet_client'] = trim(strtoupper($nom) . ' ' . $prenom);
+        }
+
         $dataValidated['date_naiss_cli'] = $dataValidated['date_naiss_cli_estime']
             ? now()->subYears($dataValidated['age'])->year . '-01-01'
             : $dataValidated['date_naiss_cli'];
 
-        $dataValidated['site_id'] = $request->header('centre');
+        $dataValidated['enfant_cli'] = isset($dataValidated['date_naiss_cli'])
+            ? Carbon::parse($dataValidated['date_naiss_cli'])->age <= 14
+            : false;
 
         unset($dataValidated['age']);
 
@@ -119,19 +162,6 @@ class ClientController extends Controller
         try {
             $client = Client::create($dataValidated);
 
-            $centre = Centre::find($dataValidated['site_id']);
-
-            $lastEntryUserForThisYear = DB::table('user_centre')
-                ->where('centre_id', $centre->id)
-                ->whereYear('created_at', now()->year)
-                ->orderBy('sequence', 'desc')
-                ->first();
-
-            $id = $lastEntryUserForThisYear ? $lastEntryUserForThisYear->sequence + 1 : 1;
-
-            $refCli = $centre->reference . now()->year . Str::padLeft($id, 6, 0);
-
-            $client->update(['ref_cli' => $refCli]);
         } catch (Exception $e) {
             DB::rollBack();
             return response()->json([
@@ -173,17 +203,50 @@ class ClientController extends Controller
     {
         $dataValidated = $request->validated();
 
+        if (!empty($dataValidated['client_anonyme_cli'])) {
+            if (!$client->client_anonyme_cli) {
+                $nomSaisi = $dataValidated['nom_cli'] ?? $client->nom_cli ?? 'XXX';
+                $initiales = strtoupper(substr(preg_replace('/[^A-Za-z]/', '', $nomSaisi), 0, 3));
+                if (strlen($initiales) < 3) {
+                    $initiales = Str::padRight($initiales, 3, 'X');
+                }
 
-        if ($client->nom_cli == $client->ref_cli) {
-            unset($dataValidated['nom_cli']);
-            unset($dataValidated['nomcomplet_client']);
-            unset($dataValidated['prenom_cli']);
+                $genre = ($dataValidated['sexe_id'] == 1) ? 'M' : 'F';
+
+                $dataValidated['nom_cli'] = $dataValidated['nom_cli'] ?? $client->nom_cli ?? 'XXX';
+
+                $dataValidated['nomcomplet_client'] = $genre . '-' . $initiales . '-' . $client->ref_cli;
+
+                $dataValidated['tel_cli'] = '00000000';
+                $dataValidated['prenom_cli'] = null;
+                $dataValidated['secondprenom_cli'] = null;
+                $dataValidated['email'] = null;
+                $dataValidated['addresse_cli'] = null;
+                $dataValidated['nom_conjoint_cli'] = null;
+                $dataValidated['prenom_conjoint_cli'] = null;
+                $dataValidated['document_number_cli'] = null;
+            } else {
+                unset($dataValidated['nom_cli']);
+                unset($dataValidated['nomcomplet_client']);
+                unset($dataValidated['prenom_cli']);
+                unset($dataValidated['secondprenom_cli']);
+            }
+        } else {
+
+            $nom = $dataValidated['nom_cli'] ?? $client->nom_cli;
+            $prenom = $dataValidated['prenom_cli'] ?? $client->prenom_cli;
+
+            $dataValidated['nomcomplet_client'] = trim(strtoupper($nom) . ' ' . $prenom);
+            $dataValidated['client_anonyme_cli'] = false;
         }
 
-        $dataValidated['enfant_cli'] = Carbon::parse($dataValidated['date_naiss_cli'])->age <= 14;
         $dataValidated['date_naiss_cli'] = $dataValidated['date_naiss_cli_estime']
             ? now()->subYears($dataValidated['age'])->year . '-01-01'
             : $dataValidated['date_naiss_cli'];
+
+        $dataValidated['enfant_cli'] = isset($dataValidated['date_naiss_cli'])
+            ? Carbon::parse($dataValidated['date_naiss_cli'])->age <= 14
+            : false;
 
         unset($dataValidated['age']);
 
@@ -191,6 +254,7 @@ class ClientController extends Controller
 
         return response()->json([
             'message' => 'Client a été mis à jour avec succès !',
+            'client' => $client->refresh()
         ], Response::HTTP_ACCEPTED);
     }
 

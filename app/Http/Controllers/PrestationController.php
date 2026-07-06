@@ -44,6 +44,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Enum;
+use Illuminate\Validation\ValidationException;
 use PHPUnit\Framework\Exception;
 use Spatie\Browsershot\Exceptions\CouldNotTakeBrowsershot;
 use Symfony\Component\HttpFoundation\Response;
@@ -1734,4 +1735,139 @@ class PrestationController extends Controller
         //        Todo: $consultant = Consultant::find($consultantId);
         //        Todo: $consultant->user()->notify(SendRdvNotification::class);
     }
+
+
+    /**
+     * Update the status of exams for specified prestations.
+     *
+     * @param Request $request
+     *
+     * @return JsonResponse
+     *
+     * @permission PrestationController::print_deleted_prestations
+     * @permission_desc Imprimer l'état des prestations supprimées
+     * @throws Throwable
+     */
+    public function print_deleted_prestations(Request $request)
+    {
+        try {
+            $centreId = $request->header('centre');
+
+            if (!$centreId) {
+                return response()->json([
+                    'message' => 'Centre non fourni'
+                ], 400);
+            }
+
+            $dateFin = Carbon::now()->endOfDay();
+            $dateAujourdhuiDebut = Carbon::now()->startOfDay();
+            $relations = ['client', 'consultant', 'payableBy', 'createdBy', 'updatedBy'];
+
+            $result = Prestation::onlyTrashed()
+                ->with($relations)
+                ->where('centre_id', $centreId)
+                ->whereBetween('deleted_at', [$dateAujourdhuiDebut, $dateFin])
+                ->orderBy('created_at', 'ASC')
+                ->get();
+
+            $dateDebutActive = $dateAujourdhuiDebut;
+
+            if ($result->isEmpty()) {
+                $dateSemaineDebut = Carbon::now()->subWeek()->startOfDay();
+
+                $result = Prestation::onlyTrashed()
+                    ->with($relations)
+                    ->where('centre_id', $centreId)
+                    ->whereBetween('deleted_at', [$dateSemaineDebut, $dateFin])
+                    ->orderBy('created_at', 'ASC')
+                    ->get();
+
+                $dateDebutActive = $dateSemaineDebut;
+            }
+
+            if ($result->isEmpty()) {
+                $dateMoisDebut = Carbon::now()->subMonth()->startOfDay();
+
+                $result = Prestation::onlyTrashed()
+                    ->with($relations)
+                    ->where('centre_id', $centreId)
+                    ->whereBetween('deleted_at', [$dateMoisDebut, $dateFin])
+                    ->orderBy('created_at', 'ASC')
+                    ->get();
+
+                $dateDebutActive = $dateMoisDebut;
+            }
+
+            if ($result->isEmpty()) {
+                return response()->json([
+                    'message' => 'Aucune donnée trouvée pour aujourd\'hui, la semaine passée, ou le mois dernier.'
+                ], 404);
+            }
+
+            $centre = Centre::find($centreId);
+            $media = $centre?->medias()->where('name', 'logo')->first();
+
+            $data = [
+                'result' => $result,
+                'logo'   => $media ? 'storage/' . $media->path . '/' . $media->filename : '',
+                'centre' => $centre,
+                'start'  => $dateDebutActive->toDateTimeString(),
+                'end'    => $dateFin->toDateTimeString()
+            ];
+
+            $fileName = strtoupper('prestations_deleted_' . now()->format('YmdHis')) . '.pdf';
+            $folderPath = 'storage/prestations_deleted';
+            $filePath = $folderPath . '/' . $fileName;
+
+            if (!file_exists($folderPath)) {
+                mkdir($folderPath, 0755, true);
+            }
+
+            save_browser_shot_pdf(
+                view: 'pdfs.prestations_deleted.prestations_deleted',
+                data: $data,
+                folderPath: $folderPath,
+                path: $filePath,
+                margins: [15, 10, 15, 10],
+                footer: 'pdfs.reports.factures.footer',
+                format: 'A4',
+                direction: 'landscape'
+            );
+
+            // Vérification de la création réelle du fichier
+            if (!file_exists($filePath)) {
+                return response()->json([
+                    'message' => 'Le fichier PDF n\'a pas été généré.'
+                ], 500);
+            }
+
+            // 7. Encodage en Base64
+            $pdfContent = file_get_contents($filePath);
+            $base64 = base64_encode($pdfContent);
+
+            return response()->json([
+                'result'   => $result,
+                'base64'   => $base64,
+                'url' => $filePath,
+                'filename' => $fileName,
+            ], 200);
+
+        } catch (ValidationException $e) {
+            return response()->json([
+                'error'    => 'Erreur de validation',
+                'messages' => $e->errors()
+            ], 422);
+
+        } catch (Exception $e) {
+            return response()->json([
+                'error'   => 'Une erreur est survenue',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+
+
+
+
 }
