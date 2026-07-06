@@ -333,6 +333,9 @@ Route::middleware(['activity'])->group(function () {
         Route::get('enums/purchaseOrderTypes',[\App\Http\Controllers\EnumController::class,'purchaseOrderTypes']);
         Route::get('enums/PurchaseOrderStatus',[\App\Http\Controllers\EnumController::class,'PurchaseOrderStatus']);
 
+        Route::apiResource('product_types',\App\Http\Controllers\ProductTypeController::class);
+        Route::patch('product_types/{id}/is_active', [\App\Http\Controllers\ProductTypeController::class, 'updateStatus']);
+
 
         Route::apiResource('purchase_orders',\App\Http\Controllers\PurchaseOrderController::class);
         Route::patch('purchase_orders/{id}/cancel', [\App\Http\Controllers\PurchaseOrderController::class, 'cancel']);
@@ -764,6 +767,7 @@ Route::middleware(['activity'])->group(function () {
         Route::post('/prestations/examens/validate', [ResultController::class, 'validate']);
         Route::post('/prestations/examens/cancel', [ResultController::class, 'cancel']);
         Route::apiResource('results', ResultController::class)->only(['store', 'index']);
+        Route::get('/prestations/deleted/print', [PrestationController::class, 'print_deleted_prestations']);
 
 
         // Gestion des commissions des consultants

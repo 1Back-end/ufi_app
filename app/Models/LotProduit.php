@@ -24,6 +24,8 @@ class LotProduit extends Model
         'id_emplacement',
         'created_by',
         'updated_by',
+        'fournisseur_id',
+        'justification'
     ];
 
 
@@ -47,5 +49,9 @@ class LotProduit extends Model
     public function updater()
     {
         return $this->belongsTo(User::class, 'updated_by');
+    }
+    public function fournisseur()
+    {
+        return $this->belongsTo(Fournisseurs::class, 'fournisseur_id');
     }
 }

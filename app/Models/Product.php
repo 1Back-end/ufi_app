@@ -12,6 +12,8 @@ class Product extends Model
     protected $fillable = [
         'ref',
         'name',
+        'barcode',
+        'product_type_id',
         'generic_name',
         'manufacturer_reference',
         'product_type',
@@ -25,11 +27,8 @@ class Product extends Model
         'storage_temperature',
         'purchase_price',
         'price',
+        'pharmacy_price',
         'facturable',
-        'voix_transmissions_id',
-        'unite_produits_id',
-        'group_products_id',
-        'categories_id',
         'fournisseurs_id',
         'Dosage_defaut',
         'schema_administration',
@@ -39,24 +38,7 @@ class Product extends Model
         'status',
         'is_active'
     ];
-    public function categories()
-    {
-        return $this->belongsToMany(Category::class, 'product_category');
-    }
-    // Relations
-    public function voieTransmission()
-    {
-        return $this->belongsTo(VoixTransmissions::class, 'voix_transmissions_id');
-    }
-    public function uniteProduit()
-    {
-        return $this->belongsTo(UniteProduit::class, 'unite_produits_id');
-    }
 
-    public function groupProduct()
-    {
-        return $this->belongsTo(GroupProduct::class, 'group_products_id');
-    }
     public function fournisseurs()
     {
         return $this->belongsToMany(Fournisseurs::class, 'product_fournisseur', 'product_id', 'fournisseur_id');
@@ -88,5 +70,9 @@ class Product extends Model
     public function purchaseOrderItems()
     {
         return $this->hasMany(PurchaseOrderItem::class, 'product_id');
+    }
+    public function productType()
+    {
+        return $this->belongsTo(ProductType::class, 'product_type_id');
     }
 }

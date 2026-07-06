@@ -35,15 +35,11 @@ class ProduitController extends Controller
         $search = $request->input('search');
 
         $products = Product::with([
-                'voieTransmission:id,name',
-                'uniteProduit:id,name',
-                'groupProduct:id,name',
-                'categories:id,name',
                 'fournisseurs:id,full_name',
                 'creator',
                 'updater',
                 'lots',
-                'emplacements.emplacement'
+                'productType'
             ])
             ->when($search, function ($query, $search) {
                 $query->where(function ($q) use ($search) {
@@ -112,13 +108,11 @@ class ProduitController extends Controller
         $auth = auth()->user();
 
         try {
-
-            $data = $request->validate([
+            $validatedData = $request->validate([
                 'name' => 'required|string|unique:products,name',
-                'product_type' => 'required|string',
-                'dosage' => 'required|string',
+                'product_type_id' => 'required|exists:product_types,id',
+                'barcode' => 'nullable|string|unique:products,barcode',
 
-                'generic_name' => 'nullable|string',
                 'manufacturer_reference' => 'nullable|string',
                 'laboratory_family' => 'nullable|string',
                 'storage_unit' => 'nullable|string',
@@ -130,28 +124,47 @@ class ProduitController extends Controller
 
                 'purchase_price' => 'nullable|numeric|min:0',
                 'price' => 'nullable|numeric|min:0',
+                'pharmacy_price' => 'required|numeric|min:0',
 
                 'facturable' => 'nullable|boolean',
 
                 'fournisseurs_id' => 'nullable|array',
                 'fournisseurs_id.*' => 'exists:fournisseurs,id',
 
-                'emplacements_id' => 'nullable|array',
-                'emplacements_id.*' => 'exists:emplacements_products,id',
-
-                'numero_lot_fabricant' => 'nullable|string',
-                'date_reception' => 'nullable|date',
-                'date_peremption' => 'nullable|date',
-                'quantite_actuelle' => 'nullable|numeric|min:0',
-
                 'Dosage_defaut' => 'nullable|string',
                 'schema_administration' => 'nullable|string',
+
+                'dosage' => 'nullable|string',
+                'generic_name' => 'nullable|string',
             ]);
 
-            $fournisseurs = $data['fournisseurs_id'] ?? [];
-            $emplacements = $data['emplacements_id'] ?? [];
+            $productType = \App\Models\ProductType::findOrFail($request->product_type_id);
 
-            unset($data['fournisseurs_id'], $data['emplacements_id']);
+            if ($productType->accepts_galenic_form && empty($request->dosage)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Erreur de validation',
+                    'errors' => ['dosage' => ['Le dosage (forme galénique) est obligatoire pour ce type de produit.']]
+                ], 422);
+            }
+
+            if ($productType->accepts_generic_form && empty($request->generic_name)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Erreur de validation',
+                    'errors' => ['generic_name' => ['Le principe actif (DCI / Nom générique) est obligatoire pour ce type de produit.']]
+                ], 422);
+            }
+
+            $data = $validatedData;
+            $fournisseurs = $data['fournisseurs_id'] ?? [];
+            $emplacements = $request->input('emplacements_id', []);
+
+            unset($data['fournisseurs_id']);
+
+            if (empty($data['generic_name'])) {
+                $data['generic_name'] = \Illuminate\Support\Str::slug($data['name']);
+            }
 
             $data['ref'] = 'PROD' . now()->format('ymdHis') . rand(100, 999);
             $data['name'] = strtoupper($data['name']);
@@ -173,12 +186,12 @@ class ProduitController extends Controller
                 }
             }
 
-            if (!empty($data['numero_lot_fabricant']) || !empty($data['quantite_actuelle'])) {
+            if (!empty($request->numero_lot_fabricant) || !empty($request->quantite_actuelle)) {
                 \App\Models\LotProduit::create([
-                    'numero_lot_fabricant' => $data['numero_lot_fabricant'] ?? null,
-                    'date_reception' => $data['date_reception'] ?? null,
-                    'date_peremption' => $data['date_peremption'] ?? null,
-                    'quantite_actuelle' => $data['quantite_actuelle'] ?? 0,
+                    'numero_lot_fabricant' => $request->numero_lot_fabricant ?? null,
+                    'date_reception' => $request->date_reception ?? null,
+                    'date_peremption' => $request->date_peremption ?? null,
+                    'quantite_actuelle' => $request->quantite_actuelle ?? 0,
                     'id_produit' => $product->id,
                     'id_emplacement' => $emplacements[0] ?? null,
                     'created_by' => $auth->id,
@@ -188,11 +201,10 @@ class ProduitController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Produit créé avec succès.',
-                'data' => $product->load(['fournisseurs'])
+                'data' => $product->load(['fournisseurs', 'productType'])
             ], 201);
 
         } catch (\Illuminate\Validation\ValidationException $e) {
-
             return response()->json([
                 'success' => false,
                 'message' => 'Erreur de validation',
@@ -200,7 +212,6 @@ class ProduitController extends Controller
             ], 422);
 
         } catch (\Exception $e) {
-
             return response()->json([
                 'success' => false,
                 'message' => 'Une erreur est survenue',
@@ -218,15 +229,12 @@ class ProduitController extends Controller
     {
         try {
             $products = Product::with([
-                'voieTransmission:id,name',
-                'uniteProduit:id,name',
-                'groupProduct:id,name',
-                'categories:id,name',
                 'fournisseurs:id,full_name',
                 'creator',
                 'updater',
                 'lots',
-                'emplacements.emplacement'
+                'emplacements.emplacement',
+                'productType'
             ])
                 ->findOrFail($id);
 
@@ -252,7 +260,7 @@ class ProduitController extends Controller
      * @permission ProduitController::update
      * @permission_desc Modifier un produit
      */
-    public function update(Request $request, $id)
+    public function update(Request $request, string $id)
     {
         $auth = auth()->user();
 
@@ -260,12 +268,11 @@ class ProduitController extends Controller
 
             $product = Product::findOrFail($id);
 
-            $data = $request->validate([
-                'name' => 'required|string|unique:products,name,' . $id,
-                'product_type' => 'required|string',
-                'dosage' => 'required|string',
+            $validatedData = $request->validate([
+                'name' => 'required|string|unique:products,name,' . $product->id,
+                'product_type_id' => 'required|exists:product_types,id',
+                'barcode' => 'nullable|string|unique:products,barcode,' . $product->id,
 
-                'generic_name' => 'nullable|string',
                 'manufacturer_reference' => 'nullable|string',
                 'laboratory_family' => 'nullable|string',
                 'storage_unit' => 'nullable|string',
@@ -277,26 +284,46 @@ class ProduitController extends Controller
 
                 'purchase_price' => 'nullable|numeric|min:0',
                 'price' => 'nullable|numeric|min:0',
+                'pharmacy_price' => 'required|numeric|min:0',
 
                 'facturable' => 'nullable|boolean',
 
                 'fournisseurs_id' => 'nullable|array',
                 'fournisseurs_id.*' => 'exists:fournisseurs,id',
 
-                'emplacements_id' => 'nullable|array',
-                'emplacements_id.*' => 'exists:emplacements_products,id',
+                'Dosage_defaut' => 'nullable|string',
+                'schema_administration' => 'nullable|string',
 
-                'numero_lot_fabricant' => 'nullable|string',
-                'date_reception' => 'nullable|date',
-                'date_peremption' => 'nullable|date',
-                'quantite_actuelle' => 'nullable|numeric|min:0',
+                'dosage' => 'nullable|string',
+                'generic_name' => 'nullable|string',
             ]);
 
+            $productType = \App\Models\ProductType::findOrFail($request->product_type_id);
+
+            if ($productType->accepts_galenic_form && empty($request->dosage)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Erreur de validation',
+                    'errors' => ['dosage' => ['Le dosage (forme galénique) est obligatoire pour ce type de produit.']]
+                ], 422);
+            }
+
+            if ($productType->accepts_generic_form && empty($request->generic_name)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Erreur de validation',
+                    'errors' => ['generic_name' => ['Le principe actif (DCI / Nom générique) est obligatoire pour ce type de produit.']]
+                ], 422);
+            }
+
+            $data = $validatedData;
             $fournisseurs = $data['fournisseurs_id'] ?? [];
-            $emplacements = $data['emplacements_id'] ?? [];
 
-            unset($data['fournisseurs_id'], $data['emplacements_id']);
+            unset($data['fournisseurs_id']);
 
+            if (empty($data['generic_name'])) {
+                $data['generic_name'] = \Illuminate\Support\Str::slug($data['name']);
+            }
 
             $data['name'] = strtoupper($data['name']);
             $data['updated_by'] = $auth->id;
@@ -304,55 +331,15 @@ class ProduitController extends Controller
 
             $product->update($data);
 
-
             $product->fournisseurs()->sync($fournisseurs);
-
-
-            \App\Models\EmplacementProduit::where('id_produit', $product->id)->delete();
-
-            foreach ($emplacements as $emplacementId) {
-                \App\Models\EmplacementProduit::create([
-                    'id_produit' => $product->id,
-                    'id_emplacement' => $emplacementId,
-                    'created_by' => $auth->id,
-                    'updated_by' => $auth->id,
-                ]);
-            }
-
-            $lot = \App\Models\LotProduit::where('id_produit', $product->id)
-                ->where('statut', 'Disponible')
-                ->first();
-
-            if ($lot) {
-                $lot->update([
-                    'numero_lot_fabricant' => $data['numero_lot_fabricant'] ?? $lot->numero_lot_fabricant,
-                    'date_reception' => $data['date_reception'] ?? $lot->date_reception,
-                    'date_peremption' => $data['date_peremption'] ?? $lot->date_peremption,
-                    'quantite_actuelle' => $data['quantite_actuelle'] ?? $lot->quantite_actuelle,
-                    'updated_by' => $auth->id,
-                ]);
-            } else {
-                if (!empty($data['numero_lot_fabricant'])) {
-                    \App\Models\LotProduit::create([
-                        'numero_lot_fabricant' => $data['numero_lot_fabricant'],
-                        'date_reception' => $data['date_reception'] ?? null,
-                        'date_peremption' => $data['date_peremption'] ?? null,
-                        'quantite_actuelle' => $data['quantite_actuelle'] ?? 0,
-                        'id_produit' => $product->id,
-                        'id_emplacement' => $emplacements[0] ?? null,
-                        'created_by' => $auth->id,
-                    ]);
-                }
-            }
 
             return response()->json([
                 'success' => true,
-                'message' => 'Produit mis à jour avec succès.',
-                'data' => $product->load(['fournisseurs'])
-            ]);
+                'message' => 'Produit modifié avec succès.',
+                'data' => $product->load(['fournisseurs', 'productType'])
+            ], 200);
 
         } catch (\Illuminate\Validation\ValidationException $e) {
-
             return response()->json([
                 'success' => false,
                 'message' => 'Erreur de validation',
@@ -360,10 +347,9 @@ class ProduitController extends Controller
             ], 422);
 
         } catch (\Exception $e) {
-
             return response()->json([
                 'success' => false,
-                'message' => 'Une erreur est survenue',
+                'message' => 'Une erreur est survenue lors de la modification',
                 'error' => $e->getMessage()
             ], 500);
         }

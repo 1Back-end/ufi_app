@@ -25,7 +25,7 @@ class LotProductController extends Controller
         $perPage = $request->input('limit', 25);
         $page = $request->input('page', 1);
 
-        $query = LotProduit::with(["creator", "updater", "produit","emplacement"]);
+        $query = LotProduit::with(["creator", "updater", "produit","emplacement","fournisseur"]);
 
         if ($search = trim($request->input('search'))) {
             $query->where(function ($query) use ($search) {
@@ -97,10 +97,13 @@ class LotProductController extends Controller
             'quantite_actuelle' => 'required|integer|min:0',
             'id_produit'        => 'required|exists:products,id',
             'id_emplacement'    => 'required|exists:emplacements_products,id',
+            'fournisseur_id'    => 'nullable|exists:fournisseurs,id',
+            'justification'     => 'nullable|string|max:1000',
         ], [
             'numero_lot_fabricant.unique' => 'Ce numéro de lot existe déjà dans le système.',
             'id_produit.exists'           => 'Le produit sélectionné est invalide.',
             'id_emplacement.exists'       => 'L\'emplacement sélectionné est invalide.',
+            'fournisseur_id.exists'       => 'Le fournisseur sélectionné est invalide.',
         ]);
 
         if ($validator->fails()) {
@@ -121,6 +124,8 @@ class LotProductController extends Controller
                 'quantite_actuelle'    => $request->quantite_actuelle,
                 'id_produit'           => $request->id_produit,
                 'id_emplacement'       => $request->id_emplacement,
+                'fournisseur_id'       => $request->fournisseur_id,
+                'justification'        => $request->justification,
                 'created_by'           => $auth->id,
             ]);
 
@@ -154,6 +159,7 @@ class LotProductController extends Controller
         $auth = auth()->user();
 
         $lot = LotProduit::find($id);
+
         if (!$lot) {
             return response()->json([
                 'success' => false,
@@ -173,10 +179,13 @@ class LotProductController extends Controller
             'quantite_actuelle' => 'required|integer|min:0',
             'id_produit'        => 'required|exists:products,id',
             'id_emplacement'    => 'required|exists:emplacements_products,id',
+            'fournisseur_id'    => 'nullable|exists:fournisseurs,id',
+            'justification'     => 'nullable|string|max:1000',
         ], [
             'numero_lot_fabricant.unique' => 'Ce numéro de lot existe déjà dans le système.',
             'id_produit.exists'           => 'Le produit sélectionné est invalide.',
             'id_emplacement.exists'       => 'L\'emplacement sélectionné est invalide.',
+            'fournisseur_id.exists'       => 'Le fournisseur sélectionné est invalide.',
         ]);
 
         if ($validator->fails()) {
@@ -197,6 +206,8 @@ class LotProductController extends Controller
                 'quantite_actuelle'    => $request->quantite_actuelle,
                 'id_produit'           => $request->id_produit,
                 'id_emplacement'       => $request->id_emplacement,
+                'fournisseur_id'       => $request->fournisseur_id,
+                'justification'        => $request->justification,
                 'updated_by'           => $auth->id,
             ]);
 
@@ -205,7 +216,7 @@ class LotProductController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Lot mis à jour avec succès.',
-                'data'    => $lot,
+                'data'    => $lot->fresh(),
             ], 200);
 
         } catch (\Throwable $e) {
@@ -227,7 +238,7 @@ class LotProductController extends Controller
     public function show(string $id)
     {
         try {
-            $query = LotProduit::with(["creator", "updater", "produit","emplacement"])->findOrFail($id);
+            $query = LotProduit::with(["creator", "updater", "produit","emplacement","fournisseur"])->findOrFail($id);
 
             return response()->json([
                 'data' => $query,

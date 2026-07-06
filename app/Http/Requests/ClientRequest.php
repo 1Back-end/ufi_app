@@ -32,9 +32,13 @@ class ClientRequest extends FormRequest
             'status_familiale_id' => ['required', 'exists:status_familiales,id'],
             'type_document_id' => ['required', 'exists:type_documents,id'],
             'sexe_id' => ['required', 'exists:sexes,id'],
-            'nomcomplet_client' => ['required'],
+
+
+            'nom_cli' => ['required_unless:client_anonyme_cli,true'],
+            'nomcomplet_client' => ['required_unless:client_anonyme_cli,true'],
+            'tel_cli' => ['required_unless:client_anonyme_cli,true'],
+
             'prenom_cli' => ['nullable'],
-            'nom_cli' => ['required'],
             'secondprenom_cli' => ['nullable'],
             'date_naiss_cli' => ['nullable',
                 'required_if:date_naiss_cli_estime,false',
@@ -46,7 +50,7 @@ class ClientRequest extends FormRequest
                 'boolean',
             ],
             'age' => ['nullable', 'required_if:date_naiss_cli_estime,true', 'integer', 'min:0', 'max:120'],
-            'tel_cli' => ['required'],
+
             'tel2_cli' => ['nullable'],
             'type_cli' => ['required', new Enum(TypeClient::class)],
             'renseign_clini_cli' => ['nullable'],
