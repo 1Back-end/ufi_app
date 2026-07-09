@@ -113,7 +113,7 @@ class PrestationController extends Controller
             'client.sexe',
             'client.societe',
             'consultant',
-            'consultant.code_specialite:id,nom_specialite',
+            'consultant',
             'priseCharge',
             'priseCharge.assureur',
             'priseCharge.quotation',
