@@ -44,17 +44,14 @@ class ConsultantController extends Controller
 
         $consultants = Consultant::with([
             'code_hopi',
-            'code_specialite',
+            'specialite',
             'code_titre',
             'disponibilites',
             'user',
             'creator',
             'updater',
             'prestations'
-        ])
-            ->where('is_deleted', false);
-
-        // Filtre par type
+        ]);
         if ($request->filled('type')) {
             $consultants->where('type', $request->type);
         }
@@ -92,7 +89,7 @@ class ConsultantController extends Controller
                     ->orWhere('id', 'like', "%$search%");
 
                 // code_specialite
-                $q->orWhereHas('code_specialite', function ($qq) use ($search) {
+                $q->orWhereHas('specialite', function ($qq) use ($search) {
                     $qq->where('nom_specialite', 'like', "%$search%")
                         ->orWhere('id', 'like', "%$search%");
                 });
@@ -104,7 +101,6 @@ class ConsultantController extends Controller
                         ->orWhere('id', 'like', "%$search%");
                 });
 
-                // code_hopi
                 $q->orWhereHas('code_hopi', function ($qq) use ($search) {
                     $qq->where('nom_hopi', 'like', "%$search%")
                         ->orWhere('Abbreviation_hopi', 'like', "%$search%")
@@ -112,7 +108,6 @@ class ConsultantController extends Controller
                         ->orWhere('id', 'like', "%$search%");
                 });
 
-                // user
                 $q->orWhereHas('user', function ($qq) use ($search) {
                     $qq->where('login', 'like', "%$search%")
                         ->orWhere('email', 'like', "%$search%")
@@ -123,7 +118,6 @@ class ConsultantController extends Controller
             });
         });
 
-        // Pagination
         $consultants = $consultants->latest()->paginate(
             perPage: $perPage,
             page: $page
@@ -178,7 +172,7 @@ class ConsultantController extends Controller
         $consultant = Consultant::where('is_deleted', false)
             ->with([
                 'code_hopi',
-                'code_specialite',
+                'specialite',
                 'code_titre',
                 'code_service_hopi',
                 'disponibilites',
@@ -455,11 +449,9 @@ class ConsultantController extends Controller
                 'jours' => 'nullable|array',
             ]);
 
-            // 🔥 Normalisation booléens (important)
             $data['TelWhatsApp'] = $request->boolean('TelWhatsApp');
             $data['is_used_commission'] = $request->boolean('is_used_commission');
 
-            // 🔥 Titre sécurisé
             $titre = Titre::find($data['code_titre']);
 
             if (!$titre) {
@@ -467,18 +459,14 @@ class ConsultantController extends Controller
                     'message' => 'Titre introuvable',
                 ], 404);
             }
-
-            // Nom complet
             $data['nomcomplet'] = trim(
                 $titre->nom_titre . ' ' . $data['nom'] . ' ' . $data['prenom']
             );
 
             $data['updated_by'] = $auth->id;
 
-            // Update consultant
             $consultant->update($data);
 
-            // Mapping jours
             $joursMap = [
                 'Lundi' => 1,
                 'Mardi' => 2,
@@ -572,13 +560,7 @@ class ConsultantController extends Controller
         try {
             DB::beginTransaction();
 
-            $consultants = Consultant::where('is_deleted', false)
-                ->with([
-                    'disponibilites'
-                ])
-                ->orderBy('created_at', 'desc')
-                ->get();
-
+            $consultants = Consultant::with(['disponibilites','specialite','code_titre'])->orderBy('created_at', 'desc')->get();
 
             $centre = Centre::find($centreId);
             $media = $centre?->medias()->where('name', 'logo')->first();

@@ -16,6 +16,7 @@ class PurchaseOrderItem extends Model
         'purchase_order_id',
         'product_id',
         'quantity',
+        'conditionnement',
         'already_received_quantity',
         'remaining_quantity',
         'unit_price',

@@ -113,7 +113,7 @@
 
 
     <h1 class="fs-3 fw-bold text-center text-uppercase">
-        PLANNING DES CONSULTANTS INTERNE
+        PLANNING DES CONSULTANTS INTERNES ET SUR RENDEZ-VOUS
     </h1>
 
 
@@ -124,19 +124,19 @@
             <table class="table table-bordered table-striped table-sm" style="font-size: 12px;">
                 <thead class="bg-dark text-white">
                 <tr>
-                    <th class="ps-3" style="width: 5%">#</th>
+                    <th style="width: 5%">#</th>
                     <th style="width: 20%">Nom complet</th>
                     <th style="width: 15%">Téléphone</th>
-                    <th style="width: 20%">Email</th>
+                    <th style="width: 20%">Spécialité</th>
                     <th style="width: 10%">Type</th>
-                    <th class="pe-3" style="width: 30%">Disponibilités</th>
+                    <th style="width: 30%">Disponibilités</th>
                 </tr>
                 </thead>
                 <tbody>
                 @foreach($consultants as $consultant)
                     @if($consultant->disponibilites->isNotEmpty())
                         <tr>
-                            <td class="ps-3 text-muted fw-bold">{{ $consultant->id }}</td>
+                            <td class="text-center fw-bold">{{ $consultant->id }}</td>
                             <td>
                                 <div class="fw-bold text-dark text-uppercase">{{ $consultant->nomcomplet }}</div>
                             </td>
@@ -144,18 +144,17 @@
                                 <span class="text-nowrap"><i class="bi bi-telephone text-muted me-1"></i>{{ $consultant->tel }}</span>
                             </td>
                             <td>
-                                <span class="text-muted">{{ $consultant->email }}</span>
+                                <span class="text-muted">{{ $consultant->specialite?->nom_specialite }}</span>
                             </td>
                             <td>
-                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-2.5 py-1 text-capitalize">
-                            {{ $consultant->type }}
-                        </span>
+                           <span class="text-primary fst-italic text-capitalize">
+                                {{ $consultant->type }}
+                            </span>
                             </td>
                             <td class="pe-3">
                                 @php
                                     $disposGrouped = [];
                                     foreach($consultant->disponibilites as $d) {
-                                        // 🌟 FIX ICI : Ajout de (int) pour contrer la comparaison stricte de match()
                                         $jourNom = match((int) $d->jour) {
                                             1 => 'Lundi',
                                             2 => 'Mardi',
@@ -178,9 +177,9 @@
                                 <div class="d-flex flex-column gap-2 my-1">
                                     @foreach($disposGrouped as $jour => $creneaux)
                                         <div class="d-flex align-items-center flex-wrap">
-                                    <span class="badge bg-secondary text-white me-2 text-center" style="width: 75px; font-size: 11px;">
-                                        {{ $jour }}
-                                    </span>
+                                            <span class="text-primary fst-italic text-capitalize me-3" style="font-size: 11px;">
+                                                {{ $jour }}
+                                            </span>
                                             <div class="d-flex flex-wrap gap-1">
                                                 @foreach($creneaux as $creneau)
                                                     <span class="badge bg-light text-dark border px-2 py-1 fw-normal" style="font-size: 11px;">
