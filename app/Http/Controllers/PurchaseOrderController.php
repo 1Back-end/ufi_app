@@ -26,9 +26,10 @@ class PurchaseOrderController extends Controller
             'destination_location_id'=> 'nullable|exists:emplacements_products,id',
             'description'           => 'nullable|string',
 
-            'items'                 => 'required|array|min:1',
-            'items.*.product_id'    => 'required|exists:products,id',
-            'items.*.quantity'      => 'required|integer|min:1',
+            'items'                      => 'required|array|min:1',
+            'items.*.product_id'         => 'required|exists:products,id',
+            'items.*.quantity'           => 'required|integer|min:1',
+            'items.*.conditionnement'    => 'nullable|string|max:255',
         ]);
 
         if ($validator->fails()) {
@@ -88,6 +89,7 @@ class PurchaseOrderController extends Controller
                     'purchase_order_id' => $purchaseOrder->id,
                     'product_id'        => $item['product_id'],
                     'quantity'          => $item['quantity'],
+                    'conditionnement'   => $item['conditionnement'] ?? null,
                     'description'       => $item['description'] ?? null,
                     'created_by'        => auth()->id(),
                     'updated_by'        => auth()->id(),
@@ -508,6 +510,207 @@ class PurchaseOrderController extends Controller
                 'success' => false,
                 'message' => 'Erreur lors de la validation de la commande.',
                 'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+
+    public function receive(Request $request, $id)
+    {
+        $purchaseOrder = PurchaseOrder::with('items')->findOrFail($id);
+
+        // Validation des données entrantes
+        $validator = Validator::make($request->all(), [
+            'order_number' => $purchaseOrder->purchase_order_type === 'external' ? 'required|string|max:255' : 'nullable|string|max:255',
+            'order_date'   => $purchaseOrder->purchase_order_type === 'external' ? 'required|date' : 'nullable|date',
+            'received_date'=> 'required|date',
+
+            'id_emplacement' => $purchaseOrder->purchase_order_type !== 'external' ? 'required|exists:emplacements_products,id' : 'nullable',
+
+            'products_quantities' => 'required|array|min:1',
+            'products_quantities.*.product_id' => 'required|exists:products,id',
+            'products_quantities.*.received_quantity' => 'required|integer|min:0',
+            'products_quantities.*.batch_number' => 'nullable|string|max:255',
+            'products_quantities.*.expiration_date' => $purchaseOrder->purchase_order_type === 'external' ? 'required|date' : 'nullable|date',
+            'products_quantities.*.id_emplacement' => $purchaseOrder->purchase_order_type === 'external' ? 'required|exists:emplacements_products,id' : 'nullable',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Les données de réception sont invalides.',
+                'errors'  => $validator->errors(),
+            ], 422);
+        }
+
+        // Contrôle d'unicité sur la table approvisionnements
+        if ($purchaseOrder->purchase_order_type === 'external' && $request->has('order_number')) {
+            $requestedOrderNumber = trim($request->order_number);
+            $existingApprovisionnement = DB::table('approvisionnements')
+                ->where('purchase_order_id', $purchaseOrder->id)
+                ->whereNotNull('order_number')
+                ->first();
+
+            if ($existingApprovisionnement) {
+                if (trim($existingApprovisionnement->order_number) !== $requestedOrderNumber) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => "Impossible d'utiliser un autre numéro de bon de livraison. Une première réception partielle a déjà été enregistrée sous la référence : '{$existingApprovisionnement->order_number}'. Les reliquats doivent être réceptionnés sous cette même référence.",
+                    ], 422);
+                }
+            } else {
+                $existsOnAnotherOrder = DB::table('approvisionnements')
+                    ->where('purchase_order_id', '!=', $purchaseOrder->id)
+                    ->where('order_number', $requestedOrderNumber)
+                    ->exists();
+
+                if ($existsOnAnotherOrder) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => "Ce numéro de bon de livraison ('{$request->order_number}') a déjà été enregistré pour un autre approvisionnement. Veuillez vérifier votre saisie.",
+                    ], 422);
+                }
+            }
+        }
+
+        DB::beginTransaction();
+
+        try {
+            // CORRECTION : On ne touche plus aux colonnes order_number et order_date ici car elles n'existent pas sur 'purchase_orders'
+
+            foreach ($request->products_quantities as $incomingItem) {
+                $orderItem = PurchaseOrderItem::where('purchase_order_id', $purchaseOrder->id)
+                    ->where('product_id', $incomingItem['product_id'])
+                    ->first();
+
+                if (!$orderItem) {
+                    continue;
+                }
+
+                $receivedQty = (int)$incomingItem['received_quantity'];
+
+                if ($receivedQty > 0) {
+                    $maxAllowed = $orderItem->quantity - $orderItem->already_received_quantity;
+                    if ($receivedQty > $maxAllowed) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => "La quantité reçue pour l'article ID {$incomingItem['product_id']} dépasse la quantité restante à recevoir ({$maxAllowed})."
+                        ], 422);
+                    }
+
+                    $emplacementId = $purchaseOrder->purchase_order_type === 'external'
+                        ? $incomingItem['id_emplacement']
+                        : ($request->id_emplacement ?: $purchaseOrder->destination_source_id);
+
+                    $newAlreadyReceived = $orderItem->already_received_quantity + $receivedQty;
+                    $remainingQty = max($orderItem->quantity - $newAlreadyReceived, 0);
+
+                    $orderItem->update([
+                        'already_received_quantity' => $newAlreadyReceived,
+                        'remaining_quantity'        => $remainingQty,
+                        'updated_by'                => auth()->id(),
+                    ]);
+
+                    $lot = DB::table('lot_produits')
+                        ->where('id_produit', $incomingItem['product_id'])
+                        ->where('id_emplacement', $emplacementId)
+                        ->where('numero_lot_fabricant', $incomingItem['batch_number'])
+                        ->first();
+
+                    if ($lot) {
+                        DB::table('lot_produits')
+                            ->where('id', $lot->id)
+                            ->update([
+                                'quantite_actuelle' => $lot->quantite_actuelle + $receivedQty,
+                                'date_reception'    => $request->received_date,
+                                'updated_by'        => auth()->id(),
+                                'updated_at'        => now(),
+                            ]);
+                        $lotId = $lot->id;
+                    } else {
+                        $lotId = DB::table('lot_produits')->insertGetId([
+                            'numero_lot_fabricant' => $incomingItem['batch_number'] ?? 'LOT-ANONYME',
+                            'date_peremption'      => $incomingItem['expiration_date'] ?? null,
+                            'date_reception'       => $request->received_date,
+                            'quantite_actuelle'    => $receivedQty,
+                            'statut'               => 'Disponible',
+                            'id_produit'           => $incomingItem['product_id'],
+                            'id_emplacement'       => $emplacementId,
+                            'fournisseur_id'       => $purchaseOrder->fournisseur_id,
+                            'created_by'           => auth()->id(),
+                            'updated_by'           => auth()->id(),
+                            'created_at'           => now(),
+                            'updated_at'           => now(),
+                        ]);
+                    }
+
+                    DB::table('mouvement_stock')->insert([
+                        'created_by'           => auth()->id(),
+                        'updated_by'           => auth()->id(),
+                        'lot_id'               => $lotId,
+                        'type_mouvement'       => 'Entrée en stock',
+                        'quantite_mutee'       => $receivedQty,
+                        'description'          => "Réception via BC N° " . $purchaseOrder->purchase_order_number . " (Lot: " . ($incomingItem['batch_number'] ?? 'N/A') . ")",
+                        'date_heure_mouvement' => $request->received_date . ' ' . now()->format('H:i:s'),
+                        'created_at'           => now(),
+                        'updated_at'           => now(),
+                    ]);
+
+                    // L'order_number et la date sont correctement stockés ici (dans la bonne table)
+                    DB::table('approvisionnements')->insert([
+                        'purchase_order_id' => $purchaseOrder->id,
+                        'product_id'        => $incomingItem['product_id'],
+                        'emplacement_id'    => $emplacementId,
+                        'quantite_recue'    => $receivedQty,
+                        'batch_number'      => $incomingItem['batch_number'] ?? null,
+                        'expiration_date'   => $incomingItem['expiration_date'] ?? null,
+                        'order_number'      => $request->order_number ?? null,
+                        'received_date'     => $request->received_date,
+                        'created_by'        => auth()->id(),
+                        'created_at'        => now(),
+                        'updated_at'        => now(),
+                    ]);
+                }
+            }
+
+            $allOrderItems = PurchaseOrderItem::where('purchase_order_id', $purchaseOrder->id)->get();
+
+            $totalItemsCount = $allOrderItems->count();
+
+            $fullyReceivedItemsCount = $allOrderItems->filter(function($item) {
+                return $item->already_received_quantity >= $item->quantity;
+            })->count();
+
+            $anyReceivedItemsCount = $allOrderItems->filter(function($item) {
+                return $item->already_received_quantity > 0;
+            })->count();
+
+            if ($fullyReceivedItemsCount === $totalItemsCount) {
+                $purchaseOrder->status = PurchaseOrderStatus::RECEIVED->value;
+            } elseif ($anyReceivedItemsCount > 0) {
+                $purchaseOrder->status = PurchaseOrderStatus::PARTIALLY_RECEIVED->value;
+            } else {
+                $purchaseOrder->status = PurchaseOrderStatus::IN_PROGRESS->value;
+            }
+
+            $purchaseOrder->updated_by = auth()->id();
+            $purchaseOrder->save();
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Bon de commande réceptionné, lots mis à jour et approvisionnement enregistré avec succès.',
+                'status'  => $purchaseOrder->status
+            ], 200);
+
+        } catch (\Throwable $e) {
+            DB::rollBack();
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la réception du bon de commande.',
+                'error'   => $e->getMessage(),
             ], 500);
         }
     }

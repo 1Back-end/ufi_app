@@ -56,7 +56,7 @@ class ProductTypeController extends Controller
             'accepts_galenic_form' => 'boolean',
             'accepts_generic_form' => 'boolean',
         ]);
-
+        $validated['name'] = mb_strtoupper($validated['name'], 'UTF-8');
         $validated['created_by'] = $auth->id;
 
         $productType = ProductType::create($validated);
@@ -91,6 +91,7 @@ class ProductTypeController extends Controller
             'accepts_generic_form' => 'boolean',
         ]);
 
+        $validated['name'] = mb_strtoupper($validated['name'], 'UTF-8');
         $validated['updated_by'] = $auth->id;
 
         $productType->update($validated);

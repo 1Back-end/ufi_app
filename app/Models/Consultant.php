@@ -22,7 +22,7 @@ class Consultant extends Model
         'ref',
         'nom',
         'prenom',
-        'nomcomplet', // Ajouté ici
+        'nomcomplet',
         'tel',
         'tel1',
         'email',
@@ -54,7 +54,7 @@ class Consultant extends Model
     {
         return $this->belongsTo(Hopital::class, 'code_hopi');
     }
-    public function code_specialite()
+    public function specialite()
     {
         return $this->belongsTo(Specialite::class, 'code_specialite');
     }
@@ -108,7 +108,6 @@ class Consultant extends Model
             $titre = $this->relationLoaded('titre') ? $this->titre : Titre::find($this->code_titre);
             $titreNom = $titre ? $titre->nom_titre : null;
         }
-
         return trim("{$titreNom} {$this->prenom} {$this->nom}");
     }
 

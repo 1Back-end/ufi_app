@@ -341,6 +341,7 @@ Route::middleware(['activity'])->group(function () {
         Route::patch('purchase_orders/{id}/cancel', [\App\Http\Controllers\PurchaseOrderController::class, 'cancel']);
         Route::patch('purchase_orders/{id}/reject', [\App\Http\Controllers\PurchaseOrderController::class, 'reject']);
         Route::patch('purchase_orders/{id}/validate', [\App\Http\Controllers\PurchaseOrderController::class, 'validate']);
+        Route::post('purchase_orders/{id}/receive', [\App\Http\Controllers\PurchaseOrderController::class, 'receive']);
 
 
         Route::controller(PriseEnChargeController::class)->prefix('prise_en_charges')->group(function () {
