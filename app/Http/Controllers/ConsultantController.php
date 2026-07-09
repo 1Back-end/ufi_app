@@ -101,7 +101,6 @@ class ConsultantController extends Controller
                         ->orWhere('id', 'like', "%$search%");
                 });
 
-                // code_hopi
                 $q->orWhereHas('code_hopi', function ($qq) use ($search) {
                     $qq->where('nom_hopi', 'like', "%$search%")
                         ->orWhere('Abbreviation_hopi', 'like', "%$search%")
@@ -109,7 +108,6 @@ class ConsultantController extends Controller
                         ->orWhere('id', 'like', "%$search%");
                 });
 
-                // user
                 $q->orWhereHas('user', function ($qq) use ($search) {
                     $qq->where('login', 'like', "%$search%")
                         ->orWhere('email', 'like', "%$search%")
@@ -120,7 +118,6 @@ class ConsultantController extends Controller
             });
         });
 
-        // Pagination
         $consultants = $consultants->latest()->paginate(
             perPage: $perPage,
             page: $page

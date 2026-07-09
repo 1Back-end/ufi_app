@@ -12,9 +12,18 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rules\Enum;
+/**
+ * @permission_category Gestion des commandes
+ * @permission_module Gestion des stocks
+ */
 
 class PurchaseOrderController extends Controller
 {
+    /**
+     * Display a listing of the resource.
+     * @permission PurchaseOrderController::store
+     * @permission_desc Créer une commande
+     */
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -121,6 +130,11 @@ class PurchaseOrderController extends Controller
     }
 
 
+    /**
+     * Display a listing of the resource.
+     * @permission PurchaseOrderController::update
+     * @permission_desc Modifier une commande
+     */
     public function update(Request $request, string $id)
     {
         $validator = Validator::make($request->all(), [
@@ -230,6 +244,11 @@ class PurchaseOrderController extends Controller
     }
 
 
+    /**
+     * Display a listing of the resource.
+     * @permission PurchaseOrderController::index
+     * @permission_desc Afficher la liste des commandes
+     */
     public function index(Request $request)
     {
 
@@ -308,6 +327,11 @@ class PurchaseOrderController extends Controller
     }
 
 
+    /**
+     * Display a listing of the resource.
+     * @permission PurchaseOrderController::show
+     * @permission_desc Afficher les détails d'une commande
+     */
     public function show(string $id)
     {
         try {
@@ -341,6 +365,11 @@ class PurchaseOrderController extends Controller
         }
     }
 
+    /**
+     * Display a listing of the resource.
+     * @permission PurchaseOrderController::cancel
+     * @permission_desc Annuler une commande
+     */
     public function cancel(string $id)
     {
         try {
@@ -393,6 +422,11 @@ class PurchaseOrderController extends Controller
         }
     }
 
+    /**
+     * Display a listing of the resource.
+     * @permission PurchaseOrderController::reject
+     * @permission_desc Rejetter une commande
+     */
     public function reject(Request $request, string $id)
     {
         try {
@@ -460,6 +494,11 @@ class PurchaseOrderController extends Controller
     }
 
 
+    /**
+     * Display a listing of the resource.
+     * @permission PurchaseOrderController::validate
+     * @permission_desc Valider une commande
+     */
     public function validate(string $id)
     {
         try {
@@ -515,6 +554,11 @@ class PurchaseOrderController extends Controller
     }
 
 
+    /**
+     * Display a listing of the resource.
+     * @permission PurchaseOrderController::receive
+     * @permission_desc Receptionner une commande
+     */
     public function receive(Request $request, $id)
     {
         $purchaseOrder = PurchaseOrder::with('items')->findOrFail($id);

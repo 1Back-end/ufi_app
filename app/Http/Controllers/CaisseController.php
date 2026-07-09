@@ -360,22 +360,9 @@ class CaisseController extends Controller
 
 
         if ($user->can('view_all_caisses')) {
-            Log::info('Permission détectée: view_all_caisses', [
-                'user_id' => $user->id,
-                'message' => 'L’utilisateur peut voir toutes les caisses'
-            ]);
-
         } elseif ($user->can('view_my_caisses')) {
-            Log::info('Permission détectée: view_my_caisses', [
-                'user_id' => $user->id,
-                'message' => 'L’utilisateur ne voit que ses propres caisses'
-            ]);
             $query->where('user_id', $user->id);
         } else {
-            Log::warning('Aucune permission pour consulter les caisses', [
-                'user_id' => $user->id,
-                'message' => 'L’utilisateur n’a pas la permission de consulter les caisses'
-            ]);
             return response()->json([
                 'status' => 'error',
                 'message' => 'Vous n\'avez pas la permission de consulter les caisses.'
@@ -526,7 +513,6 @@ class CaisseController extends Controller
         ])->where('centre_id', $centreId)
             ->where('type_caisse', 'small_caisse');
 
-        // 🔍 Recherche
         if ($request->filled('search')) {
             $search = $request->input('search');
             $query->where(function ($q) use ($search) {
@@ -592,7 +578,7 @@ class CaisseController extends Controller
      * @return JsonResponse
      *
      * @permission CaisseController::getBigCaisseByCentre
-     * @permission_desc Afficher la liste des caisses des grandes caisses par centre
+     * @permission_desc Afficher la liste des grandes caisses par centre
      */
     public function getBigCaisseByCentre(Request $request)
     {
