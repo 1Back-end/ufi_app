@@ -23,7 +23,7 @@ class CampagneController extends Controller
 
     public function index(Request $request)
     {
-        $perPage = $request->input('limit', 25);  // Par défaut 25 éléments par page
+        $perPage = $request->input('limit', 25);
         $page = $request->input('page', 1);
 
         $query = Campagne::with([
@@ -32,8 +32,8 @@ class CampagneController extends Controller
             'updater',
             'centre',
 
-        ])
-            ->where('centre_id', $request->header('centre'));
+        ]);
+        
         if ($request->filled('search')) {
             $search = $request->input('search');
             $query->where(function ($q) use ($search) {
