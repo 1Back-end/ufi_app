@@ -57,7 +57,7 @@ class ExtractPermissions extends Command
         'view_resultats_for_campagnes' => [
             'description' => 'Afficher les resultats de la campagne',
             'category' => 'Permissions supplémentaires',
-            'modules' => ['Gestion des prestations','Autres Modules'],
+            'modules' => ['Gestion des resultats des campagnes','Autres Modules'],
         ],
         'view_access_for_first_settings_of_systems' => [
             'description' => 'Afficher le menu principal des paramètres applicatifs',
