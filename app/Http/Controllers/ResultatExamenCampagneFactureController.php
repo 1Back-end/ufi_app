@@ -271,8 +271,8 @@ class ResultatExamenCampagneFactureController extends Controller
                 data: $data,
                 folderPath: $folderPath,
                 path: $filePath,
+                format: 'A5',
                 margins: [5, 8, 10, 8],
-                format: 'A4',
                 footer: $footer
             );
             $resultat_facture_campagne->status = 'printed';
