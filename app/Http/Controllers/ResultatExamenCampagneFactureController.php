@@ -97,8 +97,14 @@ class ResultatExamenCampagneFactureController extends Controller
             'prelevement_date' => 'required|date',
             'examens' => 'required|array|min:1',
             'examens.*.id' => 'required|integer',
-            // 🚀 Acceptation de boolean, null, ou de la chaîne 'weakly_positive'
-            'examens.*.result' => 'nullable|in:1,0,true,false,weakly_positive',
+            'examens.*.result' => [
+                'nullable',
+                function ($attribute, $value, $fail) {
+                    if (!is_bool($value) && $value !== 'weakly_positive' && $value !== null) {
+                        $fail("Le champ $attribute doit être un booléen ou 'weakly_positive'.");
+                    }
+                },
+            ],
         ]);
 
         $reference = $centre->reference . now()->format('Ymd') . Str::upper(Str::random(7));
@@ -177,7 +183,14 @@ class ResultatExamenCampagneFactureController extends Controller
             'facture_campagne_id' => 'required|exists:campagne_factures,id',
             'examens' => 'required|array|min:1',
             'examens.*.id' => 'required|integer',
-            'examens.*.result' => 'nullable|in:1,0,true,false,weakly_positive',
+            'examens.*.result' => [
+                'nullable',
+                function ($attribute, $value, $fail) {
+                    if (!is_bool($value) && $value !== 'weakly_positive' && $value !== null) {
+                        $fail("Le champ $attribute doit être un booléen ou 'weakly_positive'.");
+                    }
+                },
+            ],
         ]);
 
 

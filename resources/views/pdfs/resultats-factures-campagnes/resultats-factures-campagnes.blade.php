@@ -200,10 +200,10 @@
                             @elseif($resultat['result'] === false || $resultat['result'] === 'false')
                                 <span class="badge-status text-success fw-bold">Négatif</span>
                             @else
-                                <span class="status-empty">—</span>
+                                <span class="status-empty">En attente</span>
                             @endif
                         @else
-                            <span class="status-empty">—</span>
+                            <span class="status-empty"></span>
                         @endif
                     </td>
                 </tr>
