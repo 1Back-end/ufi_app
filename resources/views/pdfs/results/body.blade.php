@@ -88,6 +88,7 @@
 @php
     try {
 @endphp
+
 <header class="d-flex align-items-center size" style="font-family: 'Times New Roman', serif">
     <div class="w-25">
         <img src="data:image/png;base64,{{ base64_encode(file_get_contents(public_path($logo))) }}" alt=""

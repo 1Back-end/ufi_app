@@ -89,21 +89,21 @@ class ResultatExamenCampagneFactureController extends Controller
 
         $centre = Centre::findOrFail($centreId);
 
-        // 🔹 Validation des données
+        // 🔹 Validation des données mise à jour
         $validated = $request->validate([
             'consultant_id' => 'required|exists:consultants,id',
             'patient_id' => 'required|exists:clients,id',
             'facture_campagne_id' => 'required|exists:campagne_factures,id',
             'prelevement_date' => 'required|date',
-            'examens' => 'required|array|min:1', // Tableau d'examens avec résultat true/false
+            'examens' => 'required|array|min:1',
             'examens.*.id' => 'required|integer',
-            'examens.*.result' => 'required|boolean',
+            // 🚀 Acceptation de boolean, null, ou de la chaîne 'weakly_positive'
+            'examens.*.result' => 'nullable|in:1,0,true,false,weakly_positive',
         ]);
 
-        // 🔹 Génération de la référence unique
         $reference = $centre->reference . now()->format('Ymd') . Str::upper(Str::random(7));
 
-        // 🔹 Création de l'enregistrement
+        // 🔹 Création des résultats
         $resultat = ResultatExamenCampagneFacture::create([
             'reference' => $reference,
             'centre_id' => $centre->id,
@@ -115,10 +115,11 @@ class ResultatExamenCampagneFactureController extends Controller
             'created_by' => $auth->id,
             'updated_by' => $auth->id,
         ]);
+
         $facture_campagnes = CampagneFacture::where('id', $validated['facture_campagne_id'])->firstOrFail();
         $facture_campagnes->update([
             'status' => 'paid',
-            'updated_by' => auth()->id(),
+            'updated_by' => $auth->id,
         ]);
 
         return response()->json([
@@ -163,15 +164,12 @@ class ResultatExamenCampagneFactureController extends Controller
             ], Response::HTTP_UNAUTHORIZED);
         }
 
-        // 🔹 Récupération du centre
         $centre = Centre::findOrFail($centreId);
 
-        // 🔹 Récupération du résultat existant
         $resultat = ResultatExamenCampagneFacture::where('id', $id)
             ->where('centre_id', $centre->id)
             ->firstOrFail();
 
-        // 🔹 Validation
         $validated = $request->validate([
             'consultant_id' => 'required|exists:consultants,id',
             'patient_id' => 'required|exists:clients,id',
@@ -179,10 +177,10 @@ class ResultatExamenCampagneFactureController extends Controller
             'facture_campagne_id' => 'required|exists:campagne_factures,id',
             'examens' => 'required|array|min:1',
             'examens.*.id' => 'required|integer',
-            'examens.*.result' => 'required|boolean',
+            'examens.*.result' => 'nullable|in:1,0,true,false,weakly_positive',
         ]);
 
-        // 🔹 Mise à jour
+
         $resultat->update([
             'consultant_id' => $validated['consultant_id'],
             'patient_id' => $validated['patient_id'],
@@ -234,11 +232,13 @@ class ResultatExamenCampagneFactureController extends Controller
             $centre = Centre::find($request->header('centre'));
             $media  = $centre?->medias()->where('name', 'logo')->first();
             $logo   = $media ? 'storage/' . $media->path . '/' . $media->filename : '';
+            $fileName = "RESULT_CAMPAGNE" . $centre->reference . '_' . now()->format("d_m_Y_H_i_s") . '_' . $resultat_facture_campagne->patient->ref_cli . '_' . $resultat_facture_campagne->id . '.pdf';
 
             $data = [
                 'resultat_facture_campagne' => $resultat_facture_campagne,
                 'logo'     => $logo,
                 'centre'   => $centre,
+                'filename' => $fileName
             ];
 
             // 🔹 Chemins du fichier PDF
@@ -250,7 +250,7 @@ class ResultatExamenCampagneFactureController extends Controller
                 throw new \RuntimeException("Impossible de créer le répertoire : {$folderPath}");
             }
 
-            $footer = 'pdfs.reports.factures.footer';
+            $footer = 'pdfs.results.footer';
 
             // 🔹 Génération du PDF
             save_browser_shot_pdf(
@@ -258,9 +258,8 @@ class ResultatExamenCampagneFactureController extends Controller
                 data: $data,
                 folderPath: $folderPath,
                 path: $filePath,
-                margins: [10, 10, 10, 10],
-                format: 'A5',                 // Format du PDF
-                direction: 'landscape',     // Orientation paysage
+                margins: [5, 8, 10, 8],
+                format: 'A4',
                 footer: $footer
             );
             $resultat_facture_campagne->status = 'printed';
