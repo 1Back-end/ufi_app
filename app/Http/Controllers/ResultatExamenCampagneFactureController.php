@@ -229,7 +229,7 @@ class ResultatExamenCampagneFactureController extends Controller
         DB::beginTransaction();
 
         try {
-            // 🔹 Charger le résultat avec ses relations
+
             $resultat_facture_campagne = ResultatExamenCampagneFacture::with([
                 'consultant',
                 'patient.sexe',
