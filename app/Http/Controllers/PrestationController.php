@@ -380,7 +380,6 @@ class PrestationController extends Controller
                 return response()->json($errorConflit, Response::HTTP_CONFLICT);
             }
 
-            // Si le montant de la remise + la prise en charge est supérieur au montant de la prestation alors cette prestation passe en état encours
             $data = $this->getDataForPriseEnCharge($request, $data);
 
             if ($data['payable_by']) {
@@ -1760,47 +1759,20 @@ class PrestationController extends Controller
             }
 
             $dateFin = Carbon::now()->endOfDay();
-            $dateAujourdhuiDebut = Carbon::now()->startOfDay();
+            $dateDebutActive = Carbon::now()->subMonth()->startOfDay();
+
             $relations = ['client', 'consultant', 'payableBy', 'createdBy', 'updatedBy'];
 
             $result = Prestation::onlyTrashed()
                 ->with($relations)
                 ->where('centre_id', $centreId)
-                ->whereBetween('deleted_at', [$dateAujourdhuiDebut, $dateFin])
+                ->whereBetween('deleted_at', [$dateDebutActive, $dateFin])
                 ->orderBy('created_at', 'ASC')
                 ->get();
 
-            $dateDebutActive = $dateAujourdhuiDebut;
-
-            if ($result->isEmpty()) {
-                $dateSemaineDebut = Carbon::now()->subWeek()->startOfDay();
-
-                $result = Prestation::onlyTrashed()
-                    ->with($relations)
-                    ->where('centre_id', $centreId)
-                    ->whereBetween('deleted_at', [$dateSemaineDebut, $dateFin])
-                    ->orderBy('created_at', 'ASC')
-                    ->get();
-
-                $dateDebutActive = $dateSemaineDebut;
-            }
-
-            if ($result->isEmpty()) {
-                $dateMoisDebut = Carbon::now()->subMonth()->startOfDay();
-
-                $result = Prestation::onlyTrashed()
-                    ->with($relations)
-                    ->where('centre_id', $centreId)
-                    ->whereBetween('deleted_at', [$dateMoisDebut, $dateFin])
-                    ->orderBy('created_at', 'ASC')
-                    ->get();
-
-                $dateDebutActive = $dateMoisDebut;
-            }
-
             if ($result->isEmpty()) {
                 return response()->json([
-                    'message' => 'Aucune donnée trouvée pour aujourd\'hui, la semaine passée, ou le mois dernier.'
+                    'message' => 'Aucune donnée trouvée pour le mois dernier.'
                 ], 404);
             }
 
@@ -1834,21 +1806,20 @@ class PrestationController extends Controller
                 direction: 'landscape'
             );
 
-            // Vérification de la création réelle du fichier
             if (!file_exists($filePath)) {
                 return response()->json([
                     'message' => 'Le fichier PDF n\'a pas été généré.'
                 ], 500);
             }
 
-            // 7. Encodage en Base64
+            // Encodage en Base64
             $pdfContent = file_get_contents($filePath);
             $base64 = base64_encode($pdfContent);
 
             return response()->json([
                 'result'   => $result,
                 'base64'   => $base64,
-                'url' => $filePath,
+                'url'      => $filePath,
                 'filename' => $fileName,
             ], 200);
 
