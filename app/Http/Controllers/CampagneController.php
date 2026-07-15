@@ -77,6 +77,7 @@ class CampagneController extends Controller
         // 🔹 Validation des données
         $validated = $request->validate([
             'title' => 'required|string',
+            'suffix' => 'required|string',
             'abbreviation_unique' => 'required|string|unique:campagnes,abbreviation_unique',
             'description' => 'nullable|string',
             'price' => 'required|numeric|min:0',
@@ -144,6 +145,7 @@ class CampagneController extends Controller
         // 🔹 Validation des données
         $validated = $request->validate([
             'title' => 'required|string',
+            'suffix' => 'required|string',
             'abbreviation_unique' => 'required|string',
             'description' => 'nullable|string',
             'price' => 'required|numeric|min:0',
