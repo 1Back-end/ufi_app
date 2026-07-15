@@ -11,7 +11,7 @@ class Campagne extends Model
     use HasFactory;
 
     protected $fillable = [
-        'code', 'title', 'description', 'price',
+        'code', 'suffix', 'title', 'description', 'price',
         'start_date', 'end_date', 'status', 'is_deleted',
         'centre_id', 'created_by', 'updated_by','abbreviation_unique','full_name'
     ];

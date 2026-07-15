@@ -20,7 +20,7 @@ class CampagneElement extends Model
     ];
 
     protected $appends = [
-        'element_name', // Permet de l'inclure automatiquement dans les JSON
+        'element_name',
     ];
 
     /**

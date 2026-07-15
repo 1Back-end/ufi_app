@@ -175,9 +175,9 @@
             </th>
         </tr>
         <tr>
-            <th style="background-color: #ccc; padding: 2px; width: 10%;" class="text-center" scope="col">N°</th>
-            <th style="background-color: #ccc; padding: 2px; width: 60%;" class="text-start" scope="col">Examens demandés</th>
-            <th style="background-color: #ccc; padding: 2px; width: 30%;" class="text-center" scope="col">Résultat</th>
+            <th style="background-color: #ccc; padding: 2px; width: 10%;" scope="col">N°</th>
+            <th style="background-color: #ccc; padding: 2px; width: 60%;" scope="col">Examens demandés</th>
+            <th style="background-color: #ccc; padding: 2px; width: 30%;" scope="col">Résultat</th>
         </tr>
         </thead>
         <tbody>
@@ -189,9 +189,9 @@
                     $resultat = $examensCollection->firstWhere('id', $element->element->id);
                 @endphp
                 <tr>
-                    <td class="text-center fw-medium text-secondary">{{ $index++ }}</td>
-                    <td class="fw-semibold text-dark text-start">{{ $element->element->name ?? '—' }}</td>
-                    <td class="text-center">
+                    <td class="fw-medium">{{ $index++ }}</td>
+                    <td class="fw-semibold">{{ $element->element->name ?? '' }} ({{ $resultat_facture_campagne->factureCampagne->campagne->suffix }})</td>
+                    <td>
                         @if($resultat)
                             @if($resultat['result'] === true || $resultat['result'] === 'true')
                                 <span class="badge-status text-danger fw-bold">Positif</span>
@@ -210,7 +210,7 @@
             @endif
         @empty
             <tr>
-                <td colspan="3" class="text-center py-3 text-muted">Aucun examen trouvé</td>
+                <td colspan="12" class="text-center py-3 text-muted">Aucun examen trouvé</td>
             </tr>
         @endforelse
         </tbody>
