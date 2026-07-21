@@ -1648,7 +1648,8 @@ class PrestationController extends Controller
                                 ->where('element_paillasse_id', $elementPaillasse->id)
                                 ->whereNotIn('prestation_id', [$prestation->id])
                                 ->whereHas('prestation', function ($query) use ($prestation) {
-                                    $query->where('client_id', $prestation->client_id);
+                                    $query->where('client_id', $prestation->client_id)
+                                        ->where('created_at', '<', $prestation->created_at);
                                 })
                                 ->latest()
                                 ->first();

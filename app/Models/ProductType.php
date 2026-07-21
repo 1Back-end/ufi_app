@@ -14,6 +14,7 @@ class ProductType extends Model
         'name',
         'accepts_galenic_form',
         'accepts_generic_form',
+        'accepts_packaging',
         'created_by',
         'updated_by',
         'is_active',
@@ -22,6 +23,7 @@ class ProductType extends Model
     protected $casts = [
         'accepts_galenic_form' => 'boolean',
         'accepts_generic_form' => 'boolean',
+        'accepts_packaging' => 'boolean',
         'is_active' => 'boolean',
     ];
     public function creator(): \Illuminate\Database\Eloquent\Relations\BelongsTo

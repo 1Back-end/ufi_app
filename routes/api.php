@@ -149,6 +149,8 @@ Route::middleware(['activity'])->group(function () {
         Route::get('print_data_caisses_by_centreId', [\App\Http\Controllers\CaisseController::class, 'print_data_caisses_by_centre_id']);
         Route::get('/print_sold_by_day/{caisse_id}', [\App\Http\Controllers\CaisseController::class, 'get_sold_caisse_by_day']);
         Route::post('caisses/auto_close_cash_sessions', [\App\Http\Controllers\CaisseController::class, 'autoCloseSessions']);
+        Route::get('stats_by_center', [\App\Http\Controllers\CaisseController::class, 'statsCaisseByCenter']);
+        Route::post('print_stats_caisse', [\App\Http\Controllers\CaisseController::class, 'PrintStatsByCaisseByCenter']);
         Route::post('/sessions/auto_close', function () {app(\App\Services\SessionCaisseService::class)->autoClose(auth()->id());
             return response()->json([
                 'status' => 'success',
@@ -157,6 +159,7 @@ Route::middleware(['activity'])->group(function () {
         });
         Route::post('/caisses/control_session', [\App\Http\Controllers\CaisseController::class, 'controlSession']);
         Route::get('/prestations/print_by_centre', [\App\Http\Controllers\CaisseController::class, 'print_prestations_by_centre']);
+
 
 
         Route::get('sessions_caisses/list_transferts_caisses', [\App\Http\Controllers\SessionCaisseController::class,'get_transfert_caisse']);
@@ -328,6 +331,11 @@ Route::middleware(['activity'])->group(function () {
 
         Route::apiResource('products',ProduitController::class);
         Route::patch('products/{id}/is_active', [ProduitController::class, 'updateStatus']);
+        Route::patch('/products/{id}/toggle_suspended', [ProduitController::class, 'updateSuspendedStatus']);
+        Route::patch('/products/{id}/toggle_out_of_stock', [ProduitController::class, 'updateOutOfStockStatus']);
+
+        Route::apiResource('packagings',\App\Http\Controllers\PackagingController::class);
+        Route::patch('packagings/{id}/is_active', [\App\Http\Controllers\PackagingController::class, 'updateStatus']);
 
         Route::apiResource('lots_products',\App\Http\Controllers\LotProductController::class);
         Route::get('enums/purchaseOrderTypes',[\App\Http\Controllers\EnumController::class,'purchaseOrderTypes']);
@@ -339,9 +347,10 @@ Route::middleware(['activity'])->group(function () {
 
         Route::apiResource('purchase_orders',\App\Http\Controllers\PurchaseOrderController::class);
         Route::patch('purchase_orders/{id}/cancel', [\App\Http\Controllers\PurchaseOrderController::class, 'cancel']);
-        Route::patch('purchase_orders/{id}/reject', [\App\Http\Controllers\PurchaseOrderController::class, 'reject']);
         Route::patch('purchase_orders/{id}/validate', [\App\Http\Controllers\PurchaseOrderController::class, 'validate']);
         Route::post('purchase_orders/{id}/receive', [\App\Http\Controllers\PurchaseOrderController::class, 'receive']);
+        Route::patch('purchase_orders/{id}/confirm_reception', [\App\Http\Controllers\PurchaseOrderController::class, 'toggleConfirmation']);
+
 
 
         Route::controller(PriseEnChargeController::class)->prefix('prise_en_charges')->group(function () {

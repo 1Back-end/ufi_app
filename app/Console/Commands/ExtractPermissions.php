@@ -21,43 +21,43 @@ class ExtractPermissions extends Command
         'view_access_for_caisses' => [
             'description' => 'Afficher le menu principal de gestion des caisses',
             'category' => 'Permissions supplémentaires',
-            'modules' => ['Gestion des caisses','Autres Modules'],
+            'modules' => ['Gestion des caisses','Autres Modules','Gestion du laboratoire'],
         ],
         'view_settings_for_caisses' => [
             'description' => 'Afficher le menu de configuration des caisses',
             'category' => 'Permissions supplémentaires',
-            'modules' => ['Gestion des caisses','Autres Modules'],
+            'modules' => ['Gestion des caisses','Autres Modules','Gestion du laboratoire'],
         ],
         'AUTO_CLOSE_CASH_SESSIONS' => [
             'description' => 'Autoriser la fermeture automatique des sessions de caisses',
             'category' => 'Permissions supplémentaires',
-            'modules' => ['Gestion des caisses','Autres Modules'],
+            'modules' => ['Gestion des caisses','Autres Modules','Gestion du laboratoire'],
         ],
         'MANAGE_CASH_CUMULS' => [
             'description' => 'Activer ou désactiver le calcul automatique des totaux journaliers des sessions de caisses',
             'category' => 'Permissions supplémentaires',
-            'modules' => ['Gestion des caisses','Autres Modules'],
+            'modules' => ['Gestion des caisses','Autres Modules','Gestion du laboratoire'],
         ],
 
         'view_access_amount_for_open_caisses' => [
             'description' => 'Afficher le solde d\'ouverture des caisses',
             'category' => 'Permissions supplémentaires',
-            'modules' => ['Gestion des caisses','Autres Modules'],
+            'modules' => ['Gestion des caisses','Autres Modules','Gestion du laboratoire'],
         ],
         'view_access_for_prestations_and_facturations' => [
             'description' => 'Afficher le menu principal de gestion des prestations et des facturations',
             'category' => 'Permissions supplémentaires',
-            'modules' => ['Gestion des prestations','Autres Modules'],
+            'modules' => ['Gestion des prestations','Autres Modules','Gestion du laboratoire'],
         ],
         'view_access_for_campagnes' => [
             'description' => 'Afficher le menu principal de gestion des campagnes',
             'category' => 'Permissions supplémentaires',
-            'modules' => ['Gestion des prestations','Autres Modules'],
+            'modules' => ['Gestion des prestations','Autres Modules','Gestion du laboratoire'],
         ],
         'view_resultats_for_campagnes' => [
             'description' => 'Afficher les resultats de la campagne',
             'category' => 'Permissions supplémentaires',
-            'modules' => ['Gestion des resultats des campagnes','Autres Modules'],
+            'modules' => ['Gestion des prestations','Autres Modules','Gestion du laboratoire'],
         ],
         'view_access_for_first_settings_of_systems' => [
             'description' => 'Afficher le menu principal des paramètres applicatifs',

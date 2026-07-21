@@ -28,21 +28,11 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-//        User::factory()->create([
-//            'nom_utilisateur' => 'SYSTEM',
-//            'login' => 'SYSTEM',
-//            'email' => 'system@system.sytem',
-//            'password' => \Hash::make('SYSTEM@2025'),
-//            'password_expiated_at' => now()->addDay(),
-//        ]);
-
         $this->call([
             InitBDForAllDataSeeder::class,
             TypeconsultationSeeder::class,
             OpsTblHospitalisationSeeder::class,
-
-//            CentresTableSeeder::class,
-
+            FournisseurDiversSeeder::class,
             SexesSeeder::class,
             PrefixSeeder::class,
             StatusFamilialeSeeder::class,
