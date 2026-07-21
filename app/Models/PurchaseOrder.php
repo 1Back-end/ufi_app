@@ -29,6 +29,7 @@ class PurchaseOrder extends Model
         'rejected_at',
         'reason_of_rejection',
         'rejected_by',
+        'is_confirmed'
     ];
     protected $appends = ['consumption_type_label','status_label'];
 

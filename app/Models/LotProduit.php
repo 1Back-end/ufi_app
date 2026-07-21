@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Carbon;
 
 class LotProduit extends Model
 {
@@ -27,6 +28,45 @@ class LotProduit extends Model
         'fournisseur_id',
         'justification'
     ];
+
+    protected $casts = [
+        'date_peremption' => 'date',
+        'date_reception'  => 'date',
+        'quantite_actuelle' => 'integer',
+    ];
+
+    protected $appends = [
+        'statut_calcule',
+    ];
+
+    public function determinerStatut(int $joursSeuilPeremption = 30): string
+    {
+        if ($this->quantite_actuelle <= 0) {
+            return 'Épuisé';
+        }
+
+        if (!$this->date_peremption) {
+            return 'Disponible';
+        }
+
+        $datePeremption = $this->date_peremption->startOfDay();
+        $aujourdhui = Carbon::today();
+
+        if ($datePeremption->isPast()) {
+            return 'Périmé';
+        }
+
+        if ($datePeremption->lte($aujourdhui->copy()->addDays($joursSeuilPeremption))) {
+            return 'Bientôt expiré';
+        }
+
+        return 'Disponible';
+    }
+
+    public function getStatutCalculeAttribute(): string
+    {
+        return $this->determinerStatut();
+    }
 
 
     public function produit()

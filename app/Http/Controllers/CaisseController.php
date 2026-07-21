@@ -21,6 +21,7 @@ use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\Response;
 /**
  * @permission_category Gestion des caisses
+ * @permission_module Gestion des prestations
  * @permission_module Gestion des caisses
  */
 class CaisseController extends Controller
@@ -2246,13 +2247,149 @@ class CaisseController extends Controller
     }
 
 
+    public function statsCaisseByCenter(Request $request)
+    {
+        $centreId = $request->header('centre');
+
+        if (!$centreId) {
+            return response()->json([
+                'message' => 'Centre non fourni'
+            ], 400);
+        }
+
+        $startDate = $request->filled('start_date')
+            ? Carbon::parse($request->input('start_date'))->startOfDay()
+            : Carbon::today()->startOfDay();
+
+        $endDate = $request->filled('end_date')
+            ? Carbon::parse($request->input('end_date'))->endOfDay()
+            : Carbon::today()->endOfDay();
+
+        $stats = DB::table('transfert_fonds_tampons')
+            ->where('centre_id', $centreId)
+            ->whereBetween('created_at', [$startDate, $endDate])
+            ->select(
+                DB::raw("CAST(COUNT(id) AS UNSIGNED) as total_operations"),
+
+                DB::raw("CAST(COALESCE(SUM(montant_send), 0) AS DOUBLE) as total_general"),
+
+                DB::raw("CAST(COUNT(CASE WHEN status = 'validated' THEN 1 END) AS UNSIGNED) as count_valide"),
+                DB::raw("CAST(COUNT(CASE WHEN status = 'pending' THEN 1 END) AS UNSIGNED) as count_en_attente"),
+                DB::raw("CAST(COUNT(CASE WHEN status = 'cancelled' THEN 1 END) AS UNSIGNED) as count_annule"),
+
+                DB::raw("CAST(COALESCE(SUM(CASE WHEN status = 'validated' THEN montant_send ELSE 0 END), 0) AS DOUBLE) as total_valide"),
+                DB::raw("CAST(COALESCE(SUM(CASE WHEN status = 'pending' THEN montant_send ELSE 0 END), 0) AS DOUBLE) as total_en_attente"),
+                DB::raw("CAST(COALESCE(SUM(CASE WHEN status = 'cancelled' THEN montant_send ELSE 0 END), 0) AS DOUBLE) as total_annule")
+            )
+            ->first();
+
+        return response()->json([
+            'message' => 'Statistiques de caisse récupérées avec succès.',
+            'centre_id' => $centreId,
+            'periode' => [
+                'start_date' => $startDate->toDateString(),
+                'end_date'   => $endDate->toDateString(),
+            ],
+            'data' => $stats
+        ], 200);
+    }
 
 
+    public function PrintStatsByCaisseByCenter(Request $request)
+    {
+        $centreId = $request->header('centre');
+
+        if (!$centreId) {
+            return response()->json([
+                'message' => 'Centre non fourni'
+            ], 400);
+        }
+
+        $start_date = $request->filled('start_date')
+            ? Carbon::parse($request->input('start_date'))->startOfDay()
+            : Carbon::today()->startOfDay();
+
+        $end_date = $request->filled('end_date')
+            ? Carbon::parse($request->input('end_date'))->endOfDay()
+            : Carbon::today()->endOfDay();
+
+        $status = $request->input('status');
+
+        $query = TransfertFondsTampon::with([
+            'caisse_depart',
+            'caisse_reception',
+            'sender',
+            'updater',
+            'creator',
+            'centre',
+            'validated',
+            'rejected',
+            'session'
+        ])
+            ->where('centre_id', $centreId)
+            ->whereBetween('created_at', [$start_date, $end_date])
+            ->when($status, function ($q) use ($status) {
+                return $q->where('status', $status);
+            });
+
+        \Log::info('COUNT SESSIONS', [
+            'count' => $query->count()
+        ]);
+        $result = $query->orderBy('created_at', 'ASC')->get();
+
+        if ($result->isEmpty()) {
+            return response()->json([
+                'message' => 'Aucune donnée trouvée.'
+            ], 404);
+        }
+
+        $centre = Centre::find($centreId);
+        $media = $centre?->medias()->where('name', 'logo')->first();
+
+        $data = [
+            'result' => $result,
+            'logo' => $media ? 'storage/' . $media->path . '/' . $media->filename : '',
+            'centre' => $centre,
+            'start' => $start_date,
+            'end' => $end_date,
+            'status' => $status
+        ];
+
+        $fileName = Str::upper('ETATS-CAISSES') . '-' . ($status ? Str::upper($status) . '-' : '') . now()->format('YmdHis') . '.pdf';
+        $folderPath = 'storage/solde-journaliers-caisses';
+        $filePath = $folderPath . '/' . $fileName;
+
+        if (!file_exists($folderPath)) {
+            mkdir($folderPath, 0755, true);
+        }
+
+        save_browser_shot_pdf(
+            view: 'pdfs.etats-caisses-by-stats.etats-caisses-by-stats',
+            data: $data,
+            folderPath: $folderPath,
+            path: $filePath,
+            margins: [15, 10, 15, 10],
+            footer: 'pdfs.reports.factures.footer',
+            format: 'A4',
+        );
+
+        if (!file_exists($filePath)) {
+            return response()->json([
+                'message' => 'Le fichier PDF n\'a pas été généré.'
+            ], 500);
+        }
 
 
+        $pdfContent = file_get_contents($filePath);
+        $base64 = base64_encode($pdfContent);
+
+        return response()->json([
+            'result' => $result,
+            'base64' => $base64,
+            'url' => $filePath,
+            'filename' => $fileName,
+        ], 200);
+    }
 
 
-
-
-    //
 }

@@ -17,6 +17,7 @@ use Symfony\Component\HttpFoundation\Response;
 /**
  * @permission_category Gestion des campagnes facturées
  * @permission_module Gestion des prestations
+ * @permission_module Gestion du laboratoire
  */
 class CampagneFactureController extends Controller
 {
