@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Approvisionnement;
 use App\Models\LotProduit;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
@@ -85,24 +87,24 @@ class LotProductController extends Controller
     {
         $auth = auth()->user();
 
+        // 1. Validation
         $validator = Validator::make($request->all(), [
-            'numero_lot_fabricant' => [
-                'required',
-                'string',
-                'max:255',
-                // Suppression de la règle 'unique' ici pour permettre l'update
-            ],
-            'date_peremption'   => 'required|date|after:today',
-            'date_reception'    => 'required|date',
-            'quantite_actuelle' => 'required|integer|min:0',
-            'id_produit'        => 'required|exists:products,id',
-            'id_emplacement'    => 'required|exists:emplacements_products,id',
-            'fournisseur_id'    => 'nullable|exists:fournisseurs,id',
-            'justification'     => 'nullable|string|max:1000',
+            'fournisseur_id'       => 'required|exists:fournisseurs,id',
+            'numero_bon_livraison' => 'nullable|string|max:255',
+            'date_bon_livraison'   => 'required|date',
+
+            'items'                    => 'required|array|min:1',
+            'items.*.id_produit'       => 'required|exists:products,id',
+            'items.*.quantite'         => 'required|integer|min:1',
+            'items.*.date_peremption'   => 'required|date|after:today',
+            'items.*.id_emplacement'   => 'required|exists:emplacements_products,id',
         ], [
-            'id_produit.exists'     => 'Le produit sélectionné est invalide.',
-            'id_emplacement.exists' => 'L\'emplacement sélectionné est invalide.',
-            'fournisseur_id.exists' => 'Le fournisseur sélectionné est invalide.',
+            'fournisseur_id.required'       => 'Le fournisseur est obligatoire.',
+            'fournisseur_id.exists'         => 'Le fournisseur sélectionné est invalide.',
+            'items.required'                => 'Veuillez ajouter au moins un produit.',
+            'items.*.id_produit.exists'     => 'Un produit sélectionné est invalide.',
+            'items.*.id_emplacement.exists' => 'Un emplacement sélectionné est invalide.',
+            'items.*.date_peremption.after' => 'La date de péremption doit être supérieure à aujourd\'hui.',
         ]);
 
         if ($validator->fails()) {
@@ -113,51 +115,76 @@ class LotProductController extends Controller
             ], 422);
         }
 
+        $numeroBonLivraison = $request->filled('numero_bon_livraison')
+            ? $request->numero_bon_livraison
+            : 'BL-' . Carbon::now()->format('YmdHis');
+
         DB::beginTransaction();
 
         try {
-            $lot = LotProduit::where('numero_lot_fabricant', $request->numero_lot_fabricant)->first();
+            $createdLots = [];
+            $createdApprovisionnements = [];
 
-            if ($lot) {
-                $nouvelleQuantite = $lot->quantite_actuelle + $request->quantite_actuelle;
+            foreach ($request->items as $item) {
 
-                $lot->update([
-                    'date_peremption'   => $request->date_peremption,
-                    'date_reception'    => $request->date_reception,
-                    'quantite_actuelle' => $nouvelleQuantite,
-                    'id_produit'        => $request->id_produit,
-                    'id_emplacement'    => $request->id_emplacement,
-                    'fournisseur_id'    => $request->fournisseur_id,
-                    'justification'     => $request->justification,
-                    'updated_by'        => $auth->id,
+                $nextId = (LotProduit::max('id') ?? 0) + 1;
+                $prefixLot = 'LOT-' . str_pad($nextId, 5, '0', STR_PAD_LEFT);
+
+                $dateFormatted = Carbon::parse($item['date_peremption'])->format('Ymd');
+
+                $numeroLotFabricant = "{$prefixLot}-{$item['id_produit']}-{$dateFormatted}";
+
+                $lot = LotProduit::where('numero_lot_fabricant', $numeroLotFabricant)->first();
+
+                if ($lot) {
+                    $lot->quantite_actuelle += $item['quantite'];
+                    $lot->date_peremption    = $item['date_peremption'];
+                    $lot->date_reception     = $request->date_bon_livraison;
+                    $lot->id_emplacement     = $item['id_emplacement'];
+                    $lot->fournisseur_id     = $request->fournisseur_id;
+                    $lot->updated_by         = $auth->id;
+                    $lot->save();
+                } else {
+                    $lot = LotProduit::create([
+                        'numero_lot_fabricant' => $numeroLotFabricant,
+                        'date_peremption'      => $item['date_peremption'],
+                        'date_reception'       => $request->date_bon_livraison,
+                        'quantite_actuelle'    => $item['quantite'],
+                        'id_produit'           => $item['id_produit'],
+                        'id_emplacement'       => $item['id_emplacement'],
+                        'fournisseur_id'       => $request->fournisseur_id,
+                        'created_by'           => $auth->id,
+                    ]);
+                }
+
+                $createdLots[] = $lot;
+
+                $approvisionnement = Approvisionnement::create([
+                    'purchase_order_id' => null,
+                    'product_id'        => $item['id_produit'],
+                    'emplacement_id'    => $item['id_emplacement'],
+                    'order_number'      => $numeroBonLivraison, // Utilisation de la variable générée/fournie
+                    'quantite_recue'    => $item['quantite'],
+                    'batch_number'      => $numeroLotFabricant,
+                    'expiration_date'   => $item['date_peremption'],
+                    'received_date'     => $request->date_bon_livraison,
+                    'created_by'        => $auth->id,
                 ]);
 
-                $message = 'Lot mis à jour avec succès.';
-                $statusCode = 200;
-            } else {
-                $lot = LotProduit::create([
-                    'numero_lot_fabricant' => $request->numero_lot_fabricant,
-                    'date_peremption'      => $request->date_peremption,
-                    'date_reception'       => $request->date_reception,
-                    'quantite_actuelle'    => $request->quantite_actuelle,
-                    'id_produit'           => $request->id_produit,
-                    'id_emplacement'       => $request->id_emplacement,
-                    'fournisseur_id'       => $request->fournisseur_id,
-                    'justification'        => $request->justification,
-                    'created_by'           => $auth->id,
-                ]);
-
-                $message = 'Lot enregistré avec succès.';
-                $statusCode = 201;
+                $createdApprovisionnements[] = $approvisionnement;
             }
 
             DB::commit();
 
             return response()->json([
                 'success' => true,
-                'message' => $message,
-                'data'    => $lot->load(['creator', 'product']),
-            ], $statusCode);
+                'message' => 'Bon de commande et produits réceptionnés avec succès.',
+                'data'    => [
+                    'numero_bon_livraison' => $numeroBonLivraison,
+                    'lots'                 => $createdLots,
+                    'approvisionnements'   => $createdApprovisionnements,
+                ]
+            ], 201);
 
         } catch (\Throwable $e) {
             DB::rollBack();
