@@ -125,7 +125,15 @@
     <h2 class="fw-bold text-center fs-5 text-uppercase mb-1">
         ÉTAT DES TRANSFERTS DE FONDS DE CAISSE
         @if(!empty($status))
-            - <span class="text-decoration-underline">{{ Str::upper($status) }}</span>
+            @php
+                $translatedStatus = match(strtoupper($status)) {
+                    'VALIDATED' => 'VALIDÉ',
+                    'CANCELLED' => 'REJETÉ',
+                    'PENDING'   => 'EN ATTENTE',
+                    default     => $status,
+                };
+            @endphp
+            - <span class="text-decoration-underline">{{ $translatedStatus }}</span>
         @endif
     </h2>
 
@@ -186,7 +194,7 @@
                     <td>
                         {{ Carbon::parse($item->updated_at)->format('d/m/Y H:i') }}
                         <br>
-                        <small class="text-muted">Par: {{ $item->updater?->nom_utilisateur ?? $item->updater?->nom_utilisateur ?? '' }}</small>
+                        <small class="text-muted">Par: {{ $item->updater?->nom_utilisateur ?? $item->validated?->nom_utilisateur ?? '' }}</small>
                     </td>
                 </tr>
             @empty

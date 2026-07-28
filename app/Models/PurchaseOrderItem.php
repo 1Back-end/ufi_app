@@ -25,6 +25,9 @@ class PurchaseOrderItem extends Model
         'description',
         'created_by',
         'updated_by',
+        'unit_quantity',
+        'received_packaging_id',
+        'unit_quantity_received'
     ];
 
     protected $casts = [
@@ -55,5 +58,9 @@ class PurchaseOrderItem extends Model
     public function updater()
     {
         return $this->belongsTo(User::class, 'updated_by');
+    }
+    public function receivedPackaging()
+    {
+        return $this->belongsTo(Packaging::class, 'received_packaging_id');
     }
 }

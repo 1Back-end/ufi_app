@@ -29,6 +29,14 @@ class LotProductController extends Controller
 
         $query = LotProduit::with(["creator", "updater", "produit","emplacement","fournisseur"]);
 
+        $query->whereNotNull('date_peremption')
+            ->where('date_peremption', '>=', Carbon::now()->toDateString());
+
+        if ($days = $request->input('expiring_within_days')) {
+            $thresholdDate = Carbon::now()->addDays((int)$days)->toDateString();
+            $query->where('date_peremption', '<=', $thresholdDate);
+        }
+
         if ($search = trim($request->input('search'))) {
             $query->where(function ($query) use ($search) {
 
@@ -67,7 +75,8 @@ class LotProductController extends Controller
             });
         }
 
-        $lots = $query->latest()->paginate($perPage, ['*'], 'page', $page);
+        $lots = $query->orderBy('date_peremption', 'asc')
+            ->paginate($perPage, ['*'], 'page', $page);
 
         return response()->json([
             'data' => $lots->items(),
@@ -75,6 +84,37 @@ class LotProductController extends Controller
             'last_page' => $lots->lastPage(),
             'total' => $lots->total(),
         ]);
+    }
+
+
+    public function getBatchesByProduct(Request $request)
+    {
+        $request->validate([
+            'product_id'     => 'required|integer|exists:products,id',
+            'emplacement_id' => 'nullable|integer|exists:emplacements_products,id',
+        ]);
+
+        $query = LotProduit::query()
+            ->where('id_produit', $request->product_id)
+            ->where('quantite_actuelle', '>', 0);
+
+        if ($request->filled('emplacement_id')) {
+            $query->where('id_emplacement', $request->emplacement_id);
+        }
+
+        $batches = $query->select([
+            'id',
+            'numero_lot_fabricant as batch_number',
+            'quantite_actuelle as quantity',
+            'date_peremption'
+        ])
+            ->orderBy('date_peremption', 'asc')
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'data'    => $batches
+        ], 200);
     }
 
 

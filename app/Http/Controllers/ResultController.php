@@ -183,7 +183,6 @@ class ResultController extends Controller
                     ->where('prestationable_id', $examen_id)
                     ->first();
 
-                // On ne met à validated que si le statut actuel est PENDING
                 if ($prestationable->status_examen === StateExamen::PENDING->value) {
                     $prestationable->update([
                         'status_examen' => StateExamen::VALIDATED->value

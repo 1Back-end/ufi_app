@@ -28,3 +28,5 @@ GET http://localhost:8000/api/statistics/factures-statistiques
 
 php artisan db:seed --class=TypePrestationSeeder
 php artisan db:seed --class=FournisseurDiversSeeder
+php artisan db:seed --class=SystemSettingsSeeder
+
