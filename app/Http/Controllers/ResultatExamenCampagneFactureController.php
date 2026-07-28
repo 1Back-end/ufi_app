@@ -305,12 +305,44 @@ class ResultatExamenCampagneFactureController extends Controller
 
     /**
      * Display a listing of the resource.
-     * @permission ResultatExamenCampagneFactureController::cancel_print_resultat_facture_campagne
-     * @permission_desc Annuler les resultats des examens des campagnes
+     * @permission ResultatExamenCampagneFactureController::make_resultats_delivered
+     * @permission_desc Marquer le résultats des campagnes comme remis
      */
-    public function cancel_print_resultat_facture_campagne(Request $request, $id)
+    public function make_resultats_delivered(Request $request, $id)
     {
+        try {
+            $resultat = ResultatExamenCampagneFacture::find($id);
 
+            if (!$resultat) {
+                return response()->json([
+                    'status'  => 'error',
+                    'message' => 'Enregistrement introuvable'
+                ], 404);
+            }
+
+            $resultat->status = 'delivered';
+            $resultat->updated_by = auth()->id();
+            $resultat->save();
+
+            if ($resultat->factureCampagne) {
+                $resultat->factureCampagne->status = 'Ok';
+                $resultat->factureCampagne->updated_by = auth()->id();
+                $resultat->factureCampagne->save();
+            }
+
+            return response()->json([
+                'status'  => 'success',
+                'message' => 'Le statut a été mis à jour avec succès à "delivered" et la campagne est à "Ok"',
+                'data'    => $resultat->load('factureCampagne')
+            ], 200);
+
+        } catch (\Throwable $e) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Erreur lors de la mise à jour du statut',
+                'details' => $e->getMessage()
+            ], 500);
+        }
     }
 
 }

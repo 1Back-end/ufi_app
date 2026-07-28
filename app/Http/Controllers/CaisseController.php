@@ -2249,6 +2249,12 @@ class CaisseController extends Controller
     }
 
 
+    /**
+     * @return JsonResponse
+     *
+     * @permission CaisseController::statsCaisseByCenter
+     * @permission_desc Statistiques journaliers sur les caisses
+     */
     public function statsCaisseByCenter(Request $request)
     {
         $centreId = $request->header('centre');

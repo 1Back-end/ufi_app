@@ -17,6 +17,7 @@ use App\Models\Proforma;
 use App\Models\Regulation;
 use App\Models\RendezVous;
 use Carbon\Carbon;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -29,6 +30,12 @@ use Illuminate\Support\Facades\Log;
 class StatistiqueController extends Controller
 {
 
+    /**
+     * @return JsonResponse
+     *
+     * @permission StatistiqueController::statsPrestationsParType
+     * @permission_desc Statistiques journaliers sur les prestations par type
+     */
     public function statsPrestationsParType(Request $request)
     {
         $timezone = config('app.timezone');
