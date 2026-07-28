@@ -121,6 +121,7 @@ Route::middleware(['activity'])->group(function () {
         route::apiResource('facturations_campagnes',CampagneFactureController::class);
 
         Route::apiResource('examens_resultats_campagnes', ResultatExamenCampagneFactureController::class);
+        Route::post('examens_resultats_campagnes/{id}/delivered', [ResultatExamenCampagneFactureController::class, 'make_resultats_delivered']);
         Route::get('examens_resultats_campagnes/{id}/print_resultat_facture_campagne', [ResultatExamenCampagneFactureController::class, 'print_resultat_facture_campagne']);
         Route::apiResource('regulated_factures_assurances', \App\Http\Controllers\VentilationAssuranceFactureController::class);
 
