@@ -4,13 +4,16 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
+use App\Models\Caisse;
 use App\Models\Centre;
+use App\Models\SessionCaisse;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class AuthenticatedSessionController extends Controller
 {
@@ -109,5 +112,43 @@ class AuthenticatedSessionController extends Controller
             'roles' => $roles,
             'user' => $user,
         ]);
+    }
+
+    public function getSystemConfig()
+    {
+        $auth = auth()->user();
+
+        if ($auth) {
+            $sessions = SessionCaisse::where('user_id', $auth->id)
+                ->where('etat', 'OUVERTE')
+                ->whereNull('fermeture_ts')
+                ->get();
+
+            if ($sessions->isNotEmpty()) {
+                $caisseIds = $sessions->pluck('caisse_id')->unique();
+
+                Caisse::whereIn('id', $caisseIds)->update([
+                    'position'   => 'in_pause',
+                    'updated_by' => $auth->id
+                ]);
+
+                foreach ($sessions as $session) {
+                    $session->update([
+                        'etat'           => 'EN_PAUSE',
+                        'pause_ts'       => now(),
+                        'fonds_en_pause' => $session->solde,
+                        'updated_by'     => $auth->id
+                    ]);
+                }
+            }
+        }
+
+        $timeout = DB::table('settings')
+            ->where('key', 'inactivity_timeout_minutes')
+            ->value('value') ?? 30;
+
+        return response()->json([
+            'inactivity_timeout' => (int) $timeout
+        ], Response::HTTP_OK);
     }
 }

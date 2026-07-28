@@ -8,6 +8,7 @@ use App\Models\TransfertFonds;
 use App\Models\TransfertFondsTampon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response;
 /**
@@ -45,12 +46,9 @@ class SessionCaisseController extends Controller
             'caisse'
         ])->where('centre_id', $centreId);
 
-        // 🔹 Gestion des permissions
         if ($user->can('view_all_sessions_caisses')) {
             Log::info("User {$user->id} voit toutes les sessions du centre {$centreId}");
-            // pas de restriction
         } elseif ($user->can('view_my_sessions_caisses')) {
-            // 🔹 Ne récupérer que les sessions démarrées par l'utilisateur
             $query->where('user_id', $user->id);
             Log::info("User {$user->id} voit uniquement ses propres sessions dans le centre {$centreId}");
         } else {
@@ -59,6 +57,15 @@ class SessionCaisseController extends Controller
                 'status' => 'error',
                 'message' => 'Vous n\'avez pas la permission de consulter les sessions.'
             ], 403);
+        }
+
+        if ($request->filled('start_date') && $request->filled('end_date')) {
+            $startDate = Carbon::parse($request->input('start_date'))->startOfDay();
+            $endDate = Carbon::parse($request->input('end_date'))->endOfDay();
+
+            $query->whereBetween('created_at', [$startDate, $endDate]);
+        } else {
+            $query->whereDate('created_at', Carbon::today());
         }
 
         // 🔹 FILTRE RECHERCHE
@@ -159,6 +166,15 @@ class SessionCaisseController extends Controller
     {
         $perPage = $request->input('limit', 25);
         $page = $request->input('page', 1);
+        $centreId = $request->header('centre');
+
+        if (!$centreId) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Le centre n\'est pas défini.'
+            ], 400);
+        }
+
         $query = TransfertFonds::with([
             'creator',
             'updater',
@@ -166,13 +182,21 @@ class SessionCaisseController extends Controller
             'caisse_depart',
             'caisse_reception',
             'sender',
-            'centre',
             'validated'
         ])
-            ->where('centre_id', $request->header('centre'))
+            ->where('centre_id', $centreId)
             ->where('status', 'validated');
 
+        if ($request->filled('start_date') && $request->filled('end_date')) {
+            $startDate = Carbon::parse($request->input('start_date'))->startOfDay();
+            $endDate = Carbon::parse($request->input('end_date'))->endOfDay();
 
+            $query->whereBetween('created_at', [$startDate, $endDate]);
+        } else {
+            $query->whereDate('created_at', Carbon::today());
+        }
+
+        // 🔹 RECHERCHE
         if ($request->filled('search')) {
             $search = $request->input('search');
             $query->where(function ($q) use ($search) {
@@ -184,15 +208,23 @@ class SessionCaisseController extends Controller
             });
         }
 
-        $data = $query->latest()->paginate($perPage, ['*'], 'page', $page);
+        try {
+            $data = $query->latest()->paginate($perPage, ['*'], 'page', $page);
 
-        return response()->json([
-            'data' => $data->items(),
-            'current_page' => $data->currentPage(),
-            'last_page' => $data->lastPage(),
-            'total' => $data->total(),
-        ]);
+            return response()->json([
+                'data'         => $data->items(),
+                'current_page' => $data->currentPage(),
+                'last_page'    => $data->lastPage(),
+                'total'        => $data->total(),
+            ]);
+        } catch (\Exception $e) {
+            Log::error("Erreur lors de la récupération des transferts de caisse (Centre {$centreId}) : " . $e->getMessage());
 
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Une erreur est survenue lors du chargement des données.'
+            ], 500);
+        }
     }
 
 
@@ -215,7 +247,6 @@ class SessionCaisseController extends Controller
             ->where('centre_id', $centreId)
             ->where('status', '!=', 'validated');
 
-        // --- LOGIQUE DES PERMISSIONS ET LOGS ---
         if (!$user->can('view_all_transferts')) {
             if ($user->can('view_my_transferts')) {
                 $query->where('created_by', $user->id);
@@ -225,8 +256,6 @@ class SessionCaisseController extends Controller
         } else {
 
         }
-
-        // --- LOG RECHERCHE ---
         if ($request->filled('search')) {
             $search = $request->input('search');
             Log::debug("Recherche effectuée par l'utilisateur {$user->id} : '{$search}'");
@@ -250,6 +279,74 @@ class SessionCaisseController extends Controller
             ]);
         } catch (\Exception $e) {
             return response()->json(['error' => 'Une erreur est survenue lors du chargement des données.'], 500);
+        }
+    }
+
+
+
+    /**
+     * @return JsonResponse
+     *
+     * @permission SessionCaisseController::get_all_my_transferts
+     * @permission_desc Afficher la liste des transferts de caisses d'un utilisateur
+     */
+    public function get_all_my_transferts(Request $request)
+    {
+        $perPage = $request->input('limit', 25);
+        $page = $request->input('page', 1);
+        $user = $request->user();
+        $centreId = $request->header('centre');
+
+        $query = TransfertFondsTampon::with([
+            'creator', 'updater', 'centre', 'caisse_depart', 'caisse_reception', 'sender', 'session'
+        ])
+            ->where('centre_id', $centreId)
+            ->where(function ($q) use ($user) {
+                $q->where('created_by', $user->id)
+                    ->orWhere('send_by', $user->id);
+            });
+
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+
+        if ($request->filled('start_date') && $request->filled('end_date')) {
+            $startDate = Carbon::parse($request->input('start_date'))->startOfDay();
+            $endDate = Carbon::parse($request->input('end_date'))->endOfDay();
+
+            $query->whereBetween('created_at', [$startDate, $endDate]);
+        } else {
+            $query->whereDate('created_at', Carbon::today());
+        }
+
+        if ($request->filled('search')) {
+            $search = $request->input('search');
+            Log::debug("Recherche effectuée par l'utilisateur {$user->id} : '{$search}'");
+
+            $query->where(function ($q) use ($search) {
+                $q->where('status', 'like', "%{$search}%")
+                    ->orWhere('code', 'like', "%{$search}%")
+                    ->orWhere('type', 'like', "%{$search}%")
+                    ->orWhere('id', 'like', "%{$search}%")
+                    ->orWhere('montant_send', 'like', "%{$search}%");
+            });
+        }
+
+        try {
+            $data = $query->latest()->paginate($perPage, ['*'], 'page', $page);
+
+            return response()->json([
+                'data'         => $data->items(),
+                'current_page' => $data->currentPage(),
+                'last_page'    => $data->lastPage(),
+                'total'        => $data->total(),
+            ]);
+        } catch (\Exception $e) {
+            Log::error("Erreur chargement mes transferts (User {$user->id}): " . $e->getMessage());
+
+            return response()->json([
+                'error' => 'Une erreur est survenue lors du chargement des données.'
+            ], 500);
         }
     }
 

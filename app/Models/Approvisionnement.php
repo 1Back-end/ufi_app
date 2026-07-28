@@ -23,6 +23,8 @@ class Approvisionnement extends Model
         'received_date',
         'created_by',
         'updated_by',
+        'received_packaging_id',
+        'unit_quantity_received',
     ];
 
     public function purchaseOrder(): BelongsTo
@@ -38,5 +40,9 @@ class Approvisionnement extends Model
     public function emplacement(): BelongsTo
     {
         return $this->belongsTo(EmplacementsProduct::class, 'emplacement_id');
+    }
+    public function receivedPackaging()
+    {
+        return $this->belongsTo(Packaging::class, 'received_packaging_id');
     }
 }

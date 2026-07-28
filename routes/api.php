@@ -3,6 +3,7 @@
 use App\Http\Controllers\ActeController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\AnalysisTechniqueController;
+use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Authorization\PermissionController;
 use App\Http\Controllers\CatPredefinedListController;
 use App\Http\Controllers\CentreController;
@@ -164,6 +165,7 @@ Route::middleware(['activity'])->group(function () {
 
         Route::get('sessions_caisses/list_transferts_caisses', [\App\Http\Controllers\SessionCaisseController::class,'get_transfert_caisse']);
         Route::get('sessions_caisses/get_transfert_caisse_virtuel', [\App\Http\Controllers\SessionCaisseController::class,'get_transfert_caisse_virtuel']);
+        Route::get('sessions_caisses/get_all_my_transferts', [\App\Http\Controllers\SessionCaisseController::class,'get_all_my_transferts']);
         Route::apiResource('sessions_caisses', \App\Http\Controllers\SessionCaisseController::class);
 
         Route::apiResource('mouvements_caisses', \App\Http\Controllers\MouvementCaisseController::class);
@@ -247,10 +249,10 @@ Route::middleware(['activity'])->group(function () {
         Route::post('/ventilate_assurance/{assureur_id}', [RegulationController::class, 'get_ventilate_assurance']);
 
         Route::controller(ConsultantController::class)->prefix('consultants')->group(function () {
-            Route::get('/list', 'index');  // Afficher la liste des consultants
-            Route::post('/create', 'store');  // Ajouter un nouveau consultant
-            Route::put('/edit/{id}', 'update');  // Mettre à jour un consultant spécifique
-            Route::delete('/delete/{id}', 'destroy');  // Supprimer un consultant spécifique
+            Route::get('/list', 'index');
+            Route::post('/create', 'store');
+            Route::put('/edit/{id}', 'update');
+            Route::delete('/delete/{id}', 'destroy');
             Route::put('update_status/{id}/status/{status}', 'updateStatus');
             Route::get('/search', 'search');
             Route::get('/export', 'export');
@@ -338,8 +340,10 @@ Route::middleware(['activity'])->group(function () {
         Route::patch('packagings/{id}/is_active', [\App\Http\Controllers\PackagingController::class, 'updateStatus']);
 
         Route::apiResource('lots_products',\App\Http\Controllers\LotProductController::class);
+        Route::get('/product_batches', [\App\Http\Controllers\LotProductController::class, 'getBatchesByProduct']);
         Route::get('enums/purchaseOrderTypes',[\App\Http\Controllers\EnumController::class,'purchaseOrderTypes']);
         Route::get('enums/PurchaseOrderStatus',[\App\Http\Controllers\EnumController::class,'PurchaseOrderStatus']);
+
 
         Route::apiResource('product_types',\App\Http\Controllers\ProductTypeController::class);
         Route::patch('product_types/{id}/is_active', [\App\Http\Controllers\ProductTypeController::class, 'updateStatus']);
@@ -350,6 +354,12 @@ Route::middleware(['activity'])->group(function () {
         Route::patch('purchase_orders/{id}/validate', [\App\Http\Controllers\PurchaseOrderController::class, 'validate']);
         Route::post('purchase_orders/{id}/receive', [\App\Http\Controllers\PurchaseOrderController::class, 'receive']);
         Route::patch('purchase_orders/{id}/confirm_reception', [\App\Http\Controllers\PurchaseOrderController::class, 'toggleConfirmation']);
+
+
+        Route::apiResource('transferts_stocks',\App\Http\Controllers\TransfertStockController::class);
+        Route::post('transferts_stocks/{id}/cancel', [\App\Http\Controllers\TransfertStockController::class, 'cancel']);
+        Route::post('transferts_stocks/{id}/reject', [\App\Http\Controllers\TransfertStockController::class, 'reject']);
+        Route::post('transferts_stocks/{id}/validate', [\App\Http\Controllers\TransfertStockController::class, 'validateTransfert']);
 
 
 
@@ -689,9 +699,6 @@ Route::middleware(['activity'])->group(function () {
             Route::delete('/delete/{id}', 'destroy');
         });
         Route::controller(StatistiqueController::class)->prefix('statistics')->group(function () {
-            Route::get('/rendez_vous-statistics', 'statistiquesAujourdHui');
-            Route::get('/clients-statistics', 'clientsJourParType');
-            Route::get('/factures-statistics', 'getAllFacture');
             Route::get('/print_data', 'get_data');
             Route::get('clients_by_day',  'get_client_by_day');
             Route::get('reglements_by_day',  'get_reglemenets_by_day');
@@ -789,6 +796,8 @@ Route::middleware(['activity'])->group(function () {
         Route::get('commissions/{consultant_id}/consultants_paid', [ConsultantPrestationShareController::class, 'get_consultant_paid']);
         Route::get('commissions/{consultant_id}/consultants_not_paid', [ConsultantPrestationShareController::class, 'get_consultant_not_paid']);
 
+        Route::get('prestations_by_types', [StatistiqueController::class, 'statsPrestationsParType']);
+
 
         // Fiche de caisse journalières
 
@@ -798,7 +807,8 @@ Route::middleware(['activity'])->group(function () {
         Route::patch('accounts_payments/{id}/is_active', [PaymentAccountController::class, 'updateStatus']);
         Route::get('get_account_payment_status', [\App\Http\Controllers\PaymentAccountController::class, 'get_account_payment_status']);
 
-        // Gestion des catégories de listes prédéfinies
+        Route::get('system_config', [AuthenticatedSessionController::class, 'getSystemConfig']);
+
         Route::apiResource('cat-predefined-lists', CatPredefinedListController::class);
         Route::get('predefined-lists', [CatPredefinedListController::class, 'predefinedLists']);
 

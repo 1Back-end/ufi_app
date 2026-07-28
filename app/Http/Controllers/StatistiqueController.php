@@ -28,169 +28,48 @@ use Illuminate\Support\Facades\Log;
 
 class StatistiqueController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     * @permission StatistiqueController::clientsJourParType
-     * @permission_desc Statistiques des types de clients par jour
-     */
-    public function clientsJourParType()
+
+    public function statsPrestationsParType(Request $request)
     {
-        $today     = Carbon::today();
-        $yesterday = Carbon::yesterday();
-        $response  = [];
+        $timezone = config('app.timezone');
 
-        foreach (TypeClient::cases() as $type) {
-            $typeValue = $type->value;
+        $startDate = $request->filled('start_date')
+            ? Carbon::parse($request->input('start_date'), $timezone)->startOfDay()
+            : Carbon::yesterday($timezone)->startOfDay();
 
-            // Clients facturés aujourd'hui avec régulation validée
-            $nouveaux = Prestation::whereHas('factures', function ($q) use ($today) {
-                $q->whereDate('date_fact', $today)
-                    ->whereHas('regulations', function ($r) use ($today) {
-                        $r->whereDate('created_at', $today)
-                            ->where('state', 1);
-                    });
-            })
-                ->whereHas('client', function ($q) use ($typeValue) {
-                    $q->where('type_cli', $typeValue);
-                })
-                ->with('client')
-                ->get()
-                ->pluck('client.id')
-                ->unique()
-                ->count();
+        $endDate = $request->filled('end_date')
+            ? Carbon::parse($request->input('end_date'), $timezone)->endOfDay()
+            : Carbon::today($timezone)->endOfDay();
 
-            // Clients facturés hier avec régulation validée
-            $anciens = Prestation::whereHas('factures', function ($q) use ($yesterday) {
-                $q->whereDate('date_fact', $yesterday)
-                    ->whereHas('regulations', function ($r) use ($yesterday) {
-                        $r->whereDate('created_at', $yesterday)
-                            ->where('state', 1);
-                    });
-            })
-                ->whereHas('client', function ($q) use ($typeValue) {
-                    $q->where('type_cli', $typeValue);
-                })
-                ->with('client')
-                ->get()
-                ->pluck('client.id')
-                ->unique()
-                ->count();
+        $results = DB::table('prestations')
+            ->whereNull('deleted_at')
+            ->whereBetween('created_at', [$startDate, $endDate])
+            ->select(
+                'type',
+                DB::raw('COUNT(id) as total')
+            )
+            ->groupBy('type')
+            ->get();
 
-            $response[$typeValue] = [
-                'nouveaux' => $nouveaux,
-                'anciens'  => $anciens,
+        $stats = $results->map(function ($item) {
+            $typeEnum = TypePrestation::tryFrom($item->type);
+            return [
+                'type' => $item->type,
+                'libelle' => $typeEnum ? TypePrestation::label($typeEnum) : 'Inconnu',
+                'total' => (int) $item->total,
             ];
-        }
+        });
 
-        return response()->json($response);
+        return response()->json([
+            'message' => 'Statistiques des prestations récupérées avec succès.',
+            'periode' => [
+                'start_date' => $startDate->toDateString(),
+                'end_date'   => $endDate->toDateString(),
+            ],
+            'data' => $stats
+        ]);
     }
 
-
-
-
-
-    /**
-     * Display a listing of the resource.
-     * @permission StatistiqueController::statistiquesAujourdHui
-     * @permission_desc Statistiques de Rendez-vous par état
-     */
-    public function statistiquesAujourdHui()
-    {
-        try {
-            $aujourdhui = now()->startOfDay();  // date à 00h00 aujourd'hui
-            $finJournee = now()->endOfDay();    // date à 23h59:59 aujourd'hui
-
-            // Total des rendez-vous aujourd'hui
-            $totalParJour = RendezVous::where('is_deleted', false)
-                ->whereBetween('created_at', [$aujourdhui, $finJournee])
-                ->count();
-
-            // Rendez-vous par état aujourd'hui
-            $parEtat = RendezVous::select('etat', DB::raw('count(*) as total'))
-                ->where('is_deleted', false)
-                ->whereBetween('created_at', [$aujourdhui, $finJournee])
-                ->groupBy('etat')
-                ->get();
-
-            // Rendez-vous par type aujourd'hui
-            $parType = RendezVous::select('type', DB::raw('count(*) as total'))
-                ->where('is_deleted', false)
-                ->whereBetween('created_at', [$aujourdhui, $finJournee])
-                ->groupBy('type')
-                ->get();
-
-            return response()->json([
-                'total_rendez_vous_aujourdhui' => $totalParJour,
-                'rendez_vous_par_etat_aujourdhui' => $parEtat,
-                'rendez_vous_par_type_aujourdhui' => $parType,
-            ], 200);
-
-        } catch (\Exception $e) {
-            return response()->json([
-                'message' => 'Une erreur est survenue lors du chargement des statistiques d\'aujourd\'hui.',
-                'error' => $e->getMessage(),
-            ], 500);
-        }
-    }
-
-
-    /**
-     * Display a listing of the resource.
-     * @permission StatistiqueController::getAllFacture
-     * @permission_desc Statistiques de Factures par type de prestation et état
-     */
-    public function getAllFacture()
-    {
-        try {
-            $today = Carbon::today();
-
-            $factures = Facture::selectRaw("
-                DATE(date_fact) as jour,
-                prestation_id,
-                CASE
-                    WHEN state = ? THEN 'Soldé'
-                    ELSE 'Non soldé'
-                END as etat,
-                COUNT(*) as total
-            ", [StateFacture::PAID->value])
-                ->whereDate('date_fact', $today)
-                ->groupByRaw("DATE(date_fact), prestation_id, state")
-                ->with('prestation:id,type')
-                ->orderByRaw("DATE(date_fact)")
-                ->get();
-
-            $data = [];
-
-            foreach ($factures as $facture) {
-                $date = $facture->jour;
-
-                $prestationType = $facture->prestation?->type
-                    ? TypePrestation::label($facture->prestation->type)
-                    : 'Inconnu';
-
-                $etat = $facture->etat;
-
-                if (!isset($data[$date])) {
-                    $data[$date] = [];
-                }
-
-                if (!isset($data[$date][$prestationType])) {
-                    $data[$date][$prestationType] = [
-                        'Soldé' => 0,
-                        'Non soldé' => 0,
-                    ];
-                }
-
-                $data[$date][$prestationType][$etat] = $facture->total;
-            }
-
-            return response()->json($data);
-
-        } catch (\Throwable $e) {
-            Log::error('Erreur dans getAllFacture: ' . $e->getMessage(), ['exception' => $e]);
-            return response()->json(['error' => 'Erreur interne'], 500);
-        }
-    }
 
 
     /**

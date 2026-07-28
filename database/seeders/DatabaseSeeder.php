@@ -38,6 +38,7 @@ class DatabaseSeeder extends Seeder
             StatusFamilialeSeeder::class,
             TypeDocumentSeeder::class,
             CountriesTableSeeder::class,
+            SystemSettingsSeeder::class,
         ]);
     }
 

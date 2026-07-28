@@ -991,10 +991,10 @@ class CaisseController extends Controller
             ], Response::HTTP_FORBIDDEN);
         }
 
-        // 🔹 Vérifier le solde restant de la session
-        if ($session->solde > 0) {
+        // 🔹 Vérifier que le solde est strictement égal à 0 (arrondi à 2 décimales pour sécurité)
+        if (round((float) $session->solde, 2) != 0) {
             return response()->json([
-                'message' => 'Vous devez transférer les fonds restants avant de fermer la caisse.'
+                'message' => 'Impossible de fermer la caisse : le solde doit être exactement de 0. Veuillez transférer les fonds restants ou régulariser l\'écart.'
             ], Response::HTTP_FORBIDDEN);
         }
 
@@ -1346,6 +1346,7 @@ class CaisseController extends Controller
                     'validated_by' => $auth->id,
                     'validated_at' => now(),
                     'session_id' => $session->id,
+                    'updated_by' => $auth->id,
                 ]);
 
                 // 🔹 historique
@@ -1359,6 +1360,7 @@ class CaisseController extends Controller
                     'validated_by' => $auth->id,
                     'centre_id' => $transfert->centre_id,
                     'created_by' => $auth->id,
+                    'updated_by' => $auth->id,
                 ]);
 
                 MouvementCaisse::create([
@@ -1495,14 +1497,14 @@ class CaisseController extends Controller
                 $caisseReception = Caisse::find($transfert->caisse_reception_id);
                 $caisseReception->increment('solde_caisse', $transfert->montant_send);
 
-                // 🔹 Update transfert tampon (On nettoie la raison d'annulation et on valide)
                 $transfert->update([
                     'status'       => 'validated',
                     'validated_by' => $auth->id,
                     'validated_at' => now(),
-                    'reason'       => 'Revalidé : ' . $request->reason, // On trace pourquoi on a revalidé
-                    'rejected_by'  => null, // On vide les infos de rejet
+                    'reason'       => 'Revalidé : ' . $request->reason,
+                    'rejected_by'  => null,
                     'rejected_at'  => null,
+                    'updated_by' => $auth->id,
                 ]);
 
                 // 🔹 Création dans l'historique officiel
@@ -2257,20 +2259,25 @@ class CaisseController extends Controller
             ], 400);
         }
 
-        $startDate = $request->filled('start_date')
-            ? Carbon::parse($request->input('start_date'))->startOfDay()
-            : Carbon::today()->startOfDay();
+        $timezone = config('app.timezone');
 
-        $endDate = $request->filled('end_date')
-            ? Carbon::parse($request->input('end_date'))->endOfDay()
-            : Carbon::today()->endOfDay();
+        // Récupération sécurisée des dates
+        $startDateInput = $request->input('start_date');
+        $endDateInput   = $request->input('end_date', $startDateInput);
+
+        $startDate = $startDateInput
+            ? Carbon::parse($startDateInput, $timezone)->startOfDay()
+            : Carbon::today($timezone)->startOfDay();
+
+        $endDate = $endDateInput
+            ? Carbon::parse($endDateInput, $timezone)->endOfDay()
+            : Carbon::today($timezone)->endOfDay();
 
         $stats = DB::table('transfert_fonds_tampons')
             ->where('centre_id', $centreId)
             ->whereBetween('created_at', [$startDate, $endDate])
             ->select(
                 DB::raw("CAST(COUNT(id) AS UNSIGNED) as total_operations"),
-
                 DB::raw("CAST(COALESCE(SUM(montant_send), 0) AS DOUBLE) as total_general"),
 
                 DB::raw("CAST(COUNT(CASE WHEN status = 'validated' THEN 1 END) AS UNSIGNED) as count_valide"),
@@ -2287,8 +2294,8 @@ class CaisseController extends Controller
             'message' => 'Statistiques de caisse récupérées avec succès.',
             'centre_id' => $centreId,
             'periode' => [
-                'start_date' => $startDate->toDateString(),
-                'end_date'   => $endDate->toDateString(),
+                'start_date' => $startDate->toDateTimeString(),
+                'end_date'   => $endDate->toDateTimeString(),
             ],
             'data' => $stats
         ], 200);
