@@ -971,6 +971,13 @@ class CaisseController extends Controller
             ], Response::HTTP_FORBIDDEN);
         }
 
+        // 🔹 Vérifier si la caisse est déjà fermée
+        if ($caisse->position === 'close') {
+            return response()->json([
+                'message' => 'La caisse est déjà fermée pour ce centre.'
+            ], Response::HTTP_OK);
+        }
+
         // 🔹 Vérifier le code secret avant fermeture
         if (!Hash::check($request->secret_code, $caisse->secret_code)) {
             return response()->json([
@@ -994,15 +1001,8 @@ class CaisseController extends Controller
         // 🔹 Vérifier que le solde est strictement égal à 0 (arrondi à 2 décimales pour sécurité)
         if (round((float) $session->solde, 2) != 0) {
             return response()->json([
-                'message' => 'Impossible de fermer la caisse : le solde doit être exactement de 0. Veuillez transférer les fonds restants ou régulariser l\'écart.'
+                'message' => "Impossible de fermer la caisse : le solde est de {$session->solde}, il doit être exactement de 0. Veuillez régulariser l'écart."
             ], Response::HTTP_FORBIDDEN);
-        }
-
-        // 🔹 Vérifier si la caisse est déjà fermée
-        if ($caisse->position === 'close') {
-            return response()->json([
-                'message' => 'La caisse est déjà fermée pour ce centre.'
-            ], Response::HTTP_OK);
         }
 
         DB::beginTransaction();
@@ -2267,16 +2267,15 @@ class CaisseController extends Controller
 
         $timezone = config('app.timezone');
 
-        // Récupération sécurisée des dates
-        $startDateInput = $request->input('start_date');
-        $endDateInput   = $request->input('end_date', $startDateInput);
+        // Récupération de la date unique (en utilisant start_date ou date)
+        $dateInput = $request->input('start_date', $request->input('date'));
 
-        $startDate = $startDateInput
-            ? Carbon::parse($startDateInput, $timezone)->startOfDay()
+        $startDate = $dateInput
+            ? Carbon::parse($dateInput, $timezone)->startOfDay()
             : Carbon::today($timezone)->startOfDay();
 
-        $endDate = $endDateInput
-            ? Carbon::parse($endDateInput, $timezone)->endOfDay()
+        $endDate = $dateInput
+            ? Carbon::parse($dateInput, $timezone)->endOfDay()
             : Carbon::today($timezone)->endOfDay();
 
         $stats = DB::table('transfert_fonds_tampons')

@@ -31,72 +31,38 @@ class RendezVousController extends Controller
         $perPage = $request->integer('limit', 25);
         $page    = $request->integer('page', 1);
 
-        $query = RendezVous::where('is_deleted', false)
-            ->with([
-                'client',
-                'consultant:id,nomcomplet',
-                'createdBy:id,email',
-                'updatedBy:id,email',
-                'prestation',
-                'parent:id,code,dateheure_rdv',
-            ]);
-
-        /** ────── Filtre état ────── */
-        if ($request->filled('etat')) {
-            $etats = explode(',', $request->etat);
-            $query->whereIn('etat', $etats);
-        } else {
-            $query->whereIn('etat', ['Actif', 'Inactif', 'No show', 'Prises pour consultation','En cours de consultation']);
-        }
-
-        /** ────── Autres filtres simples ────── */
-        if ($request->filled('type')) $query->where('type', $request->type);
-        if ($request->filled('client_id')) $query->where('client_id', $request->client_id);
-        if ($request->filled('prestation_id')) $query->where('prestation_id', $request->prestation_id);
-
-        /** ────── Filtre par type de prestation ────── */
-        if ($request->filled('prestation_type')) {
-            $query->whereHas('prestation', function ($q) use ($request) {
-                $q->where('type', $request->prestation_type);
+        $query = RendezVous::with([
+            'client',
+            'consultant:id,nomcomplet',
+            'createdBy:id,email,nom_utilisateur',
+            'updatedBy:id,email,nom_utilisateur',
+            'prestation.actes.typeActe',
+            'parent:id,code,dateheure_rdv',
+        ])
+            ->when($request->filled('etat'), fn($q) => $q->where('etat', $request->etat))
+            ->when($request->filled('type'), fn($q) => $q->where('type', $request->type))
+            ->when($request->filled('client_id'), fn($q) => $q->where('client_id', $request->client_id))
+            ->when($request->filled('prestation_id'), fn($q) => $q->where('prestation_id', $request->prestation_id))
+            ->when($request->filled('type_prestation'), function($q) use ($request) {
+                $q->whereHas('prestation', function($subQ) use ($request) {
+                    $subQ->where('type', $request->type_prestation);
+                });
+            })
+            ->when($request->filled('date'), fn($q) => $q->whereDate('created_at', $request->date))
+            ->when(!$request->filled('date') && $request->filled('dateheure_rdv'), fn($q) => $q->whereDate('dateheure_rdv', $request->date))
+            ->when(!$request->filled('date') && !$request->filled('dateheure_rdv'), fn($q) => $q->whereDate('created_at', Carbon::today()))
+            ->when(trim($request->search), function ($q, $search) {
+                $q->where(function ($subQ) use ($search) {
+                    $subQ->where('nombre_jour_validite', 'like', "%{$search}%")
+                        ->orWhere('type', 'like', "%{$search}%")
+                        ->orWhere('code', 'like', "%{$search}%")
+                        ->orWhere('id', 'like', "%{$search}%")
+                        ->orWhereHas('client', fn($clientQ) => $clientQ->where('nomcomplet_client', 'like', "%{$search}%"))
+                        ->orWhereHas('consultant', fn($consultantQ) => $consultantQ->where('nomcomplet', 'like', "%{$search}%"));
+                });
             });
-        }
 
-        if ($request->filled('created_at') && $request->filled('dateheure_rdv')) {
-            $query->where(function($q) use ($request) {
-                $q->whereDate('created_at', $request->created_at)
-                    ->orWhereDate('dateheure_rdv', $request->dateheure_rdv);
-            });
-        } else {
-            if ($request->filled('created_at')) $query->whereDate('created_at', $request->created_at);
-            if ($request->filled('dateheure_rdv')) $query->whereDate('dateheure_rdv', $request->dateheure_rdv);
-        }
-
-
-        /** ────── Recherche globale ────── */
-        if ($search = trim($request->search)) {
-            $query->where(function ($q) use ($search) {
-                $q->where('nombre_jour_validite', 'like', "%{$search}%")
-                    ->orWhere('type', 'like', "%{$search}%")
-                    ->orWhere('code', 'like', "%{$search}%")
-                    ->orWhere('id', 'like', "%{$search}%")
-                    ->orWhereHas('client', fn($sub) => $sub->where('nomcomplet_client','like',"%{$search}%"))
-                    ->orWhereHas('consultant', fn($sub) => $sub->where('nomcomplet','like',"%{$search}%"));
-            });
-        }
-
-        /** ────── Pagination ────── */
         $rendezVous = $query->latest()->paginate($perPage, ['*'], 'page', $page);
-
-        /** ────── Filtrage Actes côté PHP si nécessaire ────── */
-        if ($request->prestation_type == 1 && $request->filled('acte_type')) {
-            $rendezVous->setCollection(
-                $rendezVous->getCollection()->filter(fn($item) =>
-                    isset($item->prestation) &&
-                    isset($item->prestation->actes) && // ici ton relation Prestation->actes
-                    in_array($request->acte_type, $item->prestation->actes->pluck('type_acte_id')->toArray())
-                )->values()
-            );
-        }
 
         return response()->json([
             'data'         => $rendezVous->items(),
@@ -337,52 +303,64 @@ class RendezVousController extends Controller
 
         try {
             $data = $request->validate([
-                'dateheure_rdv' => 'required|date',
-                'details' => 'required|string',
+                'dateheure_rdv'  => 'required|date',
+                'details'        => 'required|string',
                 'rendez_vous_id' => 'required|exists:rendez_vouses,id',
             ]);
 
             $firstRendezVous = RendezVous::find($data['rendez_vous_id']);
 
-            $conflict = RendezVous::where('is_deleted', false)
-                ->where(function (Builder $query) use ($firstRendezVous) {
+            $newStart = Carbon::parse($data['dateheure_rdv']);
+            $newEnd   = (clone $newStart)->addMinutes($firstRendezVous->duration ?? 30);
+
+            $conflict = RendezVous::where('id', '!=', $firstRendezVous->id)
+                ->where(function ($query) use ($firstRendezVous) {
                     $query->where('client_id', $firstRendezVous->client_id)
                         ->orWhere('consultant_id', $firstRendezVous->consultant_id);
                 })
-                ->whereBetween('dateheure_rdv', [$data['dateheure_rdv'], Carbon::parse($data['dateheure_rdv'])->addMinutes($firstRendezVous->duration)])
+                ->where(function ($query) use ($newStart, $newEnd) {
+                    $query->where(function ($q) use ($newStart, $newEnd) {
+                        $q->where('dateheure_rdv', '<', $newEnd)
+                            ->whereRaw('DATE_ADD(dateheure_rdv, INTERVAL COALESCE(duration, 30) MINUTE) > ?', [$newStart]);
+                    });
+                })
                 ->exists();
 
             if ($conflict) {
                 return response()->json([
-                    'error' => 'Ce client ou consultant a déjà un rendez-vous durant cette plage horaire.'
+                    'success' => false,
+                    'message' => 'Ce client ou consultant a déjà un rendez-vous durant cette plage horaire.'
                 ], 409);
             }
 
-            $rendezVous = RendezVous::find($data['rendez_vous_id'])->replicate();
-            $rendezVous->fill(array_merge($data, [
-                'created_by' => $auth->id,
-                'updated_by' => $auth->id,
-                'type' => 'Non facturé'
-            ]));
+            $rendezVous = $firstRendezVous->replicate();
+            $rendezVous->fill([
+                'dateheure_rdv' => $data['dateheure_rdv'],
+                'details'       => $data['details'],
+                'created_by'    => $auth->id,
+                'updated_by'    => $auth->id,
+                'type'          => 'Non facturé'
+            ]);
             $rendezVous->save();
 
-            //        Todo: Mettre en marche les notifications envoyées
-            //        Todo: $consultant = Consultant::find($consultantId);
-            //        Todo: $consultant->user()->notify(SendRdvNotification::class);$
-
             return response()->json([
-                'data' => $rendezVous,
-                'message' => 'Enregistrement effectué avec succès'
+                'success' => true,
+                'message' => 'Enregistrement effectué avec succès',
+                'data'    => $rendezVous
             ]);
+
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
-                'error' => 'Erreur de validation',
-                'details' => $e->errors()
+                'success' => false,
+                'message' => 'Erreur de validation',
+                'errors'  => $e->errors()
             ], 422);
+
         } catch (\Exception $e) {
             return response()->json([
-                'error' => 'Une erreur est survenue',
-                'message' => $e->getMessage()
+                'success' => false,
+                'message' => 'Une erreur est survenue',
+                'error'   => $e->getMessage()
             ], 500);
         }
     }

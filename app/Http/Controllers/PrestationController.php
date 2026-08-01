@@ -277,12 +277,14 @@ class PrestationController extends Controller
 
     private function checkUserPrestationsNotRegulated(int $userId, int $centreId)
     {
-        $dateLimit = Carbon::now()->subDays(3);
+        $dateLimit = Carbon::now()->subDays(3)->startOfDay();
 
         $prestations = Prestation::where('created_by', $userId)
             ->where('centre_id', $centreId)
             ->where('created_at', '>=', $dateLimit)
-            ->whereDoesntHave('factures')
+            ->whereDoesntHave('factures', function ($query) {
+                $query->where('type', 2);
+            })
             ->get();
 
         if ($prestations->isNotEmpty()) {
@@ -293,7 +295,7 @@ class PrestationController extends Controller
                 'status' => false,
                 'count' => $count,
                 'codes' => $prestations->pluck('id')->values(),
-                'message' => "Vous avez {$count} prestation(s) sans facture sur les 3 derniers jours : {$codes}. Veuillez créer leurs factures avant de continuer."
+                'message' => "Vous avez {$count} prestation(s) sans facture de type 2 sur les 3 derniers jours : {$codes}. Veuillez créer leurs factures avant de continuer."
             ];
         }
 
@@ -401,7 +403,7 @@ class PrestationController extends Controller
 
             $this->attachElementWithPrestation($request, $prestation);
 
-            // Si le montant de la remise + la prise en charge est égal au montant de la prestation alors on crée la facture
+
             if ($data['regulated'] == 2 || $data['payable_by']) {
                 save_facture($prestation, $centre, 2);
             }
@@ -543,9 +545,7 @@ class PrestationController extends Controller
 
             $data = $request->validated();
 
-            // Log::info('DATA:', $request->all());
 
-            // Si le montant de la remise + la prise en charge est supérieur au montant de la prestation alors cette prestation passe en état encours
             $data = $this->getDataForPriseEnCharge($request, $data);
 
             if ($data['payable_by']) {
@@ -1836,6 +1836,82 @@ class PrestationController extends Controller
                 'message' => $e->getMessage()
             ], 500);
         }
+    }
+
+
+    public function get_all_prestations_deleted(Request $request)
+    {
+        $centreId = $request->header('centre');
+
+        if (!$centreId) {
+            return response()->json([
+                'message' => 'Centre non fourni'
+            ], 400);
+        }
+
+        $query = Prestation::onlyTrashed()
+            ->where('centre_id', $centreId);
+
+        if ($request->filled('date')) {
+            $query->whereDate('deleted_at', $request->input('date'));
+        } else {
+            $query->whereYear('deleted_at', now()->year)
+                ->whereMonth('deleted_at', now()->month);
+        }
+
+        $totalPrestations = $query->count();
+
+        return response()->json([
+            'message' => 'Nombre total de prestations supprimées récupéré avec succès',
+            'total' => $totalPrestations
+        ], 200);
+    }
+
+
+    /**
+     * Update the status of exams for specified prestations.
+     *
+     * @param Request $request
+     *
+     * @return JsonResponse
+     *
+     * @permission PrestationController::get_count_prestations_by_regulated
+     * @permission_desc Etats des prestations par statut(En cours, facture crée etc....)
+     * @throws Throwable
+     */
+    public function get_count_prestations_by_regulated(Request $request)
+    {
+        $centreId = $request->header('centre');
+
+        if (!$centreId) {
+            return response()->json([
+                'message' => 'Centre non fourni'
+            ], 400);
+        }
+
+        $query = Prestation::where('centre_id', $centreId);
+
+        if ($request->filled('date')) {
+            $query->whereDate('created_at', $request->input('date'));
+        } else {
+            $query->whereYear('created_at', now()->year)
+                ->whereMonth('created_at', now()->month);
+        }
+
+        $counts = $query->select('regulated', \DB::raw('count(*) as total'))
+            ->groupBy('regulated')
+            ->pluck('total', 'regulated');
+
+        return response()->json([
+            'message' => 'Nombre de prestations par statut récupéré avec succès',
+            'data' => [
+                'creer' => $counts[0] ?? $counts['0'] ?? 0,
+                'en_cours' => $counts[1] ?? $counts['1'] ?? 0,
+                'reglee' => $counts[2] ?? $counts['2'] ?? 0,
+                'annulee' => $counts[3] ?? $counts['3'] ?? 0,
+                'facture_cree' => $counts[5] ?? $counts['5'] ?? 0,
+            ]
+        ], 200);
     }
 
 

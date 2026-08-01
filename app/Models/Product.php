@@ -46,7 +46,8 @@ class Product extends Model
         'has_moratorium',
         'moratorium_months',
         'is_suspended',
-        'is_out_of_stock'
+        'is_out_of_stock',
+        'dosage_id'
     ];
 
     protected $casts = [
@@ -112,5 +113,17 @@ class Product extends Model
     public function purchaseOrderItems(): HasMany
     {
         return $this->hasMany(PurchaseOrderItem::class, 'product_id');
+    }
+    public function dosages(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            ProductDosage::class,
+            'product_dosage',
+            'product_id',
+            'product_dosage_id'
+        )
+            ->using(ProductDosagePivot::class)
+            ->withPivot(['is_default', 'created_by', 'updated_by'])
+            ->withTimestamps();
     }
 }

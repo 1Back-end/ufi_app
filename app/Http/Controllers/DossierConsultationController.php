@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\RendezVousStatus;
 use App\Exports\ConsultantsExport;
 use App\Exports\DossierConsultationExport;
 use App\Exports\DossierConsultationExportSearch;
@@ -151,22 +152,24 @@ class DossierConsultationController extends Controller
         $auth = auth()->user();
 
         $data = $request->validate([
-            'rendez_vous_id'        => 'required|exists:rendez_vouses,id',
-            'poids'                 => 'required|string',
-            'tension_arterielle_bd' => 'nullable|string',
-            'tension_arterielle_bg' => 'nullable|string',
-            'taille'                => 'nullable|string',
-            'saturation'            => 'required|string',
-            'autres_parametres'     => 'nullable|string',
-            'temperature'           => 'nullable|string',
-            'frequence_cardiaque'   => 'nullable|string',
-            'fichier_associe'       => 'nullable|file|max:10240',
+            'rendez_vous_id'           => 'required|exists:rendez_vouses,id',
+            'location_id'              => 'required|exists:dossier_locations,id',
+            'physical_dossier_number'  => 'required|string|unique:dossier_consultations,physical_dossier_number',
+            'poids'                    => 'required|string',
+            'tension_arterielle_bd'    => 'nullable|string',
+            'tension_arterielle_bg'    => 'nullable|string',
+            'taille'                   => 'nullable|string',
+            'saturation'               => 'required|string',
+            'autres_parametres'        => 'nullable|string',
+            'temperature'              => 'nullable|string',
+            'frequence_cardiaque'      => 'nullable|string',
+            'fichier_associe'          => 'nullable|file|max:10240',
         ]);
 
         DB::beginTransaction();
         try {
 
-            // Vérifier qu’aucun dossier n’existe déjà pour ce rendez-vous
+
             $existing = DossierConsultation::where('rendez_vous_id', $data['rendez_vous_id'])->first();
             if ($existing) {
                 return response()->json([
@@ -175,23 +178,19 @@ class DossierConsultationController extends Controller
                 ], 409);
             }
 
-            // Récupération du rendez-vous et du patient
             $rdv = RendezVous::with('client')->findOrFail($data['rendez_vous_id']);
             $patientId = $rdv->client_id;
 
-            // Création du dossier consultation
             $dossier = DossierConsultation::create(array_merge($data, [
                 'created_by' => $auth->id,
             ]));
 
-            // Gestion de l’archive du patient
             $lastArchive = PatientArchive::where('patient_id', $patientId)
                 ->where('is_deleted', false)
                 ->orderByDesc('number_order')
                 ->first();
 
             if (!$lastArchive) {
-                // Première consultation → créer première archive avec message en dur
                 PatientArchive::create([
                     'patient_id'     => $patientId,
                     'dossier_id'     => $dossier->id,
@@ -203,14 +202,12 @@ class DossierConsultationController extends Controller
                     'updated_by'     => $auth->id,
                 ]);
             } else {
-                // Mise à jour de la dernière archive
                 $lastArchive->update([
                     'last_visit_at' => now(),
                     'notes'         => 'Archive mise à jour suite à la dernière consultation.',
                     'updated_by'    => $auth->id,
                 ]);
 
-                // Création d’une nouvelle archive pour la consultation actuelle
                 PatientArchive::create([
                     'patient_id'     => $patientId,
                     'dossier_id'     => $dossier->id,
@@ -223,10 +220,8 @@ class DossierConsultationController extends Controller
                 ]);
             }
 
-            // Mise à jour du rendez-vous
-            $rdv->update(['etat' => 'Prises pour consultation']);
+            $rdv->update(['etat' => RendezVousStatus::TAKEN_FOR_CONSULTATION->value]);
 
-            // Upload du fichier facultatif
             if ($request->hasFile('fichier_associe')) {
                 $file = $request->file('fichier_associe');
                 $path = $file->store('dossiers', 'public');

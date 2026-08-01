@@ -56,6 +56,7 @@ class ProductTypeController extends Controller
             'accepts_galenic_form' => 'boolean',
             'accepts_generic_form' => 'boolean',
             'accepts_packaging' => 'boolean',
+            'accepts_dosage' => 'boolean',
         ]);
         $validated['name'] = mb_strtoupper($validated['name'], 'UTF-8');
         $validated['created_by'] = $auth->id;
@@ -91,6 +92,7 @@ class ProductTypeController extends Controller
             'accepts_galenic_form' => 'boolean',
             'accepts_generic_form' => 'boolean',
             'accepts_packaging' => 'boolean',
+            'accepts_dosage' => 'boolean',
         ]);
 
         $validated['name'] = mb_strtoupper($validated['name'], 'UTF-8');

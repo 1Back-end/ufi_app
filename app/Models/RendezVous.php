@@ -8,15 +8,15 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Carbon\Carbon;
 use DateTimeInterface;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
 
 class RendezVous extends Model
 {
-    use HasFactory, UpdatingUser;
+    use HasFactory, UpdatingUser,SoftDeletes;
 
     protected $table = 'rendez_vouses';
     protected $appends = ['nombre_jours'];
-
 
     protected $fillable = [
         'created_by',
@@ -32,7 +32,7 @@ class RendezVous extends Model
         'code',
         'etat_paiement',
         'is_deleted',
-        'rendez_vous_id',  // Pense à ajouter ici aussi
+        'rendez_vous_id',
         'prestation_id',
     ];
 
@@ -50,17 +50,23 @@ class RendezVous extends Model
         parent::boot();
 
         static::creating(function ($examenPhysique) {
-            $prefix = 'RD-';
-            $timestamp = now()->format('ymdHi');
+            $year = now()->format('Y');
+            $today = now()->format('Ymd');
 
-            $random = strtoupper(Str::random(7));
-            $examenPhysique->code = $prefix . $timestamp . $random;
+            $lastRecord = self::whereYear('created_at', $year)
+                ->orderBy('id', 'desc')
+                ->first();
+
+            $sequence = $lastRecord ? intval(substr($lastRecord->code, 4, 3)) + 1 : 1;
+            $formattedSequence = str_pad($sequence, 3, '0', STR_PAD_LEFT);
+
+            $examenPhysique->code = '#' . $formattedSequence  . $today;
         });
     }
 
     protected function serializeDate(DateTimeInterface $date)
     {
-        return $date->format('Y-m-d\TH:i:s'); // sans microsecondes ni Z
+        return $date->format('Y-m-d\TH:i:s');
     }
 
 
@@ -105,7 +111,6 @@ class RendezVous extends Model
         return $this->belongsTo(User::class, 'updated_by');
     }
 
-    // Scope pour récupérer les rendez-vous non supprimés
     public function scopeNotDeleted($query)
     {
         return $query->where('is_deleted', false);
