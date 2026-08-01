@@ -38,17 +38,30 @@ class StatistiqueController extends Controller
      */
     public function statsPrestationsParType(Request $request)
     {
+        $centreId = $request->header('centre');
+
+        if (!$centreId) {
+            return response()->json([
+                'message' => 'Centre non fourni'
+            ], 400);
+        }
+
         $timezone = config('app.timezone');
 
-        $startDate = $request->filled('start_date')
-            ? Carbon::parse($request->input('start_date'), $timezone)->startOfDay()
-            : Carbon::yesterday($timezone)->startOfDay();
+        // Récupération de la date unique (en utilisant start_date ou date)
+        $dateInput = $request->input('start_date', $request->input('date'));
 
-        $endDate = $request->filled('end_date')
-            ? Carbon::parse($request->input('end_date'), $timezone)->endOfDay()
-            : Carbon::today($timezone)->endOfDay();
+        if ($dateInput) {
+            $startDate = Carbon::parse($dateInput, $timezone)->startOfDay();
+            $endDate   = Carbon::parse($dateInput, $timezone)->endOfDay();
+        } else {
+            // Par défaut : le mois en cours si aucune date n'est fournie
+            $startDate = Carbon::now($timezone)->startOfMonth();
+            $endDate   = Carbon::now($timezone)->endOfMonth();
+        }
 
         $results = DB::table('prestations')
+            ->where('centre_id', $centreId)
             ->whereNull('deleted_at')
             ->whereBetween('created_at', [$startDate, $endDate])
             ->select(
@@ -69,9 +82,10 @@ class StatistiqueController extends Controller
 
         return response()->json([
             'message' => 'Statistiques des prestations récupérées avec succès.',
+            'centre_id' => $centreId,
             'periode' => [
-                'start_date' => $startDate->toDateString(),
-                'end_date'   => $endDate->toDateString(),
+                'start_date' => $startDate->toDateTimeString(),
+                'end_date'   => $endDate->toDateTimeString(),
             ],
             'data' => $stats
         ]);

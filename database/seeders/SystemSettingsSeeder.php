@@ -14,7 +14,7 @@ class SystemSettingsSeeder extends Seeder
         DB::table('settings')->updateOrInsert(
             ['key' => 'inactivity_timeout_minutes'],
             [
-                'value'       => '30',
+                'value'       => '90',
                 'description' => 'Délai d\'inactivité en minutes avant déconnexion automatique',
                 'created_by'  => $userId,
                 'updated_by'  => $userId,

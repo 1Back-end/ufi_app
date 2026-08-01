@@ -236,6 +236,8 @@ Route::middleware(['activity'])->group(function () {
         Route::post('prestations/{prestation}/facture', [PrestationController::class, 'saveFacture']);
         Route::patch('prestations/{prestation}/change-state', [PrestationController::class, 'changeState']);
         Route::patch('/prestations/{id}/change_consultant', [PrestationController::class, 'changeConsultant']);
+        Route::get('/deleted_by_date', [PrestationController::class, 'get_all_prestations_deleted']);
+        Route::get('/prestations_by_regulated', [PrestationController::class, 'get_count_prestations_by_regulated']);
 
         Route::apiResource('regulation-methods', RegulationMethodController::class)->except(['show', 'destroy']);
         Route::patch('regulation-methods/{regulationMethod}/activate', [RegulationMethodController::class, 'activate']);
@@ -331,7 +333,6 @@ Route::middleware(['activity'])->group(function () {
         Route::apiResource('emplacements_products',\App\Http\Controllers\EmplacementsProductController::class);
         Route::patch('emplacements_products/{id}/is_active', [\App\Http\Controllers\EmplacementsProductController::class, 'update_status']);
 
-
         Route::apiResource('products',ProduitController::class);
         Route::patch('products/{id}/is_active', [ProduitController::class, 'updateStatus']);
         Route::patch('/products/{id}/toggle_suspended', [ProduitController::class, 'updateSuspendedStatus']);
@@ -340,10 +341,16 @@ Route::middleware(['activity'])->group(function () {
         Route::apiResource('packagings',\App\Http\Controllers\PackagingController::class);
         Route::patch('packagings/{id}/is_active', [\App\Http\Controllers\PackagingController::class, 'updateStatus']);
 
+        Route::apiResource('product_dosages', \App\Http\Controllers\ProductDosageController::class);
+        Route::patch('product_dosages/{id}/is_active', [\App\Http\Controllers\ProductDosageController::class, 'updateStatus']);
+
         Route::apiResource('lots_products',\App\Http\Controllers\LotProductController::class);
         Route::get('/product_batches', [\App\Http\Controllers\LotProductController::class, 'getBatchesByProduct']);
         Route::get('enums/purchaseOrderTypes',[\App\Http\Controllers\EnumController::class,'purchaseOrderTypes']);
         Route::get('enums/PurchaseOrderStatus',[\App\Http\Controllers\EnumController::class,'PurchaseOrderStatus']);
+        Route::get('enums/StockAdjustmentStatus',[\App\Http\Controllers\EnumController::class,'StockAdjustmentStatus']);
+        Route::get('enums/RendezVousStatus',[\App\Http\Controllers\EnumController::class,'RendezVousStatus']);
+        Route::get('enums/InvoiceStatus',[\App\Http\Controllers\EnumController::class,'InvoiceStatus']);
 
 
         Route::apiResource('product_types',\App\Http\Controllers\ProductTypeController::class);
@@ -362,6 +369,14 @@ Route::middleware(['activity'])->group(function () {
         Route::post('transferts_stocks/{id}/reject', [\App\Http\Controllers\TransfertStockController::class, 'reject']);
         Route::post('transferts_stocks/{id}/validate', [\App\Http\Controllers\TransfertStockController::class, 'validateTransfert']);
 
+        Route::apiResource('stocks_regularisations',\App\Http\Controllers\StocksRegularisationController::class);
+        Route::patch('stocks_regularisations/{id}/validate', [\App\Http\Controllers\StocksRegularisationController::class, 'validate']);
+
+
+        Route::apiResource('rendez_vous', RendezVousController::class);
+        Route::apiResource('dossier_locations', \App\Http\Controllers\DossierLocationController::class);
+        Route::patch('dossier_locations/{id}/is_active', [\App\Http\Controllers\DossierLocationController::class, 'updateStatus']);
+        Route::apiResource('dossiers_consultations', DossierConsultationController::class);
 
 
         Route::controller(PriseEnChargeController::class)->prefix('prise_en_charges')->group(function () {
@@ -458,6 +473,9 @@ Route::middleware(['activity'])->group(function () {
         Route::controller(AssurableController::class)->prefix('assurables')->group(function () {
             Route::post('/', 'store');
         });
+
+
+
         Route::controller(RendezVousController::class)->prefix('rendez_vous')->group(function () {
             Route::get('/list', 'index');
             Route::post('/create', 'store');
@@ -516,6 +534,10 @@ Route::middleware(['activity'])->group(function () {
             Route::put('/edit/{id}', 'update');
             Route::delete('/delete/{id}', 'destroy');
         });
+
+
+
+
         Route::controller(DossierConsultationController::class)->prefix('dossiers_consultations')->group(function () {
             Route::get('/list', 'index');
             Route::post('/create', 'store');
@@ -800,10 +822,6 @@ Route::middleware(['activity'])->group(function () {
         Route::get('prestations_by_types', [StatistiqueController::class, 'statsPrestationsParType']);
 
 
-        // Fiche de caisse journalières
-
-
-        // Gestion des comptes de paiements
         Route::apiResource('accounts_payments', PaymentAccountController::class);
         Route::patch('accounts_payments/{id}/is_active', [PaymentAccountController::class, 'updateStatus']);
         Route::get('get_account_payment_status', [\App\Http\Controllers\PaymentAccountController::class, 'get_account_payment_status']);

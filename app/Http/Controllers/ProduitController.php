@@ -40,7 +40,8 @@ class ProduitController extends Controller
                 'updater',
                 'lots',
                 'productType',
-                'packagings'
+                'packagings',
+                'dosages'
             ])
             ->when($search, function ($query, $search) {
                 $query->where(function ($q) use ($search) {
@@ -197,10 +198,13 @@ class ProduitController extends Controller
                 'fournisseurs_id'        => 'nullable|array',
                 'fournisseurs_id.*'      => 'exists:fournisseurs,id',
 
-
                 'packagings_id'          => 'nullable|array',
                 'packagings_id.*'        => 'exists:packagings,id',
                 'packagings'             => 'nullable|array',
+
+                'dosages_id'             => 'nullable|array',
+                'dosages_id.*'           => 'exists:product_dosages,id',
+                'dosages'                => 'nullable|array',
 
                 'Dosage_defaut'          => 'nullable|string',
                 'schema_administration'  => 'nullable|string',
@@ -211,13 +215,18 @@ class ProduitController extends Controller
 
             $productType = \App\Models\ProductType::findOrFail($request->product_type_id);
             $fournisseursIds = $request->input('fournisseurs_id', []);
-            $packagingsIds   = $request->input('packagings_id', $request->input('packagings', []));
 
-            if ($productType->accepts_galenic_form && empty($request->dosage)) {
+            $rawPackagings   = $request->input('packagings', []);
+            $packagingsIds   = $request->input('packagings_id', []);
+
+            $rawDosages      = $request->input('dosages', []);
+            $dosagesIds      = $request->input('dosages_id', []);
+
+            if ($productType->accepts_dosage && empty($rawDosages) && empty($dosagesIds)) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Erreur de validation',
-                    'errors'  => ['dosage' => ['Le dosage (forme galénique) est obligatoire pour ce type de produit.']]
+                    'errors'  => ['dosages' => ['Au moins un dosage est obligatoire pour ce type de produit.']]
                 ], 422);
             }
 
@@ -229,7 +238,7 @@ class ProduitController extends Controller
                 ], 422);
             }
 
-            if ($productType->accepts_packaging && (empty($request->packagings) || count($request->packagings) === 0)) {
+            if ($productType->accepts_packaging && empty($rawPackagings) && empty($packagingsIds)) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Erreur de validation',
@@ -238,7 +247,7 @@ class ProduitController extends Controller
             }
 
             $data = $validatedData;
-            unset($data['fournisseurs_id'], $data['packagings'], $data['packagings_id']);
+            unset($data['fournisseurs_id'], $data['packagings'], $data['packagings_id'], $data['dosages'], $data['dosages_id']);
 
             if (empty($data['generic_name'])) {
                 $data['generic_name'] = \Illuminate\Support\Str::slug($data['name']);
@@ -260,25 +269,60 @@ class ProduitController extends Controller
 
             $product = Product::create($data);
 
-
             if (!empty($fournisseursIds)) {
                 $product->fournisseurs()->sync($fournisseursIds);
             }
 
-            if (!empty($packagingsIds)) {
-                $syncData = [];
-                foreach ($packagingsIds as $packagingId) {
-                    $syncData[$packagingId] = [
+            $syncPackagings = [];
+            if (!empty($rawPackagings)) {
+                foreach ($rawPackagings as $pkg) {
+                    $pkgId = is_array($pkg) ? ($pkg['id'] ?? null) : $pkg;
+                    if ($pkgId) {
+                        $syncPackagings[$pkgId] = [
+                            'is_default' => is_array($pkg) ? ($pkg['is_default'] ?? false) : false,
+                            'created_by' => $auth->id,
+                            'updated_by' => $auth->id,
+                        ];
+                    }
+                }
+            } elseif (!empty($packagingsIds)) {
+                foreach ($packagingsIds as $index => $pkgId) {
+                    $syncPackagings[$pkgId] = [
+                        'is_default' => ($index === 0),
                         'created_by' => $auth->id,
+                        'updated_by' => $auth->id,
                     ];
                 }
-                $product->packagings()->sync($syncData);
             }
+            $product->packagings()->sync($syncPackagings);
+
+            $syncDosages = [];
+            if (!empty($rawDosages)) {
+                foreach ($rawDosages as $dos) {
+                    $dosId = is_array($dos) ? ($dos['id'] ?? null) : $dos;
+                    if ($dosId) {
+                        $syncDosages[$dosId] = [
+                            'is_default' => is_array($dos) ? ($dos['is_default'] ?? false) : false,
+                            'created_by' => $auth->id,
+                            'updated_by' => $auth->id,
+                        ];
+                    }
+                }
+            } elseif (!empty($dosagesIds)) {
+                foreach ($dosagesIds as $index => $dosId) {
+                    $syncDosages[$dosId] = [
+                        'is_default' => ($index === 0),
+                        'created_by' => $auth->id,
+                        'updated_by' => $auth->id,
+                    ];
+                }
+            }
+            $product->dosages()->sync($syncDosages);
 
             return response()->json([
                 'success' => true,
                 'message' => 'Produit créé avec succès.',
-                'data'    => $product->load(['fournisseurs', 'productType', 'packagings'])
+                'data'    => $product->load(['fournisseurs', 'productType', 'packagings', 'dosages'])
             ], 201);
 
         } catch (\Illuminate\Validation\ValidationException $e) {
@@ -312,7 +356,8 @@ class ProduitController extends Controller
                 'lots',
                 'emplacements.emplacement',
                 'productType',
-                'packagings'
+                'packagings',
+                'dosages'
             ])
                 ->findOrFail($id);
 
@@ -372,10 +417,13 @@ class ProduitController extends Controller
                 'fournisseurs_id'        => 'nullable|array',
                 'fournisseurs_id.*'      => 'exists:fournisseurs,id',
 
-                // Gestion flexible : accepte soit packagings_id [1, 2], soit packagings [{id: 1, is_default: true}]
                 'packagings_id'          => 'nullable|array',
                 'packagings_id.*'        => 'exists:packagings,id',
                 'packagings'             => 'nullable|array',
+
+                'dosages_id'             => 'nullable|array',
+                'dosages_id.*'           => 'exists:product_dosages,id',
+                'dosages'                => 'nullable|array',
 
                 'Dosage_defaut'          => 'nullable|string',
                 'schema_administration'  => 'nullable|string',
@@ -388,16 +436,17 @@ class ProduitController extends Controller
 
             $productType = \App\Models\ProductType::findOrFail($request->product_type_id);
 
-            // Extraction souple des conditionnements (IDs simples ou tableau d'objets)
-            $rawPackagings = $request->input('packagings', []);
+            $rawPackagings    = $request->input('packagings', []);
             $rawPackagingsIds = $request->input('packagings_id', []);
 
-            // Validation dynamique selon le type de produit
-            if ($productType->accepts_galenic_form && empty($request->dosage)) {
+            $rawDosages       = $request->input('dosages', []);
+            $dosagesIds       = $request->input('dosages_id', []);
+
+            if ($productType->accepts_dosage && empty($rawDosages) && empty($dosagesIds)) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Erreur de validation',
-                    'errors'  => ['dosage' => ['Le dosage (forme galénique) est obligatoire pour ce type de produit.']]
+                    'errors'  => ['dosages' => ['Au moins un dosage est obligatoire pour ce type de produit.']]
                 ], 422);
             }
 
@@ -417,11 +466,10 @@ class ProduitController extends Controller
                 ], 422);
             }
 
-            // Nettoyage de $data pour l'update du modèle
             $data = $validatedData;
             $fournisseurs = $data['fournisseurs_id'] ?? [];
 
-            unset($data['fournisseurs_id'], $data['packagings'], $data['packagings_id']);
+            unset($data['fournisseurs_id'], $data['packagings'], $data['packagings_id'], $data['dosages'], $data['dosages_id']);
 
             if (empty($data['generic_name'])) {
                 $data['generic_name'] = \Illuminate\Support\Str::slug($data['name']);
@@ -438,45 +486,60 @@ class ProduitController extends Controller
                 $data['moratorium_months'] = null;
             }
 
-            // 1. Mise à jour des informations de base du produit
             $product->update($data);
 
-            // 2. Synchronisation des fournisseurs
             $product->fournisseurs()->sync($fournisseurs);
 
-            $syncData = [];
-
-            // Cas A : format objets [{id: 1, is_default: true}]
+            $syncPackagings = [];
             if (!empty($rawPackagings)) {
                 foreach ($rawPackagings as $pkg) {
                     $pkgId = is_array($pkg) ? ($pkg['id'] ?? null) : $pkg;
                     if ($pkgId) {
-                        $syncData[$pkgId] = [
+                        $syncPackagings[$pkgId] = [
                             'is_default' => is_array($pkg) ? ($pkg['is_default'] ?? false) : false,
                             'created_by' => $auth->id,
                             'updated_by' => $auth->id,
                         ];
                     }
                 }
-            }
-            // Cas B : format IDs simples [1, 2]
-            elseif (!empty($rawPackagingsIds)) {
+            } elseif (!empty($rawPackagingsIds)) {
                 foreach ($rawPackagingsIds as $index => $pkgId) {
-                    $syncData[$pkgId] = [
+                    $syncPackagings[$pkgId] = [
                         'is_default' => ($index === 0),
                         'created_by' => $auth->id,
                         'updated_by' => $auth->id,
                     ];
                 }
             }
+            $product->packagings()->sync($syncPackagings);
 
-            // Synchronisation effective avec la table pivot product_packaging
-            $product->packagings()->sync($syncData);
+            $syncDosages = [];
+            if (!empty($rawDosages)) {
+                foreach ($rawDosages as $dos) {
+                    $dosId = is_array($dos) ? ($dos['id'] ?? null) : $dos;
+                    if ($dosId) {
+                        $syncDosages[$dosId] = [
+                            'is_default' => is_array($dos) ? ($dos['is_default'] ?? false) : false,
+                            'created_by' => $auth->id,
+                            'updated_by' => $auth->id,
+                        ];
+                    }
+                }
+            } elseif (!empty($dosagesIds)) {
+                foreach ($dosagesIds as $index => $dosId) {
+                    $syncDosages[$dosId] = [
+                        'is_default' => ($index === 0),
+                        'created_by' => $auth->id,
+                        'updated_by' => $auth->id,
+                    ];
+                }
+            }
+            $product->dosages()->sync($syncDosages);
 
             return response()->json([
                 'success' => true,
                 'message' => 'Produit mis à jour avec succès.',
-                'data'    => $product->load(['fournisseurs', 'productType', 'packagings'])
+                'data'    => $product->load(['fournisseurs', 'productType', 'packagings', 'dosages'])
             ], 200);
 
         } catch (\Illuminate\Validation\ValidationException $e) {

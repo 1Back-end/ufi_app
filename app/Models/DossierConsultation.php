@@ -4,9 +4,11 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use phpDocumentor\Reflection\Location;
 
 class DossierConsultation extends Model
 {
@@ -25,7 +27,9 @@ class DossierConsultation extends Model
         'created_by',
         'updated_by',
         'is_open',
-        'code'
+        'code',
+        'physical_dossier_number',
+        'location_id'
 
     ];
     protected $appends = ['logo'];
@@ -61,12 +65,18 @@ class DossierConsultation extends Model
     {
         parent::boot();
 
-        static::creating(function ($examenPhysique) {
-            $prefix = 'DOSSIER-';
-            $timestamp = now()->format('ymdHi');
+        static::creating(function ($model) {
+            $year = now()->format('Y');
+            $today = now()->format('Ymd');
 
-            $random = strtoupper(Str::random(7));
-            $examenPhysique->code = $prefix . $timestamp . $random;
+            $lastRecord = self::whereYear('created_at', $year)
+                ->orderBy('id', 'desc')
+                ->first();
+
+            $sequence = $lastRecord ? intval(substr($lastRecord->code, 4, 3)) + 1 : 1;
+            $formattedSequence = str_pad($sequence, 3, '0', STR_PAD_LEFT);
+
+            $model->code = '#' . $formattedSequence  . $today;
         });
     }
     protected function logo(): Attribute
@@ -80,5 +90,9 @@ class DossierConsultation extends Model
             },
         );
     }
-    //
+
+    public function location():BelongsTo
+    {
+       return $this->belongsTo(Location::class, 'location_id');
+    }
 }
