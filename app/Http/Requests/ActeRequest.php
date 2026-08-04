@@ -17,10 +17,13 @@ class ActeRequest extends FormRequest
             'k_modulateur' => ['required', 'integer'],
             'b' => ['required', 'integer'],
             'b1' => ['required', 'integer'],
-            'pu_assurance' => ['nullable', 'integer', 'with_default:0'],
+            'pu_assurance' => ['nullable', 'integer'],
             'code' => ['nullable', 'string'],
-            'sub_act_category_id' => ['nullable', 'exists:sub_act_categories,id'],
             'is_used_for_commission' => ['nullable', 'boolean'],
+            'has_items' => ['nullable', 'boolean'],
+            'items' => ['nullable', 'array'],
+            'items.*.product_id' => ['required_with:items', 'exists:products,id'],
+            'items.*.quantity' => ['required_with:items', 'integer', 'min:1'],
         ];
     }
 }

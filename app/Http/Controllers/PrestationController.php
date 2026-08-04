@@ -304,6 +304,142 @@ class PrestationController extends Controller
         ];
     }
 
+    protected function processProductBatches(array $items, ?int $prestationId = null, bool $onlyValidate = false)
+    {
+        foreach ($items as $item) {
+            $productId = $item['product_id'] ?? $item['id'];
+            $quantityNeeded = $item['quantity'];
+            $originalQuantityNeeded = $quantityNeeded;
+
+            $product = \App\Models\Product::find($productId);
+            $productName = $product->name ?? "";
+            $productRef = $product->ref ?? "";
+
+            $allowNegativeStock = $product->allow_negative_stock ?? false;
+
+            if (isset($product->is_out_of_stock) && $product->is_out_of_stock) {
+                throw new \Exception("Le produit : {$productName} (Réf: {$productRef}) est épuisé.", 400);
+            }
+
+            if (isset($product->is_suspended) && $product->is_suspended) {
+                throw new \Exception("Le produit : {$productName} (Réf: {$productRef}) est suspendu.", 400);
+            }
+
+            if (isset($product->facturable) && !$product->facturable) {
+                throw new \Exception("Le produit : {$productName} (Réf: {$productRef}) n'est pas facturable.", 400);
+            }
+
+            $lots = \App\Models\LotProduit::where('id_produit', $productId)
+                ->where('quantite_actuelle', '>', 0)
+                ->orderBy('date_peremption', 'asc')
+                ->get();
+
+            if ($lots->isEmpty()) {
+                if (!$allowNegativeStock) {
+                    throw new \Exception("Aucun lot disponible pour le produit : {$productName} (Réf: {$productRef}).", 400);
+                }
+                continue;
+            }
+
+            $totalStockAvailable = $lots->sum('quantite_actuelle');
+
+            foreach ($lots as $lot) {
+                if ($quantityNeeded <= 0) {
+                    break;
+                }
+
+                $stockBefore = $lot->quantite_actuelle;
+                $quantityTaken = 0;
+
+                if ($lot->quantite_actuelle >= $quantityNeeded) {
+                    $quantityTaken = $quantityNeeded;
+                    $quantityNeeded = 0;
+                } else {
+                    $quantityTaken = $lot->quantite_actuelle;
+                    $quantityNeeded -= $lot->quantite_actuelle;
+                }
+
+                if (!$onlyValidate) {
+                    $lot->quantite_actuelle -= $quantityTaken;
+                    $lot->save();
+
+                    \Illuminate\Support\Facades\DB::table('sortie_en_stock')->insert([
+                        'lot_id' => $lot->id,
+                        'product_id' => $productId,
+                        'type' => 'sall',
+                        'quantity' => $quantityTaken,
+                        'stock_before' => $stockBefore,
+                        'stock_after' => $lot->quantite_actuelle,
+                        'prestation_id' => $prestationId,
+                        'description' => "Sortie stock via prestation (produits)",
+                        'created_by' => auth()->id(),
+                        'updated_by' => auth()->id(),
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+                }
+            }
+
+            if ($quantityNeeded > 0 && !$allowNegativeStock) {
+                throw new \Exception("Stock insuffisant pour le produit : {$productName} (Réf: {$productRef}). Demandé : {$originalQuantityNeeded}, Stock disponible : {$totalStockAvailable}.", 400);
+            }
+        }
+    }
+
+    protected function checkCentreAndCaisse($request, $auth)
+    {
+        $centre = $request->header('centre');
+
+        if (!$centre) {
+            return response()->json([
+                'message' => __("Vous devez vous connecter à un centre !")
+            ], Response::HTTP_UNAUTHORIZED);
+        }
+
+        $caisse = Caisse::where('user_id', $auth->id)
+            ->where('centre_id', $centre)
+            ->first();
+
+        if (!$caisse) {
+            return response()->json([
+                'message' => __("Aucune caisse assignée à cet utilisateur pour ce centre !")
+            ], Response::HTTP_FORBIDDEN);
+        }
+
+        if ($caisse->position === 'close') {
+            return response()->json([
+                'message' => __("Votre caisse est fermée ! Vous ne pouvez pas créer de prestation.")
+            ], Response::HTTP_FORBIDDEN);
+        }
+
+        if ($caisse->position === 'in_pause') {
+            return response()->json([
+                'message' => __("Votre caisse est en pause ! Vous ne pouvez pas créer de prestation.")
+            ], Response::HTTP_FORBIDDEN);
+        }
+
+        $centreModel = Centre::find($centre);
+        $type = $request->input('type');
+
+        if (in_array($type, [TypePrestation::ACTES->value, TypePrestation::SOINS->value, TypePrestation::CAMPAGNE->value, TypePrestation::CONSULTATIONS->value, TypePrestation::HOSPITALISATION->value])) {
+            if ($centreModel->short_name !== 'CMGT') {
+                return response()->json([
+                    'message' => 'Cette prestation ne peut être créé que dans le Centre Médical.'
+                ], Response::HTTP_BAD_REQUEST);
+            }
+        }
+
+        if (in_array($type, [TypePrestation::LABORATOIR->value])) {
+            if (!in_array($centreModel->short_name, ['GTLABO', 'ancienne-mairie-tsinga'])) {
+                return response()->json([
+                    'message' => 'Cette prestation ne peut être créée que dans les Centres GTLABO ou à l\'ANCIENNE MAIRIE TSINGA.'
+                ], Response::HTTP_BAD_REQUEST);
+            }
+        }
+
+        return $centre;
+    }
+
     /**
      * @param PrestationRequest $request
      * @return JsonResponse
@@ -334,53 +470,25 @@ class PrestationController extends Controller
             ], Response::HTTP_UNAUTHORIZED);
         }
 
-        $caisse = Caisse::where('user_id', $auth->id)
-            ->where('centre_id', $centre)
-            ->first();
-
-        if (!$caisse) {
-            return response()->json([
-                'message' => __("Aucune caisse assignée à cet utilisateur pour ce centre !")
-            ], Response::HTTP_FORBIDDEN);
-        }
-
-        if ($caisse->position === 'close') {
-            return response()->json([
-                'message' => __("Votre caisse est fermée ! Vous ne pouvez pas créer de prestation.")
-            ], Response::HTTP_FORBIDDEN);
-        }
-
-        if ($caisse->position === 'in_pause') {
-            return response()->json([
-                'message' => __("Votre caisse est en pause ! Vous ne pouvez pas créer de prestation.")
-            ], Response::HTTP_FORBIDDEN);
+        $centre = $this->checkCentreAndCaisse($request, $auth);
+        if ($centre instanceof \Illuminate\Http\JsonResponse) {
+            return $centre;
         }
 
         $data = array_merge($request->validated(), ['centre_id' => $centre]);
-        $centreModel = Centre::find($centre);
-        $type = $request->input('type');
-
-        if (in_array($type, [TypePrestation::ACTES->value, TypePrestation::SOINS->value, TypePrestation::CAMPAGNE->value, TypePrestation::CONSULTATIONS->value, TypePrestation::HOSPITALISATION->value])) {
-            if ($centreModel->short_name !== 'CMGT') {
-                return response()->json([
-                    'message' => 'Cette prestation ne peut être créé que dans le Centre Médical.'
-                ], Response::HTTP_BAD_REQUEST);
-            }
-        }
-
-        if (in_array($type, [TypePrestation::LABORATOIR->value])) {
-            if (!in_array($centreModel->short_name, ['GTLABO', 'ancienne-mairie-tsinga'])) {
-                return response()->json([
-                    'message' => 'Cette prestation ne peut être créée que dans les Centres GTLABO ou à l\'ANCIENNE MAIRIE TSINGA.'
-                ], Response::HTTP_BAD_REQUEST);
-            }
-        }
 
         DB::beginTransaction();
         try {
             if ($errorConflit = $request->validateRdvDate()) {
                 return response()->json($errorConflit, Response::HTTP_CONFLICT);
             }
+
+//            if (in_array($request->input('type'), [TypePrestation::PRODUITS->value])) {
+//                $productItems = $request->products ?? [];
+//                if (!empty($productItems)) {
+//                    $this->processProductBatches($productItems, null, true);
+//                }
+//            }
 
             $data = $this->getDataForPriseEnCharge($request, $data);
 
@@ -402,6 +510,13 @@ class PrestationController extends Controller
             $prestation = Prestation::create(\Arr::except($data, ['payable_by_file_update', 'payable_by_file', 'actes', 'amount_pc', 'amount_remise', 'amount']));
 
             $this->attachElementWithPrestation($request, $prestation);
+
+//            if (in_array($request->input('type'), [TypePrestation::PRODUITS->value])) {
+//                $productItems = $request->products ?? [];
+//                if (!empty($productItems)) {
+//                    $this->processProductBatches($productItems, $prestation->id, false);
+//                }
+//            }
 
 
             if ($data['regulated'] == 2 || $data['payable_by']) {
@@ -1913,7 +2028,6 @@ class PrestationController extends Controller
             ]
         ], 200);
     }
-
 
 
 

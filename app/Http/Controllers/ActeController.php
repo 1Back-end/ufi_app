@@ -70,10 +70,23 @@ class ActeController extends Controller
      */
     public function store(ActeRequest $request)
     {
-        Acte::create($request->validated());
+        DB::transaction(function () use ($request, &$acte) {
+            $acte = Acte::create($request->validated());
+
+            if ($request->has_items && $request->has('items')) {
+                foreach ($request->items as $item) {
+                    $acte->acteProducts()->create([
+                        'product_id' => $item['product_id'],
+                        'quantity' => $item['quantity'],
+                        'created_by' => auth()->id(),
+                    ]);
+                }
+            }
+        });
+
         return response()->json([
-            'message' => __("Acte crée avec succès !")
-        ],  201);
+            'message' => __("Acte créé avec succès !")
+        ], 201);
     }
 
     /**
@@ -86,7 +99,33 @@ class ActeController extends Controller
      */
     public function update(ActeRequest $request, Acte $acte)
     {
-        $acte->update($request->validated());
+        DB::transaction(function () use ($request, $acte) {
+            $acte->update($request->validated());
+
+            if ($request->has_items) {
+                $incomingItems = collect($request->input('items', []));
+                $incomingProductIds = $incomingItems->pluck('product_id')->toArray();
+
+                // Supprimer les produits qui ne sont plus dans la liste via la table pivot
+                $acte->acteProducts()->whereNotIn('product_id', $incomingProductIds)->delete();
+
+                foreach ($incomingItems as $item) {
+                    $acte->acteProducts()->updateOrCreate(
+                        [
+                            'acte_id' => $acte->id,
+                            'product_id' => $item['product_id']
+                        ],
+                        [
+                            'quantity' => $item['quantity'],
+                            'updated_by' => auth()->id(),
+                        ]
+                    );
+                }
+            } else {
+                // Si has_items est faux/décoché, on supprime tout via la table pivot
+                $acte->acteProducts()->delete();
+            }
+        });
 
         return response()->json([
             'message' => __('Mise à jour effectuée avec succès !')
@@ -95,13 +134,14 @@ class ActeController extends Controller
 
     public function show(int $id)
     {
-        $acte = Acte::with('typeActe')->find($id);
+        $acte = Acte::with(['typeActe', 'products'])->find($id);
 
         if (!$acte) {
             return response()->json([
                 'message' => 'Acte introuvable.'
             ], 404);
         }
+
         return response()->json([
             'data' => $acte
         ], 200);

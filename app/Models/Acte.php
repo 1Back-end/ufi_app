@@ -31,7 +31,8 @@ class Acte extends Model
         'pu_assurance',
         'code',
         'sub_act_category_id',
-        'is_used_for_commission'
+        'is_used_for_commission',
+        'has_items'
     ];
 
     protected function casts(): array
@@ -108,6 +109,17 @@ class Acte extends Model
     public function assurables()
     {
         return $this->morphMany(Assurable::class, 'assurable');
+    }
+
+    public function products()
+    {
+        return $this->belongsToMany(Product::class, 'acte_products', 'acte_id', 'product_id')
+            ->withPivot(['id', 'quantity', 'created_by', 'updated_by'])
+            ->withTimestamps();
+    }
+    public function acteProducts()
+    {
+        return $this->hasMany(ActeProduct::class, 'acte_id');
     }
 
 }

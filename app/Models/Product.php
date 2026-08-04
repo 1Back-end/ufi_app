@@ -64,6 +64,10 @@ class Product extends Model
         'pharmacy_price'       => 'integer',
     ];
 
+    protected $appends = [
+        'total_stock'
+    ];
+
     public function packagings(): BelongsToMany
     {
         return $this->belongsToMany(Packaging::class, 'product_packaging', 'product_id', 'packaging_product_id')
@@ -125,5 +129,10 @@ class Product extends Model
             ->using(ProductDosagePivot::class)
             ->withPivot(['is_default', 'created_by', 'updated_by'])
             ->withTimestamps();
+    }
+
+    public function getTotalStockAttribute(): int
+    {
+        return \App\Models\LotProduit::where('id_produit', $this->id)->sum('quantite_actuelle');
     }
 }

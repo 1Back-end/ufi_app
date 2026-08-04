@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Approvisionnement;
+use App\Models\ApprovisionnementConditionnement;
 use App\Models\LotProduit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -127,24 +128,29 @@ class LotProductController extends Controller
     {
         $auth = auth()->user();
 
-        // 1. Validation
         $validator = Validator::make($request->all(), [
             'fournisseur_id'       => 'required|exists:fournisseurs,id',
             'numero_bon_livraison' => 'nullable|string|max:255',
             'date_bon_livraison'   => 'required|date',
 
-            'items'                    => 'required|array|min:1',
-            'items.*.id_produit'       => 'required|exists:products,id',
-            'items.*.quantite'         => 'required|integer|min:1',
-            'items.*.date_peremption'   => 'required|date|after:today',
-            'items.*.id_emplacement'   => 'required|exists:emplacements_products,id',
+            'items'                              => 'required|array|min:1',
+            'items.*.id_produit'                 => 'required|exists:products,id',
+            'items.*.quantite'                   => 'required|integer|min:1',
+            'items.*.date_peremption'            => 'required|date|after:today',
+            'items.*.id_emplacement'             => 'required|exists:emplacements_products,id',
+
+            'items.*.conditionnements'           => 'required|array|min:1',
+            'items.*.conditionnements.*.id'      => 'required|exists:product_dosages,id',
+            'items.*.conditionnements.*.quantite'=> 'required|numeric|min:0.01',
+            'items.*.conditionnements.*.price'   => 'nullable|numeric|min:0', // Validation du prix
         ], [
-            'fournisseur_id.required'       => 'Le fournisseur est obligatoire.',
-            'fournisseur_id.exists'         => 'Le fournisseur sélectionné est invalide.',
-            'items.required'                => 'Veuillez ajouter au moins un produit.',
-            'items.*.id_produit.exists'     => 'Un produit sélectionné est invalide.',
-            'items.*.id_emplacement.exists' => 'Un emplacement sélectionné est invalide.',
-            'items.*.date_peremption.after' => 'La date de péremption doit être supérieure à aujourd\'hui.',
+            'fournisseur_id.required'            => 'Le fournisseur est obligatoire.',
+            'fournisseur_id.exists'              => 'Le fournisseur sélectionné est invalide.',
+            'items.required'                     => 'Veuillez ajouter au moins un produit.',
+            'items.*.id_produit.exists'          => 'Un produit sélectionné est invalide.',
+            'items.*.id_emplacement.exists'      => 'Un emplacement sélectionné est invalide.',
+            'items.*.date_peremption.after'      => 'La date de péremption doit être supérieure à aujourd\'hui.',
+            'items.*.conditionnements.required'  => 'Chaque produit doit comporter au moins un conditionnement.',
         ]);
 
         if ($validator->fails()) {
@@ -203,7 +209,7 @@ class LotProductController extends Controller
                     'purchase_order_id' => null,
                     'product_id'        => $item['id_produit'],
                     'emplacement_id'    => $item['id_emplacement'],
-                    'order_number'      => $numeroBonLivraison, // Utilisation de la variable générée/fournie
+                    'order_number'      => $numeroBonLivraison,
                     'quantite_recue'    => $item['quantite'],
                     'batch_number'      => $numeroLotFabricant,
                     'expiration_date'   => $item['date_peremption'],
@@ -211,7 +217,19 @@ class LotProductController extends Controller
                     'created_by'        => $auth->id,
                 ]);
 
-                $createdApprovisionnements[] = $approvisionnement;
+                foreach ($item['conditionnements'] as $cond) {
+                    ApprovisionnementConditionnement::create([
+                        'approvisionnement_id' => $approvisionnement->id,
+                        'product_id'           => $item['id_produit'],
+                        'product_dosage_id'    => $cond['id'],
+                        'quantite'             => $cond['quantite'],
+                        'price'                => $cond['price'] ?? null, // Enregistrement du prix
+                        'created_by'           => $auth->id,
+                        'updated_by'           => $auth->id,
+                    ]);
+                }
+
+                $createdApprovisionnements[] = $approvisionnement->load('conditionnements');
             }
 
             DB::commit();

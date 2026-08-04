@@ -50,7 +50,12 @@ class RendezVousController extends Controller
             })
             ->when($request->filled('date'), fn($q) => $q->whereDate('created_at', $request->date))
             ->when(!$request->filled('date') && $request->filled('dateheure_rdv'), fn($q) => $q->whereDate('dateheure_rdv', $request->date))
-            ->when(!$request->filled('date') && !$request->filled('dateheure_rdv'), fn($q) => $q->whereDate('created_at', Carbon::today()))
+            ->when(!$request->filled('date') && !$request->filled('dateheure_rdv'), function ($q) {
+                $q->whereBetween('created_at', [
+                    Carbon::today()->subDay()->startOfDay(),
+                    Carbon::today()->addDay()->endOfDay()
+                ]);
+            })
             ->when(trim($request->search), function ($q, $search) {
                 $q->where(function ($subQ) use ($search) {
                     $subQ->where('nombre_jour_validite', 'like', "%{$search}%")

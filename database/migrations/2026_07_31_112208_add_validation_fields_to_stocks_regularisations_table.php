@@ -12,6 +12,27 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('stocks_regularisations', function (Blueprint $table) {
+            // Suppression sécurisée de la clé étrangère si elle existe déjà
+            if (Schema::hasColumn('stocks_regularisations', 'validated_by')) {
+                $table->dropForeign(['validated_by']);
+            }
+
+            // Suppression sécurisée des colonnes si elles existent déjà
+            $columnsToDrop = [];
+            if (Schema::hasColumn('stocks_regularisations', 'validated_at')) {
+                $columnsToDrop[] = 'validated_at';
+            }
+            if (Schema::hasColumn('stocks_regularisations', 'validated_by')) {
+                $columnsToDrop[] = 'validated_by';
+            }
+
+            if (!empty($columnsToDrop)) {
+                $table->dropColumn($columnsToDrop);
+            }
+        });
+
+        // Recréation propre des colonnes et de la contrainte
+        Schema::table('stocks_regularisations', function (Blueprint $table) {
             $table->timestamp('validated_at')->nullable()->after('status');
             $table->foreignId('validated_by')
                 ->nullable()
@@ -27,8 +48,21 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('stocks_regularisations', function (Blueprint $table) {
-            $table->dropForeign(['validated_by']);
-            $table->dropColumn(['validated_at', 'validated_by']);
+            if (Schema::hasColumn('stocks_regularisations', 'validated_by')) {
+                $table->dropForeign(['validated_by']);
+            }
+
+            $columnsToDrop = [];
+            if (Schema::hasColumn('stocks_regularisations', 'validated_at')) {
+                $columnsToDrop[] = 'validated_at';
+            }
+            if (Schema::hasColumn('stocks_regularisations', 'validated_by')) {
+                $columnsToDrop[] = 'validated_by';
+            }
+
+            if (!empty($columnsToDrop)) {
+                $table->dropColumn($columnsToDrop);
+            }
         });
     }
 };
