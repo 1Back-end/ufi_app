@@ -39,8 +39,8 @@ class DossierConsultationController extends Controller
 
         $query = DossierConsultation::with([
                 'emplacement',
-                'creator:id,login',
-                'updater:id,login',
+                'creator:id,nom_utilisateur',
+                'updater:id,nom_utilisateur',
                 'rendezVous:id,code,dateheure_rdv,client_id,consultant_id',
                 'rendezVous.client',
                 'rendezVous.consultant:id,nomcomplet,ref',
