@@ -344,6 +344,8 @@ Route::middleware(['activity'])->group(function () {
         Route::apiResource('product_dosages', \App\Http\Controllers\ProductDosageController::class);
         Route::patch('product_dosages/{id}/is_active', [\App\Http\Controllers\ProductDosageController::class, 'updateStatus']);
 
+        Route::apiResource('inventaires',\App\Http\Controllers\InventaireController::class);
+
         Route::apiResource('lots_products',\App\Http\Controllers\LotProductController::class);
         Route::get('/product_batches', [\App\Http\Controllers\LotProductController::class, 'getBatchesByProduct']);
         Route::get('enums/purchaseOrderTypes',[\App\Http\Controllers\EnumController::class,'purchaseOrderTypes']);
@@ -378,9 +380,10 @@ Route::middleware(['activity'])->group(function () {
         Route::patch('dossier_locations/{id}/is_active', [\App\Http\Controllers\DossierLocationController::class, 'updateStatus']);
         Route::apiResource('dossiers_consultations', DossierConsultationController::class);
 
-        Route::apiResource('inventaires',\App\Http\Controllers\InventaireController::class);
+        Route::apiResource('bilan_acte_rendez_vous', BilanActeRendezVousController::class);
 
 
+        
         Route::controller(PriseEnChargeController::class)->prefix('prise_en_charges')->group(function () {
             Route::get('/list', 'index');
             Route::post('/create', 'store');

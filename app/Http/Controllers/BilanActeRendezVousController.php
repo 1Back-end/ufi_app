@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\RendezVousStatus;
 use App\Models\BilanActeRendezVous;
 use App\Models\OpsTbl_Examen_Physique;
 use App\Models\RendezVous;
@@ -180,7 +181,7 @@ class BilanActeRendezVousController extends Controller
         try {
             DB::beginTransaction();
 
-            // Création du bilan
+            // 1. Création du bilan
             $bilan = BilanActeRendezVous::create([
                 'rendez_vous_id'    => $request->rendez_vous_id,
                 'prestation_id'     => $request->prestation_id,
@@ -192,8 +193,10 @@ class BilanActeRendezVousController extends Controller
                 'updated_by'        => $auth->id,
             ]);
 
-            // Mise à jour du rendez-vous
-            RendezVous::where('id', $request->rendez_vous_id)->update(['etat' => 'Clos']);
+            $rendezVous = RendezVous::findOrFail($request->rendez_vous_id);
+            $rendezVous->etat       = RendezVousStatus::CLOSED->value;
+            $rendezVous->updated_by = $auth->id;
+            $rendezVous->save();
 
             DB::commit();
 
