@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use phpDocumentor\Reflection\Location;
 
 class PatientArchive extends Model
 {
@@ -22,6 +23,7 @@ class PatientArchive extends Model
         'is_deleted',
         'created_by',
         'updated_by',
+        'location_id'
     ];
 
     protected $casts = [
@@ -57,5 +59,9 @@ class PatientArchive extends Model
     public function updater()
     {
         return $this->belongsTo(User::class, 'updated_by');
+    }
+    public function location()
+    {
+        return $this->belongsTo(DossierLocation::class, 'location_id');
     }
 }

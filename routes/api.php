@@ -378,6 +378,8 @@ Route::middleware(['activity'])->group(function () {
         Route::patch('dossier_locations/{id}/is_active', [\App\Http\Controllers\DossierLocationController::class, 'updateStatus']);
         Route::apiResource('dossiers_consultations', DossierConsultationController::class);
 
+        Route::apiResource('inventaires',\App\Http\Controllers\InventaireController::class);
+
 
         Route::controller(PriseEnChargeController::class)->prefix('prise_en_charges')->group(function () {
             Route::get('/list', 'index');

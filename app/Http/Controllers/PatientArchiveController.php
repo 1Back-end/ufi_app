@@ -25,22 +25,35 @@ class PatientArchiveController extends Controller
             'patient',
             'dossier',
             'creator',
-            'updater'
+            'updater',
+            'location'
         ]);
 
-        // Filtrage par date
+        // Filtrage par date (Personnalisé ou 3 jours par défaut)
         if ($request->filled('start_date') && $request->filled('end_date')) {
-            $query->whereBetween('created_at', [$request->start_date, $request->end_date]);
+            $startDate = \Carbon\Carbon::parse($request->input('start_date'))->startOfDay();
+            $endDate = \Carbon\Carbon::parse($request->input('end_date'))->endOfDay();
+
+            $query->whereBetween('created_at', [$startDate, $endDate]);
+        } else {
+            $query->whereBetween('created_at', [
+                \Carbon\Carbon::today()->subDay()->startOfDay(),
+                \Carbon\Carbon::today()->addDay()->endOfDay()
+            ]);
         }
 
-        // Filtrage par first_visit_at
         if ($request->filled('first_visit_start') && $request->filled('first_visit_end')) {
-            $query->whereBetween('first_visit_at', [$request->first_visit_start, $request->first_visit_end]);
+            $query->whereBetween('first_visit_at', [
+                \Carbon\Carbon::parse($request->first_visit_start)->startOfDay(),
+                \Carbon\Carbon::parse($request->first_visit_end)->endOfDay()
+            ]);
         }
 
-        // Filtrage par last_visit_at
         if ($request->filled('last_visit_start') && $request->filled('last_visit_end')) {
-            $query->whereBetween('last_visit_at', [$request->last_visit_start, $request->last_visit_end]);
+            $query->whereBetween('last_visit_at', [
+                \Carbon\Carbon::parse($request->last_visit_start)->startOfDay(),
+                \Carbon\Carbon::parse($request->last_visit_end)->endOfDay()
+            ]);
         }
 
         // Recherche par mots-clés
@@ -64,11 +77,22 @@ class PatientArchiveController extends Controller
             });
         }
 
-        // Pagination et retour
         $data = $query->latest()->paginate($perPage, ['*'], 'page', $page);
 
+        $transformedItems = collect($data->items())->map(function ($archive) {
+            $totalPatientArchives = PatientArchive::where('patient_id', $archive->patient_id)->count();
+            $maxOrder = PatientArchive::where('patient_id', $archive->patient_id)->max('number_order');
+            $isLatest = ($archive->number_order === $maxOrder);
+
+            $archiveArray = $archive->toArray();
+            $archiveArray['total_patient_dossiers'] = $totalPatientArchives;
+            $archiveArray['is_latest_dossier'] = $isLatest;
+
+            return $archiveArray;
+        });
+
         return response()->json([
-            'data'         => $data->items(),
+            'data'         => $transformedItems,
             'current_page' => $data->currentPage(),
             'last_page'    => $data->lastPage(),
             'total'        => $data->total(),

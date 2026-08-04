@@ -2267,16 +2267,24 @@ class CaisseController extends Controller
 
         $timezone = config('app.timezone');
 
-        // Récupération de la date unique (en utilisant start_date ou date)
-        $dateInput = $request->input('start_date', $request->input('date'));
+        // Récupération des dates si elles sont fournies
+        $startDateInput = $request->input('start_date');
+        $endDateInput = $request->input('end_date');
+        $dateInput = $request->input('date');
 
-        $startDate = $dateInput
-            ? Carbon::parse($dateInput, $timezone)->startOfDay()
-            : Carbon::today($timezone)->startOfDay();
-
-        $endDate = $dateInput
-            ? Carbon::parse($dateInput, $timezone)->endOfDay()
-            : Carbon::today($timezone)->endOfDay();
+        if ($startDateInput && $endDateInput) {
+            // Si une plage de dates est fournie
+            $startDate = Carbon::parse($startDateInput, $timezone)->startOfDay();
+            $endDate = Carbon::parse($endDateInput, $timezone)->endOfDay();
+        } elseif ($dateInput) {
+            // Si une seule date spécifique est fournie
+            $startDate = Carbon::parse($dateInput, $timezone)->startOfDay();
+            $endDate = Carbon::parse($dateInput, $timezone)->endOfDay();
+        } else {
+            // Par défaut : Tout le mois en cours (du 1er au dernier jour du mois)
+            $startDate = Carbon::now($timezone)->startOfMonth()->startOfDay();
+            $endDate = Carbon::now($timezone)->endOfMonth()->endOfDay();
+        }
 
         $stats = DB::table('transfert_fonds_tampons')
             ->where('centre_id', $centreId)
