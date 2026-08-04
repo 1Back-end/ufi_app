@@ -65,7 +65,10 @@ class SessionCaisseController extends Controller
 
             $query->whereBetween('created_at', [$startDate, $endDate]);
         } else {
-            $query->whereDate('created_at', Carbon::today());
+            $query->whereBetween('created_at', [
+                Carbon::today()->subDay()->startOfDay(),
+                Carbon::today()->addDay()->endOfDay()
+            ]);
         }
 
         // 🔹 FILTRE RECHERCHE
@@ -193,7 +196,10 @@ class SessionCaisseController extends Controller
 
             $query->whereBetween('created_at', [$startDate, $endDate]);
         } else {
-            $query->whereDate('created_at', Carbon::today());
+            $query->whereBetween('created_at', [
+                Carbon::today()->startOfDay(),
+                Carbon::today()->addDays(2)->endOfDay()
+            ]);
         }
 
         // 🔹 RECHERCHE
@@ -316,7 +322,10 @@ class SessionCaisseController extends Controller
 
             $query->whereBetween('created_at', [$startDate, $endDate]);
         } else {
-            $query->whereDate('created_at', Carbon::today());
+            $query->whereBetween('created_at', [
+                Carbon::today()->subDay()->startOfDay(),
+                Carbon::today()->addDay()->endOfDay()
+            ]);
         }
 
         if ($request->filled('search')) {

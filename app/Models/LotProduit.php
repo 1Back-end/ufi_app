@@ -94,4 +94,18 @@ class LotProduit extends Model
     {
         return $this->belongsTo(Fournisseurs::class, 'fournisseur_id');
     }
+    /**
+     * Relation avec les conditionnements du produit associé au lot.
+     */
+    public function productDosages()
+    {
+        return $this->hasManyThrough(
+            ApprovisionnementConditionnement::class,
+            Product::class,
+            'id',
+            'product_id',
+            'id_produit',
+            'id'
+        );
+    }
 }
