@@ -37,17 +37,16 @@ class DossierConsultationController extends Controller
         $perPage = $request->input('limit', 25);
         $page = $request->input('page', 1);
 
-        $query = DossierConsultation::where('is_deleted', false)
-            ->with([
+        $query = DossierConsultation::with([
+                'emplacement',
                 'creator:id,login',
                 'updater:id,login',
                 'rendezVous:id,code,dateheure_rdv,client_id,consultant_id',
                 'rendezVous.client',
                 'rendezVous.consultant:id,nomcomplet,ref',
-                'medias'
+                'medias',
             ]);
 
-        // Filtrage direct
         if ($request->filled('client_id')) {
             $query->whereHas('rendezVous', fn($q) =>
             $q->where('client_id', $request->client_id)
@@ -57,6 +56,18 @@ class DossierConsultationController extends Controller
             $query->whereHas('rendezVous', fn($q) =>
             $q->where('consultant_id', $request->consultant_id)
             );
+        }
+
+        if ($request->filled('start_date') && $request->filled('end_date')) {
+            $startDate = Carbon::parse($request->input('start_date'))->startOfDay();
+            $endDate = Carbon::parse($request->input('end_date'))->endOfDay();
+
+            $query->whereBetween('created_at', [$startDate, $endDate]);
+        } else {
+            $query->whereBetween('created_at', [
+                Carbon::today()->subDay()->startOfDay(),
+                Carbon::today()->addDay()->endOfDay()
+            ]);
         }
 
         // 🔎 Recherche globale (incluant client et consultant)
@@ -168,8 +179,6 @@ class DossierConsultationController extends Controller
 
         DB::beginTransaction();
         try {
-
-
             $existing = DossierConsultation::where('rendez_vous_id', $data['rendez_vous_id'])->first();
             if ($existing) {
                 return response()->json([
@@ -186,7 +195,6 @@ class DossierConsultationController extends Controller
             ]));
 
             $lastArchive = PatientArchive::where('patient_id', $patientId)
-                ->where('is_deleted', false)
                 ->orderByDesc('number_order')
                 ->first();
 
@@ -200,6 +208,7 @@ class DossierConsultationController extends Controller
                     'notes'          => 'Première archive du patient créée avec succès.',
                     'created_by'     => $auth->id,
                     'updated_by'     => $auth->id,
+                    'location_id'    => $data['location_id'],
                 ]);
             } else {
                 $lastArchive->update([
@@ -217,6 +226,7 @@ class DossierConsultationController extends Controller
                     'notes'          => 'Archive mise à jour suite à la dernière consultation.',
                     'created_by'     => $auth->id,
                     'updated_by'     => $auth->id,
+                    'location_id'    => $data['location_id'],
                 ]);
             }
 
@@ -249,7 +259,7 @@ class DossierConsultationController extends Controller
 
             return response()->json([
                 'message' => 'Une erreur est survenue lors de la création du dossier.',
-                'error'   => $e->getMessage(), // pour debug exact
+                'error'   => $e->getMessage(),
             ], 500);
         }
     }

@@ -2004,14 +2004,27 @@ class PrestationController extends Controller
             ], 400);
         }
 
-        $query = Prestation::where('centre_id', $centreId);
+        $timezone = config('app.timezone');
 
-        if ($request->filled('date')) {
-            $query->whereDate('created_at', $request->input('date'));
+        // Récupération des dates (plage ou valeur unique ou défaut sur 1 mois)
+        $startDateInput = $request->input('start_date');
+        $endDateInput = $request->input('end_date');
+        $dateInput = $request->input('date');
+
+        if ($startDateInput && $endDateInput) {
+            $startDate = \Carbon\Carbon::parse($startDateInput, $timezone)->startOfDay();
+            $endDate = \Carbon\Carbon::parse($endDateInput, $timezone)->endOfDay();
+        } elseif ($dateInput) {
+            $startDate = \Carbon\Carbon::parse($dateInput, $timezone)->startOfDay();
+            $endDate = \Carbon\Carbon::parse($dateInput, $timezone)->endOfDay();
         } else {
-            $query->whereYear('created_at', now()->year)
-                ->whereMonth('created_at', now()->month);
+            // Par défaut : Tout le mois en cours
+            $startDate = \Carbon\Carbon::now($timezone)->startOfMonth()->startOfDay();
+            $endDate = \Carbon\Carbon::now($timezone)->endOfMonth()->endOfDay();
         }
+
+        $query = Prestation::where('centre_id', $centreId)
+            ->whereBetween('created_at', [$startDate, $endDate]);
 
         $counts = $query->select('regulated', \DB::raw('count(*) as total'))
             ->groupBy('regulated')
@@ -2019,11 +2032,15 @@ class PrestationController extends Controller
 
         return response()->json([
             'message' => 'Nombre de prestations par statut récupéré avec succès',
+            'periode' => [
+                'start_date' => $startDate->toDateTimeString(),
+                'end_date'   => $endDate->toDateTimeString(),
+            ],
             'data' => [
-                'creer' => $counts[0] ?? $counts['0'] ?? 0,
-                'en_cours' => $counts[1] ?? $counts['1'] ?? 0,
-                'reglee' => $counts[2] ?? $counts['2'] ?? 0,
-                'annulee' => $counts[3] ?? $counts['3'] ?? 0,
+                'creer'        => $counts[0] ?? $counts['0'] ?? 0,
+                'en_cours'     => $counts[1] ?? $counts['1'] ?? 0,
+                'reglee'       => $counts[2] ?? $counts['2'] ?? 0,
+                'annulee'      => $counts[3] ?? $counts['3'] ?? 0,
                 'facture_cree' => $counts[5] ?? $counts['5'] ?? 0,
             ]
         ], 200);

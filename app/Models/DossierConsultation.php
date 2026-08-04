@@ -91,8 +91,8 @@ class DossierConsultation extends Model
         );
     }
 
-    public function location():BelongsTo
+    public function emplacement():BelongsTo
     {
-       return $this->belongsTo(Location::class, 'location_id');
+       return $this->belongsTo(DossierLocation::class, 'location_id');
     }
 }

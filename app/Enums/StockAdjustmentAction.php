@@ -5,14 +5,12 @@ enum StockAdjustmentAction: string
 {
     case AVARIE           = 'avarie';
     case AJUSTEMENT_PLUS  = 'ajustement_plus';
-    case AJUSTEMENT_MOINS = 'ajustement_moins';
 
     public function label(): string
     {
         return match ($this) {
             self::AVARIE           => 'Avarie',
             self::AJUSTEMENT_PLUS  => 'Augmentation',
-            self::AJUSTEMENT_MOINS => 'Suppression',
         };
     }
 
