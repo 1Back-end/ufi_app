@@ -109,6 +109,8 @@ class PrestationController extends Controller
         $prestationsQuery = Prestation::with([
             'createdBy:id,nom_utilisateur',
             'updatedBy:id,nom_utilisateur',
+            'printer:id,nom_utilisateur',
+            'validator:id,nom_utilisateur',
             'payableBy',
             'client',
             'client.sexe',
@@ -559,6 +561,8 @@ class PrestationController extends Controller
         return response()->json([
             'prestation' => $prestation->load([
                 'payableBy',
+                'printer:id,nom_utilisateur',
+                'validator:id,nom_utilisateur',
                 'client',
                 'consultant',
                 'priseCharge',
@@ -1725,16 +1729,27 @@ class PrestationController extends Controller
             'prestation_ids' => ['required', 'array'],
             'prestation_ids.*' => ['required', 'integer', 'exists:prestations,id'],
             'status' => ['required', new Enum(StateExamen::class)],
-
         ]);
+
+        $status = $request->input('status');
+
         $prestationables = Prestationable::whereIn('prestation_id', $request->prestation_ids)
             ->where('status_examen', StateExamen::VALIDATED->value)
             ->get();
-        $prestationables->each(function ($prestationable) use ($request) {
-            $prestationable->update([
-                'status_examen' => $request->input('status')
-            ]);
+
+        $prestationables->each(function ($prestationable) use ($status) {
+            $updateData = [
+                'status_examen' => $status,
+                'printed_at' => now(),
+                'printed_by' => auth()->id(),
+            ];
+            $prestationable->update($updateData);
         });
+
+        Prestation::whereIn('id', $request->prestation_ids)->update([
+            'printed_at' => now(),
+            'printed_by' => auth()->id(),
+        ]);
 
         $path = null;
 

@@ -1,0 +1,24 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('prestations', function (Blueprint $table) {
+            $table->timestamp('printed_at')->nullable();
+            $table->foreignId('printed_by')->nullable()->constrained('users')->nullOnDelete();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('prestations', function (Blueprint $table) {
+            $table->dropForeign(['printed_by']);
+            $table->dropColumn(['printed_at', 'printed_by']);
+        });
+    }
+};
