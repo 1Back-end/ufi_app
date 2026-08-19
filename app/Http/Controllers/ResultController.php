@@ -73,12 +73,13 @@ class ResultController extends Controller
                                 ]);
                             }
 
-                            // Mettre à jour le résultat
                             $resultExist->update($result);
+                            if ($prestationable) {
+                                $prestationable->update(['is_result_entered' => true]);
+                            }
                             continue;
                         }
 
-                        // Si le résultat n'existait pas encore, on met PENDING seulement si ce n'est pas validé/imprimé
                         if (!in_array($prestationable->status_examen, [
                             StateExamen::VALIDATED->value,
                             StateExamen::PRINTED->value
@@ -91,6 +92,10 @@ class ResultController extends Controller
 
                     if ($resultExist) {
                         $resultExist->update($result);
+
+                        if ($prestationable) {
+                            $prestationable->update(['is_result_entered' => true]);
+                        }
                         continue;
                     }
 
@@ -98,6 +103,9 @@ class ResultController extends Controller
                         ...$result,
                         'prestation_id' => $prestation->id,
                     ]);
+                    if ($prestationable) {
+                        $prestationable->update(['is_result_entered' => true]);
+                    }
                 }
             }
         } catch (\Exception $e) {
@@ -176,6 +184,7 @@ class ResultController extends Controller
 
         foreach ($request->data as $data) {
             $prestation = Prestation::find($data['prestation_id']);
+            $hasUpdated = false;
 
             foreach ($data['examen_ids'] as $examen_id) {
                 $prestationable = Prestationable::where('prestation_id', $prestation->id)
@@ -183,11 +192,21 @@ class ResultController extends Controller
                     ->where('prestationable_id', $examen_id)
                     ->first();
 
-                if ($prestationable->status_examen === StateExamen::PENDING->value) {
+                if ($prestationable && $prestationable->status_examen === StateExamen::PENDING->value) {
                     $prestationable->update([
-                        'status_examen' => StateExamen::VALIDATED->value
+                        'status_examen' => StateExamen::VALIDATED->value,
+                        'validated_at' => now(),
+                        'validated_by' => auth()->id(),
                     ]);
+                    $hasUpdated = true;
                 }
+            }
+
+            if ($hasUpdated) {
+                $prestation->update([
+                    'validated_at' => now(),
+                    'validated_by' => auth()->id(),
+                ]);
             }
         }
 
