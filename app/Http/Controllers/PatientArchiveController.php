@@ -29,53 +29,29 @@ class PatientArchiveController extends Controller
             'location'
         ]);
 
-        // Filtrage par date (Personnalisé ou 3 jours par défaut)
-        if ($request->filled('start_date') && $request->filled('end_date')) {
-            $startDate = \Carbon\Carbon::parse($request->input('start_date'))->startOfDay();
-            $endDate = \Carbon\Carbon::parse($request->input('end_date'))->endOfDay();
-
-            $query->whereBetween('created_at', [$startDate, $endDate]);
-        } else {
-            $query->whereBetween('created_at', [
-                \Carbon\Carbon::today()->subDay()->startOfDay(),
-                \Carbon\Carbon::today()->addDay()->endOfDay()
-            ]);
-        }
-
-        if ($request->filled('first_visit_start') && $request->filled('first_visit_end')) {
-            $query->whereBetween('first_visit_at', [
-                \Carbon\Carbon::parse($request->first_visit_start)->startOfDay(),
-                \Carbon\Carbon::parse($request->first_visit_end)->endOfDay()
-            ]);
-        }
-
-        if ($request->filled('last_visit_start') && $request->filled('last_visit_end')) {
-            $query->whereBetween('last_visit_at', [
-                \Carbon\Carbon::parse($request->last_visit_start)->startOfDay(),
-                \Carbon\Carbon::parse($request->last_visit_end)->endOfDay()
-            ]);
-        }
-
-        // Recherche par mots-clés
         if ($search = trim($request->input('search'))) {
-            $query->where(function ($q) use ($search) {
-                $q->where('notes', 'like', "%{$search}%")
+            $query->where(function ($subQ) use ($search) {
+                $subQ->where('notes', 'like', "%{$search}%")
                     ->orWhere('id', 'like', "%{$search}%")
                     ->orWhere('number_order', 'like', "%{$search}%")
-
-                    ->orWhereHas('patient', function ($qs) use ($search) {
-                        $qs->where('nomcomplet_client', 'like', "%{$search}%")
-                            ->orWhere('prenom_cli', 'like', "%{$search}%")
+                    ->orWhereHas('patient', function ($clientQ) use ($search) {
+                        $clientQ->where('nomcomplet_client', 'like', "%{$search}%")
                             ->orWhere('nom_cli', 'like', "%{$search}%")
-                            ->orWhere('secondprenom_cli', 'like', "%{$search}%")
-                            ->orWhere('ref_cli', 'like', "%{$search}%")
+                            ->orWhere('prenom_cli', 'like', "%{$search}%")
                             ->orWhere('tel_cli', 'like', "%{$search}%");
                     })
                     ->orWhereHas('dossier', function ($qpr) use ($search) {
                         $qpr->where('code', 'like', "%{$search}%");
                     });
             });
+        } else {
+            $query->when($request->filled('start_date') && $request->filled('end_date'), function ($q) use ($request) {
+                $startDate = \Carbon\Carbon::parse($request->input('start_date'))->startOfDay();
+                $endDate = \Carbon\Carbon::parse($request->input('end_date'))->endOfDay();
+                $q->whereBetween('created_at', [$startDate, $endDate]);
+            });
         }
+
 
         $data = $query->latest()->paginate($perPage, ['*'], 'page', $page);
 
@@ -98,5 +74,4 @@ class PatientArchiveController extends Controller
             'total'        => $data->total(),
         ]);
     }
-
 }
