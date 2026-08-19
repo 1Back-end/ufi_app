@@ -2,18 +2,21 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Prestationable extends Model
 {
+    use HasFactory, SoftDeletes;
     public $timestamps = false;
 
     protected $fillable = [
         'prestation_id', 'prestationable_id', 'prestationable_type', 'remise', 'quantity',
         'date_rdv', 'date_rdv_end', 'nbr_days', 'type_salle', 'honoraire', 'created_at', 'updated_at',
         'amount_regulate', 'pu', 'b', 'k_modulateur', 'prelevements', 'status_examen','amount_prorate','amount_contested','amount_contested',
-        'consultant_amount_status'
+        'consultant_amount_status','is_preleve', 'prelevement_count','is_repreleve','repreleve_date'
     ];
 
     protected $casts = [

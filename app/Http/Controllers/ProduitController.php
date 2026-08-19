@@ -8,6 +8,7 @@ use App\Exports\ProductsExportSearch;
 use App\Imports\MaladieImport;
 use App\Imports\ProductsImport;
 use App\Imports\ProductsOtherImport;
+use App\Models\LotProduit;
 use Illuminate\Http\Request;
 use App\Models\Product;
 use Illuminate\Support\Carbon;
@@ -23,6 +24,64 @@ use Maatwebsite\Excel\Facades\Excel;
 
 class ProduitController extends Controller
 {
+    public function Get_Product_By_Emplacement(Request $request, $idEmplacement = null, $idTypeProduit = null)
+    {
+        $query = LotProduit::with(['produit.productType', 'emplacement']);
+
+        // 1. Gérer l'emplacement (s'il est présent)
+        if (!empty($idEmplacement)) {
+            $query->where('id_emplacement', $idEmplacement);
+        } elseif ($request->has('emplacement_id') && !empty($request->emplacement_id)) {
+            $query->where('id_emplacement', $request->emplacement_id);
+        }
+
+        // 2. Gérer le type de produit (depuis l'URL ou les query params)
+        $productTypeId = $idTypeProduit ?? $request->input('product_type_id');
+
+        if (!empty($productTypeId)) {
+            $query->whereHas('produit', function ($q) use ($productTypeId) {
+                $q->where('product_type_id', $productTypeId);
+            });
+        }
+
+        $lots = $query->get();
+
+        if ($lots->isEmpty()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Aucun produit trouvé pour ces critères.',
+                'data' => []
+            ], 200);
+        }
+
+        $resultat = $lots->map(function ($lot) {
+            return [
+                'lot_id' => $lot->id,
+                'numero_lot' => $lot->numero_lot_fabricant,
+                'quantite_actuelle' => $lot->quantite_actuelle,
+                'date_peremption' => $lot->date_peremption?->format('Y-m-d'),
+                'statut_calcule' => $lot->statut_calcule,
+                'produit' => [
+                    'id' => $lot->produit->id ?? null,
+                    'ref' => $lot->produit->ref ?? null,
+                    'name' => $lot->produit->name ?? null,
+                    'dosage' => $lot->produit->dosage ?? null,
+                    'product_type_id' => $lot->produit->product_type_id ?? null,
+                    'product_type_name' => $lot->produit->productType->name ?? null,
+                ],
+                'emplacement' => [
+                    'id' => $lot->emplacement->id ?? null,
+                    'name' => $lot->emplacement->name ?? null,
+                ]
+            ];
+        });
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Produits récupérés avec succès.',
+            'data' => $resultat
+        ], 200);
+    }
     /**
      * Display a listing of the resource.
      * @permission ProduitController::index

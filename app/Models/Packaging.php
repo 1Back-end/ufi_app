@@ -18,6 +18,7 @@ class Packaging extends Model
         'is_active',
         'created_by',
         'updated_by',
+        'code'
     ];
 
     protected $casts = [

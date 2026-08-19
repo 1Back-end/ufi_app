@@ -46,16 +46,20 @@ class ProductDosageController extends Controller
         $auth = auth()->user();
 
         $data = $request->validate([
-            'name'      => 'required|string|unique:product_dosages,name',
-            'is_active' => 'boolean',
+            'name'        => 'required|string|unique:product_dosages,name',
+            'forme'       => 'nullable|string|max:255',
+            'description' => 'nullable|string',
+            'is_active'   => 'boolean',
         ]);
 
         try {
             $dosage = ProductDosage::create([
-                'name'       => $data['name'],
-                'is_active'  => $data['is_active'] ?? true,
-                'created_by' => $auth?->id,
-                'updated_by' => $auth?->id,
+                'name'        => $data['name'],
+                'forme'       => $data['forme'] ?? null,
+                'description' => $data['description'] ?? null,
+                'is_active'   => $data['is_active'] ?? true,
+                'created_by'  => $auth?->id,
+                'updated_by'  => $auth?->id,
             ]);
 
             return response()->json([
@@ -97,15 +101,19 @@ class ProductDosageController extends Controller
         $dosage = ProductDosage::findOrFail($id);
 
         $data = $request->validate([
-            'name'      => 'required|string|unique:product_dosages,name,' . $id,
-            'is_active' => 'boolean',
+            'name'        => 'required|string|unique:product_dosages,name,' . $id,
+            'forme'       => 'nullable|string|max:255',
+            'description' => 'nullable|string',
+            'is_active'   => 'boolean',
         ]);
 
         try {
             $dosage->update([
-                'name'       => $data['name'],
-                'is_active'  => $data['is_active'] ?? $dosage->is_active,
-                'updated_by' => $auth?->id,
+                'name'        => $data['name'],
+                'forme'       => $data['forme'] ?? $dosage->forme,
+                'description' => $data['description'] ?? $dosage->description,
+                'is_active'   => $data['is_active'] ?? $dosage->is_active,
+                'updated_by'  => $auth?->id,
             ]);
 
             return response()->json([

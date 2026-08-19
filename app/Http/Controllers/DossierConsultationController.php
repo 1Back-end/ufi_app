@@ -165,7 +165,7 @@ class DossierConsultationController extends Controller
         $data = $request->validate([
             'rendez_vous_id'           => 'required|exists:rendez_vouses,id',
             'location_id'              => 'required|exists:dossier_locations,id',
-            'physical_dossier_number'  => 'required|string|unique:dossier_consultations,physical_dossier_number',
+            'physical_dossier_number'  => 'nullable|string|unique:dossier_consultations,physical_dossier_number',
             'poids'                    => 'required|string',
             'tension_arterielle_bd'    => 'nullable|string',
             'tension_arterielle_bg'    => 'nullable|string',
@@ -189,6 +189,11 @@ class DossierConsultationController extends Controller
 
             $rdv = RendezVous::with('client')->findOrFail($data['rendez_vous_id']);
             $patientId = $rdv->client_id;
+
+            // Si physical_dossier_number est vide, on prend le ref_cli du client
+            if (empty($data['physical_dossier_number'])) {
+                $data['physical_dossier_number'] = $rdv->client->ref_cli ?? null;
+            }
 
             $dossier = DossierConsultation::create(array_merge($data, [
                 'created_by' => $auth->id,

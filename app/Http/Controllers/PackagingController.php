@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Packaging;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 /**
  * @permission_category Gestion des conditionnements produits
@@ -50,18 +51,37 @@ class PackagingController extends Controller
      */
     public function store(Request $request)
     {
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'quantity' => 'required|integer|min:1',
-        ]);
-        $validated['name'] = Str::upper($validated['name']);
-        $validated['created_by'] = auth()->id();
-        $packaging = Packaging::create($validated);
+        $auth = auth()->user();
 
-        return response()->json([
-            'message' => 'Conditionnement créé avec succès.',
-            'data' => $packaging
-        ], 201);
+        $validated = $request->validate([
+            'name'        => 'required|string|max:255',
+            'code'        => 'nullable|string|max:255|unique:packagings,code',
+            'description' => 'nullable|string',
+            'is_active'   => 'boolean',
+        ]);
+
+        try {
+            $validated['name'] = Str::upper($validated['name']);
+            $validated['code'] = Str::upper($validated['code']);
+            $validated['is_active'] = $validated['is_active'] ?? true;
+            $validated['created_by'] = $auth?->id;
+            $validated['updated_by'] = $auth?->id;
+
+            $packaging = Packaging::create($validated);
+
+            return response()->json([
+                'message' => 'Conditionnement créé avec succès.',
+                'data'    => $packaging
+            ], 201);
+
+        } catch (\Throwable $e) {
+            Log::error('Erreur création conditionnement : ' . $e->getMessage());
+
+            return response()->json([
+                'message' => 'Une erreur est survenue lors de la création du conditionnement.',
+                'error'   => $e->getMessage(),
+            ], 500);
+        }
     }
 
     /**
@@ -86,21 +106,36 @@ class PackagingController extends Controller
      */
     public function update(Request $request, $id)
     {
+        $auth = auth()->user();
         $packaging = Packaging::findOrFail($id);
 
         $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'quantity' => 'required|integer|min:1',
+            'name'        => 'required|string|max:255',
+            'code'        => 'nullable|string|max:255|unique:packagings,code,' . $id,
+            'description' => 'nullable|string',
+            'is_active'   => 'boolean',
         ]);
 
-        $validated['name'] = Str::upper($validated['name']);
-        $validated['updated_by'] = auth()->id();
+        try {
+            $validated['name'] = Str::upper($validated['name']);
+            $validated['code'] = Str::upper($validated['code']);
+            $validated['updated_by'] = $auth?->id;
 
-        $packaging->update($validated);
-        return response()->json([
-            'message' => 'Conditionnement mis à jour avec succès.',
-            'data' => $packaging
-        ], 200);
+            $packaging->update($validated);
+
+            return response()->json([
+                'message' => 'Conditionnement mis à jour avec succès.',
+                'data'    => $packaging
+            ], 200);
+
+        } catch (\Throwable $e) {
+            Log::error('Erreur mise à jour conditionnement : ' . $e->getMessage());
+
+            return response()->json([
+                'message' => 'Une erreur est survenue lors de la mise à jour du conditionnement.',
+                'error'   => $e->getMessage(),
+            ], 500);
+        }
     }
 
     /**

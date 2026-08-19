@@ -22,6 +22,7 @@ use App\Models\FactureAssociate;
 use App\Models\FactureAssuranceByCentre;
 use App\Models\Media;
 use App\Models\OpsTblHospitalisation;
+use App\Models\PatientResultArchive;
 use App\Models\Prestation;
 use App\Models\Prestationable;
 use App\Models\PriseEnCharge;
@@ -437,6 +438,7 @@ class PrestationController extends Controller
             }
         }
 
+
         return $centre;
     }
 
@@ -593,7 +595,6 @@ class PrestationController extends Controller
     public function update(PrestationRequest $request, Prestation $prestation)
     {
         $auth = auth()->user();
-
         $centre = $request->header('centre');
 
         $check = $this->checkUserPrestationsNotRegulated($auth->id, $centre);
@@ -611,45 +612,21 @@ class PrestationController extends Controller
             ], Response::HTTP_UNAUTHORIZED);
         }
 
-        $caisse = Caisse::where('user_id', $auth->id)
-            ->where('centre_id', $centre)
-            ->first();
+        $centre = $this->checkCentreAndCaisse($request, $auth);
+        if ($centre instanceof \Illuminate\Http\JsonResponse) {
+            return $centre;
+        }
 
-        if (!$caisse) {
+        $freshPrestation = Prestation::find($prestation->id);
+
+        $typeValue = $freshPrestation->type instanceof TypePrestation
+            ? $freshPrestation->type->value
+            : $freshPrestation->type;
+
+        if ($typeValue == TypePrestation::LABORATOIR->value && $freshPrestation->state_examen > 2) {
             return response()->json([
-                'message' => __("Aucune caisse assignée à cet utilisateur pour ce centre !")
+                'message' => __("Impossible de modifier cette prestation car certains examens de laboratoire ont déjà été validés ou traités !")
             ], Response::HTTP_FORBIDDEN);
-        }
-
-        if ($caisse->position === 'close') {
-            return response()->json([
-                'message' => __("Votre caisse est fermée ! Vous ne pouvez pas créer de prestation.")
-            ], Response::HTTP_FORBIDDEN);
-        }
-
-        if ($caisse->position === 'in_pause') {
-            return response()->json([
-                'message' => __("Votre caisse est en pause ! Vous ne pouvez pas créer de prestation.")
-            ], Response::HTTP_FORBIDDEN);
-        }
-
-        $centreModel = Centre::find($centre);
-        $type = $request->input('type');
-
-        if (in_array($type, [TypePrestation::ACTES->value, TypePrestation::CAMPAGNE->value, TypePrestation::CONSULTATIONS->value, TypePrestation::HOSPITALISATION->value])) {
-            if ($centreModel->short_name !== 'CMGT') {
-                return response()->json([
-                    'message' => 'Cette prestation ne peut être créé que dans le Centre Médical.'
-                ], Response::HTTP_BAD_REQUEST);
-            }
-        }
-
-        if (in_array($type, [TypePrestation::LABORATOIR->value])) {
-            if (!in_array($centreModel->short_name, ['GTLABO', 'ancienne-mairie-tsinga'])) {
-                return response()->json([
-                    'message' => 'Cette prestation ne peut être créée que dans les Centres GTLABO ou à l\'ANCIENNE MAIRIE TSINGA.'
-                ], Response::HTTP_BAD_REQUEST);
-            }
         }
 
         DB::beginTransaction();
@@ -659,11 +636,11 @@ class PrestationController extends Controller
             }
 
             $data = $request->validated();
-
+            $data['centre_id'] = $centre;
 
             $data = $this->getDataForPriseEnCharge($request, $data);
 
-            if ($data['payable_by']) {
+            if (isset($data['payable_by']) && $data['payable_by']) {
                 $convention = ConventionAssocie::query()
                     ->whereClientId($data['payable_by'])
                     ->where('start_date', '<=', now())
@@ -672,10 +649,12 @@ class PrestationController extends Controller
                     ->first();
 
                 if ($convention && ($convention->amount + $data['amount']) > $convention->amount_max) {
-                    throw new \Exception('Le plafond de la convention est dépassé de : ' . $convention->amount + $data['amount'] - $convention->amount_max . "FCFA", 400);
+                    throw new \Exception('Le plafond de la convention est dépassé de : ' . ($convention->amount + $data['amount'] - $convention->amount_max) . " FCFA", 400);
                 }
 
-                $data['convention_id'] = $convention->id;
+                if ($convention) {
+                    $data['convention_id'] = $convention->id;
+                }
             }
 
             $prestation->update($data);
@@ -686,7 +665,7 @@ class PrestationController extends Controller
             }
 
             // Save File for associate client !
-            if ($data['payable_by'] && $request->file('payable_by_file')) {
+            if (isset($data['payable_by']) && $data['payable_by'] && $request->file('payable_by_file')) {
                 upload_media(
                     model: $prestation,
                     file: $request->file('payable_by_file'),
@@ -1673,6 +1652,62 @@ class PrestationController extends Controller
         ]);
     }
 
+    public function updateStatusExamen(Request $request, Prestation $prestation)
+    {
+        $request->validate([
+            'status' => ['required', new Enum(StateExamen::class)],
+        ]);
+
+        $newStatus = $request->input('status');
+
+        $exists = DB::table('prestationables')
+            ->where('prestation_id', $prestation->id)
+            ->where(function ($query) {
+                $query->where('status_examen', StateExamen::VALIDATED->value)
+                    ->orWhere('status_examen', StateExamen::PRINTED->value)
+                    ->orWhere('status_examen', StateExamen::REMIS->value);
+            })
+            ->exists();
+
+        if (!$exists) {
+            return response()->json([
+                'message' => __("L'état des examens de la prestation ne permet pas cette modification.")
+            ], 422);
+        }
+
+        DB::table('prestationables')
+            ->where('prestation_id', $prestation->id)
+            ->where(function ($query) {
+                $query->where('status_examen', StateExamen::VALIDATED->value)
+                    ->orWhere('status_examen', StateExamen::PRINTED->value)
+                    ->orWhere('status_examen', StateExamen::REMIS->value);
+            })
+            ->update([
+                'status_examen' => $newStatus,
+            ]);
+
+        if ($newStatus === StateExamen::PRINTED->value || $newStatus === StateExamen::REMIS->value) {
+            $archive = PatientResultArchive::where('prestation_id', $prestation->id)->first();
+
+            if ($archive) {
+                $archive->increment('count');
+                $archive->update([
+                    'updated_by' => auth()->id(),
+                ]);
+            } else {
+                PatientResultArchive::create([
+                    'prestation_id' => $prestation->id,
+                    'count'         => 1,
+                    'created_by'    => auth()->id(),
+                ]);
+            }
+        }
+
+        return response()->json([
+            'message' => __("L'état des examens de la prestation a bien été mis à jour."),
+        ]);
+    }
+
     /**
      * Update the status of exams for specified prestations.
      *
@@ -1690,21 +1725,20 @@ class PrestationController extends Controller
             'prestation_ids' => ['required', 'array'],
             'prestation_ids.*' => ['required', 'integer', 'exists:prestations,id'],
             'status' => ['required', new Enum(StateExamen::class)],
-        ]);
 
+        ]);
         $prestationables = Prestationable::whereIn('prestation_id', $request->prestation_ids)
             ->where('status_examen', StateExamen::VALIDATED->value)
             ->get();
-
         $prestationables->each(function ($prestationable) use ($request) {
             $prestationable->update([
                 'status_examen' => $request->input('status')
             ]);
         });
 
-        // Si le status est printed, alors créer le document d'impressions de résultats
         $path = null;
-        if ($request->input('status') === 'printed') {
+
+        if (in_array($request->input('status'), ['printed', 'remis'])) {
             DB::beginTransaction();
             try {
                 $prestation = Prestation::with([

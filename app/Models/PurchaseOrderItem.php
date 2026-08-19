@@ -27,13 +27,15 @@ class PurchaseOrderItem extends Model
         'updated_by',
         'unit_quantity',
         'received_packaging_id',
-        'unit_quantity_received'
+        'unit_quantity_received',
+        'is_all_delivery'
     ];
 
     protected $casts = [
         'quantity' => 'integer',
         'unit_price' => 'decimal:2',
         'total_price' => 'decimal:2',
+        'is_all_delivery' => 'boolean',
     ];
 
     public function purchaseOrder()

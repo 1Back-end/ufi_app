@@ -77,7 +77,29 @@ class RegulationController extends Controller
         }
 
         foreach ($request->input('regulations') as $reg) {
-            // 🔹 Créer le règlement
+            $method = \App\Models\RegulationMethod::find($reg['method']);
+
+            if (!$method || !$method->active) {
+                return response()->json([
+                    'message' => "Le mode de règlement sélectionné est invalide ou inactif."
+                ], 422);
+            }
+
+            if ($method->comment_required && empty($reg['comment'])) {
+                return response()->json([
+                    'message' => "Un commentaire est obligatoire pour le mode de règlement : {$method->name}"
+                ], 422);
+            } elseif ($method->phone_method && empty($reg['phone'])) {
+                return response()->json([
+                    'message' => "Le numéro de téléphone est obligatoire pour le mode de règlement : {$method->name}"
+                ], 422);
+            }
+
+            if (!$method->phone_method && !empty($reg['phone'])) {
+                return response()->json([
+                    'message' => "Le mode de règlement {$method->name} ne nécessite ni n'accepte de numéro de téléphone ni de référence."
+                ], 422);
+            }
             $regulation = Regulation::create([
                 'facture_id' => $request->input('facture_id'),
                 'regulation_method_id' => $reg['method'],
@@ -187,13 +209,11 @@ class RegulationController extends Controller
             'reason' => 'required|string|max:255',
         ]);
 
-        // 🔹 Mettre à jour la regulation
         $regulation->update([
             'state' => StatusRegulation::CANCELLED,
             'reason' => $request->input('reason')
         ]);
 
-        // 🔹 Récupérer le SessionElement correspondant au centre
         $sessionElement = \App\Models\SessionElement::where('regulation_id', $regulation->id)
             ->where('centre_id', $centreId)
             ->first();
@@ -212,6 +232,7 @@ class RegulationController extends Controller
             $sessionElement->delete();
         }
         $this->validatedFacture($regulation->facture, false, true);
+        $regulation->delete();
 
         return response()->json([], 202);
     }

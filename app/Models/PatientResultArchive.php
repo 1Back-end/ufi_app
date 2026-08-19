@@ -6,31 +6,30 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-class ProductDosage extends Model
+class PatientResultArchive extends Model
 {
     use HasFactory, SoftDeletes;
 
-    protected $table = 'product_dosages';
+    protected $table = 'patient_result_archives';
 
     protected $fillable = [
-        'name',
-        'is_active',
+        'prestation_id',
+        'count',
         'created_by',
         'updated_by',
-        'forme',
-        'description'
     ];
 
-    protected $casts = [
-        'is_active' => 'boolean',
-    ];
+    public function prestation()
+    {
+        return $this->belongsTo(Prestation::class);
+    }
 
-    public function creator()
+    public function createdBy()
     {
         return $this->belongsTo(User::class, 'created_by');
     }
 
-    public function editor()
+    public function updatedBy()
     {
         return $this->belongsTo(User::class, 'updated_by');
     }
