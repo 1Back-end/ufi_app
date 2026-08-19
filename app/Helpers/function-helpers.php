@@ -506,7 +506,6 @@ if (!function_exists('showExamHasResult')) {
         if (!in_array($statusValue, StateExamen::validated())) {
             return false;
         }
-        // 🔥 optimisation (évite requêtes répétées)
         $resultIds = $prestation->results->pluck('element_paillasse_id')->toArray();
 
         foreach ($examen->elementPaillasses as $elementPaillasse) {

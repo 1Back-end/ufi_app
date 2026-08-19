@@ -22,7 +22,6 @@ class QuotationController extends Controller
         $perPage = $request->input('limit', 10);
         $search = $request->input('search');
 
-        // Construction de la requête
         $query = Quotation::where('is_deleted', false);
 
         if ($search) {
@@ -32,7 +31,6 @@ class QuotationController extends Controller
             });
         }
 
-        // Appliquer la pagination après les filtres
         $quotations = $query->paginate($perPage);
 
         return response()->json([

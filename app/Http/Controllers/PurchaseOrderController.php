@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Enums\PurchaseOrderStatus;
 use App\Enums\PurchaseOrderType;
 use App\Models\EmplacementsProduct;
+use App\Models\LotProduitConditionnement;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderItem;
 use Illuminate\Http\JsonResponse;
@@ -41,7 +42,7 @@ class PurchaseOrderController extends Controller
             'items.*.product_id'    => 'required|exists:products,id',
             'items.*.quantity'      => 'required|integer|min:1',
             'items.*.packaging_id'  => 'nullable|exists:packagings,id',
-            'items.*.unit_quantity' => 'nullable|integer|min:0', // Autorise 0
+            'items.*.unit_quantity' => 'nullable|integer|min:0',
         ]);
 
         if ($validator->fails()) {
@@ -102,9 +103,7 @@ class PurchaseOrderController extends Controller
                 'updated_by'              => auth()->id(),
             ]);
 
-            // Enregistrement des items sans forcing/fallback
             foreach ($request->items as $item) {
-                // Si unit_quantity n'est pas envoyé, on assigne 0 directement
                 $unitQuantity = $item['unit_quantity'] ?? 0;
 
                 PurchaseOrderItem::create([
@@ -151,7 +150,6 @@ class PurchaseOrderController extends Controller
      */
     public function update(Request $request, $id)
     {
-        // 1. Recherche du Bon de Commande
         $purchaseOrder = PurchaseOrder::find($id);
 
         if (!$purchaseOrder) {
@@ -161,7 +159,6 @@ class PurchaseOrderController extends Controller
             ], 404);
         }
 
-        // 2. Validation des données
         $validator = Validator::make($request->all(), [
             'purchase_order_number' => [
                 'nullable',
@@ -180,7 +177,7 @@ class PurchaseOrderController extends Controller
             'items.*.product_id'    => 'required|exists:products,id',
             'items.*.quantity'      => 'required|integer|min:1',
             'items.*.packaging_id'  => 'nullable|exists:packagings,id',
-            'items.*.unit_quantity' => 'nullable|integer|min:0', // min:0 autorise 0
+            'items.*.unit_quantity' => 'nullable|integer|min:0',
         ]);
 
         if ($validator->fails()) {
@@ -194,7 +191,6 @@ class PurchaseOrderController extends Controller
         DB::beginTransaction();
 
         try {
-            // 3. Mise à jour de l'en-tête du Bon de Commande
             $purchaseOrder->update([
                 'purchase_order_type'      => $request->purchase_order_type,
                 'order_date'               => $request->order_date ?? $purchaseOrder->order_date,
@@ -211,7 +207,6 @@ class PurchaseOrderController extends Controller
                 ]);
             }
 
-            // Supprimer les anciens items
             $purchaseOrder->items()->delete();
 
             foreach ($request->items as $item) {
@@ -501,6 +496,7 @@ class PurchaseOrderController extends Controller
      */
     public function receive(Request $request, $id)
     {
+        $auth = auth()->user();
         $purchaseOrder = PurchaseOrder::with('items')->findOrFail($id);
 
         // 1. Validation des données
@@ -518,6 +514,13 @@ class PurchaseOrderController extends Controller
             'products_quantities.*.batch_number'          => 'nullable|string|max:255',
             'products_quantities.*.expiration_date'        => $purchaseOrder->purchase_order_type === 'external' ? 'required|date' : 'nullable|date',
             'products_quantities.*.id_emplacement'        => $purchaseOrder->purchase_order_type === 'external' ? 'required|exists:emplacements_products,id' : 'nullable',
+
+            // Validation des conditionnements pour chaque item reçu
+            'products_quantities.*.conditionnements'           => 'nullable|array',
+            'products_quantities.*.conditionnements.*.id'      => 'required_with:products_quantities.*.conditionnements|exists:packagings,id',
+            'products_quantities.*.conditionnements.*.quantite'=> 'required_with:products_quantities.*.conditionnements|numeric|min:0.01',
+            'products_quantities.*.conditionnements.*.price'   => 'nullable|numeric|min:0',
+            'products_quantities.*.conditionnements.*.pt'      => 'nullable|numeric|min:0',
         ]);
 
         if ($validator->fails()) {
@@ -567,7 +570,7 @@ class PurchaseOrderController extends Controller
                         ], 422);
                     }
 
-                    // Handling Conditionnement & Quantité Unitaire
+
                     $receivedPackagingId = $incomingItem['received_packaging_id'] ?? null;
                     $unitQuantityReceived = $receivedQty;
 
@@ -588,16 +591,19 @@ class PurchaseOrderController extends Controller
                     $newUnitQuantityReceived = ($orderItem->unit_quantity_received ?? 0) + $unitQuantityReceived;
                     $remainingQty = max($orderItem->quantity - $newAlreadyReceived, 0);
 
-                    // Update PurchaseOrderItem
+
+                    $isAllDelivery = $newAlreadyReceived >= $orderItem->quantity;
+
                     $orderItem->update([
                         'already_received_quantity' => $newAlreadyReceived,
                         'unit_quantity_received'    => $newUnitQuantityReceived,
                         'received_packaging_id'     => $receivedPackagingId ?: $orderItem->received_packaging_id,
                         'remaining_quantity'        => $remainingQty,
-                        'updated_by'                => auth()->id(),
+                        'is_all_delivery'           => $isAllDelivery,
+                        'updated_by'                => $auth->id,
                     ]);
 
-                    // Priorité au numéro de lot saisi dans le Formulaire Frontend
+
                     $providedBatchNumber = !empty($incomingItem['batch_number']) ? trim($incomingItem['batch_number']) : null;
 
                     $lotQuery = DB::table('lot_produits')
@@ -605,7 +611,6 @@ class PurchaseOrderController extends Controller
                         ->where('id_emplacement', $emplacementId);
 
                     if ($providedBatchNumber) {
-                        // Si un numéro de lot est explicitement fourni, on cherche d'abord par ce numéro
                         $lotQuery->where('numero_lot_fabricant', $providedBatchNumber);
                     } else {
                         if ($expirationDate) {
@@ -623,13 +628,12 @@ class PurchaseOrderController extends Controller
                             ->update([
                                 'quantite_actuelle' => $lot->quantite_actuelle + $receivedQty,
                                 'date_reception'    => $request->received_date,
-                                'updated_by'        => auth()->id(),
+                                'updated_by'        => $auth->id,
                                 'updated_at'        => now(),
                             ]);
                         $lotId = $lot->id;
                         $batchNumber = $lot->numero_lot_fabricant;
                     } else {
-                        // Utilise le numéro fourni par Angular, sinon génère le fallback
                         if ($providedBatchNumber) {
                             $batchNumber = $providedBatchNumber;
                         } else {
@@ -650,17 +654,32 @@ class PurchaseOrderController extends Controller
                             'id_produit'           => $incomingItem['product_id'],
                             'id_emplacement'       => $emplacementId,
                             'fournisseur_id'       => $purchaseOrder->fournisseur_id,
-                            'created_by'           => auth()->id(),
-                            'updated_by'           => auth()->id(),
+                            'created_by'           => $auth->id,
+                            'updated_by'           => $auth->id,
                             'created_at'           => now(),
                             'updated_at'           => now(),
                         ]);
                     }
 
+
+                    if (!empty($incomingItem['conditionnements']) && is_array($incomingItem['conditionnements'])) {
+                        foreach ($incomingItem['conditionnements'] as $cond) {
+                            LotProduitConditionnement::create([
+                                'lot_produit_id'        => $lotId,
+                                'product_packagings_id' => $cond['id'],
+                                'quantite'              => $cond['quantite'],
+                                'price'                 => $cond['price'] ?? 0,
+                                'pt'                    => $cond['pt'] ?? 0,
+                                'created_by'            => $auth->id,
+                                'updated_by'            => $auth->id,
+                            ]);
+                        }
+                    }
+
                     // Mouvement de stock
                     DB::table('mouvement_stock')->insert([
-                        'created_by'           => auth()->id(),
-                        'updated_by'           => auth()->id(),
+                        'created_by'           => $auth->id,
+                        'updated_by'           => $auth->id,
                         'lot_id'               => $lotId,
                         'type_mouvement'       => 'Entrée en stock',
                         'quantite_mutee'       => $receivedQty,
@@ -682,14 +701,14 @@ class PurchaseOrderController extends Controller
                         'expiration_date'       => $expirationDate,
                         'order_number'          => $request->order_number ?? null,
                         'received_date'         => $request->received_date,
-                        'created_by'            => auth()->id(),
+                        'created_by'            => $auth->id,
                         'created_at'            => now(),
                         'updated_at'            => now(),
                     ]);
                 }
             }
 
-            // Mise à jour du statut global
+
             $allOrderItems = PurchaseOrderItem::where('purchase_order_id', $purchaseOrder->id)->get();
             $totalItemsCount = $allOrderItems->count();
 
@@ -709,7 +728,7 @@ class PurchaseOrderController extends Controller
                 $purchaseOrder->status = PurchaseOrderStatus::IN_PROGRESS->value;
             }
 
-            $purchaseOrder->updated_by = auth()->id();
+            $purchaseOrder->updated_by = $auth->id;
             $purchaseOrder->save();
 
             DB::commit();

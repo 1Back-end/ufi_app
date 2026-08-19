@@ -37,14 +37,12 @@ class CaisseController extends Controller
 
         $caisse = \App\Models\Caisse::where('user_id', $user->id)->where('is_active', true)->firstOrFail();
 
-        //Si la caisse utilise déjà un code personnalisé
         if ($caisse->is_default_secret_code) {
             return response()->json([
                 'message' => __('Le code secret a déjà été personnalisé.')
             ], Response::HTTP_FORBIDDEN);
         }
 
-        //Si une session existe déjà
         $hasSession = SessionCaisse::where('caisse_id', $caisse->id)->exists();
         if ($hasSession) {
             return response()->json([
@@ -52,14 +50,12 @@ class CaisseController extends Controller
             ], Response::HTTP_FORBIDDEN);
         }
 
-        //Vérification de l'ancien code
         if (!Hash::check($request->old_secret_code, $caisse->secret_code)) {
             return response()->json([
                 'message' => __('Ancien code secret incorrect.')
             ], Response::HTTP_UNAUTHORIZED);
         }
 
-        // ✅ Mise à jour du code secret
         $caisse->update([
             'secret_code' => Hash::make($request->new_secret_code),
             'is_default_secret_code' => true,
@@ -112,7 +108,6 @@ class CaisseController extends Controller
             ], Response::HTTP_FORBIDDEN);
         }
 
-        // Vérifier s'il y a déjà une caisse principale dans ce centre
         if ($request->is_primary) {
             $primaryExists = Caisse::where('centre_id', $request->centre_id)
                 ->where('is_primary', true)
@@ -125,7 +120,6 @@ class CaisseController extends Controller
             }
         }
 
-        // Création de la caisse
         $caisse = Caisse::create([
             'name'        => $request->name,
             'description' => $request->description,
@@ -189,7 +183,6 @@ class CaisseController extends Controller
             ], Response::HTTP_FORBIDDEN);
         }
 
-        // Vérifier s'il y a déjà une caisse principale dans ce centre (sauf la caisse actuelle)
         if ($request->is_primary) {
             $primaryExists = Caisse::where('centre_id', $request->centre_id)
                 ->where('is_primary', true)
@@ -203,7 +196,6 @@ class CaisseController extends Controller
             }
         }
 
-        // Mise à jour de la caisse
         $caisse->update([
             'name'        => $request->name,
             'description' => $request->description,
@@ -332,7 +324,6 @@ class CaisseController extends Controller
             ], Response::HTTP_NOT_FOUND);
         }
 
-        // 🚫 Désactivation au lieu de suppression
         $caisse->update([
             'is_active'  => false,
             'updated_by' => $auth->id,
@@ -429,7 +420,6 @@ class CaisseController extends Controller
 
             $caisse->save();
 
-            // 6️⃣ Fermer la session en cours si elle existe
             $session = SessionCaisse::where('caisse_id', $caisse->id)->where('etat', 'OUVERT')->latest()->first();
 
             if ($session) {
@@ -713,7 +703,6 @@ class CaisseController extends Controller
             // ⏸️ PAUSE
             // ============================
             if ($newPosition === 'in_pause') {
-
                 if (!$session) {
                     return response()->json([
                         'message' => 'Aucune session trouvée.'
@@ -844,7 +833,6 @@ class CaisseController extends Controller
         $auth = auth()->user();
         $centreId = $request->header('centre');
 
-        // 🔹 Vérifier la caisse ouverte
         $caisse = Caisse::where('user_id', $auth->id)
             ->where('centre_id', $centreId)
             ->where('position', 'open')
@@ -856,7 +844,6 @@ class CaisseController extends Controller
             ], 404);
         }
 
-        // 🔹 Envoyer les bonnes données
         $request->merge([
             'position' => 'in_pause',
             'centre_id' => $centreId

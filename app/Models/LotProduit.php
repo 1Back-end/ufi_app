@@ -108,4 +108,9 @@ class LotProduit extends Model
             'id'
         );
     }
+
+    public function conditionnements()
+    {
+        return $this->hasMany(LotProduitConditionnement::class, 'lot_produit_id');
+    }
 }

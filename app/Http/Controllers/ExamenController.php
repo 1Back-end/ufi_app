@@ -2,12 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\StateExamen;
 use App\Http\Requests\ExamenRequest;
 use App\Models\Centre;
 use App\Models\ElementPaillasse;
 use App\Models\Examen;
 use App\Models\FamilyExam;
 use App\Models\Prestation;
+use App\Models\Quotation;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -230,20 +232,29 @@ class ExamenController extends Controller
      */
     public function prelevement(Examen $examen, Prestation $prestation)
     {
-        $prelevements = $prestation->examens()->find($examen->id)->pivot->prelevements;
+        $pivot = $prestation->examens()->find($examen->id)->pivot;
+        $prelevements = $pivot->prelevements ?? [];
 
-        $prelevement = $prelevements ?? [];
-
-        $prestation->examens()->updateExistingPivot($examen->id, [
-            'prelevements' => [
-                ...$prelevement,
+        $currentCount = $pivot->prelevement_count ?? 0;
+        $updateData = [
+            'is_preleve'        => true,
+            'prelevement_count' => $currentCount + 1,
+            'prelevements'      => [
+                ...$prelevements,
                 [
-                    'id' => str()->uuid(),
-                    'cancel' => false,
+                    'id'           => str()->uuid(),
+                    'cancel'       => false,
                     'preleve_date' => now(),
                 ]
             ]
-        ]);
+        ];
+
+        if ($currentCount >= 1) {
+            $updateData['is_repreleve']   = true;
+            $updateData['repreleve_date'] = now();
+        }
+
+        $prestation->examens()->updateExistingPivot($examen->id, $updateData);
 
         return response()->json([
             'message' => 'Examen prelevement successfully',
@@ -269,27 +280,37 @@ class ExamenController extends Controller
         foreach ($request->data as $data) {
             $prestation = Prestation::find($data['prestation_id']);
 
-            foreach ($data['examens'] as $examen) {
-                $prelevements = $prestation->examens()->find($examen)->pivot->prelevements;
+            foreach ($data['examens'] as $examenId) {
+                $pivot = $prestation->examens()->find($examenId)->pivot;
+                $prelevements = $pivot->prelevements ?? [];
 
-                $prelevement = $prelevements ?? [];
+                // Calculer le nouveau nombre de prélèvements pour gérer le ré-prélèvement
+                $currentCount = ($pivot->prelevement_count ?? 0) + 1;
 
-                $prestation->examens()->updateExistingPivot($examen, [
-                    'prelevements' => [
-                        ...$prelevement,
+                $updateData = [
+                    'is_preleve'        => true,
+                    'prelevement_count' => $currentCount,
+                    'prelevements'      => [
+                        ...$prelevements,
                         [
-                            'id' => str()->uuid(),
-                            'cancel' => false,
+                            'id'           => (string) str()->uuid(),
+                            'cancel'       => false,
                             'preleve_date' => now(),
                         ]
                     ]
-                ]);
+                ];
+
+                if ($currentCount > 1) {
+                    $updateData['is_repreleve']   = true;
+                    $updateData['repreleve_date'] = now();
+                }
+                $prestation->examens()->updateExistingPivot($examenId, $updateData);
             }
         }
 
         return response()->json([
             'message' => 'All examens prelevement successfully',
-        ], ResponseAlias::HTTP_OK);
+        ]);
     }
 
     /**
@@ -368,10 +389,10 @@ class ExamenController extends Controller
     {
         $centre = Centre::find($request->header('centre'));
 
-        if (!$centre || $centre->reference !== 'GTLABO') {
+        if (!$centre || !in_array($centre->reference, ['GTLABO', 'AM_TSG'])) {
             return response()->json([
                 'error'   => 'Accès refusé',
-                'message' => 'Veuillez vous connecter au centre GTLABO'
+                'message' => 'Veuillez vous connecter au centre GTLABO ou AM_TSG'
             ], 403);
         }
         DB::beginTransaction();
@@ -411,6 +432,107 @@ class ExamenController extends Controller
             // Génération du PDF
             save_browser_shot_pdf(
                 view: 'pdfs.tarifaires-examens.tarifaires-examens', // Vue Blade
+                data: $data,
+                folderPath: $folderPath,
+                path: $filePath,
+                margins: [10, 10, 10, 10],
+                format: 'A4',
+                footer: $footer,
+            );
+
+            // Vérifier si le PDF a été généré
+            if (!file_exists($filePath)) {
+                DB::rollBack();
+                return response()->json(['error' => 'Le fichier PDF n\'a pas été généré.'], 500);
+            }
+
+            DB::commit();
+
+            $pdfContent = file_get_contents($filePath);
+            $base64 = base64_encode($pdfContent);
+
+            return response()->json([
+                'base64'   => $base64,
+                'url'      => $filePath,
+                'filename' => $fileName,
+            ], 200);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'error' => 'Une erreur est survenue',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+
+    /**
+     * @param Prestation $prestation
+     * @param Examen $examen
+     * @param Request $request
+     * @return JsonResponse
+     *
+     * @permission ExamenController::PrintTarifaireActesBy_Assurance
+     * @permission_desc Imprimer le tarifaire des examens par taux de cotations
+     */
+    public function PrintTarifaireActesBy_Assurance(Request $request, $quotationId)
+    {
+        $centre = Centre::find($request->header('centre'));
+
+        $centre = Centre::find($request->header('centre'));
+
+        if (!$centre || !in_array($centre->reference, ['GTLABO', 'AM_TSG'])) {
+            return response()->json([
+                'error'   => 'Accès refusé',
+                'message' => 'Veuillez vous connecter au centre GTLABO ou AM_TSG'
+            ], 403);
+        }
+        $quotation = Quotation::find($quotationId);
+
+        if (!$quotation) {
+            return response()->json([
+                'error'   => 'Cotation introuvable',
+                'message' => 'Veuillez fournir un ID de cotation valide.'
+            ], 404);
+        }
+        DB::beginTransaction();
+
+        try {
+
+            $familles_examens = FamilyExam::with(['examens' => function ($query) {
+                $query->orderBy('name')
+                    ->with(['typePrelevement', 'tubePrelevement']);
+            }])
+                ->orderBy('order', 'asc')
+                ->get();
+
+            $familles_examens = $familles_examens->filter(fn($famille) => $famille->examens->count() > 0);
+            $media  = $centre->medias()->where('name', 'logo')->first();
+
+            $data = [
+                'title'            => 'Tarifaire des examens par assurance',
+                'familles_examens' => $familles_examens,
+                'logo'        => $media ? 'storage/' . $media->path . '/' . $media->filename : '',
+                'centre'      => $centre,
+                'quotation'        => $quotation,
+            ];
+
+
+            $fileName   = 'TARIFAIRE-ASSURANCE-' . $quotation->code . '-' . now()->format('YmdHis') . '.pdf';
+            $folderPath = "storage/tarifaires-examens-for-assurance";
+            $filePath   = $folderPath . '/' . $fileName;
+
+            // Création du dossier si nécessaire
+            if (!file_exists($folderPath)) {
+                mkdir($folderPath, 0755, true);
+            }
+
+            $footer = 'pdfs.reports.factures.footer';
+
+            // Génération du PDF
+            save_browser_shot_pdf(
+                view: 'pdfs.tarifaires-examens-for-assurance.tarifaires-examens-for-assurance',
                 data: $data,
                 folderPath: $folderPath,
                 path: $filePath,

@@ -221,12 +221,13 @@ Route::middleware(['activity'])->group(function () {
         Route::apiResource('prefixes', PrefixController::class)->except(['show']);
         Route::apiResource('type-actes', TypeActeController::class)->except(['show']);
         Route::patch('/type-actes/{typeActe}/activate', [TypeActeController::class, 'changeStatus']);
-        // Actes
+
         Route::apiResource('actes', ActeController::class);
         Route::patch('/actes/{acte}/activate', [ActeController::class, 'changeStatus']);
         Route::post('/actes/import', [ActeController::class, 'import']);
-        Route::get('/actes/print_rapports', [ActeController::class, 'PrintRapportActes']);
-        Route::get('/actes/print_rapports_assurances', [ActeController::class, 'PrintRapportActesForAssurances']);
+        Route::get('/print_rapports_actes', [ActeController::class, 'PrintRapportActes']);
+        Route::get('actes/print_rapports_actes_by_cotation/{quotationId}', [ActeController::class, 'PrintRapportActesByCotations']);
+        Route::get('/print_rapports_assurances', [ActeController::class, 'PrintRapportActesForAssurances']);
         Route::get('/prints_tarifaire_actes/assurance/{assurance}', [ActeController::class, 'print_tarifsActes_byAssurance']);
 
         // Prestations
@@ -337,6 +338,8 @@ Route::middleware(['activity'])->group(function () {
         Route::patch('products/{id}/is_active', [ProduitController::class, 'updateStatus']);
         Route::patch('/products/{id}/toggle_suspended', [ProduitController::class, 'updateSuspendedStatus']);
         Route::patch('/products/{id}/toggle_out_of_stock', [ProduitController::class, 'updateOutOfStockStatus']);
+        Route::get('products/emplacements/{idEmplacement}/produits', [ProduitController::class, 'Get_Product_By_Emplacement']);
+        Route::get('products/products_by_type/{idTypeProduit}', [ProduitController::class, 'Get_Product_By_Emplacement']);
 
         Route::apiResource('packagings',\App\Http\Controllers\PackagingController::class);
         Route::patch('packagings/{id}/is_active', [\App\Http\Controllers\PackagingController::class, 'updateStatus']);
@@ -345,6 +348,7 @@ Route::middleware(['activity'])->group(function () {
         Route::patch('product_dosages/{id}/is_active', [\App\Http\Controllers\ProductDosageController::class, 'updateStatus']);
 
         Route::apiResource('inventaires',\App\Http\Controllers\InventaireController::class);
+        Route::post('inventaires/{id}/validate', [\App\Http\Controllers\InventaireController::class, 'validateInventory']);
 
         Route::apiResource('lots_products',\App\Http\Controllers\LotProductController::class);
         Route::get('/product_batches', [\App\Http\Controllers\LotProductController::class, 'getBatchesByProduct']);
@@ -383,7 +387,7 @@ Route::middleware(['activity'])->group(function () {
         Route::apiResource('bilan_acte_rendez_vous', BilanActeRendezVousController::class);
 
 
-        
+
         Route::controller(PriseEnChargeController::class)->prefix('prise_en_charges')->group(function () {
             Route::get('/list', 'index');
             Route::post('/create', 'store');
@@ -796,6 +800,7 @@ Route::middleware(['activity'])->group(function () {
 
         // Gestion des Examen
         Route::get('/examens/print_rapports', [ExamenController::class, 'PrintTarifaireActes']);
+        Route::get('examens/print_tarifaire_assurance/{quotationId}', [ExamenController::class, 'PrintTarifaireActesBy_Assurance']);
         Route::apiResource('examens', ExamenController::class);
 
 
@@ -832,12 +837,14 @@ Route::middleware(['activity'])->group(function () {
         Route::get('get_account_payment_status', [\App\Http\Controllers\PaymentAccountController::class, 'get_account_payment_status']);
 
         Route::get('system_config', [AuthenticatedSessionController::class, 'getSystemConfig']);
+        Route::post('inactivity_pause', [AuthenticatedSessionController::class, 'triggerInactivityPause']);
 
         Route::apiResource('cat-predefined-lists', CatPredefinedListController::class);
         Route::get('predefined-lists', [CatPredefinedListController::class, 'predefinedLists']);
 
         // Change Status Prestation For Examen
         Route::post('/change-status-print', [PrestationController::class, 'statusExamen']);
+        Route::post('/prestations/{prestation}/update_status_examen', [PrestationController::class, 'updateStatusExamen']);
 
         // Upload existing data
         Route::post('/upload-data', UploadExistingDataController::class);

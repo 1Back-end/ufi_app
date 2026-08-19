@@ -15,6 +15,7 @@ class InventaireItem extends Model
     protected $fillable = [
         'inventaire_id',
         'product_id',
+        'lot_id',
         'emplacement_id',
         'quantity_in_stock',
         'quantity_observed',
@@ -37,6 +38,10 @@ class InventaireItem extends Model
     public function emplacement()
     {
         return $this->belongsTo(EmplacementsProduct::class, 'emplacement_id');
+    }
+    public function lot()
+    {
+        return $this->belongsTo(LotProduit::class, 'lot_id');
     }
 
     public function creator()

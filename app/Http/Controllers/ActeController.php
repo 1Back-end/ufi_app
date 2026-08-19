@@ -8,6 +8,7 @@ use App\Imports\MaladieImport;
 use App\Models\Acte;
 use App\Models\Assureur;
 use App\Models\Centre;
+use App\Models\Quotation;
 use App\Models\TypeActe;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -132,7 +133,7 @@ class ActeController extends Controller
         ], 202);
     }
 
-    public function show(int $id)
+    public function show($id)
     {
         $acte = Acte::with(['typeActe', 'products'])->find($id);
 
@@ -176,7 +177,7 @@ class ActeController extends Controller
      * @return JsonResponse
      *
      * @permission ActeController::PrintRapportActes
-     * @permission_desc Imprimer la liste des tarifications des actes
+     * @permission_desc Imprimer le tarifaire global des actes
      */
     public function PrintRapportActes(Request $request)
     {
@@ -191,7 +192,6 @@ class ActeController extends Controller
         DB::beginTransaction();
 
         try {
-            // Récupérer tous les types avec leurs actes
             $types = TypeActe::with(['actes' => function ($query) {
                 $query->where('state', true)->orderBy('name');
             }])
@@ -200,7 +200,6 @@ class ActeController extends Controller
 
             $media  = $centre->medias()->where('name', 'logo')->first();
 
-            // Préparer les données pour la vue
             $data = [
                 'title' => 'Tarifaire des actes',
                 'types' => $types,
@@ -209,12 +208,10 @@ class ActeController extends Controller
             ];
 
 
-            // Nom du fichier et dossier
             $fileName   = 'TARIFAIRE-DES-ACTES-GLOBAL-' . now()->format('YmdHis') . '.pdf';
             $folderPath = "storage/rapport-actes";
             $filePath   = $folderPath . '/' . $fileName;
 
-            // Création dossier si nécessaire
             if (!file_exists($folderPath)) {
                 mkdir($folderPath, 0755, true);
             }
@@ -222,7 +219,7 @@ class ActeController extends Controller
 
             // Génération PDF
             save_browser_shot_pdf(
-                view: 'pdfs.rapport-actes.rapports-actes', // Vue que tu crées pour l'affichage
+                view: 'pdfs.rapport-actes.rapports-actes',
                 data: $data,
                 folderPath: $folderPath,
                 path: $filePath,
@@ -233,6 +230,100 @@ class ActeController extends Controller
 
             DB::commit();
 
+
+            $pdfContent = file_get_contents($filePath);
+            $base64 = base64_encode($pdfContent);
+
+            return response()->json([
+                'base64'   => $base64,
+                'url'      => $filePath,
+                'filename' => $fileName,
+            ], 200);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            DB::rollBack();
+            return response()->json([
+                'error' => 'Erreur de validation',
+                'details' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'error' => 'Une erreur est survenue',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+
+    /**
+     * @param Acte $acte
+     * @param Request $request
+     * @return JsonResponse
+     *
+     * @permission ActeController::PrintRapportActesByCotations
+     * @permission_desc Imprimer le tarifaire des actes par taux de cotation
+     */
+    public function PrintRapportActesByCotations(Request $request, $quotationId)
+    {
+        $centre = Centre::find($request->header('centre'));
+
+        if (!$centre || $centre->reference !== 'CMGT') {
+            return response()->json([
+                'error'   => 'Accès refusé',
+                'message' => 'Veuillez vous connecter au centre médical CMGT'
+            ], 403);
+        }
+
+        $quotation = Quotation::find($quotationId);
+
+        if (!$quotation) {
+            return response()->json([
+                'error'   => 'Cotation introuvable',
+                'message' => 'Veuillez fournir un ID de cotation valide.'
+            ], 404);
+        }
+
+        DB::beginTransaction();
+
+        try {
+            $types = TypeActe::with(['actes' => function ($query) {
+                $query->where('state', true)->orderBy('name');
+            }])
+                ->orderBy('name')
+                ->get();
+
+            $media  = $centre->medias()->where('name', 'logo')->first();
+
+            $data = [
+                'title'     => 'Tarifaire des actes par assurance',
+                'types'     => $types,
+                'logo'      => $media ? 'storage/' . $media->path . '/' . $media->filename : '',
+                'centre'    => $centre,
+                'quotation' => $quotation,
+            ];
+
+            $fileName   = 'TARIFAIRE-ACTES-' . $quotation->code . '-' . now()->format('YmdHis') . '.pdf';
+            $folderPath = "storage/tarifaire-actes-for-assurance";
+            $filePath   = $folderPath . '/' . $fileName;
+
+            if (!file_exists($folderPath)) {
+                mkdir($folderPath, 0755, true);
+            }
+            $footer = 'pdfs.reports.factures.footer';
+
+            // Génération PDF
+            save_browser_shot_pdf(
+                view: 'pdfs.tarifaire-actes-for-assurance.tarifaire-actes-for-assurance',
+                data: $data,
+                folderPath: $folderPath,
+                path: $filePath,
+                margins: [10, 10, 10, 10],
+                format: 'A4',
+                footer: $footer,
+            );
+
+            DB::commit();
 
             $pdfContent = file_get_contents($filePath);
             $base64 = base64_encode($pdfContent);
@@ -298,13 +389,12 @@ class ActeController extends Controller
 
             $media  = $centre->medias()->where('name', 'logo')->first();
 
-            // Préparer les données pour la vue
             $data = [
                 'title' => 'Tarifaire des actes',
                 'types' => $types,
                 'logo'        => $media ? 'storage/' . $media->path . '/' . $media->filename : '',
                 'centre'      => $centre,
-                'assureur' => $assureur, // ✅ IMPORTANT
+                'assureur' => $assureur,
             ];
 
 
@@ -324,7 +414,7 @@ class ActeController extends Controller
 
             // Génération PDF
             save_browser_shot_pdf(
-                view: 'pdfs.rapport-actes.tarifaires-actes-assurances', // Vue que tu crées pour l'affichage
+                view: 'pdfs.rapport-actes.tarifaires-actes-assurances',
                 data: $data,
                 folderPath: $folderPath,
                 path: $filePath,

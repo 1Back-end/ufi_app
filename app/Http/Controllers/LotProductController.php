@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Approvisionnement;
 use App\Models\ApprovisionnementConditionnement;
 use App\Models\LotProduit;
+use App\Models\LotProduitConditionnement;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -28,7 +29,7 @@ class LotProductController extends Controller
         $perPage = $request->input('limit', 25);
         $page = $request->input('page', 1);
 
-        $query = LotProduit::with(["creator", "updater", "produit","emplacement","fournisseur"]);
+        $query = LotProduit::with(["creator", "updater", "produit","emplacement","fournisseur","conditionnements.packaging"]);
 
         $query->whereNotNull('date_peremption')
             ->where('date_peremption', '>=', Carbon::now()->toDateString());
@@ -136,13 +137,16 @@ class LotProductController extends Controller
             'items'                              => 'required|array|min:1',
             'items.*.id_produit'                 => 'required|exists:products,id',
             'items.*.quantite'                   => 'required|integer|min:1',
+            'items.*.pu'                         => 'required|numeric|min:0',
+            'items.*.pt'                         => 'nullable|numeric|min:0', // Ajout validation PT global optionnel si besoin
             'items.*.date_peremption'            => 'required|date|after:today',
             'items.*.id_emplacement'             => 'required|exists:emplacements_products,id',
 
             'items.*.conditionnements'           => 'required|array|min:1',
-            'items.*.conditionnements.*.id'      => 'required|exists:product_dosages,id',
+            'items.*.conditionnements.*.id'      => 'required|exists:packagings,id',
             'items.*.conditionnements.*.quantite'=> 'required|numeric|min:0.01',
-            'items.*.conditionnements.*.price'   => 'nullable|numeric|min:0', // Validation du prix
+            'items.*.conditionnements.*.price'   => 'nullable|numeric|min:0',
+            'items.*.conditionnements.*.pt'      => 'nullable|numeric|min:0', // <--- Ajout de la validation pour le 'pt' du conditionnement
         ], [
             'fournisseur_id.required'            => 'Le fournisseur est obligatoire.',
             'fournisseur_id.exists'              => 'Le fournisseur sélectionné est invalide.',
@@ -177,7 +181,6 @@ class LotProductController extends Controller
                 $prefixLot = 'LOT-' . str_pad($nextId, 5, '0', STR_PAD_LEFT);
 
                 $dateFormatted = Carbon::parse($item['date_peremption'])->format('Ymd');
-
                 $numeroLotFabricant = "{$prefixLot}-{$item['id_produit']}-{$dateFormatted}";
 
                 $lot = LotProduit::where('numero_lot_fabricant', $numeroLotFabricant)->first();
@@ -205,6 +208,25 @@ class LotProductController extends Controller
 
                 $createdLots[] = $lot;
 
+                foreach ($item['conditionnements'] as $cond) {
+                    LotProduitConditionnement::create([
+                        'lot_produit_id'        => $lot->id,
+                        'product_packagings_id' => $cond['id'],
+                        'quantite'              => $cond['quantite'],
+                        'price'                 => $cond['price'] ?? null,
+                        'pt'                    => $cond['pt'] ?? null,
+                        'created_by'            => $auth->id,
+                        'updated_by'            => $auth->id,
+                    ]);
+                }
+
+                if (isset($item['pu']) && $item['pu'] > 0) {
+                    \App\Models\Product::where('id', $item['id_produit'])->update([
+                        'price' => $item['pu']
+                    ]);
+                }
+
+                // Gestion des approvisionnements (si conservée)
                 $approvisionnement = Approvisionnement::create([
                     'purchase_order_id' => null,
                     'product_id'        => $item['id_produit'],
@@ -217,19 +239,7 @@ class LotProductController extends Controller
                     'created_by'        => $auth->id,
                 ]);
 
-                foreach ($item['conditionnements'] as $cond) {
-                    ApprovisionnementConditionnement::create([
-                        'approvisionnement_id' => $approvisionnement->id,
-                        'product_id'           => $item['id_produit'],
-                        'product_dosage_id'    => $cond['id'],
-                        'quantite'             => $cond['quantite'],
-                        'price'                => $cond['price'] ?? null, // Enregistrement du prix
-                        'created_by'           => $auth->id,
-                        'updated_by'           => $auth->id,
-                    ]);
-                }
-
-                $createdApprovisionnements[] = $approvisionnement->load('conditionnements');
+                $createdApprovisionnements[] = $approvisionnement;
             }
 
             DB::commit();

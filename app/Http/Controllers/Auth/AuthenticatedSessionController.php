@@ -116,7 +116,18 @@ class AuthenticatedSessionController extends Controller
 
     public function getSystemConfig()
     {
-        $auth = auth()->user();
+        $timeout = DB::table('settings')
+            ->where('key', 'inactivity_timeout_minutes')
+            ->value('value') ?? 30;
+
+        return response()->json([
+            'inactivity_timeout' => (int) $timeout
+        ], Response::HTTP_OK);
+    }
+
+    public function triggerInactivityPause(Request $request)
+    {
+        $auth = $request->user();
 
         if ($auth) {
             $sessions = SessionCaisse::where('user_id', $auth->id)
@@ -143,12 +154,8 @@ class AuthenticatedSessionController extends Controller
             }
         }
 
-        $timeout = DB::table('settings')
-            ->where('key', 'inactivity_timeout_minutes')
-            ->value('value') ?? 30;
-
         return response()->json([
-            'inactivity_timeout' => (int) $timeout
-        ], Response::HTTP_OK);
+            'message' => 'Caisse mise en pause suite à l’inactivité.'
+        ], 200);
     }
 }

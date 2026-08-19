@@ -4,9 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Models\Inventaire;
 use App\Models\InventaireItem;
+use App\Models\LotProduit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 
 class InventaireController extends Controller
 {
@@ -52,11 +54,12 @@ class InventaireController extends Controller
         }
 
         $request->validate([
-            'date_inventaire'   => 'nullable|date',
-            'commentaires'      => 'nullable|string',
-            'items'             => 'required|array|min:1',
+            'date_inventaire'           => 'nullable|date',
+            'commentaires'              => 'nullable|string',
+            'items'                     => 'required|array|min:1',
             'items.*.product_id'        => 'required|exists:products,id',
             'items.*.emplacement_id'    => 'nullable|exists:emplacements_products,id',
+            'items.*.lot_id'            => 'nullable|exists:lot_produits,id', // Ajout de la validation du lot
             'items.*.quantity_in_stock' => 'required|integer|min:0',
             'items.*.quantity_observed' => 'required|integer|min:0',
         ]);
@@ -84,6 +87,7 @@ class InventaireController extends Controller
                     'inventaire_id'     => $inventaire->id,
                     'product_id'        => $item['product_id'],
                     'emplacement_id'    => $item['emplacement_id'] ?? null,
+                    'lot_id'            => $item['lot_id'] ?? null,
                     'quantity_in_stock' => $qStock,
                     'quantity_observed' => $qObserved,
                     'ecart'             => $ecart,
@@ -95,7 +99,7 @@ class InventaireController extends Controller
 
             return response()->json([
                 'message' => 'Inventaire enregistré avec succès',
-                'data'    => $inventaire->load('items.product', 'items.emplacement')
+                'data'    => $inventaire->load('items.product', 'items.emplacement', 'items.lot') // Chargement de la relation lot
             ], 201);
 
         } catch (\Exception $e) {
@@ -193,7 +197,14 @@ class InventaireController extends Controller
 
     public function show($id)
     {
-        $inventaire = Inventaire::with(['centre', 'creator', 'updater', 'items.product', 'items.emplacement'])
+        $inventaire = Inventaire::with([
+            'centre',
+            'creator',
+            'updater',
+            'items.product',
+            'items.emplacement',
+            'items.lot'
+        ])
             ->find($id);
 
         if (!$inventaire) {
@@ -235,6 +246,73 @@ class InventaireController extends Controller
             DB::rollBack();
             return response()->json([
                 'message' => 'Erreur lors de la suppression',
+                'error'   => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function validateInventory(Request $request, $id)
+    {
+        $request->validate([
+            'password' => 'required|string',
+        ]);
+
+        $user = auth()->user();
+
+        if (!Hash::check($request->password, $user->password)) {
+            return response()->json([
+                'message' => 'Mot de passe incorrect.'
+            ], 422);
+        }
+
+        $inventaire = Inventaire::with('items.lot')->find($id);
+
+        if (!$inventaire) {
+            return response()->json([
+                'message' => 'Inventaire introuvable.'
+            ], 404);
+        }
+
+        if ($inventaire->status === 'validated') {
+            return response()->json([
+                'message' => 'Cet inventaire a déjà été validé.'
+            ], 400);
+        }
+
+        try {
+            DB::beginTransaction();
+
+            foreach ($inventaire->items as $item) {
+                if ($item->lot_id) {
+                    $lot = LotProduit::find($item->lot_id);
+
+                    if ($lot) {
+                        $lot->quantite_actuelle = $item->quantity_observed;
+                        $lot->updated_by = $user->id;
+                        $lot->statut = $lot->determinerStatut();
+
+                        $lot->save();
+                    }
+                }
+            }
+
+            $inventaire->update([
+                'status'       => 'validated',
+                'validated_by' => $user->id,
+                'validated_at' => now(),
+            ]);
+
+            DB::commit();
+
+            return response()->json([
+                'message' => 'Inventaire validé avec succès. Les stocks des lots ont été mis à jour.',
+                'data'    => $inventaire->load('items.product', 'items.emplacement', 'items.lot')
+            ], 200);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'message' => 'Erreur lors de la validation de l’inventaire',
                 'error'   => $e->getMessage()
             ], 500);
         }

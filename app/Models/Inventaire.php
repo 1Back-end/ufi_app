@@ -20,6 +20,8 @@ class Inventaire extends Model
         'commentaires',
         'created_by',
         'updated_by',
+        'validated_by',
+        'validated_at'
     ];
 
     // Relations
@@ -41,5 +43,10 @@ class Inventaire extends Model
     public function updater()
     {
         return $this->belongsTo(User::class, 'updated_by');
+    }
+
+    public function validator()
+    {
+        return $this->belongsTo(User::class, 'validated_by');
     }
 }

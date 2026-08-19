@@ -10,6 +10,7 @@ enum StateExamen: string
     case CANCELLED = 'cancelled';
     case PRINTED = 'printed';
     case DELIVERED = 'delivered';
+    case REMIS = 'remis';
 
     public static function label(): string | null
     {
@@ -20,6 +21,7 @@ enum StateExamen: string
             self::CANCELLED => 'Annulé',
             self::PRINTED => 'Imprimé',
             self::DELIVERED => 'Collecté par le client',
+            self::REMIS => 'Résultat Remis',
             default => NULL,
         };
     }
@@ -30,6 +32,7 @@ enum StateExamen: string
             self::VALIDATED->value,
             self::PRINTED->value,
             self::DELIVERED->value,
+            self::REMIS->value,
         ];
     }
 }
