@@ -1,149 +1,150 @@
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <title>TARIFAIRE GLOBAL DES ACTES - {{ $quotation->code }}</title>
+    <!DOCTYPE html>
+    <html lang="fr">
+    <head>
+        <meta charset="UTF-8">
+        <title>TARIFAIRE GLOBAL DES ACTES - K MODULATEUR</title>
 
-    <style>
-        {!! $bootstrap !!}
-    </style>
+        <style>
+            {!! $bootstrap !!}
+        </style>
 
-    <style>
-        @page {
-            size: A4 portrait;
-            margin: 10mm;
-            counter-reset: page;
-        }
+        <style>
+            @page {
+                size: A4 portrait;
+                margin: 10mm;
+                counter-reset: page;
+            }
 
-        body, html {
-            height: 100%;
-            margin: 0;
-            padding: 0;
-            font-size: 3mm !important;
-            font-family: "Times New Roman", serif;
-        }
+            body, html {
+                height: 100%;
+                margin: 0;
+                padding: 0;
+                font-size: 3mm !important;
+                font-family: "Times New Roman", serif;
+            }
 
-        .print-wrapper {
-            position: relative;
-        }
+            .print-wrapper {
+                position: relative;
+            }
 
-        .print-footer {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            height: 10mm;
-            text-align: center;
-        }
+            .print-footer {
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                height: 10mm;
+                text-align: center;
+            }
 
-        .page-number:before {
-            content: "Page " counter(page) " / " counter(pages);
-        }
+            .page-number:before {
+                content: "Page " counter(page) " / " counter(pages);
+            }
 
-        h1 {
-            font-size: 5mm !important;
-        }
+            h1 {
+                font-size: 5mm !important;
+            }
 
-        table {
-            page-break-inside: auto;
-            width: 100%;
-        }
+            table {
+                page-break-inside: auto;
+                width: 100%;
+            }
 
-        thead {
-            display: table-header-group;
-        }
+            thead {
+                display: table-header-group;
+            }
 
-        tfoot {
-            display: table-footer-group;
-        }
+            tfoot {
+                display: table-footer-group;
+            }
 
-        tr {
-            page-break-inside: avoid;
-            page-break-after: auto;
-        }
+            tr {
+                page-break-inside: avoid;
+                page-break-after: auto;
+            }
 
-        img {
-            width: auto;
-            height: auto;
-        }
-    </style>
-</head>
-<body>
+            img {
+                width: auto;
+                height: auto;
+            }
+        </style>
+    </head>
+    <body>
 
-<div class="col-lg-12 col-sm-12 p-0 print-wrapper">
+    <div class="col-lg-12 col-sm-12 p-0 print-wrapper">
 
-    <header class="d-flex align-items-center size" style="font-family: 'Times New Roman', serif">
-        <div class="w-25">
-            <img src="data:image/png;base64,{{ base64_encode(file_get_contents(public_path($logo))) }}" alt=""
-                 class="img-fluid w-50">
-        </div>
-
-        <div class="text-center" style="line-height: 18px">
-            <div class="fs-3 text-uppercase fw-bold">
-                {{ $centre->name }}
+        <header class="d-flex align-items-center size" style="font-family: 'Times New Roman', serif">
+            <div class="w-25">
+                <img src="data:image/png;base64,{{ base64_encode(file_get_contents(public_path($logo))) }}" alt=""
+                     class="img-fluid w-50">
             </div>
 
-            <div class="">
-                - {{ $centre->address }} - {{ $centre->town }}
+            <div class="text-center" style="line-height: 18px">
+                <div class="fs-3 text-uppercase fw-bold">
+                    {{ $centre->name }}
+                </div>
+
+                <div class="">
+                    - {{ $centre->address }} - {{ $centre->town }}
+                </div>
+
+                <div class="">
+                    BP: {{ $centre->postal_code }} {{ $centre->town }} -
+                    Tél. {{ $centre->tel }} {{ $centre->tel2 ? '/' . $centre->tel2 : '' }}
+                    / Fax: {{ $centre->fax ?? '' }}
+                </div>
+
+                <div class="">
+                    Email: {{ $centre->email }}
+                </div>
+
+                <div class="">
+                    Autorisation n° {{ $centre->autorisation }}
+                    NIU: {{ $centre->contribuable }}
+                </div>
             </div>
+        </header>
 
-            <div class="">
-                BP: {{ $centre->postal_code }} {{ $centre->town }} -
-                Tél. {{ $centre->tel }} {{ $centre->tel2 ? '/' . $centre->tel2 : '' }}
-                / Fax: {{ $centre->fax ?? '' }}
-            </div>
+        <div class="mt-2 w-100" style="border-top: 1px double rgb(0, 0, 0, 0.75); margin-bottom: 2px"></div>
+        <div class="mb-2 w-100" style="border-top: 1px double rgb(0, 0, 0, 0.75);"></div>
 
-            <div class="">
-                Email: {{ $centre->email }}
-            </div>
+        <h1 class="fs-3 fw-bold text-center text-uppercase">
+            TARIFAIRE DES ACTES (K MODULATEUR : {{ $selectedTypeActe->k_modulateur }})
+        </h1>
 
-            <div class="">
-                Autorisation n° {{ $centre->autorisation }}
-                NIU: {{ $centre->contribuable }}
-            </div>
-        </div>
-    </header>
+        <p class="fst-italic text-end">Date d'impression: {{ now()->format('d/m/Y H:i') }}</p>
 
-    <div class="mt-2 w-100" style="border-top: 1px double rgb(0, 0, 0, 0.75); margin-bottom: 2px"></div>
-    <div class="mb-2 w-100" style="border-top: 1px double rgb(0, 0, 0, 0.75);"></div>
+        @foreach($types as $index => $type)
+            @if($type->actes->count())
+                <h6 class="mt-4 mb-2 text-center text-uppercase font-weight-bold">
+                    <strong>{{ roman_number($index + 1) }}. {{ $type->name }}</strong>
+                </h6>
 
-    <h1 class="fs-3 fw-bold text-center text-uppercase">
-        TARIFAIRE DES ACTES (COTATION : {{ $quotation->code }})
-    </h1>
-
-    <p class="fst-italic text-end">Date d'impression: {{ now()->format('d/m/Y H:i') }}</p>
-
-    @foreach($types as $index => $type)
-        @if($type->actes->count())
-            <h6 class="mt-4 mb-xxl-3 text-center text-uppercase">
-                <strong>{{ roman_number($index + 1) }}. {{ $type->name }}</strong>
-            </h6>
-
-            <table class="table table-bordered table-striped" style="font-size: 12px;">
-                <thead>
-                <tr>
-                    <th style="width: 10%;">N°</th>
-                    <th style="width: 70%;">Libellé</th>
-                    <th style="width: 20%; text-align: right;">Prix</th>
-                </tr>
-                </thead>
-                <tbody>
-                @foreach($type->actes as $num => $acte)
-                    @php
-                        // Calcul du prix : B1 * taux de la cotation
-                        $calculatedPrice = ($acte->b1 ?? 0) * $quotation->taux;
-                    @endphp
+                <table class="table table-bordered table-striped mt-2" style="font-size: 12px;">
+                    <thead>
                     <tr>
-                        <td>{{ $acte->id }}</td>
-                        <td>{{ $acte->name }}</td>
-                        <td class="text-end fw-bold">{{ number_format($calculatedPrice, 0, ',', ' ') }} FCFA</td>
+                        <th style="width: 10%; text-align: center;">N°</th>
+                        <th style="width: 60%;">Libellé</th>
+                        <th style="width: 10%; text-align: center;">B</th>
+                        <th style="width: 20%; text-align: right;">Prix</th>
                     </tr>
-                @endforeach
-                </tbody>
-            </table>
-        @endif
-    @endforeach
-</div>
+                    </thead>
+                    <tbody>
+                    @foreach($type->actes as $num => $acte)
+                        @php
+                            $calculatedPrice = ($selectedTypeActe->k_modulateur ?? 0) * ($acte->b1 ?? 0);
+                        @endphp
+                        <tr>
+                            <td style="text-align: center;">{{ $num + 1 }}</td>
+                            <td>{{ $acte->name }}</td>
+                            <td style="text-align: center;">{{ $acte->b1 }}</td>
+                            <td class="text-end fw-bold">{{ number_format($calculatedPrice, 0, ',', ' ') }} FCFA</td>
+                        </tr>
+                    @endforeach
+                    </tbody>
+                </table>
+            @endif
+        @endforeach
+    </div>
 
-</body>
-</html>
+    </body>
+    </html>

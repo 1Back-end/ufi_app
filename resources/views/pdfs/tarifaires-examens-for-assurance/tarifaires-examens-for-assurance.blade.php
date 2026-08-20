@@ -122,8 +122,8 @@
             <thead>
             <tr>
                 <th style="width: 10%;">N°</th>
-                <th style="width: 20%;">Code</th>
                 <th style="width: 50%;">Examen</th>
+                <th style="width: 20%;">B</th>
                 <th style="width: 20%; text-align: right;">Prix</th>
             </tr>
             </thead>
@@ -134,8 +134,8 @@
                 @endphp
                 <tr>
                     <td>{{ $examen->id }}</td>
-                    <td>{{ $examen->code }}</td>
                     <td>{{ $examen->name }}</td>
+                    <td>{{ $examen->b1 }}</td>
                     <td class="text-end fw-bold">{{ number_format($calculatedPrice, 0, ',', ' ') }} FCFA</td>
                 </tr>
             @endforeach

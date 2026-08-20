@@ -129,6 +129,11 @@ class ExtractPermissions extends Command
             'category' => 'Permissions supplémentaires',
             'modules' => ['Gestion des rapports','Paramètres Applicatifs','Gestion des prestations','Paramètres Facturations','Autres Modules','Gestion des caisses','Gestion des stocks','Gestion du laboratoire'],
         ],
+        'REPORTS_AND_STATISTICS' => [
+            'description' => 'Rapports et statistiques',
+            'category' => 'Permissions supplémentaires',
+            'modules' => ['Gestion des rapports','Paramètres Applicatifs','Gestion des prestations','Paramètres Facturations','Autres Modules','Gestion des caisses','Gestion des stocks','Gestion du laboratoire'],
+        ],
         'ReportAccess' => [
             'description' => 'Afficher le menu des rapports de factures',
             'category' => 'Permissions supplémentaires',

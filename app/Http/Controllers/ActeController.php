@@ -264,7 +264,7 @@ class ActeController extends Controller
      * @permission ActeController::PrintRapportActesByCotations
      * @permission_desc Imprimer le tarifaire des actes par taux de cotation
      */
-    public function PrintRapportActesByCotations(Request $request, $quotationId)
+    public function PrintRapportActesByCotations(Request $request, $typeActeId = null)
     {
         $centre = Centre::find($request->header('centre'));
 
@@ -275,12 +275,18 @@ class ActeController extends Controller
             ], 403);
         }
 
-        $quotation = Quotation::find($quotationId);
+        $request->validate([
+            'type_acte_id' => 'required|exists:type_actes,id',
+        ]);
 
-        if (!$quotation) {
+        $id = $typeActeId ?? $request->type_acte_id;
+
+        $selectedTypeActe = TypeActe::find($id);
+
+        if (!$selectedTypeActe) {
             return response()->json([
-                'error'   => 'Cotation introuvable',
-                'message' => 'Veuillez fournir un ID de cotation valide.'
+                'error'   => 'Type d\'acte introuvable',
+                'message' => 'Veuillez fournir un ID de type d\'acte valide.'
             ], 404);
         }
 
@@ -296,14 +302,14 @@ class ActeController extends Controller
             $media  = $centre->medias()->where('name', 'logo')->first();
 
             $data = [
-                'title'     => 'Tarifaire des actes par assurance',
+                'title'     => 'Tarifaire des actes par type d\'acte',
                 'types'     => $types,
+                'selectedTypeActe' => $selectedTypeActe,
                 'logo'      => $media ? 'storage/' . $media->path . '/' . $media->filename : '',
                 'centre'    => $centre,
-                'quotation' => $quotation,
             ];
 
-            $fileName   = 'TARIFAIRE-ACTES-' . $quotation->code . '-' . now()->format('YmdHis') . '.pdf';
+            $fileName   = 'TARIFAIRE-ACTES-K-' . $selectedTypeActe->k_modulateur . '-' . now()->format('YmdHis') . '.pdf';
             $folderPath = "storage/tarifaire-actes-for-assurance";
             $filePath   = $folderPath . '/' . $fileName;
 
@@ -312,7 +318,6 @@ class ActeController extends Controller
             }
             $footer = 'pdfs.reports.factures.footer';
 
-            // Génération PDF
             save_browser_shot_pdf(
                 view: 'pdfs.tarifaire-actes-for-assurance.tarifaire-actes-for-assurance',
                 data: $data,
@@ -337,13 +342,13 @@ class ActeController extends Controller
         } catch (\Illuminate\Validation\ValidationException $e) {
             DB::rollBack();
             return response()->json([
-                'error' => 'Erreur de validation',
+                'error'   => 'Erreur de validation',
                 'details' => $e->errors()
             ], 422);
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json([
-                'error' => 'Une erreur est survenue',
+                'error'   => 'Une erreur est survenue',
                 'message' => $e->getMessage()
             ], 500);
         }

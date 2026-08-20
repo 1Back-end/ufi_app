@@ -226,7 +226,7 @@ Route::middleware(['activity'])->group(function () {
         Route::patch('/actes/{acte}/activate', [ActeController::class, 'changeStatus']);
         Route::post('/actes/import', [ActeController::class, 'import']);
         Route::get('/print_rapports_actes', [ActeController::class, 'PrintRapportActes']);
-        Route::get('actes/print_rapports_actes_by_cotation/{quotationId}', [ActeController::class, 'PrintRapportActesByCotations']);
+        Route::get('actes/print_rapports_actes_by_type/{typeActeId}', [ActeController::class, 'PrintRapportActesByCotations']);
         Route::get('/print_rapports_assurances', [ActeController::class, 'PrintRapportActesForAssurances']);
         Route::get('/prints_tarifaire_actes/assurance/{assurance}', [ActeController::class, 'print_tarifsActes_byAssurance']);
 
@@ -845,6 +845,8 @@ Route::middleware(['activity'])->group(function () {
         // Change Status Prestation For Examen
         Route::post('/change-status-print', [PrestationController::class, 'statusExamen']);
         Route::post('/prestations/{prestation}/update_status_examen', [PrestationController::class, 'updateStatusExamen']);
+
+        Route::get('rapports/factures_reglees', [PrestationController::class, 'get_facture_paid_by_day']);
 
         // Upload existing data
         Route::post('/upload-data', UploadExistingDataController::class);
