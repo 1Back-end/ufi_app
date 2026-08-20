@@ -106,6 +106,7 @@ class PrestationController extends Controller
      */
     public function index(Request $request)
     {
+        $startTime = microtime(true);
         $prestationsQuery = Prestation::with([
             'createdBy:id,nom_utilisateur',
             'updatedBy:id,nom_utilisateur',
@@ -232,6 +233,7 @@ class PrestationController extends Controller
             ->when($request->input('prestation_id'), fn (Builder $builder) => $builder->where('id', $request->input('prestation_id')))
             ->where('centre_id', $request->header('centre'));
 
+
         $prestations = $prestationsQuery->clone()->paginate(
             perPage: $request->input('per_page', 25),
             page: $request->input('page', 1)
@@ -269,11 +271,17 @@ class PrestationController extends Controller
             }
         }
 
+        $endTime = microtime(true);
+        $executionTime = round(($endTime - $startTime) * 1000, 2);
+
+        Log::info("--- TEMPS DE CHARGEMENT INDEX --- : {$executionTime} ms");
+
 
         return response()->json([
             'prestations' => $prestations,
             'regulation_methods' => RegulationMethod::all(),
             'anteririorResult' => $anteririorResult,
+            'execution_time_ms' => $executionTime,
         ]);
     }
 
@@ -2093,6 +2101,139 @@ class PrestationController extends Controller
                 'facture_cree' => $counts[5] ?? $counts['5'] ?? 0,
             ]
         ], 200);
+    }
+
+
+
+    /**
+     * Update the status of exams for specified prestations.
+     *
+     * @param Request $request
+     *
+     * @return JsonResponse
+     *
+     * @permission PrestationController::get_facture_paid_by_day
+     * @permission_desc Imprimer l'état des factures par jour / compétences
+     * @throws Throwable
+     */
+    public function get_facture_paid_by_day(Request $request)
+    {
+        DB::beginTransaction();
+
+        try {
+            $prestations = Prestation::with([
+                'factures',
+                'client',
+                'consultant',
+                'prestationables',
+                'centre',
+                'priseCharge'
+            ])
+                ->where('centre_id', $request->header('centre'));
+
+
+            $titreParts = [];
+
+            if ($request->filled('status')) {
+                if ($request->status === 'regle') {
+                    $prestations->where('regulated', 2);
+                    $titreParts[] = "Facturés réglés";
+                } elseif ($request->status === 'non_regle') {
+                    $prestations->whereIn('regulated', [0, 1, 5]);
+                    $titreParts[] = "Facturés non réglés";
+                }
+            } else {
+                $titreParts[] = "Réglés et Non réglés";
+            }
+
+            if ($request->filled('facture_start') && $request->filled('facture_end')) {
+                $startFacture = Carbon::parse($request->facture_start)->startOfDay();
+                $endFacture   = Carbon::parse($request->facture_end)->endOfDay();
+
+                $prestations->whereHas('factures', function ($q) use ($startFacture, $endFacture) {
+                    $q->whereBetween('created_at', [$startFacture, $endFacture]);
+                });
+
+                $titreParts[] = "Factures du {$startFacture->format('d/m/Y')} au {$endFacture->format('d/m/Y')}";
+            }
+
+            if ($request->filled('prestation_start') && $request->filled('prestation_end')) {
+                $startPresta = Carbon::parse($request->prestation_start)->startOfDay();
+                $endPresta   = Carbon::parse($request->prestation_end)->endOfDay();
+                $prestations->whereBetween('prestations.created_at', [$startPresta, $endPresta]);
+                $titreParts[] = "Prestations du {$startPresta->format('d/m/Y')} au {$endPresta->format('d/m/Y')}";
+            }
+
+            if (!$request->filled('facture_start') && !$request->filled('prestation_start')) {
+                $todayStart = Carbon::today()->startOfDay();
+                $todayEnd   = Carbon::today()->endOfDay();
+                $prestations->whereBetween('prestations.created_at', [$todayStart, $todayEnd]);
+                $titreParts[] = "Prestations du jour ({$todayStart->format('d/m/Y')})";
+            }
+
+            $prestations = $prestations->orderBy('created_at', 'ASC')->get();
+
+            if ($prestations->isEmpty()) {
+                DB::rollBack();
+                return response()->json([
+                    'message' => 'Aucune donnée trouvée.'
+                ], 404);
+            }
+
+            $centre = Centre::find($request->header('centre'));
+            $media  = $centre->medias()->where('name', 'logo')->first();
+            $titre  = implode(" - ", $titreParts);
+
+            $data = [
+                'prestations' => $prestations,
+                'logo'        => $media ? 'storage/' . $media->path . '/' . $media->filename : '',
+                'centre'      => $centre,
+                'titre'       => $titre,
+                'request'     => $request,
+            ];
+
+            $fileName   = strtoupper('prestations-clients-' . now()->format('YmdHis') . '.pdf');
+            $folderPath = 'storage/prestations-clients';
+            $filePath   = $folderPath . '/' . $fileName;
+
+            if (!file_exists($folderPath)) {
+                mkdir($folderPath, 0755, true);
+            }
+            $footer = 'pdfs.reports.factures.footer';
+
+            save_browser_shot_pdf(
+                view: 'pdfs.prestations-clients-regles.prestations-clients-regles',
+                data: $data,
+                folderPath: $folderPath,
+                path: $filePath,
+                margins: [5, 10, 15, 10],
+                footer: $footer
+            );
+
+            if (!file_exists($filePath)) {
+                DB::rollBack();
+                return response()->json(['message' => 'Le fichier PDF n\'a pas été généré.'], 500);
+            }
+
+            DB::commit();
+
+            $pdfContent = file_get_contents($filePath);
+            $base64     = base64_encode($pdfContent);
+
+            return response()->json([
+                'prestations' => $prestations,
+                'base64'      => $base64,
+                'url'         => $filePath,
+                'filename'    => $fileName,
+            ], 200);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'message' => 'Une erreur est survenue lors de la génération du rapport.',
+                'error'   => $e->getMessage()
+            ], 500);
+        }
     }
 
 
