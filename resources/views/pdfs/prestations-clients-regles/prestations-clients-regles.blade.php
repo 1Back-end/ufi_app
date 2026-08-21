@@ -114,7 +114,6 @@
         {{ $centre->name }} - {{ $titre }}
     </h2>
 
-
     <div class="mt-2 w-100">
         <table class="table table-bordered table-striped text-center border-black" style="font-size: 12px;">
             <thead>
@@ -142,25 +141,70 @@
                 $sumRegulation = 0;
                 $sumRemise = 0;
                 $sumReste = 0;
+
+                $startDate = null;
+                $endDate = null;
+
+                if (request()->filled('prestation_start') && request()->filled('prestation_end')) {
+                $startDate = \Carbon\Carbon::parse(request('prestation_start'))->startOfDay();
+                $endDate = \Carbon\Carbon::parse(request('prestation_end'))->endOfDay();
+                } elseif (request()->filled('facture_start') && request()->filled('facture_end')) {
+                    $startDate = \Carbon\Carbon::parse(request('facture_start'))->startOfDay();
+                    $endDate = \Carbon\Carbon::parse(request('facture_end'))->endOfDay();
+                } elseif (request()->filled('date_reglement_start') && request()->filled('date_reglement_end')) {
+                    $startDate = \Carbon\Carbon::parse(request('date_reglement_start'))->startOfDay();
+                    $endDate = \Carbon\Carbon::parse(request('date_reglement_end'))->endOfDay();
+                } else {
+                    $startDate = \Carbon\Carbon::today()->startOfDay();
+                    $endDate = \Carbon\Carbon::today()->endOfDay();
+                }
             @endphp
 
             @foreach ($prestations as $index => $prestation)
                 @php
                     $facture = $prestation->factures->first();
-                    $factureReglee = $prestation->factures
-                        ->first(fn($f) => $f->regulations && $f->regulations->where('state', 1)->isNotEmpty()) ?? $facture;
-                    $regulationAmount = 0;
-                    if ($factureReglee && $factureReglee->relationLoaded('regulations')) {
-                        $regulationAmount = $factureReglee->regulations->where('state', 1)->sum('amount');
-                    }
                     $montantClient = $facture ? ($facture->amount_client ?? 0) : 0;
-                    $restAPayer = max(0, $montantClient - $regulationAmount);
 
-                    // Cumul pour le récapitulatif
+                    $regulations = $prestation->factures->flatMap(function ($fact) {
+                        return $fact->regulations->filter(function ($reg) {
+                            return optional($reg->state)->value == 1 || $reg->state == 1;
+                        });
+                    });
+
+                    $regulationAmountPeriode = $regulations
+                        ->filter(function ($reg) use ($startDate, $endDate) {
+                            if (!$reg->date) {
+                                return false;
+                            }
+
+                            $regDate = \Carbon\Carbon::parse($reg->date);
+
+                            return $regDate->betweenIncluded($startDate, $endDate);
+                        })
+                        ->sum('amount');
+
+                    $totalRegulationJusquaFinPeriode = $regulations
+                        ->filter(function ($reg) use ($endDate) {
+                            if (!$reg->date) {
+                                return false;
+                            }
+
+                            $regDate = \Carbon\Carbon::parse($reg->date);
+
+                            return $regDate->lte($endDate);
+                        })
+                        ->sum('amount');
+
+                    $restAPayer = max(
+                        0,
+                        $montantClient - $totalRegulationJusquaFinPeriode
+                    );
+
+
                     $sumAmount += $facture ? ($facture->amount ?? 0) : 0;
                     $sumAmountPc += $facture ? ($facture->amount_pc ?? 0) : 0;
                     $sumAmountClient += $montantClient;
-                    $sumRegulation += $regulationAmount;
+                    $sumRegulation += $regulationAmountPeriode;
                     $sumRemise += $facture ? ($facture->amount_remise ?? 0) : 0;
                     $sumReste += $restAPayer;
                 @endphp
@@ -182,7 +226,7 @@
                     <td>{{ \App\Helpers\FormatPrice::format(optional($facture)->amount) }}</td>
                     <td>{{ \App\Helpers\FormatPrice::format(optional($facture)->amount_pc) }}</td>
                     <td>{{ \App\Helpers\FormatPrice::format(optional($facture)->amount_client) }}</td>
-                    <td>{{ \App\Helpers\FormatPrice::format($regulationAmount) }}</td>
+                    <td>{{ \App\Helpers\FormatPrice::format($regulationAmountPeriode) }}</td>
                     <td>{{ \App\Helpers\FormatPrice::format(optional($facture)->amount_remise) }}</td>
                     <td>{{ \App\Helpers\FormatPrice::format($restAPayer) }}</td>
 
@@ -211,8 +255,6 @@
             </tbody>
         </table>
     </div>
-</div>
-
 
 </body>
 </html>

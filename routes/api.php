@@ -842,13 +842,11 @@ Route::middleware(['activity'])->group(function () {
         Route::apiResource('cat-predefined-lists', CatPredefinedListController::class);
         Route::get('predefined-lists', [CatPredefinedListController::class, 'predefinedLists']);
 
-        // Change Status Prestation For Examen
         Route::post('/change-status-print', [PrestationController::class, 'statusExamen']);
         Route::post('/prestations/{prestation}/update_status_examen', [PrestationController::class, 'updateStatusExamen']);
 
         Route::get('rapports/factures_reglees', [PrestationController::class, 'get_facture_paid_by_day']);
 
-        // Upload existing data
         Route::post('/upload-data', UploadExistingDataController::class);
 
         // Import Configuration Actes, Soins and Consultations
