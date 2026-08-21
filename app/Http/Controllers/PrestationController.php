@@ -2122,7 +2122,7 @@ class PrestationController extends Controller
 
         try {
             $prestations = Prestation::with([
-                'factures',
+                'factures.regulations',
                 'client',
                 'consultant',
                 'prestationables',
@@ -2142,7 +2142,7 @@ class PrestationController extends Controller
                     $prestations->whereIn('regulated', [0, 1, 5]);
                     $titreParts[] = "Facturés non réglés";
                 }
-            } else {
+            } elseif (!$request->filled('date_reglement_start')) {
                 $titreParts[] = "Réglés et Non réglés";
             }
 
@@ -2164,7 +2164,19 @@ class PrestationController extends Controller
                 $titreParts[] = "Prestations du {$startPresta->format('d/m/Y')} au {$endPresta->format('d/m/Y')}";
             }
 
-            if (!$request->filled('facture_start') && !$request->filled('prestation_start')) {
+            if ($request->filled('date_reglement_start') && $request->filled('date_reglement_end')) {
+                $startReg = Carbon::parse($request->date_reglement_start)->startOfDay();
+                $endReg   = Carbon::parse($request->date_reglement_end)->endOfDay();
+                $factureIds = \App\Models\Regulation::whereBetween('date', [$startReg, $endReg])
+                    ->pluck('facture_id');
+                $prestations->whereHas('factures', function ($q) use ($factureIds) {
+                    $q->whereIn('id', $factureIds);
+                });
+
+                $titreParts[] = "Règlements du {$startReg->format('d/m/Y')} au {$endReg->format('d/m/Y')}";
+            }
+
+            if (!$request->filled('facture_start') && !$request->filled('prestation_start') && !$request->filled('date_reglement_start')) {
                 $todayStart = Carbon::today()->startOfDay();
                 $todayEnd   = Carbon::today()->endOfDay();
                 $prestations->whereBetween('prestations.created_at', [$todayStart, $todayEnd]);
