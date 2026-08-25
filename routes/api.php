@@ -801,6 +801,7 @@ Route::middleware(['activity'])->group(function () {
         // Gestion des Examen
         Route::get('/examens/print_rapports', [ExamenController::class, 'PrintTarifaireActes']);
         Route::get('examens/print_tarifaire_assurance/{quotationId}', [ExamenController::class, 'PrintTarifaireActesBy_Assurance']);
+        Route::get('examens/print_tarifaire_paillasse/{paillasesId?}', [ExamenController::class, 'PrintTarifaireActesBy_Paillasse']);
         Route::apiResource('examens', ExamenController::class);
 
 

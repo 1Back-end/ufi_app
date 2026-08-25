@@ -7,6 +7,10 @@ use Illuminate\Validation\Rule;
 
 class PaillasseRequest extends FormRequest
 {
+    public function authorize(): bool
+    {
+        return true;
+    }
     public function rules(): array
     {
         return [

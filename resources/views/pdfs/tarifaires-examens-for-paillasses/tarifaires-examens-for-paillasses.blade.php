@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>TARIFAIRE GLOBAL DES EXAMENS - {{ $quotation->code }}</title>
+    <title>TARIFAIRE PAR PAILLASSE - {{ isset($paillasse) && $paillasse ? $paillasse->name : 'GLOBAL' }}</title>
 
     <style>
         {!! $bootstrap !!}
@@ -41,7 +41,7 @@
         }
 
         h1 {
-            font-size: 5mm !important;
+            font-size: 4.5mm !important;
         }
 
         table {
@@ -74,8 +74,10 @@
 
     <header class="d-flex align-items-center size" style="font-family: 'Times New Roman', serif">
         <div class="w-25">
-            <img src="data:image/png;base64,{{ base64_encode(file_get_contents(public_path($logo))) }}" alt=""
-                 class="img-fluid w-50">
+            @if(!empty($logo))
+                <img src="data:image/png;base64,{{ base64_encode(file_get_contents(public_path($logo))) }}" alt=""
+                     class="img-fluid w-50">
+            @endif
         </div>
 
         <div class="text-center" style="line-height: 18px">
@@ -107,8 +109,13 @@
     <div class="mt-2 w-100" style="border-top: 1px double rgb(0, 0, 0, 0.75); margin-bottom: 2px"></div>
     <div class="mb-2 w-100" style="border-top: 1px double rgb(0, 0, 0, 0.75);"></div>
 
+    <!-- TITRE DYNAMIQUE DE LA PAILLASSE -->
     <h1 class="fs-3 fw-bold text-center text-uppercase">
-        TARIFAIRE DES EXAMENS (COTATION : {{ $quotation->code }})
+        @if(isset($paillasse) && $paillasse)
+            TARIFAIRE DES EXAMENS - PAILLASSE : {{ $paillasse->name }}
+        @else
+            TARIFAIRE GLOBAL DES EXAMENS (TOUTES PAILLASSES)
+        @endif
     </h1>
 
     <p class="fst-italic text-end">Date d'impression: {{ now()->format('d/m/Y H:i') }}</p>
@@ -118,23 +125,28 @@
             <strong>{{ roman_number($familleIndex + 1) }}. {{ $famille->name }}</strong>
         </h6>
 
-        <table class="table table-bordered table-striped" style="font-size: 12px;">
+        <table class="table table-bordered table-striped" style="font-size: 11px;">
             <thead>
             <tr>
-                <th style="width: 50%;">Examen</th>
-                <th style="width: 20%;">B</th>
+                <th style="width: 10%;">ID</th>
+                <th style="width: 15%;">Code</th>
+                <th style="width: 35%;">Examen</th>
+                <th style="width: 10%;">B</th>
+                <th style="width: 10%;">B1</th>
                 <th style="width: 20%; text-align: right;">Prix</th>
             </tr>
             </thead>
             <tbody>
             @foreach($famille->examens as $index => $examen)
-                @php
-                    $calculatedPrice = ($examen->b1 ?? 0) * $quotation->taux;
-                @endphp
                 <tr>
+                    <td>{{ $examen->id }}</td>
+                    <td>{{ $examen->code ?? '-' }}</td>
                     <td>{{ $examen->name }}</td>
-                    <td>{{ $examen->b1 }}</td>
-                    <td class="text-end fw-bold">{{ number_format($calculatedPrice, 0, ',', ' ') }} FCFA</td>
+                    <td>{{ $examen->b ?? '-' }}</td>
+                    <td>{{ $examen->b1 ?? '-' }}</td>
+                    <td class="text-end fw-bold">
+                        {{ isset($examen->price) ? number_format($examen->price, 0, ',', ' ') . ' FCFA' : '-' }}
+                    </td>
                 </tr>
             @endforeach
             </tbody>
