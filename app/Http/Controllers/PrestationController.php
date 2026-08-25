@@ -112,6 +112,7 @@ class PrestationController extends Controller
             'updatedBy:id,nom_utilisateur',
             'printer:id,nom_utilisateur',
             'validator:id,nom_utilisateur',
+            'prelevate:id,nom_utilisateur',
             'payableBy',
             'client',
             'client.sexe',

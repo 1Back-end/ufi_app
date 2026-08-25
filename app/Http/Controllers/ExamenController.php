@@ -232,26 +232,38 @@ class ExamenController extends Controller
      */
     public function prelevement(Examen $examen, Prestation $prestation)
     {
+        $userId = auth()->id();
+        $now = now();
+
+        $prestation->update([
+            'prelevate_at'  => $now,
+            'prelevated_by' => $userId,
+        ]);
+
         $pivot = $prestation->examens()->find($examen->id)->pivot;
         $prelevements = $pivot->prelevements ?? [];
 
         $currentCount = $pivot->prelevement_count ?? 0;
+
         $updateData = [
             'is_preleve'        => true,
+            'prelevate_at'      => $now,
+            'prelevated_by'     => $userId,
             'prelevement_count' => $currentCount + 1,
             'prelevements'      => [
                 ...$prelevements,
                 [
-                    'id'           => str()->uuid(),
+                    'id'           => (string) str()->uuid(),
                     'cancel'       => false,
-                    'preleve_date' => now(),
+                    'preleve_date' => $now,
+                    'user_id'      => $userId,
                 ]
             ]
         ];
 
         if ($currentCount >= 1) {
             $updateData['is_repreleve']   = true;
-            $updateData['repreleve_date'] = now();
+            $updateData['repreleve_date'] = $now;
         }
 
         $prestation->examens()->updateExistingPivot($examen->id, $updateData);
@@ -276,18 +288,25 @@ class ExamenController extends Controller
             'data.*.examens' => ['required', 'array'],
             'data.*.examens.*' => ['required', 'exists:examens,id'],
         ]);
+        $userId = auth()->id();
+        $now = now();
 
         foreach ($request->data as $data) {
             $prestation = Prestation::find($data['prestation_id']);
+            $prestation->update([
+                'prelevate_at'  => $now,
+                'prelevated_by' => $userId,
+            ]);
 
             foreach ($data['examens'] as $examenId) {
                 $pivot = $prestation->examens()->find($examenId)->pivot;
                 $prelevements = $pivot->prelevements ?? [];
 
-                // Calculer le nouveau nombre de prélèvements pour gérer le ré-prélèvement
                 $currentCount = ($pivot->prelevement_count ?? 0) + 1;
 
                 $updateData = [
+                    'prelevate_at'      => now(),
+                    'prelevated_by'     => $userId,
                     'is_preleve'        => true,
                     'prelevement_count' => $currentCount,
                     'prelevements'      => [

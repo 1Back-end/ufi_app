@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Enums\RendezVousStatus;
 use App\Models\BilanActeRendezVous;
 use App\Models\OpsTbl_Examen_Physique;
+use App\Models\PatientArchive;
 use App\Models\RendezVous;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -41,7 +42,8 @@ class BilanActeRendezVousController extends Controller
             'rendezVous.consultant',
             'prestation.actes.typeActe',
             'creator',
-            'updater'
+            'updater',
+            'medias'
         ]);
         if ($request->filled('start_date') && $request->filled('end_date')) {
             $query->whereBetween('created_at', [$request->start_date, $request->end_date]);
@@ -172,23 +174,17 @@ class BilanActeRendezVousController extends Controller
         $request->validate([
             'rendez_vous_id'    => 'required|exists:rendez_vouses,id',
             'prestation_id'     => 'required|exists:prestations,id',
-            'medecin_signataire'=> 'required|string',
-            'technique_analyse' => 'required|string',
-            'resume'            => 'nullable|string',
-            'conclusion'        => 'nullable|string',
+            'titre'            => 'required|string',
+            'attachment'        => 'required|file|mimes:pdf,doc,docx,ppt,pptx,jpg,jpeg,png',
         ]);
 
         try {
             DB::beginTransaction();
 
-            // 1. Création du bilan
             $bilan = BilanActeRendezVous::create([
                 'rendez_vous_id'    => $request->rendez_vous_id,
                 'prestation_id'     => $request->prestation_id,
-                'medecin_signataire'=> $request->medecin_signataire,
-                'technique_analyse' => $request->technique_analyse,
-                'resume'            => $request->resume,
-                'conclusion'        => $request->conclusion,
+                'titre'             => $request->titre,
                 'created_by'        => $auth->id,
                 'updated_by'        => $auth->id,
             ]);
@@ -197,6 +193,32 @@ class BilanActeRendezVousController extends Controller
             $rendezVous->etat       = RendezVousStatus::CLOSED->value;
             $rendezVous->updated_by = $auth->id;
             $rendezVous->save();
+
+            if ($rendezVous->patient_id) {
+                PatientArchive::updateOrCreate(
+                    ['patient_id' => $rendezVous->patient_id],
+                    [
+                        'last_visit_at' => now(),
+                        'updated_by'    => $auth->id,
+                        'first_visit_at' => DB::raw('COALESCE(first_visit_at, NOW())'),
+                    ]
+                );
+            }
+
+            if ($request->hasFile('attachment')) {
+                $file = $request->file('attachment');
+                $filename = time() . '_' . $file->getClientOriginalName();
+                $path = $file->store('bilan_actes', 'public');
+
+                $bilan->medias()->create([
+                    'name'      => $filename,
+                    'disk'      => 'public',
+                    'path'      => $path,
+                    'filename'  => $filename,
+                    'mimetype'  => $file->getClientMimeType(),
+                    'extension' => $file->getClientOriginalExtension(),
+                ]);
+            }
 
             DB::commit();
 

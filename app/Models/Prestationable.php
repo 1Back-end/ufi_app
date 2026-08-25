@@ -20,12 +20,15 @@ class Prestationable extends Model
         'printed_at',
         'validated_by',
         'printed_by',
+        'prelevate_at',
+        'prelevated_by'
     ];
 
     protected $casts = [
         'prelevements' => 'array',
         'validated_at' => 'datetime',
         'printed_at' => 'datetime',
+        'prelevate_at' => 'datetime',
     ];
 
     public function prestation(): BelongsTo
@@ -40,5 +43,9 @@ class Prestationable extends Model
     public function printer()
     {
         return $this->belongsTo(User::class, 'printed_by');
+    }
+    public function prelevate(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'prelevated_by');
     }
 }

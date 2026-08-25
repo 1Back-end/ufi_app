@@ -50,6 +50,8 @@ class Prestation extends Model
         'validated_by',
         'printed_at',
         'printed_by',
+        'prelevate_at',
+        'prelevated_by'
     ];
 
     protected function casts(): array
@@ -60,6 +62,7 @@ class Prestation extends Model
             'type' => TypePrestation::class,
             'printed_at' => 'datetime',
             'validated_at' => 'datetime',
+            'prelevated_at' => 'datetime',
         ];
     }
     public function rendezVous()
@@ -568,5 +571,9 @@ class Prestation extends Model
     public function validator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'validated_by');
+    }
+    public function prelevate(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'prelevated_by');
     }
 }
