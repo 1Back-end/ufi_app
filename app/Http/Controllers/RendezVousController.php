@@ -48,6 +48,11 @@ class RendezVousController extends Controller
                     $subQ->where('type', $request->type_prestation);
                 });
             })
+            ->when($request->filled('type_acte_id'), function($q) use ($request) {
+                $q->whereHas('prestation.actes', function($subQ) use ($request) {
+                    $subQ->where('type_acte_id', $request->type_acte_id);
+                });
+            })
             ->when(trim($request->search), function ($q, $search) {
                 $q->where(function ($subQ) use ($search) {
                     $subQ->where('nombre_jour_validite', 'like', "%{$search}%")
