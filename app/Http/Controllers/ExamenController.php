@@ -8,6 +8,7 @@ use App\Models\Centre;
 use App\Models\ElementPaillasse;
 use App\Models\Examen;
 use App\Models\FamilyExam;
+use App\Models\Paillasse;
 use App\Models\Prestation;
 use App\Models\Quotation;
 use Exception;
@@ -497,7 +498,6 @@ class ExamenController extends Controller
      */
     public function PrintTarifaireActesBy_Assurance(Request $request, $quotationId)
     {
-        $centre = Centre::find($request->header('centre'));
 
         $centre = Centre::find($request->header('centre'));
 
@@ -581,6 +581,114 @@ class ExamenController extends Controller
             DB::rollBack();
             return response()->json([
                 'error' => 'Une erreur est survenue',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+
+    /**
+     * @param Prestation $prestation
+     * @param Examen $examen
+     * @param Request $request
+     * @return JsonResponse
+     *
+     * @permission ExamenController::PrintTarifaireActesBy_Paillasse
+     * @permission_desc Imprimer le tarifaire des examens par paillasses
+     */
+    public function PrintTarifaireActesBy_Paillasse(Request $request, $paillasesId)
+    {
+        $centre = Centre::find($request->header('centre'));
+
+        if (!$centre || !in_array($centre->reference, ['GTLABO', 'AM_TSG'])) {
+            return response()->json([
+                'error'   => 'Accès refusé',
+                'message' => 'Veuillez vous connecter au centre GTLABO ou AM_TSG'
+            ], 403);
+        }
+
+        $paillasse = $paillasesId ? Paillasse::find($paillasesId) : null;
+
+        if ($paillasesId && !$paillasse) {
+            return response()->json([
+                'error'   => 'Paillasse introuvable',
+                'message' => 'Veuillez fournir un ID de paillasse valide.'
+            ], 404);
+        }
+
+        if ($paillasesId && !$paillasse) {
+            return response()->json([
+                'error'   => 'Paillasse introuvable',
+                'message' => 'Veuillez fournir un ID de paillasse valide.'
+            ], 404);
+        }
+
+        DB::beginTransaction();
+
+        try {
+            $familles_examens = FamilyExam::with(['examens' => function ($query) use ($paillasesId) {
+                $query->orderBy('name')
+                    ->with(['typePrelevement', 'tubePrelevement']);
+
+                if ($paillasesId) {
+                    $query->where('paillasse_id', $paillasesId);
+                }
+            }])
+                ->orderBy('order', 'asc')
+                ->get();
+
+            $familles_examens = $familles_examens->filter(fn($famille) => $famille->examens->count() > 0);
+            $media  = $centre->medias()->where('name', 'logo')->first();
+
+            $data = [
+                'title'            => 'Tarifaire des examens par paillasse',
+                'familles_examens' => $familles_examens,
+                'logo'             => $media ? 'storage/' . $media->path . '/' . $media->filename : '',
+                'centre'           => $centre,
+                'paillasse'        => $paillasse,
+            ];
+
+            $paillasseNameSuffix = $paillasse ? '-' . strtoupper($paillasse->name) : '-GLOBAL';
+            $fileName   = 'TARIFAIRE-PAILLASSE' . $paillasseNameSuffix . '-' . now()->format('YmdHis') . '.pdf';
+            $folderPath = "storage/tarifaires-examens-for-paillasse";
+            $filePath   = $folderPath . '/' . $fileName;
+
+            if (!file_exists($folderPath)) {
+                mkdir($folderPath, 0755, true);
+            }
+
+            $footer = 'pdfs.reports.factures.footer';
+
+            save_browser_shot_pdf(
+                view: 'pdfs.tarifaires-examens-for-paillasses.tarifaires-examens-for-paillasses',
+                data: $data,
+                folderPath: $folderPath,
+                path: $filePath,
+                margins: [10, 10, 10, 10],
+                format: 'A4',
+                footer: $footer,
+            );
+
+            if (!file_exists($filePath)) {
+                DB::rollBack();
+                return response()->json(['error' => 'Le fichier PDF n\'a pas été généré.'], 500);
+            }
+
+            DB::commit();
+
+            $pdfContent = file_get_contents($filePath);
+            $base64 = base64_encode($pdfContent);
+
+            return response()->json([
+                'base64'   => $base64,
+                'url'      => $filePath,
+                'filename' => $fileName,
+            ], 200);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'error'   => 'Une erreur est survenue',
                 'message' => $e->getMessage()
             ], 500);
         }
