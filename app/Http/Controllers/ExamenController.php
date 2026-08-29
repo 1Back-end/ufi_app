@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Enums\StateExamen;
+use App\Exports\ExamenExport;
+use App\Exports\FournisseurExport;
 use App\Http\Requests\ExamenRequest;
 use App\Models\Centre;
 use App\Models\ElementPaillasse;
@@ -16,8 +18,11 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
+use Maatwebsite\Excel\Facades\Excel;
 use Symfony\Component\HttpFoundation\Response as ResponseAlias;
 
 
@@ -690,6 +695,35 @@ class ExamenController extends Controller
             return response()->json([
                 'error'   => 'Une erreur est survenue',
                 'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * @param Prestation $prestation
+     * @param Examen $examen
+     * @param Request $request
+     * @return JsonResponse
+     *
+     * @permission ExamenController::export_in_excel
+     * @permission_desc Exporter la liste des examens en Excel
+     */
+    public function export_in_excel(Request $request)
+    {
+        try {
+            $fileName = strtoupper('LISTE-DES-EXAMENS-' . Carbon::now()->format('Y-m-d') . '.xlsx');
+
+            Excel::store(new ExamenExport(), $fileName, 'exportexamens');
+
+            return response()->json([
+                "message" => "Exportation des données effectuée avec succès",
+                "filename" => $fileName,
+                "url" => Storage::disk('exportexamens')->url($fileName)
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                "message" => "Erreur lors de l'exportation des données",
+                "error" => $e->getMessage()
             ], 500);
         }
     }

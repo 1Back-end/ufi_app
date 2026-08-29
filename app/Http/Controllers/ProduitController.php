@@ -8,6 +8,7 @@ use App\Exports\ProductsExportSearch;
 use App\Imports\MaladieImport;
 use App\Imports\ProductsImport;
 use App\Imports\ProductsOtherImport;
+use App\Models\Centre;
 use App\Models\LotProduit;
 use Illuminate\Http\Request;
 use App\Models\Product;
@@ -28,14 +29,12 @@ class ProduitController extends Controller
     {
         $query = LotProduit::with(['produit.productType', 'emplacement']);
 
-        // 1. Gérer l'emplacement (s'il est présent)
         if (!empty($idEmplacement)) {
             $query->where('id_emplacement', $idEmplacement);
         } elseif ($request->has('emplacement_id') && !empty($request->emplacement_id)) {
             $query->where('id_emplacement', $request->emplacement_id);
         }
 
-        // 2. Gérer le type de produit (depuis l'URL ou les query params)
         $productTypeId = $idTypeProduit ?? $request->input('product_type_id');
 
         if (!empty($productTypeId)) {
@@ -82,6 +81,115 @@ class ProduitController extends Controller
             'data' => $resultat
         ], 200);
     }
+
+
+    /**
+     * Display a listing of the resource.
+     * @permission ProduitController::print_fiche_stocks
+     * @permission_desc Imprimer la fiche d'inventaire des produits d'un emplacement
+     */
+    public function print_fiche_stocks(Request $request, $idEmplacement = null, $idTypeProduit = null)
+    {
+        $centreId = $request->header('centre');
+
+        if (!$centreId) {
+            return response()->json([
+                'message' => 'Centre non fourni'
+            ], 400);
+        }
+
+        \Illuminate\Support\Facades\DB::beginTransaction();
+
+        try {
+            $query = LotProduit::with(['produit.productType', 'emplacement']);
+
+            if (!empty($idEmplacement)) {
+                $query->where('id_emplacement', $idEmplacement);
+            } elseif ($request->has('emplacement_id') && !empty($request->emplacement_id)) {
+                $query->where('id_emplacement', $request->emplacement_id);
+            }
+
+            $productTypeId = $idTypeProduit ?? $request->input('product_type_id');
+
+            if (!empty($productTypeId)) {
+                $query->whereHas('produit', function ($q) use ($productTypeId) {
+                    $q->where('product_type_id', $productTypeId);
+                });
+            }
+
+            $lots = $query->get();
+
+            if ($lots->isEmpty()) {
+                \Illuminate\Support\Facades\DB::rollBack();
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Aucun produit trouvé pour ces critères.',
+                    'data' => []
+                ], 200);
+            }
+
+            $centre = Centre::find($centreId);
+            $media = $centre?->medias()->where('name', 'logo')->first();
+
+            $emplacement = null;
+            if (!empty($idEmplacement)) {
+                $emplacement = \App\Models\EmplacementsProduct::find($idEmplacement);
+            } elseif ($request->has('emplacement_id') && !empty($request->emplacement_id)) {
+                $emplacement = \App\Models\EmplacementsProduct::find($request->emplacement_id);
+            }
+
+            $data = [
+                'products' => $lots,
+                'logo' => $media ? 'storage/' . $media->path . '/' . $media->filename : '',
+                'centre' => $centre,
+                'emplacement' => $emplacement,
+            ];
+
+            $fileName   = strtoupper('FICHE-INVENTAIRE-DE-PRODUITS-' . now()->format('YmdHis') . '.pdf');
+            $folderPath = "storage/inventaire-produits";
+            $filePath   = $folderPath . '/' . $fileName;
+
+            if (!file_exists($folderPath)) {
+                mkdir($folderPath, 0755, true);
+            }
+            $footer = 'pdfs.reports.factures.footer';
+
+            save_browser_shot_pdf(
+                view: 'pdfs.inventaire-produits.inventaire-produits',
+                data: $data,
+                folderPath: $folderPath,
+                path: $filePath,
+                margins: [10, 10, 10, 10],
+                format: 'A4',
+                footer: $footer,
+            );
+
+            if (!file_exists($filePath)) {
+                \Illuminate\Support\Facades\DB::rollBack();
+                return response()->json(['error' => 'Le fichier PDF n\'a pas été généré.'], 500);
+            }
+
+            \Illuminate\Support\Facades\DB::commit();
+
+            $pdfContent = file_get_contents($filePath);
+            $base64 = base64_encode($pdfContent);
+
+            return response()->json([
+                'products' => $lots,
+                'base64'   => $base64,
+                'url'      => $filePath,
+                'filename' => $fileName,
+            ], 200);
+
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\DB::rollBack();
+            return response()->json([
+                'message' => 'Erreur lors de la génération de la fiche de stock',
+                'error'   => $e->getMessage()
+            ], 500);
+        }
+    }
+
     /**
      * Display a listing of the resource.
      * @permission ProduitController::index
@@ -617,83 +725,111 @@ class ProduitController extends Controller
         }
     }
 
+
+    /**
+     * Display a listing of the resource.
+     * @permission ProduitController::import
+     * @permission_desc Exporter la liste des produits en excel
+     */
     public function import(Request $request)
     {
-
-        $request->validate([
-            'file' => 'required|file|mimes:xlsx,xls,csv',
-        ]);
-
         try {
-            Excel::import(new ProductsImport(), $request->file('file'));
-            return response()->json(['message' => 'Importation réussie.']);
-        } catch (\Throwable $e) {
-            return response()->json(['message' => 'Erreur : ' . $e->getMessage()], 500);
+            $fileName = 'LISTE-DES-PRODUITS-' . Carbon::now()->format('Y-m-d_H-i-s') . '.xlsx';
+            Excel::store(new ProductsExport(), $fileName, 'exportproducts');
+            return response()->json([
+                "message" => "Exportation des données effectuée avec succès",
+                "filename" => $fileName,
+                "url" => Storage::disk('exportproducts')->url($fileName)
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                "message" => "Une erreur est survenue lors de l'exportation des données.",
+                "error" => $e->getMessage()
+            ], 500);
         }
     }
 
-
-
-    public function import_others_products(Request $request)
+    /**
+     * Display a listing of the resource.
+     * @permission ProduitController::tarifaire_products
+     * @permission_desc Exporter la liste des produits en pdf
+     */
+    public function tarifaire_products(Request $request)
     {
-
-        $request->validate([
-            'file' => 'required|file|mimes:xlsx,xls,csv',
-        ]);
-
+        DB::beginTransaction();
         try {
-            Excel::import(new ProductsOtherImport(), $request->file('file'));
-            return response()->json(['message' => 'Importation réussie.']);
-        } catch (\Throwable $e) {
-            return response()->json(['message' => 'Erreur : ' . $e->getMessage()], 500);
-        }
-    }
+            $centreId = $request->header('centre');
 
-    public function  Tarification_Products()
-    {
+            if (!$centreId) {
+                return response()->json([
+                    'message' => 'Centre non fourni'
+                ], 400);
+            }
 
-        $products = Product::with(["categories", "fournisseurs"])->where("is_deleted", false)->orderBy("name")->get();
+            $products = Product::with([
+                'fournisseurs:id,full_name',
+                'creator',
+                'updater',
+                'lots',
+                'emplacements.emplacement',
+                'productType',
+                'packagings',
+                'dosages'
+            ])->orderBy("name")->get();
+
+            $centre = Centre::find($centreId);
+            $media = $centre?->medias()->where('name', 'logo')->first();
+
+            $data = [
+                'products' => $products,
+                'logo' => $media ? 'storage/' . $media->path . '/' . $media->filename : '',
+                'centre' => $centre,
+            ];
 
 
-        $data = [
-            'products' => $products,
-        ];
+            $fileName   = strtoupper('tarifaire-products-' . now()->format('YmdHis') . '.pdf');
+            $folderPath = "storage/tarifaire-products";
+            $filePath   = $folderPath . '/' . $fileName;
 
-        $fileName   = 'tarifaire-products-' . now()->format('YmdHis') . '.pdf';
-        $folderPath = "storage/tarifaire-products";
-        $filePath   = $folderPath . '/' . $fileName;
+            if (!file_exists($folderPath)) {
+                mkdir($folderPath, 0755, true);
+            }
+            $footer = 'pdfs.reports.factures.footer';
 
+            save_browser_shot_pdf(
+                view: 'pdfs.tarifaire-products.tarifaire-products',
+                data: $data,
+                folderPath: $folderPath,
+                path: $filePath,
+                margins: [10, 10, 10, 10],
+                format: 'A4',
+                footer: $footer,
+            );
 
-        if (!file_exists($folderPath)) {
-            mkdir($folderPath, 0755, true);
-        }
+            if (!file_exists($filePath)) {
+                DB::rollBack();
+                return response()->json(['error' => 'Le fichier PDF n\'a pas été généré.'], 500);
+            }
 
-        save_browser_shot_pdf(
-            view: 'pdfs.tarifaire-products.tarifaire-products',
-            data: $data,
-            folderPath: $folderPath,
-            path: $filePath,
-            margins: [10, 10, 10, 10],
-            format: 'A4'
-        );
+            DB::commit();
 
-        if (!file_exists($filePath)) {
+            $pdfContent = file_get_contents($filePath);
+            $base64 = base64_encode($pdfContent);
+
+            return response()->json([
+                'base64'   => $base64,
+                'url'      => $filePath,
+                'filename' => $fileName,
+            ], 200);
+
+        } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['error' => 'Le fichier PDF n\'a pas été généré.'], 500);
+            return response()->json([
+                'message' => 'Une erreur est survenue lors de la génération du PDF.',
+                'error'   => $e->getMessage(),
+                'line'    => $e->getLine(),
+            ], 500);
         }
-
-        DB::commit();
-
-        $pdfContent = file_get_contents($filePath);
-        $base64 = base64_encode($pdfContent);
-
-        return response()->json([
-            'base64'   => $base64,
-            'url'      => $filePath,
-            'filename' => $fileName,
-        ], 200);
-
-
     }
 
 

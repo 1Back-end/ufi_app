@@ -159,6 +159,11 @@ class ExtractPermissions extends Command
             'category' => 'Permissions supplémentaires',
             'modules' => ['Gestion du laboratoire','Autres Modules'],
         ],
+        'view_access_for_order_number' => [
+            'description' => 'Afficher le numéro d\'ordre des consultants',
+            'category' => 'Permissions supplémentaires',
+            'modules' => ['Gestion du laboratoire','Autres Modules'],
+        ],
 
 
 

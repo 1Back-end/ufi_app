@@ -2,8 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Exports\ExportProductType;
+use App\Exports\FournisseurExport;
 use App\Models\ProductType;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Storage;
+use Maatwebsite\Excel\Facades\Excel;
+
 /**
  * @permission_category Gestion des types de produits
  * @permission_module Gestion des stocks
@@ -140,6 +146,31 @@ class ProductTypeController extends Controller
             'message' => 'Statut modifié avec succès.',
             'data' => $productType
         ]);
+    }
+
+    /**
+     * Display a listing of the resource.
+     * @permission ProductTypeController::export_in_excel
+     * @permission_desc Exporter la liste des types de produits en excel
+     */
+    public function export_in_excel(Request $request)
+    {
+        try {
+            $fileName = strtoupper('LISTE-DES-TYPE-DE-PRODUITS-' . Carbon::now()->format('Y-m-d') . '.xlsx');
+
+            \Maatwebsite\Excel\Facades\Excel::store(new ExportProductType(), $fileName, 'productstype');
+
+            return response()->json([
+                "message" => "Exportation des données effectuée avec succès",
+                "filename" => $fileName,
+                "url" => \Illuminate\Support\Facades\Storage::disk('productstype')->url($fileName)
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                "message" => "Erreur lors de l'exportation des données",
+                "error" => $e->getMessage()
+            ], 500);
+        }
     }
 
     /**

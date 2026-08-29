@@ -4,11 +4,13 @@ namespace App\Http\Controllers;
 use App\Exports\AssureurExport;
 use App\Exports\FournisseurExport;
 use App\Exports\FournisseurSearchExport;
+use App\Models\Centre;
 use App\Models\Fournisseurs ;
 use App\Models\Product;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Maatwebsite\Excel\Facades\Excel;
 
@@ -61,31 +63,105 @@ class FournisseurController extends Controller
             'total' => $fournisseurs->total(),
         ]);
     }
+
     /**
      * Display a listing of the resource.
-     * @permission FournisseurController::export
-     * @permission_desc Exporter les données des fournisseurs
+     * @permission FournisseurController::export_in_excel
+     * @permission_desc Exporter la liste des fournisseurs en excel
      */
-    public function export()
+    public function export_in_excel(Request $request)
     {
         try {
-            // Nom du fichier avec la date actuelle
-            $fileName = 'fournisseurs-' . Carbon::now()->format('Y-m-d') . '.xlsx';
+            $fileName = strtoupper('LISTE-DES-FOURNISSEURS-' . Carbon::now()->format('Y-m-d') . '.xlsx');
 
-            // Stockage du fichier Excel dans le disque 'exportfournisseurs'
             Excel::store(new FournisseurExport(), $fileName, 'exportfournisseurs');
 
-            // Retourner une réponse JSON avec les informations de l'exportation
             return response()->json([
                 "message" => "Exportation des données effectuée avec succès",
                 "filename" => $fileName,
-                "url" => Storage::disk('exportfournisseurs')->url($fileName) // Assurez-vous que le disque est correctement configuré dans config/filesystems.php
+                "url" => Storage::disk('exportfournisseurs')->url($fileName)
             ], 200);
         } catch (\Exception $e) {
-            // Si une erreur se produit, retourner une réponse d'erreur
             return response()->json([
                 "message" => "Erreur lors de l'exportation des données",
                 "error" => $e->getMessage()
+            ], 500);
+        }
+    }
+
+
+    /**
+     * Display a listing of the resource.
+         * @permission FournisseurController::export_in_pdf
+     * @permission_desc Exporter la liste des fournisseurs en pdf
+     */
+    public function export_in_pdf(Request $request)
+    {
+        $centreId = $request->header('centre');
+
+        if (!$centreId) {
+            return response()->json([
+                'message' => 'Centre non fourni'
+            ], 400);
+        }
+
+        // Démarrage de la transaction pour sécuriser les opérations
+        \Illuminate\Support\Facades\DB::beginTransaction();
+
+        try {
+            $fournisseurs = Fournisseurs::with(["creator", "updater"])
+                ->orderBy('full_name', 'asc')
+                ->get();
+
+            $centre = Centre::find($centreId);
+            $media = $centre?->medias()->where('name', 'logo')->first();
+
+            $data = [
+                'fournisseurs' => $fournisseurs,
+                'logo' => $media ? 'storage/' . $media->path . '/' . $media->filename : '',
+                'centre' => $centre,
+            ];
+
+            $fileName   = strtoupper('LISTE-DES-FOURNISSEURS-' . now()->format('YmdHis') . '.pdf');
+            $folderPath = "storage/list-of-suplliers";
+            $filePath   = $folderPath . '/' . $fileName;
+
+            if (!file_exists($folderPath)) {
+                mkdir($folderPath, 0755, true);
+            }
+
+            $footer = 'pdfs.reports.factures.footer';
+
+            save_browser_shot_pdf(
+                view: 'pdfs.list-of-suplliers.list-of-suplliers',
+                data: $data,
+                folderPath: $folderPath,
+                path: $filePath,
+                margins: [5, 8, 10, 8],
+                footer: $footer,
+            );
+
+            if (!file_exists($filePath)) {
+                \Illuminate\Support\Facades\DB::rollBack();
+                return response()->json(['error' => 'Le fichier PDF n\'a pas été généré.'], 500);
+            }
+
+            \Illuminate\Support\Facades\DB::commit();
+
+            $pdfContent = file_get_contents($filePath);
+            $base64 = base64_encode($pdfContent);
+
+            return response()->json([
+                'base64'   => $base64,
+                'url'      => $filePath,
+                'filename' => $fileName,
+            ], 200);
+
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\DB::rollBack();
+            return response()->json([
+                'message' => 'Erreur lors de la génération du PDF',
+                'error' => $e->getMessage()
             ], 500);
         }
     }

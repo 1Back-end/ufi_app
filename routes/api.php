@@ -330,6 +330,8 @@ Route::middleware(['activity'])->group(function () {
 
         Route::apiResource('fournisseurs',FournisseurController::class);
         Route::patch('fournisseurs/{id}/is_active', [FournisseurController::class, 'update_status']);
+        Route::get('exports_all_fournisseurs_in_excel', [FournisseurController::class, 'export_in_excel']);
+        Route::get('exports_all_fournisseurs_in_pdf', [FournisseurController::class, 'export_in_pdf']);
 
         Route::apiResource('emplacements_products',\App\Http\Controllers\EmplacementsProductController::class);
         Route::patch('emplacements_products/{id}/is_active', [\App\Http\Controllers\EmplacementsProductController::class, 'update_status']);
@@ -340,9 +342,13 @@ Route::middleware(['activity'])->group(function () {
         Route::patch('/products/{id}/toggle_out_of_stock', [ProduitController::class, 'updateOutOfStockStatus']);
         Route::get('products/emplacements/{idEmplacement}/produits', [ProduitController::class, 'Get_Product_By_Emplacement']);
         Route::get('products/products_by_type/{idTypeProduit}', [ProduitController::class, 'Get_Product_By_Emplacement']);
+        Route::get('exports_all_products_in_excel', [ProduitController::class, 'import']);
+        Route::get('exports_all_products_in_pdf', [ProduitController::class, 'tarifaire_products']);
+        Route::get('/products/fiche_stock/{idEmplacement?}/{idTypeProduit?}', [ProduitController::class, 'print_fiche_stocks']);
 
         Route::apiResource('packagings',\App\Http\Controllers\PackagingController::class);
         Route::patch('packagings/{id}/is_active', [\App\Http\Controllers\PackagingController::class, 'updateStatus']);
+        Route::get('exports_all_packagings_in_excel', [\App\Http\Controllers\PackagingController::class, 'export_in_excel']);
 
         Route::apiResource('product_dosages', \App\Http\Controllers\ProductDosageController::class);
         Route::patch('product_dosages/{id}/is_active', [\App\Http\Controllers\ProductDosageController::class, 'updateStatus']);
@@ -361,6 +367,7 @@ Route::middleware(['activity'])->group(function () {
 
         Route::apiResource('product_types',\App\Http\Controllers\ProductTypeController::class);
         Route::patch('product_types/{id}/is_active', [\App\Http\Controllers\ProductTypeController::class, 'updateStatus']);
+        Route::get('exports_all_product_types_in_excel', [\App\Http\Controllers\ProductTypeController::class, 'export_in_excel']);
 
 
         Route::apiResource('purchase_orders',\App\Http\Controllers\PurchaseOrderController::class);
@@ -802,6 +809,7 @@ Route::middleware(['activity'])->group(function () {
         Route::get('/examens/print_rapports', [ExamenController::class, 'PrintTarifaireActes']);
         Route::get('examens/print_tarifaire_assurance/{quotationId}', [ExamenController::class, 'PrintTarifaireActesBy_Assurance']);
         Route::get('examens/print_tarifaire_paillasse/{paillasesId?}', [ExamenController::class, 'PrintTarifaireActesBy_Paillasse']);
+        Route::get('exports_all_examns_in_excel', [ExamenController::class, 'export_in_excel']);
         Route::apiResource('examens', ExamenController::class);
 
 
