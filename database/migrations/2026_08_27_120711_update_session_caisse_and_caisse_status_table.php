@@ -52,11 +52,21 @@ return new class extends Migration
                       SELECT 1 FROM transfert_fonds_tampons t WHERE t.session_id = s.id
                   );
 
-                -- B. Mettre la position des caisses à 'close' pour toutes les sessions antérieures
+                -- B. Mettre la position des caisses à 'close' SEULEMENT si la caisse n'a pas de session active aujourd'hui
                 UPDATE caisses c
-                JOIN session_caisse s ON s.caisse_id = c.id
                 SET c.position = 'close'
-                WHERE DATE(s.created_at) < CURDATE();
+                WHERE c.id IN (
+                    SELECT s.caisse_id
+                    FROM session_caisse s
+                    WHERE DATE(s.created_at) < CURDATE()
+                )
+                AND NOT EXISTS (
+                    SELECT 1
+                    FROM session_caisse s_today
+                    WHERE s_today.caisse_id = c.id
+                      AND DATE(s_today.created_at) = CURDATE()
+                      AND s_today.etat IN ('OUVERTE', 'EN_PAUSE')
+                );
 
                 -- C. Fermer (mettre l'état à 'FERMEE') toutes les sessions antérieures à aujourd'hui
                 UPDATE session_caisse
@@ -64,7 +74,7 @@ return new class extends Migration
                     fermeture_ts = COALESCE(fermeture_ts, NOW())
                 WHERE DATE(created_at) < CURDATE();
 
-                -- D. Remettre TOUS les soldes à 0 pour ABSOLUMENT TOUTES les sessions antérieures (avec ou sans transfert)
+                -- D. Remettre TOUS les soldes à 0 pour ABSOLUMENT TOUTES les sessions antérieures
                 UPDATE session_caisse
                 SET solde = 0,
                     current_sold = 0,
@@ -110,12 +120,22 @@ return new class extends Migration
               )
         ");
 
-        // Mettre à jour les caisses à 'close' pour l'existant
+        // Mettre à jour les caisses à 'close' pour l'existant (en protégeant celles qui ont une session active aujourd'hui)
         DB::statement("
             UPDATE caisses c
-            JOIN session_caisse s ON s.caisse_id = c.id
             SET c.position = 'close'
-            WHERE DATE(s.created_at) < CURDATE();
+            WHERE c.id IN (
+                SELECT s.caisse_id
+                FROM session_caisse s
+                WHERE DATE(s.created_at) < CURDATE()
+            )
+            AND NOT EXISTS (
+                SELECT 1
+                FROM session_caisse s_today
+                WHERE s_today.caisse_id = c.id
+                  AND DATE(s_today.created_at) = CURDATE()
+                  AND s_today.etat IN ('OUVERTE', 'EN_PAUSE')
+            );
         ");
 
         // Fermer les sessions immédiatement pour l'existant
@@ -126,7 +146,7 @@ return new class extends Migration
             WHERE DATE(created_at) < CURDATE();
         ");
 
-        // Remettre TOUS les soldes à 0 pour l'existant sans dépendre de la table des transferts
+        // Remettre TOUS les soldes à 0 pour l'existant
         DB::statement("
             UPDATE session_caisse
             SET solde = 0,
