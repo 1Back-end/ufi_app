@@ -2,10 +2,15 @@
 
 namespace App\Http\Controllers;
 
+use App\Exports\ExportPackaging;
 use App\Models\Packaging;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Maatwebsite\Excel\Excel;
+
 /**
  * @permission_category Gestion des conditionnements produits
  * @permission_module Gestion des stocks
@@ -56,13 +61,18 @@ class PackagingController extends Controller
         $validated = $request->validate([
             'name'        => 'required|string|max:255',
             'code'        => 'nullable|string|max:255|unique:packagings,code',
+            'quantity'    => 'required|integer|min:1',
             'description' => 'nullable|string',
             'is_active'   => 'boolean',
         ]);
 
         try {
             $validated['name'] = Str::upper($validated['name']);
-            $validated['code'] = Str::upper($validated['code']);
+
+            if (!empty($validated['code'])) {
+                $validated['code'] = Str::upper($validated['code']);
+            }
+
             $validated['is_active'] = $validated['is_active'] ?? true;
             $validated['created_by'] = $auth?->id;
             $validated['updated_by'] = $auth?->id;
@@ -112,13 +122,19 @@ class PackagingController extends Controller
         $validated = $request->validate([
             'name'        => 'required|string|max:255',
             'code'        => 'nullable|string|max:255|unique:packagings,code,' . $id,
+            'quantity'    => 'required|integer|min:1',
             'description' => 'nullable|string',
             'is_active'   => 'boolean',
         ]);
 
         try {
             $validated['name'] = Str::upper($validated['name']);
-            $validated['code'] = Str::upper($validated['code']);
+
+            // Sécurité pour le code s'il est facultatif
+            if (!empty($validated['code'])) {
+                $validated['code'] = Str::upper($validated['code']);
+            }
+
             $validated['updated_by'] = $auth?->id;
 
             $packaging->update($validated);
@@ -155,6 +171,32 @@ class PackagingController extends Controller
             'message' => 'Statut du conditionnement mis à jour avec succès.',
             'data' => $packaging
         ], 200);
+    }
+
+
+    /**
+     * Display a listing of the resource.
+     * @permission PackagingController::export_in_excel
+     * @permission_desc Exporter la liste des conditionnements de produits en excel
+     */
+    public function export_in_excel(Request $request)
+    {
+        try {
+            $fileName = strtoupper('LISTE-DES-CONDITIONNEMENTS-' . Carbon::now()->format('Y-m-d') . '.xlsx');
+
+            \Maatwebsite\Excel\Facades\Excel::store(new ExportPackaging(), $fileName, 'productspackaging');
+
+            return response()->json([
+                "message" => "Exportation des données effectuée avec succès",
+                "filename" => $fileName,
+                "url" => Storage::disk('productspackaging')->url($fileName)
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                "message" => "Erreur lors de l'exportation des données",
+                "error" => $e->getMessage()
+            ], 500);
+        }
     }
 
     /**

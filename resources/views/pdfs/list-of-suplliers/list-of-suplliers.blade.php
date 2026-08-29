@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>LISTE DES PRODUITS - {{ $centre->name ?? '' }}</title>
+    <title>LISTE DES FOURNISSEURS - {{ $centre->name ?? '' }}</title>
 
     <style>
         {!! $bootstrap !!}
@@ -101,56 +101,53 @@
     <div class="mb-2 w-100" style="border-top: 1px double rgb(0, 0, 0, 0.75);"></div>
 
     <h1 class="fs-3 fw-bold text-center text-uppercase my-3">
-        LISTING DES PRODUITS
+        LISTING DES FOURNISSEURS
     </h1>
 
     <p class="fst-italic text-end mb-2">Date d'impression : {{ now()->format('d/m/Y H:i') }}</p>
 
-    <table class="table table-bordered table-striped" style="font-size: 9px;">
+    <table class="table table-bordered table-striped" style="font-size: 8.5px;">
         <thead>
         <tr>
-            <th>Référence</th>
-            <th>Nom commercial</th>
-            <th>P. Vente</th>
-            <th>P. Achat</th>
-            <th>P. Pharmacie</th>
-            <th>Conditionnement(s)</th>
-            <th>Dosage(s)</th>
-            <th>Fournisseur(s)</th>
-            <th>Stock</th>
-            <th>Type</th>
-            <th>Facturable</th>
-            <th>Suspendu</th>
-            <th>Épuisé</th>
-            <th>Statut</th>
+            <th>#</th>
+            <th>Nom complet</th>
+            <th>Entreprise</th>
+            <th>Adresse</th>
+            <th>Téléphone</th>
+            <th>Email</th>
+            <th>N° Contribuable</th>
+            <th>N° RCCM</th>
+            <th>Ville</th>
+            <th>Pays</th>
+            <th>Contact</th>
+            <th>Tél. Contact</th>
             <th>Créé le</th>
             <th>Par</th>
         </tr>
         </thead>
         <tbody>
-        @forelse($products as $product)
+        @forelse($fournisseurs as $index => $fournisseur)
             <tr>
-                <td>{{ $product->ref ?? '' }}</td>
-                <td>{{ $product->name ?? '' }}</td>
-                <td class="text-end">{{ \App\Helpers\FormatPrice::format($product->price ?? 0) }}</td>
-                <td class="text-end">{{ \App\Helpers\FormatPrice::format($product->purchase_price ?? 0) }}</td>
-                <td class="text-end">{{ \App\Helpers\FormatPrice::format($product->pharmacy_price ?? 0) }}</td>
-                <td>{{ $product->packagings->pluck('name')->join(', ') }}</td>
-                <td>{{ $product->dosages->pluck('name')->join(', ') }}</td>
-                <td>{{ $product->fournisseurs->pluck('full_name')->join(', ') }}</td>
-                <td class="text-center fw-bold">{{ $product->total_stock ?? 0 }}</td>
-                <td>{{ optional($product->productType)->name }}</td>
-                <td class="text-center">{{ $product->facturable ? 'Oui' : 'Non' }}</td>
-                <td class="text-center">{{ $product->is_suspended ? 'Oui' : 'Non' }}</td>
-                <td class="text-center">{{ $product->is_out_of_stock ? 'Oui' : 'Non' }}</td>
-                <td class="text-center">{{ $product->status ?? '' }}</td>
-                <td class="text-center">{{ $product->created_at?->format('d/m/Y H:i') }}</td>
-                <td>{{ $product->creator?->nom_utilisateur ?? '' }}</td>
-
+                <td class="text-center">{{ $index + 1 }}</td>
+                <td>{{ $fournisseur->full_name ?? '' }}</td>
+                <td>{{ $fournisseur->company_name ?? '' }}</td>
+                <td>{{ $fournisseur->address ?? '' }}</td>
+                <td>{{ $fournisseur->phone_number }}{{ $fournisseur->second_phone_number ? ' ' . $fournisseur->second_phone_number : '' }}</td>
+                <td>{{ $fournisseur->email ?? '' }}</td>
+                <td>{{ $fournisseur->tax_number ?? '' }}</td>
+                <td>{{ $fournisseur->business_registration_number ?? '' }}</td>
+                <td>{{ $fournisseur->website ?? '' }}</td>
+                <td>{{ $fournisseur->city ?? '' }}</td>
+                <td>{{ $fournisseur->country ?? '' }}</td>
+                <td>{{ $fournisseur->contact_person ?? '' }}</td>
+                <td>{{ $fournisseur->contact_person_phone ?? '' }}</td>
+                <td class="text-center">{{ $fournisseur->is_active ? 'Actif' : 'Inactif' }}</td>
+                <td class="text-center">{{ $fournisseur->created_at?->format('d/m/Y H:i') }}</td>
+                <td>{{ $fournisseur->creator?->nom_utilisateur ?? '' }}</td>
             </tr>
         @empty
             <tr>
-                <td colspan="18" class="text-center">Aucun produit trouvé</td>
+                <td colspan="16" class="text-center">Aucun fournisseur trouvé</td>
             </tr>
         @endforelse
         </tbody>

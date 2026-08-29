@@ -144,10 +144,6 @@ class ConsultantController extends Controller
             if (!$consultant) {
                 return response()->json(['message' => 'Consultant non trouvé'], 404);
             }
-            // Check if the consultant is deleted
-            if ($consultant->is_deleted) {
-                return response()->json(['message' => 'Impossible de mettre à jour un consultant supprimé'], 400);
-            }
 
             if (!in_array($status, ['Actif', 'Inactif', 'Archivé'])) {
                 return response()->json(['message' => 'Statut invalide'], 400);
@@ -156,7 +152,6 @@ class ConsultantController extends Controller
             $consultant->status = $status;
             $consultant->save();
 
-            // Retourner le consultant mis à jour
             return response()->json([
                 'message' => 'Statut mis à jour avec succès',
                 'consultant' => $consultant
@@ -169,8 +164,7 @@ class ConsultantController extends Controller
      */
     public function show(string $id)
     {
-        $consultant = Consultant::where('is_deleted', false)
-            ->with([
+        $consultant = Consultant::with([
                 'code_hopi',
                 'specialite',
                 'code_titre',
@@ -182,41 +176,6 @@ class ConsultantController extends Controller
             ])
             ->findOrFail($id);
         return response()->json($consultant);
-    }
-
-
-    /**
-     * @permission ConsultantController::search
-     * @permission_desc Rechercher des consultants
-     */
-    public function search(Request $request)
-    {
-        $request->validate([
-            'query' => 'nullable|string|max:255',
-        ]);
-
-        $searchQuery = $request->input('query', '');
-
-        $query = Consultant::where('is_deleted', false);
-
-        if ($searchQuery) {
-            $query->where(function($query) use ($searchQuery) {
-                $query->where('nom', 'like', '%' . $searchQuery . '%')
-                    ->orWhere('prenom', 'like', '%' . $searchQuery . '%')
-                    ->orWhere('email', 'like', '%' . $searchQuery . '%')
-                    ->orWhere('tel', 'like', '%' . $searchQuery . '%')
-                    ->orWhere('tel', 'like', '%' . $searchQuery . '%')
-                    ->orWhere('nomcomplet', 'like', '%' . $searchQuery . '%');
-            });
-        }
-
-        $consultants = $query
-            ->with(['code_specialite', 'code_titre', 'code_service_hopi', 'creator', 'updater']) // chargement des relations
-            ->get();
-
-        return response()->json([
-            'data' => $consultants,
-        ]);
     }
 
     /**
@@ -237,58 +196,6 @@ class ConsultantController extends Controller
     }
 
     /**
-     * Store a newly created resource in storage.
-     */
-
-
-    /**
-     * @permission ConsultantController::searchAndExport
-     * @permission_desc Filtrer et exporter les données des consultants
-     */
-    public function searchAndExport(Request $request)
-    {
-        $request->validate([
-            'query' => 'nullable|string|max:255',
-        ]);
-
-        $searchQuery = $request->input('query', '');
-
-        $query = Consultant::where('is_deleted', false);
-
-        if ($searchQuery) {
-            $query->where(function($query) use ($searchQuery) {
-                $query->where('nom', 'like', '%' . $searchQuery . '%')
-                    ->orWhere('prenom', 'like', '%' . $searchQuery . '%')
-                    ->orWhere('email', 'like', '%' . $searchQuery . '%')
-                    ->orWhere('tel', 'like', '%' . $searchQuery . '%')
-                    ->orWhere('tel', 'like', '%' . $searchQuery . '%')
-                    ->orWhere('nomcomplet', 'like', '%' . $searchQuery . '%');
-            });
-        }
-
-        $consultants = $query
-            ->with(['code_specialite', 'code_titre', 'code_service_hopi', 'creator', 'updater']) // chargement des relations
-            ->get();
-
-        if ($consultants->isEmpty()) {
-            return response()->json([
-                'message' => 'Aucun assureur trouvé pour cette recherche.',
-                'data' => []
-            ]);
-        }
-        $fileName = 'consultants-recherches-' . Carbon::now()->format('Y-m-d') . '.xlsx';
-
-        Excel::store(new ConsultantExportSearch($consultants), $fileName, 'exportconsultants');
-
-        return response()->json([
-            "message" => "Exportation des données effectuée avec succès",
-            "filename" => $fileName,
-            "url" => Storage::disk('exportconsultants')->url($fileName)
-        ]);
-
-    }
-
-    /**
      * @permission ConsultantController::store
      * @permission_desc Enregistrer un consultant
      */
@@ -297,7 +204,6 @@ class ConsultantController extends Controller
         try {
             $auth = auth()->user();
 
-            // Validation
             $data = $request->validate([
                 'code_hopi' => 'required|exists:hopitals,id',
                 'code_service_hopi' => 'required|exists:service__hopitals,id',
@@ -306,6 +212,8 @@ class ConsultantController extends Controller
 
                 'nom' => 'required|string',
                 'prenom' => 'nullable|string',
+
+                'order_number' => 'nullable|string|unique:consultants,order_number',
 
                 'tel' => 'required|string|unique:consultants,tel',
                 'tel1' => 'nullable|string|unique:consultants,tel1',
@@ -436,6 +344,9 @@ class ConsultantController extends Controller
 
                 'nom' => 'required|string',
                 'prenom' => 'nullable|string',
+
+
+                'order_number' => 'nullable|string|unique:consultants,order_number,' . $consultant->id,
 
                 'tel' => 'required|string|unique:consultants,tel,' . $consultant->id,
                 'tel1' => 'nullable|string|unique:consultants,tel1,' . $consultant->id,

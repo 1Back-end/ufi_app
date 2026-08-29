@@ -33,7 +33,8 @@ class Consultant extends Model
         'TelWhatsApp',
         'centre_id',
         'user_id',
-        'is_used_commission'
+        'is_used_commission',
+        'order_number'
     ];
 
     protected $appends = ['fullname'];

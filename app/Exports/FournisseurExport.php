@@ -14,28 +14,33 @@ class FournisseurExport implements FromCollection, WithHeadings
      */
     public function collection()
     {
-        // Récupérer uniquement les fournisseurs qui ne sont pas supprimés
-        $fournisseurs = Fournisseurs::where('is_deleted', false)->get();
+        $fournisseurs = Fournisseurs::with(["creator", "updater"])
+            ->orderBy('full_name', 'asc')
+            ->get();
 
-        // Si la collection est vide, lever une exception
         if ($fournisseurs->isEmpty()) {
             throw new \Exception('Aucune donnée à exporter');
         }
 
-        return $fournisseurs->map(function ($fournisseur) {
+        return $fournisseurs->map(function ($fournisseur, $index) {
             return [
-                "id" => $fournisseur->id,
-                "nom" => $fournisseur->nom,
-                "adresse" => $fournisseur->adresse,
-                "tel" => $fournisseur->tel,
+                "id" => $index + 1,
+                "full_name" => $fournisseur->full_name,
+                "company_name" => $fournisseur->company_name,
+                "address" => $fournisseur->address,
+                "phone_number" => $fournisseur->phone_number,
+                "second_phone_number" => $fournisseur->second_phone_number,
                 "email" => $fournisseur->email,
-                "fax" => $fournisseur->fax,
-                "ville" => $fournisseur->ville,
-                "pays" => $fournisseur->pays,
-                "state" => $fournisseur->state,
-                "status" => $fournisseur->status,
-                'created_at' => Carbon::parse($fournisseur->created_at)->format('d/m/Y H:i'),
-                'updated_at' => Carbon::parse($fournisseur->updated_at)->format('d/m/Y H:i'),
+                "tax_number" => $fournisseur->tax_number,
+                "business_registration_number" => $fournisseur->business_registration_number,
+                "website" => $fournisseur->website,
+                "city" => $fournisseur->city,
+                "country" => $fournisseur->country,
+                "contact_person" => $fournisseur->contact_person,
+                "contact_person_phone" => $fournisseur->contact_person_phone,
+                "is_active" => $fournisseur->is_active ? 'Actif' : 'Inactif',
+                'created_at' => $fournisseur->created_at ? Carbon::parse($fournisseur->created_at)->format('d/m/Y H:i') : '',
+                'updated_at' => $fournisseur->updated_at ? Carbon::parse($fournisseur->updated_at)->format('d/m/Y H:i') : '',
             ];
         });
     }
@@ -49,14 +54,19 @@ class FournisseurExport implements FromCollection, WithHeadings
     {
         return [
             '#',
-            'Nom',
+            'Nom complet',
+            'Entreprise',
             'Adresse',
-            'Numéro de téléphone',
+            'Téléphone principal',
+            'Second téléphone',
             'Email',
-            'Fax',
+            'Numéro de contribuable',
+            'N° RCCM / Enreg.',
+            'Site web',
             'Ville',
             'Pays',
-            'Etat/Région',
+            'Personne contact',
+            'Tél. contact',
             'Statut',
             'Date de Création',
             'Date de Modification'

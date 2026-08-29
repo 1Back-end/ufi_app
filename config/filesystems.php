@@ -97,16 +97,35 @@ return [
             'url' => env('APP_URL') . '/export-consultants',
             'visibility' => 'public',
         ],
+
+        'exportrendezvous' => [
+            'driver' => 'local',
+            'root' => public_path('export-rendezvous'),
+            'url' => env('APP_URL') . '/export-rendezvous',
+            'visibility' => 'public',
+        ],
         'exportproducts' => [
             'driver' => 'local',
             'root' => public_path('export-products'),
             'url' => env('APP_URL') . '/export-products',
             'visibility' => 'public',
         ],
-        'exportrendezvous' => [
+        'exportexamens' => [
             'driver' => 'local',
-            'root' => public_path('export-rendezvous'),
-            'url' => env('APP_URL') . '/export-rendezvous',
+            'root' => public_path('export-examens'),
+            'url' => env('APP_URL') . '/export-examens',
+            'visibility' => 'public',
+        ],
+        'productstype' => [
+            'driver' => 'local',
+            'root' => public_path('export-productstype'),
+            'url' => env('APP_URL') . '/export-productstype',
+            'visibility' => 'public',
+        ],
+        'productspackaging' => [
+            'driver' => 'local',
+            'root' => public_path('export-productspackaging'),
+            'url' => env('APP_URL') . '/export-productspackaging',
             'visibility' => 'public',
         ],
         'dossiersconsultations' => [
