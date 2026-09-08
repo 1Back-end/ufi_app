@@ -17,6 +17,7 @@ class PatientResultArchive extends Model
         'count',
         'created_by',
         'updated_by',
+        'delivery_channel_id'
     ];
 
     public function prestation()
@@ -32,5 +33,9 @@ class PatientResultArchive extends Model
     public function updatedBy()
     {
         return $this->belongsTo(User::class, 'updated_by');
+    }
+    public function delivery_channel()
+    {
+        return $this->belongsTo(DeliveryChannel::class, 'delivery_channel_id');
     }
 }

@@ -106,13 +106,13 @@ class PrestationController extends Controller
      */
     public function index(Request $request)
     {
-        $startTime = microtime(true);
         $prestationsQuery = Prestation::with([
             'createdBy:id,nom_utilisateur',
             'updatedBy:id,nom_utilisateur',
             'printer:id,nom_utilisateur',
             'validator:id,nom_utilisateur',
             'prelevate:id,nom_utilisateur',
+            'deliverer:id,nom_utilisateur',
             'payableBy',
             'client',
             'client.sexe',
@@ -272,19 +272,169 @@ class PrestationController extends Controller
             }
         }
 
-        $endTime = microtime(true);
-        $executionTime = round(($endTime - $startTime) * 1000, 2);
-
-        Log::info("--- TEMPS DE CHARGEMENT INDEX --- : {$executionTime} ms");
-
 
         return response()->json([
             'prestations' => $prestations,
             'regulation_methods' => RegulationMethod::all(),
             'anteririorResult' => $anteririorResult,
-            'execution_time_ms' => $executionTime,
         ]);
     }
+
+    /**
+     * Affiche la liste des résultats journaliers (remis aujourd'hui).
+     *
+     * @param Request $request
+     * @return JsonResponse
+     *
+     * @permission PrestationController::indexDeliveredToday
+     * @permission_desc Afficher la liste des résultats journaliers
+     */
+    public function indexDeliveredToday(Request $request)
+    {
+        $prestationsQuery = Prestation::with([
+            'createdBy:id,nom_utilisateur',
+            'updatedBy:id,nom_utilisateur',
+            'printer:id,nom_utilisateur',
+            'validator:id,nom_utilisateur',
+            'prelevate:id,nom_utilisateur',
+            'deliverer:id,nom_utilisateur',
+            'payableBy',
+            'client',
+            'client.sexe',
+            'client.societe',
+            'consultant',
+            'priseCharge',
+            'priseCharge.assureur',
+            'priseCharge.quotation',
+            'actes',
+            'soins',
+            'consultations',
+            'hospitalisations',
+            'products',
+            'examens',
+            'examens.kbPrelevement',
+            'examens.typePrelevement',
+            'examens.paillasse',
+            'examens.subFamilyExam',
+            'examens.subFamilyExam.familyExam',
+            'examens.elementPaillasses',
+            'examens.elementPaillasses.group_populations',
+            'examens.elementPaillasses.typeResult',
+            'examens.elementPaillasses.catPredefinedList',
+            'examens.elementPaillasses.parent',
+            'examens.elementPaillasses.children',
+            'centre',
+            'factures',
+            'factures.regulations',
+            'factures.regulations.regulationMethod',
+            'results',
+            'results.elementPaillasse',
+            'results.elementPaillasse.examen',
+            'results.elementPaillasse.group_populations',
+            'results.groupePopulation',
+        ])
+
+            ->whereDate('result_delivered_at', today())
+
+            ->when($request->input('client_id'), function ($query) use ($request) {
+                $query->where('client_id', $request->input('client_id'));
+            })
+            ->when($request->input('consultant_id'), function ($query) use ($request) {
+                $query->where('consultant_id', $request->input('consultant_id'));
+            })
+            ->when($request->input('type'), function ($query) use ($request) {
+                $query->where('type', $request->input('type'));
+            })
+            ->when($request->input('delivery_date_start') && $request->input('delivery_date_end'), function (Builder $query) use ($request) {
+                $startDate = $request->input('delivery_date_start');
+                $endDate = $request->input('delivery_date_end');
+                if ($startDate && $endDate) {
+                    $query->whereBetween('result_delivered_at', [$startDate, $endDate]);
+                }
+            })
+            ->when($request->input('order'), function (Builder $query) use ($request) {
+                $query->orderBy($request->input('order')['column'], $request->input('order')['direction']);
+            }, function (Builder $query) {
+                $query->orderByRaw('result_delivered_at IS NULL ASC, result_delivered_at ASC');
+            })
+            ->when($request->input('prelevement'), function (Builder $query) use ($request) {
+                $query->whereHas('prestationables', function ($query) {
+                    $query->whereNull('prestationables.prelevements');
+                })->whereIn('type', [TypePrestation::LABORATOIR->value, TypePrestation::CAMPAGNE->value])
+                    ->whereHas('factures', function ($query) {
+                        $query->where('factures.type', 2);
+                    });
+            })
+            ->when($request->input('results'), function (Builder $query) use ($request) {
+                $query->whereHas('prestationables', function ($query) use ($request) {
+                    $query->when($request->input("result_status"), function (Builder $query) use ($request) {
+                        $query->whereIn('prestationables.status_examen', is_array($request->input("result_status")) ? $request->input("result_status") : [$request->input("result_status")])
+                            ->when($request->input('state_null'), function (Builder $query) {
+                                $query->orWhereNull('prestationables.status_examen');
+                            });
+                    }, function (Builder $query) {
+                        $query->whereNotNull('prelevements');
+                    });
+                })->whereIn('type', [TypePrestation::LABORATOIR->value, TypePrestation::CAMPAGNE->value])
+                    ->when($request->input('paillasse'), function (Builder $query) use ($request) {
+                        $query->whereHas('examens', function ($query) use ($request) {
+                            $query->where('paillasse_id', $request->input('paillasse'));
+                        });
+                    });
+            })
+            ->when($request->input('show_results'), function (Builder $query) use ($request) {
+                $query->whereHas('prestationables', function ($query) use ($request) {
+                    $query->whereIn('status_examen', $request->input("states"));
+                })->whereIn('type', [TypePrestation::LABORATOIR->value, TypePrestation::CAMPAGNE->value]);
+            })
+            ->when($request->input('prestation_id'), function (Builder $query) use ($request) {
+                $query->where('id', $request->input('prestation_id'));
+            })
+            ->where('centre_id', $request->header('centre'));
+
+        $prestations = $prestationsQuery->clone()->paginate(
+            perPage: $request->input('per_page', 25),
+            page: $request->input('page', 1)
+        );
+
+        $anteririorResult = [];
+        if ($request->input('show_results')) {
+            $prestationIds = $prestations->pluck('id')->toArray();
+            foreach ($prestations->items() as $prestation) {
+                foreach ($prestation->examens as $examen) {
+                    foreach ($examen->elementPaillasses as $elementPaillasse) {
+                        $result = Result::query()
+                            ->with([
+                                'elementPaillasse',
+                                'elementPaillasse.typeResult'
+                            ])
+                            ->where('created_at', '<', $prestation->created_at)
+                            ->where('element_paillasse_id', $elementPaillasse->id)
+                            ->whereNotIn('prestation_id', $prestationIds)
+                            ->whereHas('prestation', function ($query) use ($prestation) {
+                                $query->where('client_id', request()->input('client_id'));
+                            })
+                            ->latest()
+                            ->first();
+
+                        if ($result) {
+                            $anteririorResult[] = [
+                                'prestation_id' => $result->prestation_id,
+                                'element_paillasse_id' => $elementPaillasse->id,
+                                'result' => $result,
+                            ];
+                        }
+                    }
+                }
+            }
+        }
+
+        return response()->json([
+            'prestations' => $prestations,
+            'anteririorResult' => $anteririorResult,
+        ]);
+    }
+
 
 
     private function checkUserPrestationsNotRegulated(int $userId, int $centreId)
@@ -310,7 +460,6 @@ class PrestationController extends Controller
                 'message' => "Vous avez {$count} prestation(s) sans facture de type 2 sur les 3 derniers jours : {$codes}. Veuillez créer leurs factures avant de continuer."
             ];
         }
-
         return [
             'status' => true
         ];
@@ -453,6 +602,32 @@ class PrestationController extends Controller
         return $centre;
     }
 
+
+    /**
+     * Calcule la date de rendu des résultats basée sur la durée maximale des examens.
+     * Règle : Date du jour + durée maximale - 1
+     *
+     * @param array $examens
+     * @return \Carbon\Carbon
+     */
+    private function calculateResultDeliveryDate(array $examens): \Carbon\Carbon
+    {
+        $maxDays = 0;
+
+        foreach ($examens as $item) {
+            $examen = \App\Models\Examen::find($item['id']);
+
+            if ($examen && $examen->renderer_duration > $maxDays) {
+                $maxDays = (int) $examen->renderer_duration;
+            }
+        }
+
+        if ($maxDays > 0) {
+            return now()->addDays($maxDays - 1);
+        }
+        return now();
+    }
+
     /**
      * @param PrestationRequest $request
      * @return JsonResponse
@@ -505,6 +680,11 @@ class PrestationController extends Controller
 
             $data = $this->getDataForPriseEnCharge($request, $data);
 
+            if ((string)$request->input('type') === (string)TypePrestation::LABORATOIR->value && $request->has('examens')) {
+                $calculatedDate = $this->calculateResultDeliveryDate($request->input('examens'));
+                $data['result_delivered_at'] = $calculatedDate;
+            }
+
             if ($data['payable_by']) {
                 $convention = ConventionAssocie::query()
                     ->whereClientId($data['payable_by'])
@@ -521,6 +701,10 @@ class PrestationController extends Controller
             }
 
             $prestation = Prestation::create(\Arr::except($data, ['payable_by_file_update', 'payable_by_file', 'actes', 'amount_pc', 'amount_remise', 'amount']));
+            if (empty($prestation->result_delivered_at) && (string)$request->input('type') === (string)TypePrestation::LABORATOIR->value && $request->has('examens')) {
+                $prestation->result_delivered_at = $this->calculateResultDeliveryDate($request->input('examens'));
+                $prestation->save();
+            }
 
             $this->attachElementWithPrestation($request, $prestation);
 
@@ -653,6 +837,11 @@ class PrestationController extends Controller
 
             $data = $this->getDataForPriseEnCharge($request, $data);
 
+            if ((string)$request->input('type') === (string)TypePrestation::LABORATOIR->value && $request->has('examens')) {
+                $calculatedDate = $this->calculateResultDeliveryDate($request->input('examens'));
+                $data['result_delivered_at'] = $calculatedDate;
+            }
+
             if (isset($data['payable_by']) && $data['payable_by']) {
                 $convention = ConventionAssocie::query()
                     ->whereClientId($data['payable_by'])
@@ -671,6 +860,10 @@ class PrestationController extends Controller
             }
 
             $prestation->update($data);
+            if (empty($prestation->result_delivered_at) && (string)$request->input('type') === (string)TypePrestation::LABORATOIR->value && $request->has('examens')) {
+                $prestation->result_delivered_at = $this->calculateResultDeliveryDate($request->input('examens'));
+                $prestation->save();
+            }
             $this->attachElementWithPrestation($request, $prestation, true);
 
             if ($prestation->factures()->count()) {
@@ -1665,13 +1858,30 @@ class PrestationController extends Controller
         ]);
     }
 
+    /**
+     * Generates and returns the URL of a PDF invoice for an insurance company.
+     *
+     * This function validates the request parameters, generates a PDF invoice for the specified
+     * insurance company and date range, and returns the URL of the generated PDF. If the PDF
+     * already exists, it retrieves the existing file URL instead of generating a new one.
+     *
+     * @param Request $request The HTTP request object containing the input data.
+     *
+     * @return \Illuminate\Http\JsonResponse A JSON response containing the URL of the generated or existing PDF invoice.
+     *
+     * @throws \Throwable If an error occurs during the PDF generation process.
+     *
+     * @permission PrestationController::updateStatusExamen
+     * @permission_desc Remettre un résultat d'examen en précisant le canal de remise
+     */
     public function updateStatusExamen(Request $request, Prestation $prestation)
     {
         $request->validate([
-            'status' => ['required', new Enum(StateExamen::class)],
+            'delivery_channel_id' => ['required', 'exists:delivery_channels,id'],
         ]);
 
-        $newStatus = $request->input('status');
+        $newStatus = StateExamen::REMIS->value;
+        $deliveryChannelId = $request->input('delivery_channel_id');
 
         $exists = DB::table('prestationables')
             ->where('prestation_id', $prestation->id)
@@ -1699,21 +1909,22 @@ class PrestationController extends Controller
                 'status_examen' => $newStatus,
             ]);
 
-        if ($newStatus === StateExamen::PRINTED->value || $newStatus === StateExamen::REMIS->value) {
-            $archive = PatientResultArchive::where('prestation_id', $prestation->id)->first();
+        $archive = PatientResultArchive::where('prestation_id', $prestation->id)->first();
 
-            if ($archive) {
-                $archive->increment('count');
-                $archive->update([
-                    'updated_by' => auth()->id(),
-                ]);
-            } else {
-                PatientResultArchive::create([
-                    'prestation_id' => $prestation->id,
-                    'count'         => 1,
-                    'created_by'    => auth()->id(),
-                ]);
-            }
+        $archiveData = [
+            'delivery_channel_id' => $deliveryChannelId,
+            'updated_by'          => auth()->id(),
+        ];
+
+        if ($archive) {
+            $archive->increment('count');
+            $archive->update($archiveData);
+        } else {
+            PatientResultArchive::create(array_merge([
+                'prestation_id' => $prestation->id,
+                'count'         => 1,
+                'created_by'    => auth()->id(),
+            ], $archiveData));
         }
 
         return response()->json([
@@ -2064,7 +2275,7 @@ class PrestationController extends Controller
 
         $timezone = config('app.timezone');
 
-        // Récupération des dates (plage ou valeur unique ou défaut sur 1 mois)
+
         $startDateInput = $request->input('start_date');
         $endDateInput = $request->input('end_date');
         $dateInput = $request->input('date');
@@ -2247,6 +2458,71 @@ class PrestationController extends Controller
                 'error'   => $e->getMessage()
             ], 500);
         }
+    }
+
+
+    /**
+     * Update the status of exams for specified prestations.
+     *
+     * @param Request $request
+     *
+     * @return JsonResponse
+     *
+     * @permission PrestationController::get_delivered_examens_by_date
+     * @permission_desc Etats des resultats d'examens par statut
+     * @throws Throwable
+     */
+    public function get_delivered_examens_by_date(Request $request)
+    {
+        $startDate = $request->input('start_date')
+            ? Carbon::parse($request->input('start_date'))->startOfDay()
+            : now()->startOfDay();
+
+        $endDate = $request->input('end_date')
+            ? Carbon::parse($request->input('end_date'))->endOfDay()
+            : now()->endOfDay();
+
+        $centreId = $request->input('centre');
+
+        $baseQuery = Prestation::query()
+            ->when($centreId, function ($query) use ($centreId) {
+                $query->where('centre_id', $centreId);
+            })
+            ->where('type', TypePrestation::LABORATOIR->value);
+
+        $faitsQuery = (clone $baseQuery)->whereBetween('created_at', [$startDate, $endDate]);
+
+        $aRemettreQuery = (clone $baseQuery)->whereBetween('result_delivered_at', [$startDate, $endDate]);
+
+        $prestationsARemettre = (clone $aRemettreQuery)->get();
+
+        $remisCount = 0;
+        $nonRemisCount = 0;
+
+        foreach ($prestationsARemettre as $prestation) {
+            $state = $prestation->state_examen;
+
+            if (in_array($state, [5, 6, 9, 10])) {
+                $remisCount++;
+            } else {
+                $nonRemisCount++;
+            }
+        }
+
+        $stats = [
+            'faits_count' => (clone $baseQuery)->whereBetween('created_at', [$startDate, $endDate])->count(),
+            'a_remettre_count' => $prestationsARemettre->count(),
+            'remis_count' => $remisCount,
+            'non_remis_count' => $nonRemisCount,
+        ];
+
+        return response()->json([
+            'period' => [
+                'start' => $startDate->toDateTimeString(),
+                'end' => $endDate->toDateTimeString(),
+            ],
+            'statistics' => $stats,
+        ]);
     }
 
 

@@ -51,7 +51,9 @@ class Prestation extends Model
         'printed_at',
         'printed_by',
         'prelevate_at',
-        'prelevated_by'
+        'prelevated_by',
+        'result_delivered_at',
+        'delivered_by',
     ];
 
     protected function casts(): array
@@ -63,6 +65,7 @@ class Prestation extends Model
             'printed_at' => 'datetime',
             'validated_at' => 'datetime',
             'prelevated_at' => 'datetime',
+            'result_delivered_at' => 'datetime',
         ];
     }
     public function rendezVous()
@@ -575,5 +578,9 @@ class Prestation extends Model
     public function prelevate(): BelongsTo
     {
         return $this->belongsTo(User::class, 'prelevated_by');
+    }
+    public function deliverer(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'delivered_by');
     }
 }

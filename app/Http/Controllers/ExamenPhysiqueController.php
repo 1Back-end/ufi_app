@@ -8,6 +8,7 @@ use App\Models\OpsTbl_Examen_Physique;
 use App\Models\OpsTbl_Motif_consultation;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Maatwebsite\Excel\Facades\Excel;
 
@@ -30,8 +31,7 @@ class ExamenPhysiqueController extends Controller
         $perPage = $request->input('limit', 25);
         $page = $request->input('page', 1);
 
-        $query = OpsTbl_Examen_Physique::where('is_deleted', false)
-            ->with([
+        $query = OpsTbl_Examen_Physique::with([
                 'creator:id,login',
                 'updater:id,login',
                 'categorieExamenPhysique',
@@ -76,40 +76,6 @@ class ExamenPhysiqueController extends Controller
 
     /**
      * Display a listing of the resource.
-     * @permission ExamenPhysiqueController::getHistoriqueExamensClient
-     * @permission_desc Afficher l'historique des examens physiques d'un client
-     */
-    public function getHistoriqueExamensClient(Request $request, $client_id)
-    {
-        $perPage = $request->input('limit', 25);
-        $page = $request->input('page', 1);
-
-        $query = OpsTbl_Examen_Physique::where('is_deleted', false)
-            ->whereHas('dossierConsultation.rendezVous', function ($query) use ($client_id) {
-                $query->where('client_id', $client_id);
-            })
-            ->with([
-                'categorieExamenPhysique:id,name',
-                'dossierConsultation:id,code,rendez_vous_id',
-                'dossierConsultation.rendezVous:id,dateheure_rdv,code,client_id',
-            ])
-            ->orderByDesc('created_at');
-
-        $results = $query->paginate($perPage, ['*'], 'page', $page);
-
-        return response()->json([
-            'data' => $results->items(),
-            'current_page' => $results->currentPage(),
-            'last_page' => $results->lastPage(),
-            'total' => $results->total(),
-        ]);
-    }
-
-
-
-
-    /**
-     * Display a listing of the resource.
      * @permission ExamenPhysiqueController::export
      * @permission_desc Exporter la liste  des examens physiques
      */
@@ -130,7 +96,7 @@ class ExamenPhysiqueController extends Controller
     /**
      * Display a listing of the resource.
      * @permission ExamenPhysiqueController::store
-     * @permission_desc Enregistrer des examens physiques
+     * @permission_desc Enregistrer les examens physiques pour un dossier de consultations
      */
     public function store(Request $request)
     {
@@ -144,17 +110,27 @@ class ExamenPhysiqueController extends Controller
             'examens.*.dossier_consultation_id' => 'required|exists:dossier_consultations,id',
         ]);
 
-        $created = [];
+        try {
+            $created = DB::transaction(function () use ($validated, $auth) {
+                $results = [];
+                foreach ($validated['examens'] as $examenData) {
+                    $examenData['created_by'] = $auth->id;
+                    $results[] = OpsTbl_Examen_Physique::create($examenData);
+                }
+                return $results;
+            });
 
-        foreach ($validated['examens'] as $examenData) {
-            $examenData['created_by'] = $auth->id;
-            $created[] = OpsTbl_Examen_Physique::create($examenData);
+            return response()->json([
+                'message' => 'Examens physiques créés avec succès.',
+                'data' => $created
+            ], 201);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => "Erreur lors de l'enregistrement des examens physiques.",
+                'error' => $e->getMessage()
+            ], 500);
         }
-
-        return response()->json([
-            'message' => 'Examens physiques créés avec succès.',
-            'data' => $created
-        ]);
     }
 
 
@@ -162,17 +138,25 @@ class ExamenPhysiqueController extends Controller
     /**
      * Display a listing of the resource.
      * @permission ExamenPhysiqueController::update
-     * @permission_desc Modifier des examens physiques
+     * @permission_desc Modifier les examens physiques pour un dossier de consultations
      */
     public function update(Request $request, $id)
     {
         $auth = auth()->user();
-        $examen = OpsTbl_Examen_Physique::findOrFail($id);
+
+        $examen = OpsTbl_Examen_Physique::find($id);
+
+        if (!$examen) {
+            return response()->json([
+                'message' => 'Examen physique non trouvé.'
+            ], 404);
+        }
 
         $validated = $request->validate([
-            'libelle' => 'required|string|max:255',
+            'libelle' => 'sometimes|required|string|max:255',
             'resultat' => 'nullable|string',
-            'categorie_examen_physique_id' => 'nullable|exists:config_tbl_categories_examen_physiques,id',
+            'categorie_examen_physique_id' => 'sometimes|required|exists:config_tbl_categories_examen_physiques,id',
+            'dossier_consultation_id' => 'sometimes|required|exists:dossier_consultations,id',
         ]);
 
         $validated['updated_by'] = $auth->id;
@@ -182,7 +166,7 @@ class ExamenPhysiqueController extends Controller
         return response()->json([
             'message' => 'Examen physique mis à jour avec succès.',
             'data' => $examen
-        ]);
+        ], 200);
     }
     /**
      * Display a listing of the resource.

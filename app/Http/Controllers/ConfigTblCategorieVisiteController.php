@@ -21,19 +21,16 @@ class ConfigTblCategorieVisiteController extends Controller
         $perPage = $request->input('limit', 5);
         $page = $request->input('page', 1);
 
-        $query = ConfigTblCategorieVisite::where('is_deleted', false)
-            ->with([
-                'creator:id,login',
-                'updater:id,login',
+        $query = ConfigTblCategorieVisite::with([
+                'creator:id,nom_utilisateur',
+                'updater:id,nom_utilisateur',
                 'typeVisite:id,libelle'
             ]);
 
-        // Filtrage par type_visite_id
         if ($request->filled('type_visite_id')) {
             $query->where('type_visite_id', $request->input('type_visite_id'));
         }
 
-        // Recherche par mot-clé
         if ($request->filled('search')) {
             $search = $request->input('search');
             $query->where(function ($q) use ($search) {
@@ -68,14 +65,14 @@ class ConfigTblCategorieVisiteController extends Controller
             'libelle' => 'required|string|unique:config_tbl_categorie_visites,libelle',
             'type_visite_id' => 'required|exists:config_tbl_type_visite,id',
             'description' => 'nullable|string',
-            'sous_type' => 'required|boolean', // <- ici
+            'sous_type' => 'required|boolean',
         ]);
 
         $data = $request->all();
         $data['created_by'] = $auth->id;
 
         $categorie = ConfigTblCategorieVisite::create($data);
-        $categorie->load(['creator:id,login', 'updater:id,login','typeVisite:id,libelle']);
+        $categorie->load(['creator:id,nom_utilisateur', 'updater:id,nom_utilisateur','typeVisite:id,libelle']);
 
 
         return response()->json([
@@ -117,7 +114,7 @@ class ConfigTblCategorieVisiteController extends Controller
             $request->all(),
             ['updated_by' => $auth->id]
         ));
-        $categorie->load(['creator:id,login', 'updater:id,login','typeVisite:id,libelle']);
+        $categorie->load(['creator:id,nom_utilisateur', 'updater:id,nom_utilisateur','typeVisite:id,libelle']);
 
         return response()->json([
             'message' => 'Catégorie mise à jour.',

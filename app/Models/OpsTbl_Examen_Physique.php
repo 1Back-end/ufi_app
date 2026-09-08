@@ -2,15 +2,16 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
 
 class OpsTbl_Examen_Physique extends Model
 {
-    // Table associée
+    use HasFactory,SoftDeletes;
     protected $table = 'ops_tbl__examen__physiques';
 
-    // Champs remplissables (à adapter selon besoin)
     protected $fillable = [
         'code',
         'libelle',
@@ -46,13 +47,18 @@ class OpsTbl_Examen_Physique extends Model
     {
         parent::boot();
 
-        static::creating(function ($examenPhysique) {
-            $prefix = 'EXAMEN-';
-            $timestamp = now()->format('ymdHi');
+        static::creating(function ($model) {
+            $year = now()->format('Y');
+            $today = now()->format('Ymd');
 
-            $random = strtoupper(Str::random(7));
-            $examenPhysique->code = $prefix . $timestamp . $random;
+            $lastRecord = self::whereYear('created_at', $year)
+                ->orderBy('id', 'desc')
+                ->first();
+
+            $sequence = $lastRecord ? intval(substr($lastRecord->code, 4, 3)) + 1 : 1;
+            $formattedSequence = str_pad($sequence, 3, '0', STR_PAD_LEFT);
+
+            $model->code = '#' . $formattedSequence  . $today;
         });
     }
-    //
 }

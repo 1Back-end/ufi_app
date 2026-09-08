@@ -69,7 +69,6 @@ class RendezVous extends Model
         return $date->format('Y-m-d\TH:i:s');
     }
 
-
     public function getTypePrestationLabelAttribute()
     {
         return $this->prestation ? TypePrestation::label($this->prestation->type) : null;
@@ -78,7 +77,6 @@ class RendezVous extends Model
     {
         return $this->belongsTo(RendezVous::class, 'rendez_vous_id');
     }
-
 
     public function children()
     {
@@ -90,13 +88,12 @@ class RendezVous extends Model
         return $this->belongsTo(Prestation::class, 'prestation_id');
     }
 
-
     public function client()
     {
         return $this->belongsTo(Client::class);
     }
 
-    public function consultant()
+        public function consultant()
     {
         return $this->belongsTo(Consultant::class);
     }
@@ -111,21 +108,13 @@ class RendezVous extends Model
         return $this->belongsTo(User::class, 'updated_by');
     }
 
-    public function scopeNotDeleted($query)
-    {
-        return $query->where('is_deleted', false);
-    }
 
     public function getNombreJoursAttribute(): bool
     {
         if (!$this->dateheure_rdv) {
             return false;
         }
-
-        // On ajoute 14 jours à la date du rendez-vous
         $rdvPlusQuatorzeJours = $this->dateheure_rdv->copy()->addDays(14);
-
-        // Retourne true si la date + 14 jours est dans le futur, false sinon
         return Carbon::now()->lessThanOrEqualTo($rdvPlusQuatorzeJours);
     }
 
