@@ -17,15 +17,13 @@ class OpsTblAntecedentController extends Controller
     /**
      * Display a listing of the resource.
      * @permission OpsTblAntecedentController::index
-     * @permission_desc Afficher  la liste des antécédants
+     * @permission_desc Afficher  la liste des antécédants d'un client
      */
     public function index(Request $request, $client_id)
     {
         $perPage = $request->input('limit', 5);
-        $page = $request->input('page', 1);
 
-        $antecedents = OpsTblAntecedent::where('is_deleted', false)
-            ->where('client_id', $client_id) // filtre direct avec le paramètre
+        $antecedents = OpsTblAntecedent::where('client_id', $client_id)
             ->with([
                 'createdBy',
                 'updatedBy',
@@ -33,15 +31,15 @@ class OpsTblAntecedentController extends Controller
                 'categorie',
                 'sousCategorie'
             ])
-            ->when($request->input('search'), function ($query) use ($request) {
-                $search = $request->input('search');
+            ->when($request->input('search'), function ($query, $search) {
                 $query->where(function ($q) use ($search) {
                     $q->where('description', 'like', '%' . $search . '%')
+                        ->orWhere('code', 'like', '%' . $search . '%')
                         ->orWhere('id', 'like', '%' . $search . '%');
                 });
             })
             ->latest()
-            ->paginate($perPage, page: $page);
+            ->paginate($perPage);
 
         return response()->json([
             'data' => $antecedents->items(),
@@ -55,11 +53,12 @@ class OpsTblAntecedentController extends Controller
     /**
      * Display a listing of the resource.
      * @permission OpsTblAntecedentController::store
-     * @permission_desc Création des antécédants
+     * @permission_desc Création des antécédants d'un client
      */
     public function store(Request $request)
     {
         $auth = auth()->user();
+
         $messages = [
             'client_id.required' => 'Le client est obligatoire.',
             'client_id.exists' => 'Le client sélectionné est invalide.',
@@ -70,17 +69,17 @@ class OpsTblAntecedentController extends Controller
             'description.string' => 'La description doit être une chaîne de caractères.',
         ];
 
-
         $validated = $request->validate([
             'client_id' => 'required|exists:clients,id',
             'categorie_antecedent_id' => 'required|exists:config_tbl_categorie_antecedents,id',
             'souscategorie_antecedent_id' => 'required|exists:configtbl_souscategorie_antecedent,id',
             'description' => 'nullable|string',
         ], $messages);
-        $validated['created_by'] = $auth->id;
+
+        $validated['created_by'] = $auth ? $auth->id : null;
 
         $antecedent = OpsTblAntecedent::create($validated);
-        $antecedent->load(['createdBy', 'updatedBy','client','categorie','sousCategorie']);
+        $antecedent->load(['createdBy', 'updatedBy', 'client', 'categorie', 'sousCategorie']);
 
         return response()->json([
             'data' => $antecedent,
@@ -91,11 +90,10 @@ class OpsTblAntecedentController extends Controller
     /**
      * Display a listing of the resource.
      * @permission OpsTblAntecedentController::update
-     * @permission_desc Modification des antécédants
+     * @permission_desc Modification des antécédants d'un client
      */
     public function update(Request $request, $id)
     {
-        $antecedent = OpsTblAntecedent::findOrFail($id);
         $auth = auth()->user();
 
         $messages = [
@@ -107,26 +105,31 @@ class OpsTblAntecedentController extends Controller
             'souscategorie_antecedent_id.exists' => 'La sous-catégorie sélectionnée est invalide.',
             'description.string' => 'La description doit être une chaîne de caractères.',
         ];
+
         $validated = $request->validate([
             'client_id' => 'required|exists:clients,id',
             'categorie_antecedent_id' => 'required|exists:config_tbl_categorie_antecedents,id',
             'souscategorie_antecedent_id' => 'required|exists:configtbl_souscategorie_antecedent,id',
             'description' => 'nullable|string',
         ], $messages);
-        $validated['updated_by'] = $auth->id;
+
+        $antecedent = OpsTblAntecedent::findOrFail($id);
+
+        $validated['updated_by'] = $auth ? $auth->id : null;
+
         $antecedent->update($validated);
-        $antecedent->load(['createdBy', 'updatedBy','client','categorie','sousCategorie']);
+        $antecedent->load(['createdBy', 'updatedBy', 'client', 'categorie', 'sousCategorie']);
 
         return response()->json([
+            'data' => $antecedent,
             'status' => 'success',
-            'message' => 'Antécédent mis à jour avec succès.',
-            'data' => $antecedent
+            'message' => 'Antécédent modifié avec succès.'
         ]);
     }
     /**
      * Display a listing of the resource.
      * @permission OpsTblAntecedentController::show
-     * @permission_desc Afficher  les détails des antécédants
+     * @permission_desc Afficher  les détails des antécédants d'un client
      */
     public function show($id)
     {
@@ -147,7 +150,7 @@ class OpsTblAntecedentController extends Controller
     /**
      * Display a listing of the resource.
      * @permission OpsTblAntecedentController::destroy
-     * @permission_desc Supprimer les antécédants
+     * @permission_desc Supprimer les antécédants d'un client
      */
 
     public function destroy($id)
@@ -161,9 +164,7 @@ class OpsTblAntecedentController extends Controller
             ], 404);
         }
 
-        // Suppression soft via champ is_deleted
-        $antecedent->is_deleted = true;
-        $antecedent->save();
+        $antecedent->delete();
 
         return response()->json([
             'status' => 'success',

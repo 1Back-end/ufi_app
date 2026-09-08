@@ -5,6 +5,7 @@ use App\Models\DossierConsultation;
 use App\Models\OpsTblRapportConsultation;
 use App\Models\RendezVous;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 
 /**
@@ -113,32 +114,45 @@ class OpsTblRapportConsultationController extends Controller
         $auth = auth()->user();
 
         $request->validate([
-            'resume' => 'required|string',
-            'conclusion' => 'nullable|string',
-            'recommandations' => 'nullable|string',
+            'resume'                  => 'required|string',
+            'conclusion'              => 'required|string',
+            'recommandations'         => 'required|string',
             'dossier_consultation_id' => 'required|exists:dossier_consultations,id',
         ]);
 
-        // Création du rapport
-        $rapport = OpsTblRapportConsultation::create([
-            'resume' => $request->resume,
-            'conclusion' => $request->conclusion,
-            'recommandations' => $request->recommandations,
-            'dossier_consultation_id' => $request->dossier_consultation_id,
-            'created_by' => $auth->id
-        ]);
+        try {
+            $result = DB::transaction(function () use ($request, $auth) {
 
-        $dossier = DossierConsultation::find($request->dossier_consultation_id);
+                $rapport = OpsTblRapportConsultation::create([
+                    'resume'                  => $request->resume,
+                    'conclusion'              => $request->conclusion,
+                    'recommandations'         => $request->recommandations,
+                    'dossier_consultation_id' => $request->dossier_consultation_id,
+                    'created_by'              => $auth->id ?? null,
+                ]);
 
-        if ($dossier && $dossier->rendez_vous_id) {
-            RendezVous::where('id', $dossier->rendez_vous_id)
-                ->update(['etat' => 'En cours de consultation']);
+                $dossier = DossierConsultation::find($request->dossier_consultation_id);
+
+                if ($dossier && $dossier->rendez_vous_id) {
+                    RendezVous::where('id', $dossier->rendez_vous_id)->update([
+                        'etat' => 'Terminé'
+                    ]);
+                }
+
+                return $rapport;
+            });
+
+            return response()->json([
+                'message' => 'Rapport de consultation enregistré avec succès.',
+                'data'    => $result
+            ], 201);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => "Erreur lors de l'enregistrement du rapport.",
+                'error'   => $e->getMessage()
+            ], 500);
         }
-
-        return response()->json([
-            'message' => 'Rapport de consultation enregistré avec succès.',
-            'data' => $rapport
-        ], 201);
     }
 
 

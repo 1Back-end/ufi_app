@@ -239,6 +239,8 @@ Route::middleware(['activity'])->group(function () {
         Route::patch('/prestations/{id}/change_consultant', [PrestationController::class, 'changeConsultant']);
         Route::get('/deleted_by_date', [PrestationController::class, 'get_all_prestations_deleted']);
         Route::get('/prestations_by_regulated', [PrestationController::class, 'get_count_prestations_by_regulated']);
+        Route::get('delivered_today', [PrestationController::class, 'indexDeliveredToday']);
+        Route::get('delivered_examens_stats', [PrestationController::class, 'get_delivered_examens_by_date']);
 
         Route::apiResource('regulation-methods', RegulationMethodController::class)->except(['show', 'destroy']);
         Route::patch('regulation-methods/{regulationMethod}/activate', [RegulationMethodController::class, 'activate']);
@@ -387,11 +389,40 @@ Route::middleware(['activity'])->group(function () {
 
 
         Route::apiResource('rendez_vous', RendezVousController::class);
+        Route::get('exports_all_rendez_vous_in_excel', [\App\Http\Controllers\RendezVousController::class, 'export_in_excel']);
+        Route::patch('rendez-vous/{id}/status', [\App\Http\Controllers\RendezVousController::class, 'updateStatus']);
         Route::apiResource('dossier_locations', \App\Http\Controllers\DossierLocationController::class);
         Route::patch('dossier_locations/{id}/is_active', [\App\Http\Controllers\DossierLocationController::class, 'updateStatus']);
+
+
         Route::apiResource('dossiers_consultations', DossierConsultationController::class);
+        Route::post('dossiers_consultations/{id}/update', [\App\Http\Controllers\DossierConsultationController::class, 'update_dossiers']);
+        Route::get('exports_all_dossiers_consultations_in_excel', [\App\Http\Controllers\DossierConsultationController::class, 'export_in_excel']);
+        Route::apiResource('ops_tbl_rapport_consultations', OpsTblRapportConsultationController::class);
+        Route::apiResource('ops_tbl_antecedents', OpsTblAntecedentController::class);
+        Route::get('ops_tbl_antecedents/client/{client_id}', [\App\Http\Controllers\OpsTblAntecedentController::class, 'index']);
+
+        Route::apiResource('config_examen_physiques', ConfigTblCategoriesExamenPhysiqueController::class);
+        Route::patch('config_examen_physiques/{id}/status', [ConfigTblCategoriesExamenPhysiqueController::class, 'updateStatus']);
+
+        Route::apiResource('config_enquetes', ConfigTblCategoriesEnquetesController::class);
+        Route::patch('config_enquetes/{id}/status', [ConfigTblCategoriesEnquetesController::class, 'updateStatus']);
+
+        Route::apiResource('examen_physiques', ExamenPhysiqueController::class);
+
+        Route::apiResource('ops_tbl_enquetes', OpsTblEnqueteController::class);
+
+        Route::apiResource('config_tbl_categorie_visites', ConfigTblCategorieVisiteController::class);
+        Route::get('/categories/{id}/types-parents', [\App\Http\Controllers\ConfigTblCategorieVisiteController::class, 'getTypesParents']);
+        Route::patch('config_tbl_categorie_visites/{id}/status', [\App\Http\Controllers\ConfigTblCategorieVisiteController::class, 'updateStatus']);
+
+        Route::apiResource('ops_tbl_motif_consultations', OpsTblMotifConsultationController::class);
+
 
         Route::apiResource('bilan_acte_rendez_vous', BilanActeRendezVousController::class);
+
+        Route::apiResource('delivery_channels', \App\Http\Controllers\DeliveryChannelController::class);
+        Route::patch('delivery_channels/{deliveryChannel}/is_active', [\App\Http\Controllers\DeliveryChannelController::class, 'updateStatus']);
 
 
 
@@ -491,21 +522,6 @@ Route::middleware(['activity'])->group(function () {
         });
 
 
-
-        Route::controller(RendezVousController::class)->prefix('rendez_vous')->group(function () {
-            Route::get('/list', 'index');
-            Route::post('/create', 'store');
-            Route::put('/edit/{id}', 'update');
-            Route::put('update_etat/{id}/etat/{etat}', 'updateStatus');
-            Route::put('/update_type/{id}/type/{type}', 'toggleType');
-            Route::get('/search', 'search');
-            Route::get('/export', 'export');
-            Route::get('/get_by_id/{id}', 'show');
-            Route::get('/client/{client_id}', 'HistoriqueRendezVous');
-            Route::get('/rapport', 'PrintRapport');
-            Route::get('/stats_by_consultants', 'rapportResume');
-        });
-
         Route::controller(ConfigTblSousCategorieAntecedentController::class)->prefix('config_sous_categories_antecedents')->group(function () {
             Route::get('/list', 'index');
             Route::post('/create', 'store');
@@ -521,21 +537,8 @@ Route::middleware(['activity'])->group(function () {
             Route::delete('/delete/{id}', 'destroy');
             Route::put('update_status/{id}/status/{status}', 'UpdateStatus');
         });
-        Route::controller(OpsTblAntecedentController::class)->prefix('ops_tbl_antecedents')->group(function () {
-            Route::get('/list', 'index');
-            Route::post('/create', 'store');
-            Route::get('/get_by_id/{id}', 'show');
-            Route::put('/edit/{id}', 'update');
-            Route::delete('/delete/{id}', 'destroy');
-            Route::get('/client/{client_id}', 'index');
-        });
-        Route::controller(ConfigTblCategoriesExamenPhysiqueController::class)->prefix('config_examen_physiques')->group(function () {
-            Route::get('/list', 'index');
-            Route::post('/create', 'store');
-            Route::get('/get_by_id/{id}', 'show');
-            Route::put('/edit/{id}', 'update');
-            Route::delete('/delete/{id}', 'destroy');
-        });
+
+
         Route::controller(ConfigTblTypeDiagnosticController::class)->prefix('config_diagnostics')->group(function () {
             Route::get('/list', 'index');
             Route::post('/create', 'store');
@@ -543,61 +546,13 @@ Route::middleware(['activity'])->group(function () {
             Route::put('/edit/{id}', 'update');
             Route::delete('/delete/{id}', 'destroy');
         });
-        Route::controller(ConfigTblCategoriesEnquetesController::class)->prefix('config_enquetes')->group(function () {
-            Route::get('/list', 'index');
-            Route::post('/create', 'store');
-            Route::get('/get_by_id/{id}', 'show');
-            Route::put('/edit/{id}', 'update');
-            Route::delete('/delete/{id}', 'destroy');
-        });
 
 
 
 
-        Route::controller(DossierConsultationController::class)->prefix('dossiers_consultations')->group(function () {
-            Route::get('/list', 'index');
-            Route::post('/create', 'store');
-            Route::get('/get_by_id/{id}', 'show');
-            Route::post('/edit/{id}', 'update');
-            Route::delete('/delete/{id}', 'destroy');
-            Route::get('/export', 'export');
-            Route::get('/search-and-export', 'search_and_export');
-            Route::get('/client/{client_id}', 'historiqueClient');
-        });
-        Route::controller(OpsTblMotifConsultationController::class)->prefix('ops_tbl_motif_consultations')->group(function () {
-            Route::get('/list', 'index');
-            Route::post('/create', 'store');
-            Route::get('/export', 'export');
-            Route::get('/search-and-export', 'search_and_export');
-        });
-        Route::controller(ExamenPhysiqueController::class)->prefix('examen_physiques')->group(function () {
-            Route::get('/list', 'index');
-            Route::post('/create', 'store');
-            Route::get('/get_by_id/{id}', 'show');
-            Route::put('/edit/{id}', 'update');
-            Route::delete('/delete/{id}', 'destroy');
-            Route::get('/export', 'export');
-            Route::get('/client/{client_id}', 'getHistoriqueExamensClient');
-        });
 
-        Route::controller(OpsTblEnqueteController::class)->prefix('ops_tbl_enquetes')->group(function () {
-            Route::get('/list', 'index');
-            Route::post('/create', 'store');
-            Route::get('/get_by_id/{id}', 'show');
-            Route::put('/edit/{id}', 'update');
-            Route::delete('/delete/{id}', 'destroy');
-            Route::get('/export', 'export');
-            Route::get('/client/{client_id}', 'getHistoriqueEnqueteClient');
-        });
 
-        Route::controller(OpsTblRapportConsultationController::class)->prefix('ops_tbl_rapport_consultations')->group(function () {
-            Route::get('/list', 'index');
-            Route::post('/create', 'store');
-            Route::get('/get_by_id/{id}', 'show');
-            Route::put('/edit/{id}', 'update');
-            Route::delete('/delete/{id}', 'destroy');
-            Route::get('/client/{client_id}', 'getHistoriqueRapportClient');
-        });
+
 
         Route::controller(OpsTblCertificatMedicalController::class)->prefix('ops_tbl_certificat_medicals')->group(function () {
             Route::get('/list', 'index');
@@ -640,15 +595,7 @@ Route::middleware(['activity'])->group(function () {
             Route::delete('/delete/{id}', 'destroy');
             Route::patch('/{id}/status', 'updateStatus');
         });
-        Route::controller(ConfigTblCategorieVisiteController::class)->prefix('config_tbl_categorie_visites')->group(function () {
-            Route::get('/list', 'index');
-            Route::post('/create', 'store');
-            Route::get('/get_by_id/{id}', 'show');
-            Route::put('/edit/{id}', 'update');
-            Route::delete('/delete/{id}', 'destroy');
-            Route::patch('/{id}/status', 'updateStatus');
-            Route::get('/categories/{id}/types-parents', 'getTypesParents');
-        });
+
         Route::controller(NurseController::class)->prefix('nurses')->group(function () {
             Route::get('/list', 'index');
             Route::post('/create', 'store');

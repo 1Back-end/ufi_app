@@ -8,6 +8,7 @@ use App\Models\OpsTbl_Examen_Physique;
 use App\Models\OpsTblEnquete;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Maatwebsite\Excel\Facades\Excel;
 
@@ -27,8 +28,7 @@ class OpsTblEnqueteController extends Controller
         $perPage = $request->input('limit', 25);
         $page = $request->input('page', 1);
 
-        $query = OpsTblEnquete::where('is_deleted', false)
-            ->with([
+        $query = OpsTblEnquete::with([
                 'creator:id,login',
                 'updater:id,login',
                 'categorieEnquete:id,name',
@@ -77,46 +77,16 @@ class OpsTblEnqueteController extends Controller
         ]);
     }
 
-    /**
-     * Display a listing of the resource.
-     * @permission OpsTblEnqueteController::getHistoriqueEnqueteClient
-     * @permission_desc Afficher l'historique des enquete systémiques d'un client
-     */
-    public function getHistoriqueEnqueteClient(Request $request, $client_id)
-    {
-        $perPage = $request->input('limit', 25);
-        $page = $request->input('page', 1);
-
-        $query = OpsTblEnquete::where('is_deleted', false)
-            ->whereHas('dossierConsultation.rendezVous', function ($query) use ($client_id) {
-                $query->where('client_id', $client_id);
-            })
-            ->with([
-                'categorieEnquete:id,name',
-                'dossierConsultation:id,code,rendez_vous_id',
-                'dossierConsultation.rendezVous:id,dateheure_rdv,code,client_id',
-            ])
-            ->orderByDesc('created_at');
-
-        $results = $query->paginate($perPage, ['*'], 'page', $page);
-
-        return response()->json([
-            'data' => $results->items(),
-            'current_page' => $results->currentPage(),
-            'last_page' => $results->lastPage(),
-            'total' => $results->total(),
-        ]);
-    }
-
 
     /**
      * Display a listing of the resource.
      * @permission OpsTblEnqueteController::store
-     * @permission_desc Creer des enquetes pour des dossiers de consultations
+     * @permission_desc Enregistrer des enquêtes pour un dossier de consultations
      */
     public function store(Request $request)
     {
         $auth = auth()->user();
+
         $validated = $request->validate([
             'enquetes' => 'required|array|min:1',
             'enquetes.*.libelle' => 'required|string|max:255',
@@ -125,87 +95,84 @@ class OpsTblEnqueteController extends Controller
             'enquetes.*.dossier_consultation_id' => 'required|exists:dossier_consultations,id',
         ]);
 
-        $created = [];
+        try {
+            $created = DB::transaction(function () use ($validated, $auth) {
+                $results = [];
+                foreach ($validated['enquetes'] as $enqueteData) {
+                    $enqueteData['created_by'] = $auth->id;
+                    $results[] = OpsTblEnquete::create($enqueteData);
+                }
+                return $results;
+            });
 
-        foreach ($validated['enquetes'] as $examenData) {
-            $examenData['created_by'] = $auth->id;
-            $created[] = OpsTblEnquete::create($examenData);
+            return response()->json([
+                'message' => 'Enquêtes enregistrées avec succès.',
+                'data' => $created
+            ], 201);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => "Erreur lors de l'enregistrement des enquêtes.",
+                'error' => $e->getMessage()
+            ], 500);
         }
-        return response()->json([
-            'message' => 'Enquêtes enregistrées avec succès.',
-            'data' => $created
-        ]);
     }
-
 
     /**
      * Display a listing of the resource.
      * @permission OpsTblEnqueteController::show
-     * @permission_desc Afficher les détails des enquetes pour des dossiers de consultations
+     * @permission_desc Afficher les détails des enquêtes pour un dossier de consultations
      */
     public function show(string $id)
     {
-        $enquete = OpsTblEnquete::with(['categorieEnquete:id,name'])
-            ->where('is_deleted', false)
-            ->where('id', $id)
-            ->first();
+        $enquete = OpsTblEnquete::with(['categorieEnquete:id,name'])->find($id);
 
         if (!$enquete) {
-            return response()->json(["message" => "Enquête introuvable"], 404);
+            return response()->json([
+                'message' => 'Enquête introuvable.'
+            ], 404);
         }
 
         return response()->json([
-            'enquete' => $enquete
-        ]);
+            'message' => 'Enquête récupérée avec succès.',
+            'data' => $enquete
+        ], 200);
     }
 
     /**
      * Display a listing of the resource.
      * @permission OpsTblEnqueteController::update
-     * @permission_desc Modification  des enquetes pour des dossiers de consultations
+     * @permission_desc Modifier des enquêtes pour un dossier de consultations
      */
     public function update(Request $request, $id)
     {
-        $enquete = OpsTblEnquete::where('is_deleted', false)->find($id);
-        if(!$enquete){
-            return response()->json(["message" => "Enquete introuvable"], 404);
-        }
         $auth = auth()->user();
-        $request->validate([
-            'libelle' => 'required|string',
+
+        $enquete = OpsTblEnquete::find($id);
+
+        if (!$enquete) {
+            return response()->json([
+                'message' => 'Enquête non trouvée.'
+            ], 404);
+        }
+
+        $validated = $request->validate([
+            'libelle' => 'sometimes|required|string|max:255',
             'resultat' => 'nullable|string',
-            'categories_enquetes_id' => 'required|exists:configtbl_categories_enquetes,id',
+            'categories_enquetes_id' => 'sometimes|required|exists:configtbl_categories_enquetes,id',
+            'dossier_consultation_id' => 'sometimes|required|exists:dossier_consultations,id',
         ]);
 
-        $enquete->update([
-            'libelle' => $request->libelle,
-            'resultat' => $request->resultat,
-            'categories_enquetes_id' => $request->categories_enquetes_id,
-            'updated_by' => $auth->id
-        ]);
+        $validated['updated_by'] = $auth->id;
+
+        $enquete->update($validated);
 
         return response()->json([
-            'message' => 'Enquête mise à jour avec succès',
-            'data' => $enquete,
-        ]);
+            'message' => 'Enquête mise à jour avec succès.',
+            'data' => $enquete
+        ], 200);
     }
-    /**
-     * Display a listing of the resource.
-     * @permission OpsTblEnqueteController::export
-     * @permission_desc Exporter les enquetes systémiques pour des dossiers de consultations
-     */
-    public function export()
-    {
-        $fileName = 'examens-enquetes-' . Carbon::now()->format('Y-m-d') . '.xlsx';
 
-        Excel::store(new ExamenEnqueteExport(), $fileName, 'examensenquetes');
-
-        return response()->json([
-            "message" => "Exportation des données effectuée avec succès",
-            "filename" => $fileName,
-            "url" => Storage::disk('examensenquetes')->url($fileName)
-        ]);
-    }
 
 
 }

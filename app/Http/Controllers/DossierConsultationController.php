@@ -14,6 +14,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Maatwebsite\Excel\Facades\Excel;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -38,70 +39,51 @@ class DossierConsultationController extends Controller
         $page = $request->input('page', 1);
 
         $query = DossierConsultation::with([
-                'emplacement',
-                'creator:id,nom_utilisateur',
-                'updater:id,nom_utilisateur',
-                'rendezVous:id,code,dateheure_rdv,client_id,consultant_id',
-                'rendezVous.client',
-                'rendezVous.consultant:id,nomcomplet,ref',
-                'medias',
-            ]);
+            'emplacement',
+            'creator:id,nom_utilisateur',
+            'updater:id,nom_utilisateur',
+            'rendezVous',
+            'rendezVous.client',
+            'rendezVous.consultant:id,nomcomplet,ref',
+            'medias',
+            'rendezVous.prestation',
+        ])
+            ->when($request->filled('client_id'), function ($q) use ($request) {
+                $q->whereHas('rendezVous', fn($subQ) =>
+                $subQ->where('client_id', $request->input('client_id'))
+                );
+            })
+            ->when($request->filled('consultant_id'), function ($q) use ($request) {
+                $q->whereHas('rendezVous', fn($subQ) =>
+                $subQ->where('consultant_id', $request->input('consultant_id'))
+                );
+            })
+            ->when($request->filled('search'), function ($q) use ($request) {
+                $search = $request->input('search');
 
-        if ($request->filled('client_id')) {
-            $query->whereHas('rendezVous', fn($q) =>
-            $q->where('client_id', $request->client_id)
-            );
-        }
-        if ($request->filled('consultant_id')) {
-            $query->whereHas('rendezVous', fn($q) =>
-            $q->where('consultant_id', $request->consultant_id)
-            );
-        }
-
-        if ($request->filled('start_date') && $request->filled('end_date')) {
-            $startDate = Carbon::parse($request->input('start_date'))->startOfDay();
-            $endDate = Carbon::parse($request->input('end_date'))->endOfDay();
-
-            $query->whereBetween('created_at', [$startDate, $endDate]);
-        } else {
-            $query->whereBetween('created_at', [
-                Carbon::today()->subDay()->startOfDay(),
-                Carbon::today()->addDay()->endOfDay()
-            ]);
-        }
-
-        // 🔎 Recherche globale (incluant client et consultant)
-        if ($request->filled('search')) {
-            $search = $request->input('search');
-
-            $query->where(function ($q) use ($search) {
-                $q->where('poids', 'like', "%$search%")
-                    ->orWhere('tension_arterielle_bd', 'like', "%$search%")
-                    ->orWhere('tension_arterielle_bg', 'like', "%$search%")
-                    ->orWhere('code', 'like', "%$search%")
-                    ->orWhere('taille', 'like', "%$search%")
-                    ->orWhere('temperature', 'like', "%$search%")
-                    ->orWhere('frequence_cardiaque', 'like', "%$search%")
-                    ->orWhere('saturation', 'like', "%$search%")
-                    ->orWhere('autres_parametres', 'like', "%$search%")
-
-                    // Recherche dans les clients
-                    ->orWhereHas('rendezVous.client', function ($q2) use ($search) {
-                        $q2->where('nomcomplet_client', 'like', "%$search%")
-                            ->orWhere('ref_cli', 'like', "%$search%");
-                    })
-
-                    // Recherche dans les consultants
-                    ->orWhereHas('rendezVous.consultant', function ($q3) use ($search) {
-                        $q3->where('nomcomplet', 'like', "%$search%")
-                            ->orWhere('ref', 'like', "%$search%");
-                    })
-
-                    ->orWhereHas('rendezVous', function ($q3) use ($search) {
-                        $q3->where('code', 'like', "%$search%");
-                    });
+                $q->where(function ($subQ) use ($search) {
+                    $subQ->where('poids', 'like', "%$search%")
+                        ->orWhere('tension_arterielle_bd', 'like', "%$search%")
+                        ->orWhere('tension_arterielle_bg', 'like', "%$search%")
+                        ->orWhere('code', 'like', "%$search%")
+                        ->orWhere('taille', 'like', "%$search%")
+                        ->orWhere('temperature', 'like', "%$search%")
+                        ->orWhere('frequence_cardiaque', 'like', "%$search%")
+                        ->orWhere('saturation', 'like', "%$search%")
+                        ->orWhere('autres_parametres', 'like', "%$search%")
+                        ->orWhereHas('rendezVous', function ($rsvQ) use ($search) {
+                            $rsvQ->where('code', 'like', "%$search%")
+                                ->orWhereHas('client', function ($clientQ) use ($search) {
+                                    $clientQ->where('nomcomplet_client', 'like', "%$search%")
+                                        ->orWhere('ref_cli', 'like', "%$search%");
+                                })
+                                ->orWhereHas('consultant', function ($consultantQ) use ($search) {
+                                    $consultantQ->where('nomcomplet', 'like', "%$search%")
+                                        ->orWhere('ref', 'like', "%$search%");
+                                });
+                        });
+                });
             });
-        }
 
         $dossiers = $query->latest()->paginate($perPage, ['*'], 'page', $page);
 
@@ -112,46 +94,6 @@ class DossierConsultationController extends Controller
             'total' => $dossiers->total(),
         ]);
     }
-
-
-
-    /**
-     * Display a listing of the resource.
-     * @permission DossierConsultationController::historiqueClient
-     * @permission_desc Afficher l'historique des dossiers de consultations d'un client
-     */
-
-    public function historiqueClient(Request $request, $client_id)
-    {
-        $perPage = $request->input('limit', 25);
-        $page = $request->input('page', 1);
-
-        $query = DossierConsultation::where('is_deleted', false)
-            ->whereHas('rendezVous', function ($q) use ($client_id) {
-                $q->where('client_id', $client_id);
-            })
-            ->with([
-                'creator:id,login',
-                'updater:id,login',
-                'rendezVous:id,code,dateheure_rdv,client_id,consultant_id',
-                'rendezVous.client',
-                'rendezVous.consultant',
-                'medias'
-            ])
-            ->latest();
-
-        $dossiers = $query->paginate($perPage, ['*'], 'page', $page);
-
-        return response()->json([
-            'data' => $dossiers->items(),
-            'current_page' => $dossiers->currentPage(),
-            'last_page' => $dossiers->lastPage(),
-            'total' => $dossiers->total(),
-        ]);
-    }
-
-
-
 
     /**
      * Display a listing of the resource.
@@ -190,7 +132,6 @@ class DossierConsultationController extends Controller
             $rdv = RendezVous::with('client')->findOrFail($data['rendez_vous_id']);
             $patientId = $rdv->client_id;
 
-            // Si physical_dossier_number est vide, on prend le ref_cli du client
             if (empty($data['physical_dossier_number'])) {
                 $data['physical_dossier_number'] = $rdv->client->ref_cli ?? null;
             }
@@ -269,44 +210,67 @@ class DossierConsultationController extends Controller
         }
     }
 
-
-
-
     /**
      * Display a listing of the resource.
-     * @permission DossierConsultationController::update
+     * @permission DossierConsultationController::update_dossiers
      * @permission_desc Modification des dossiers de consultations
      */
-
-    public function update(Request $request, $id)
+    public function update_dossiers(Request $request, $id)
     {
+        $auth = auth()->user();
+
+        $dossier = DossierConsultation::findOrFail($id);
+
+        $data = $request->validate([
+            'rendez_vous_id'           => 'nullable|exists:rendez_vouses,id',
+            'location_id'              => 'required|exists:dossier_locations,id',
+            'physical_dossier_number'  => 'nullable|string|unique:dossier_consultations,physical_dossier_number,' . $id,
+            'poids'                    => 'required|string',
+            'tension_arterielle_bd'    => 'nullable|string',
+            'tension_arterielle_bg'    => 'nullable|string',
+            'taille'                   => 'nullable|string',
+            'saturation'               => 'required|string',
+            'autres_parametres'        => 'nullable|string',
+            'temperature'              => 'nullable|string',
+            'frequence_cardiaque'      => 'nullable|string',
+            'fichier_associe'          => 'nullable|file|max:10240',
+        ]);
+
         DB::beginTransaction();
         try {
-            $auth = auth()->user();
+            $existing = DossierConsultation::where('rendez_vous_id', $data['rendez_vous_id'])
+                ->where('id', '!=', $id)
+                ->first();
 
-            // Récupère le dossier actif
-            $dossier = DossierConsultation::where('is_deleted', false)
-                ->findOrFail($id);
+            if ($existing) {
+                return response()->json([
+                    'message' => 'Un autre dossier est déjà ouvert pour ce rendez-vous.',
+                    'data'    => $existing->load('medias'),
+                ], 409);
+            }
 
-            // Validation des données
-            $data = $request->validate([
-                'poids'                 => 'required|string',
-                'tension_arterielle_bd' => 'nullable|string',
-                'tension_arterielle_bg' => 'nullable|string',
-                'taille'                => 'nullable|string',
-                'saturation'            => 'required|string',
-                'autres_parametres'     => 'nullable|string',
-                'temperature'           => 'nullable|string',
-                'frequence_cardiaque'   => 'nullable|string',
-                'fichier_associe'       => 'nullable|file|max:10240',
-            ]);
+            $rdv = RendezVous::with('client')->findOrFail($data['rendez_vous_id']);
+            $patientId = $rdv->client_id;
 
-            $data['updated_by'] = $auth->id;
+            if (empty($data['physical_dossier_number'])) {
+                $data['physical_dossier_number'] = $rdv->client->ref_cli ?? null;
+            }
 
-            // Mise à jour du dossier
-            $dossier->update($data);
+            $dossier->update(array_merge($data, [
+                'updated_by' => $auth->id,
+            ]));
 
-            // Gestion du fichier facultatif
+            $archive = PatientArchive::where('dossier_id', $dossier->id)->first();
+            if ($archive) {
+                $archive->update([
+                    'location_id' => $data['location_id'],
+                    'notes'       => 'Archive mise à jour suite à la modification du dossier.',
+                    'updated_by'  => $auth->id,
+                ]);
+            }
+
+            $rdv->update(['etat' => RendezVousStatus::IN_PROGRESS->value]);
+
             if ($request->hasFile('fichier_associe')) {
                 $file = $request->file('fichier_associe');
                 $path = $file->store('dossiers', 'public');
@@ -321,64 +285,41 @@ class DossierConsultationController extends Controller
                 ]);
             }
 
-            // Mise à jour de l'archive patient
-            $patientId = $dossier->rendez_vous->client_id ?? null;
-            if ($patientId) {
-                $lastArchive = PatientArchive::where('patient_id', $patientId)
-                    ->where('is_deleted', false)
-                    ->orderByDesc('number_order')
-                    ->first();
-
-                if ($lastArchive) {
-                    // Met à jour uniquement la date de dernière visite
-                    $lastArchive->update([
-                        'last_visit_at' => now(),
-                        'notes'         => 'Archive mise à jour suite à la modification du dossier.',
-                        'updated_by'    => $auth->id,
-                    ]);
-                }
-            }
-
             DB::commit();
 
             return response()->json([
-                'message' => 'Dossier et archive patient mis à jour avec succès.',
-                'data'    => $dossier->load('medias')
-            ]);
+                'message' => 'Dossier mis à jour avec succès.',
+                'data'    => $dossier->load('medias'),
+            ], 200);
 
-        } catch (\Illuminate\Validation\ValidationException $e) {
-            DB::rollBack();
-            return response()->json([
-                'message' => 'Erreur de validation',
-                'errors'  => $e->errors()
-            ], 422);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             DB::rollBack();
             Log::error('Erreur mise à jour dossier : ' . $e->getMessage());
+
             return response()->json([
-                'message' => 'Une erreur est survenue lors de la mise à jour.',
-                'error'   => $e->getMessage()
+                'message' => 'Une erreur est survenue lors de la mise à jour du dossier.',
+                'error'   => $e->getMessage(),
             ], 500);
         }
     }
 
 
-
     /**
      * Display a listing of the resource.
      * @permission DossierConsultationController::show
-     * @permission_desc Afficher les détaisl des dossiers de consultations
+     * @permission_desc Afficher les détails des dossiers de consultations
      */
     public function show(string $id)
     {
-        $dossiers = DossierConsultation::where('is_deleted', false)
-            ->with([
-                'creator:id,login',
-                'updater:id,login',
-                'rendezVous:id,code,dateheure_rdv,client_id,consultant_id',
+        $dossiers = DossierConsultation::with([
+                'emplacement',
+                'creator:id,nom_utilisateur',
+                'updater:id,nom_utilisateur',
+                'rendezVous',
                 'rendezVous.client',
-                'rendezVous.consultant',
-                'medias'
+                'rendezVous.consultant:id,nomcomplet,ref',
+                'medias',
+                'rendezVous.prestation',
             ])
             ->findOrFail($id);
 
@@ -391,13 +332,12 @@ class DossierConsultationController extends Controller
 
     /**
      * Display a listing of the resource.
-     * @permission DossierConsultationController::export
-     * @permission_desc Exporter des dossiers de consultations
+     * @permission DossierConsultationController::export_in_excel
+     * @permission_desc Exporter des dossiers de consultations en excel
      */
-
-    public function export()
+    public function export_in_excel()
     {
-        $fileName = 'dossiers-consultations-' . Carbon::now()->format('Y-m-d') . '.xlsx';
+        $fileName = Str::upper('dossiers-consultations-' . Carbon::now()->format('Y-m-d') . '.xlsx');
 
         Excel::store(new DossierConsultationExport(), $fileName, 'dossiersconsultations');
 
@@ -407,74 +347,5 @@ class DossierConsultationController extends Controller
             "url" => Storage::disk('dossiersconsultations')->url($fileName)
         ]);
     }
-    /**
-     * Display a listing of the resource.
-     * @permission DossierConsultationController::search_and_export
-     * @permission_desc Rechercher et Exporter des dossiers de consultations
-     */
-    public function search_and_export(Request $request)
-    {
-        $perPage = $request->input('limit', 25);
-        $page = $request->input('page', 1);
 
-        $query = DossierConsultation::where('is_deleted', false)
-            ->with([
-                'creator:id,login',
-                'updater:id,login',
-                'facture:id,code',
-                'rendezVous:id,code,client_id',
-                'rendezVous.client:id,nomcomplet_client'
-            ]);
-
-        // Filtrage par client_id
-        if ($request->filled('client_id')) {
-            $query->whereHas('rendezVous', function ($q) use ($request) {
-                $q->where('client_id', $request->input('client_id'));
-            });
-        }
-
-        // Recherche globale
-        if ($request->filled('search')) {
-            $search = $request->input('search');
-            $query->where(function ($q) use ($search) {
-                $q->where('poids', 'like', "%$search%")
-                    ->orWhere('tension', 'like', "%$search%")
-                    ->orWhere('code', 'like', "%$search%")
-                    ->orWhere('taille', 'like', "%$search%")
-                    ->orWhere('temperature', 'like', "%$search%")
-                    ->orWhere('frequence_cardiaque', 'like', "%$search%")
-                    ->orWhere('saturation', 'like', "%$search%")
-                    ->orWhere('autres_parametres', 'like', "%$search%");
-            });
-        }
-
-        // Récupération paginée
-        $dossiersPaginated = $query->latest()->paginate($perPage, ['*'], 'page', $page);
-
-        if ($dossiersPaginated->isEmpty()) {
-            return response()->json([
-                'message' => 'Aucune donnée trouvée pour cette recherche.',
-                'data' => []
-            ]);
-        }
-
-        // Récupération de la collection complète (sans pagination) pour l'export
-        $dossiersToExport = $query->get();
-
-        $fileName = 'dossiers-consultations-recherches-' . now()->format('Y-m-d-His') . '.xlsx';
-        Excel::store(new DossierConsultationExportSearch($dossiersToExport), $fileName, 'dossiersconsultations');
-
-        return response()->json([
-            "message" => "Exportation des données effectuée avec succès",
-            "filename" => $fileName,
-            "url" => Storage::disk('dossiersconsultations')->url($fileName),
-            "data" => $dossiersPaginated->items(),
-            "current_page" => $dossiersPaginated->currentPage(),
-            "last_page" => $dossiersPaginated->lastPage(),
-            "total" => $dossiersPaginated->total(),
-        ]);
-    }
-
-
-    //
 }

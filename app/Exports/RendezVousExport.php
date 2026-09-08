@@ -15,7 +15,7 @@ class RendezVousExport implements FromCollection, WithHeadings, WithStrictNullCo
      */
     public function collection()
     {
-        $rendezVous = RendezVous::where('is_deleted', false)->get();
+        $rendezVous = RendezVous::with(["parent", "children", "prestation", "client", "consultant", "createdBy", "updatedBy"])->get();
 
         if ($rendezVous->isEmpty()) {
             throw new \Exception('Aucune donnée à exporter');
@@ -34,21 +34,19 @@ class RendezVousExport implements FromCollection, WithHeadings, WithStrictNullCo
     {
         return [
             $rendezVous->id,
-            $rendezVous->client?->nomcomplet_client ?? 'N/A',
-            $rendezVous->consultant?->nomcomplet ?? 'N/A',
-            $rendezVous->created_at?->format('d/m/Y H:i:s') ?? 'N/A',
-            $rendezVous->createdBy?->email ?? 'N/A',
-            $rendezVous->updated_at?->format('d/m/Y H:i:s') ?? 'N/A',
-            $rendezVous->updatedBy?->email ?? 'N/A',
-            $rendezVous->date_emission ? date('d/m/Y H:i:s', strtotime($rendezVous->date_emission)) : 'N/A',
-            $rendezVous->dateheure_rdv ? date('d/m/Y', strtotime($rendezVous->dateheure_rdv)) : 'N/A',
-            $rendezVous->heure_debut ? date('H:i', strtotime($rendezVous->heure_debut)) : 'N/A',
-            $rendezVous->heure_fin ? date('H:i', strtotime($rendezVous->heure_fin)) : 'N/A',
-            $rendezVous->details ?? 'N/A',
+            $rendezVous->code,
+            $rendezVous->prestation?->type_label,
+            $rendezVous->client?->nomcomplet_client ?? '',
+            $rendezVous->consultant?->nomcomplet ?? '',
+            $rendezVous->createdBy?->nom_utilisateur ?? '',
+            $rendezVous->updatedBy?->nom_utilisateur ?? '',
+            $rendezVous->dateheure_rdv ? date('d/m/Y H:i', strtotime($rendezVous->dateheure_rdv)) : '',
+            $rendezVous->details ?? '',
             $rendezVous->nombre_jour_validite ?? 'N/A',
             $rendezVous->type ?? 'N/A',
             $rendezVous->etat ?? 'N/A',
-            $rendezVous->code ?? 'N/A',
+            $rendezVous->created_at?->format('d/m/Y H:i:s') ?? '',
+            $rendezVous->updated_at?->format('d/m/Y H:i:s') ?? '',
         ];
     }
 
@@ -61,21 +59,19 @@ class RendezVousExport implements FromCollection, WithHeadings, WithStrictNullCo
     {
         return [
             'ID',
+            'Code',
+            'Type prestation',
             'Client',
             'Consultant',
-            'Créé le',
-            'Par',
-            'Modifié le',
-            'Par (modif)',
-            'Date d\'émission',
+            'Créé par',
+            'Modifié par',
             'Date RDV',
-            'Heure Début',
-            'Heure Fin',
             'Détails',
             'Nombre de jours validité',
             'Type',
             'État',
-            'Code',
+            'Date de création',
+            'Date de mise à jour',
         ];
     }
 }
