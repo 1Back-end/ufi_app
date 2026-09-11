@@ -4,11 +4,13 @@ namespace App\Http\Controllers;
 
 use App\Exports\ExamenEnqueteExport;
 use App\Exports\MotifsExport;
+use App\Models\DossierConsultation;
 use App\Models\OpsTbl_Examen_Physique;
 use App\Models\OpsTblEnquete;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Maatwebsite\Excel\Facades\Excel;
 
@@ -94,6 +96,22 @@ class OpsTblEnqueteController extends Controller
             'enquetes.*.categories_enquetes_id' => 'required|exists:configtbl_categories_enquetes,id',
             'enquetes.*.dossier_consultation_id' => 'required|exists:dossier_consultations,id',
         ]);
+        $dossierId = $validated['enquetes'][0]['dossier_consultation_id'];
+        $dossier = DossierConsultation::find($dossierId);
+
+        Log::info('Vérification du dossier pour les examens (globaux) :', [
+            'dossier_id' => $dossierId,
+            'dossier_trouve' => $dossier ? true : false,
+            'is_have_antecedent' => $dossier?->is_have_antecedent,
+            'dossier_data' => $dossier?->toArray()
+        ]);
+
+        if (!$dossier || !$dossier->is_have_antecedent) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Impossible de continuer : aucun antécédent n\'est associé à ce dossier.'
+            ], 422);
+        }
 
         try {
             $created = DB::transaction(function () use ($validated, $auth) {
@@ -104,6 +122,9 @@ class OpsTblEnqueteController extends Controller
                 }
                 return $results;
             });
+
+            \App\Models\DossierConsultation::where('id', $dossier->id)
+                ->update(['is_have_enquete_systemique' => true]);
 
             return response()->json([
                 'message' => 'Enquêtes enregistrées avec succès.',

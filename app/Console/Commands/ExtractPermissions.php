@@ -164,6 +164,11 @@ class ExtractPermissions extends Command
             'category' => 'Permissions supplémentaires',
             'modules' => ['Gestion du laboratoire','Autres Modules'],
         ],
+        'VIEW_ACCESS_FOR_RENDEZ_VOUS' => [
+            'description' => 'Afficher la liste des actions de module des dossiers patients',
+            'category' => 'Permissions supplémentaires',
+            'modules' => ['Gestion des prestations','Autres Modules'],
+        ],
 
 
 

@@ -230,9 +230,10 @@ Route::middleware(['activity'])->group(function () {
         Route::get('/print_rapports_assurances', [ActeController::class, 'PrintRapportActesForAssurances']);
         Route::get('/prints_tarifaire_actes/assurance/{assurance}', [ActeController::class, 'print_tarifsActes_byAssurance']);
 
+        Route::get('/prestations/stats/by_delivery_channel', [PrestationController::class, 'getStatsByDeliveryChannel']);
+
         // Prestations
         Route::get('prestations/types', [PrestationController::class, 'typePrestation']);
-        Route::apiResource('prestations', PrestationController::class)->except(['update']);
         Route::post('prestations/{prestation}', [PrestationController::class, 'update']);
         Route::post('prestations/{prestation}/facture', [PrestationController::class, 'saveFacture']);
         Route::patch('prestations/{prestation}/change-state', [PrestationController::class, 'changeState']);
@@ -241,6 +242,10 @@ Route::middleware(['activity'])->group(function () {
         Route::get('/prestations_by_regulated', [PrestationController::class, 'get_count_prestations_by_regulated']);
         Route::get('delivered_today', [PrestationController::class, 'indexDeliveredToday']);
         Route::get('delivered_examens_stats', [PrestationController::class, 'get_delivered_examens_by_date']);
+        Route::post('/update_status_examen_for_prestations', [PrestationController::class, 'updateStatusExamen']);
+        Route::apiResource('prestations', PrestationController::class)->except(['update']);
+
+
 
         Route::apiResource('regulation-methods', RegulationMethodController::class)->except(['show', 'destroy']);
         Route::patch('regulation-methods/{regulationMethod}/activate', [RegulationMethodController::class, 'activate']);
@@ -365,6 +370,8 @@ Route::middleware(['activity'])->group(function () {
         Route::get('enums/StockAdjustmentStatus',[\App\Http\Controllers\EnumController::class,'StockAdjustmentStatus']);
         Route::get('enums/RendezVousStatus',[\App\Http\Controllers\EnumController::class,'RendezVousStatus']);
         Route::get('enums/InvoiceStatus',[\App\Http\Controllers\EnumController::class,'InvoiceStatus']);
+        Route::get('enums/AntecedentSubType',[\App\Http\Controllers\EnumController::class,'AntecedentSubType']);
+        Route::get('enums/AntecedentType',[\App\Http\Controllers\EnumController::class,'AntecedentType']);
 
 
         Route::apiResource('product_types',\App\Http\Controllers\ProductTypeController::class);
@@ -423,6 +430,7 @@ Route::middleware(['activity'])->group(function () {
 
         Route::apiResource('delivery_channels', \App\Http\Controllers\DeliveryChannelController::class);
         Route::patch('delivery_channels/{deliveryChannel}/is_active', [\App\Http\Controllers\DeliveryChannelController::class, 'updateStatus']);
+        Route::get('prestations_by_delivery_channel', [\App\Http\Controllers\DeliveryChannelController::class, 'get_resultats_by_chanal_delivey']);
 
 
 
@@ -799,7 +807,7 @@ Route::middleware(['activity'])->group(function () {
         Route::get('predefined-lists', [CatPredefinedListController::class, 'predefinedLists']);
 
         Route::post('/change-status-print', [PrestationController::class, 'statusExamen']);
-        Route::post('/prestations/{prestation}/update_status_examen', [PrestationController::class, 'updateStatusExamen']);
+
 
         Route::get('rapports/factures_reglees', [PrestationController::class, 'get_facture_paid_by_day']);
 

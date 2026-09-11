@@ -37,6 +37,7 @@ enum TypePrestation: int
             self::LABORATOIR => 'Laboratoire',
             self::HOSPITALISATION => 'Hospitalisation',
             self::CAMPAGNE => 'Campagne',
+            default => 'Inconnu',
         };
     }
 
@@ -49,7 +50,7 @@ enum TypePrestation: int
             self::LABORATOIR => 'examens',
             self::PRODUITS => 'products',
             self::HOSPITALISATION => 'hospitalisations',
-            default => null,
+            default => 'Inconnu',
         };
     }
     public function tvaRate(): float

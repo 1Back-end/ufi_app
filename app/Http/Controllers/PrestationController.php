@@ -299,6 +299,7 @@ class PrestationController extends Controller
             'prelevate:id,nom_utilisateur',
             'deliverer:id,nom_utilisateur',
             'payableBy',
+            'delivery_chanel',
             'client',
             'client.sexe',
             'client.societe',
@@ -333,8 +334,44 @@ class PrestationController extends Controller
             'results.elementPaillasse.group_populations',
             'results.groupePopulation',
         ])
+            ->when(
+                !$request->boolean('show_all_dates')
+                && !($request->filled('delivery_date_start') && $request->filled('delivery_date_end'))
+                && !$request->filled('search'),
+                function (Builder $query) {
+                    $query->whereDate('result_delivered_at', today());
+                }
+            )
 
-            ->whereDate('result_delivered_at', today())
+            ->when($request->filled('search'), function (Builder $query) use ($request) {
+                $search = $request->input('search');
+                $query->where(function (Builder $q) use ($search) {
+                    $q->where('id', 'like', "%{$search}%")
+                        ->orWhereHas('client', function ($clientQuery) use ($search) {
+                            $clientQuery->where('nomcomplet_client', 'like', "%{$search}%")
+                                ->orWhere('prenom_cli', 'like', "%{$search}%")
+                                ->orWhere('secondprenom_cli', 'like', "%{$search}%")
+                                ->orWhere('nom_cli', 'like', "%{$search}%");
+                        })
+                        ->orWhereHas('delivery_chanel', function ($channelQuery) use ($search) {
+                            $channelQuery->where('name', 'like', "%{$search}%")
+                                ->orWhere('code', 'like', "%{$search}%")
+                                ->orWhere('id', 'like', "%{$search}%");
+                        })
+                        ->orWhereHas('consultant', function ($consultantQuery) use ($search) {
+                            $consultantQuery->where('nom', 'like', "%{$search}%")
+                                ->orWhere('prenom', 'like', "%{$search}%")
+                                ->orWhere('ref', 'like', "%{$search}%")
+                                ->orWhere('id', 'like', "%{$search}%")
+                                ->orWhere('nomcomplet', 'like', "%{$search}%");
+                        })
+                        ->orWhereHas('factures', function ($factureQuery) use ($search) {
+                            $factureQuery->where('code', 'like', "%{$search}%")
+                                ->orWhere('id', 'like', "%{$search}%")
+                                ->orWhere('sequence', 'like', "%{$search}%");
+                        });
+                });
+            })
 
             ->when($request->input('client_id'), function ($query) use ($request) {
                 $query->where('client_id', $request->input('client_id'));
@@ -757,6 +794,7 @@ class PrestationController extends Controller
                 'printer:id,nom_utilisateur',
                 'validator:id,nom_utilisateur',
                 'client',
+                'delivery_chanel',
                 'consultant',
                 'priseCharge',
                 'priseCharge.assureur',
@@ -793,15 +831,6 @@ class PrestationController extends Controller
     {
         $auth = auth()->user();
         $centre = $request->header('centre');
-
-        $check = $this->checkUserPrestationsNotRegulated($auth->id, $centre);
-
-        if (!$check['status']) {
-            return response()->json([
-                'message' => $check['message'],
-                'codes' => $check['codes']
-            ], Response::HTTP_FORBIDDEN);
-        }
 
         if (!$centre) {
             return response()->json([
@@ -1874,61 +1903,73 @@ class PrestationController extends Controller
      * @permission PrestationController::updateStatusExamen
      * @permission_desc Remettre un résultat d'examen en précisant le canal de remise
      */
-    public function updateStatusExamen(Request $request, Prestation $prestation)
+    public function updateStatusExamen(Request $request)
     {
         $request->validate([
+            'prestation_ids' => ['required', 'array'],
+            'prestation_ids.*' => ['required', 'exists:prestations,id'],
             'delivery_channel_id' => ['required', 'exists:delivery_channels,id'],
         ]);
 
         $newStatus = StateExamen::REMIS->value;
         $deliveryChannelId = $request->input('delivery_channel_id');
+        $userId = auth()->id();
 
-        $exists = DB::table('prestationables')
-            ->where('prestation_id', $prestation->id)
-            ->where(function ($query) {
-                $query->where('status_examen', StateExamen::VALIDATED->value)
-                    ->orWhere('status_examen', StateExamen::PRINTED->value)
-                    ->orWhere('status_examen', StateExamen::REMIS->value);
-            })
-            ->exists();
+        foreach ($request->input('prestation_ids') as $prestationId) {
+            $prestation = Prestation::find($prestationId);
+            if (!$prestation) {
+                continue;
+            }
 
-        if (!$exists) {
-            return response()->json([
-                'message' => __("L'état des examens de la prestation ne permet pas cette modification.")
-            ], 422);
-        }
+            $exists = DB::table('prestationables')
+                ->where('prestation_id', $prestation->id)
+                ->where(function ($query) {
+                    $query->where('status_examen', StateExamen::VALIDATED->value)
+                        ->orWhere('status_examen', StateExamen::PRINTED->value)
+                        ->orWhere('status_examen', StateExamen::REMIS->value);
+                })
+                ->exists();
 
-        DB::table('prestationables')
-            ->where('prestation_id', $prestation->id)
-            ->where(function ($query) {
-                $query->where('status_examen', StateExamen::VALIDATED->value)
-                    ->orWhere('status_examen', StateExamen::PRINTED->value)
-                    ->orWhere('status_examen', StateExamen::REMIS->value);
-            })
-            ->update([
-                'status_examen' => $newStatus,
+            if (!$exists) {
+                continue;
+            }
+
+            DB::table('prestationables')
+                ->where('prestation_id', $prestation->id)
+                ->where(function ($query) {
+                    $query->where('status_examen', StateExamen::VALIDATED->value)
+                        ->orWhere('status_examen', StateExamen::PRINTED->value)
+                        ->orWhere('status_examen', StateExamen::REMIS->value);
+                })
+                ->update([
+                    'status_examen' => $newStatus,
+                ]);
+
+            $prestation->update([
+                'is_result_emitted' => true
             ]);
 
-        $archive = PatientResultArchive::where('prestation_id', $prestation->id)->first();
+            $archive = PatientResultArchive::where('prestation_id', $prestation->id)->first();
 
-        $archiveData = [
-            'delivery_channel_id' => $deliveryChannelId,
-            'updated_by'          => auth()->id(),
-        ];
+            $archiveData = [
+                'delivery_channel_id' => $deliveryChannelId,
+                'updated_by'          => $userId,
+            ];
 
-        if ($archive) {
-            $archive->increment('count');
-            $archive->update($archiveData);
-        } else {
-            PatientResultArchive::create(array_merge([
-                'prestation_id' => $prestation->id,
-                'count'         => 1,
-                'created_by'    => auth()->id(),
-            ], $archiveData));
+            if ($archive) {
+                $archive->increment('count');
+                $archive->update($archiveData);
+            } else {
+                PatientResultArchive::create(array_merge([
+                    'prestation_id' => $prestation->id,
+                    'count'         => 1,
+                    'created_by'    => $userId,
+                ], $archiveData));
+            }
         }
 
         return response()->json([
-            'message' => __("L'état des examens de la prestation a bien été mis à jour."),
+            'message' => __("L'état des examens des prestations a bien été mis à jour."),
         ]);
     }
 
@@ -2275,7 +2316,6 @@ class PrestationController extends Controller
 
         $timezone = config('app.timezone');
 
-
         $startDateInput = $request->input('start_date');
         $endDateInput = $request->input('end_date');
         $dateInput = $request->input('date');
@@ -2287,9 +2327,9 @@ class PrestationController extends Controller
             $startDate = \Carbon\Carbon::parse($dateInput, $timezone)->startOfDay();
             $endDate = \Carbon\Carbon::parse($dateInput, $timezone)->endOfDay();
         } else {
-            // Par défaut : Tout le mois en cours
-            $startDate = \Carbon\Carbon::now($timezone)->startOfMonth()->startOfDay();
-            $endDate = \Carbon\Carbon::now($timezone)->endOfMonth()->endOfDay();
+            // Par défaut : du jour N-1 (hier) jusqu'à aujourd'hui inclus (ou juste le jour N-1 si tu préfères une journée unique, ici on prend la journée complète de la veille)
+            $startDate = \Carbon\Carbon::yesterday($timezone)->startOfDay();
+            $endDate = \Carbon\Carbon::yesterday($timezone)->endOfDay();
         }
 
         $query = Prestation::where('centre_id', $centreId)
@@ -2524,6 +2564,50 @@ class PrestationController extends Controller
             'statistics' => $stats,
         ]);
     }
+
+    /**
+     * Update the status of exams for specified prestations.
+     *
+     * @param Request $request
+     *
+     * @return JsonResponse
+     *
+     * @permission PrestationController::getStatsByDeliveryChannel
+     * @permission_desc Statistiques des examens par canal de remise
+     * @throws Throwable
+     */
+    public function getStatsByDeliveryChannel(Request $request)
+    {
+        $startDate = $request->input('start_date')
+            ? Carbon::parse($request->input('start_date'))->startOfDay()
+            : Carbon::yesterday()->startOfDay();
+
+        $endDate = $request->input('end_date')
+            ? Carbon::parse($request->input('end_date'))->endOfDay()
+            : Carbon::yesterday()->endOfDay();
+
+        $stats = DB::table('prestations')
+            ->join('delivery_channels', 'prestations.delivery_channels_id', '=', 'delivery_channels.id')
+            ->whereBetween('prestations.result_delivered_at', [$startDate, $endDate])
+            ->select(
+                'delivery_channels.id as delivery_channels_id',
+                'delivery_channels.name as delivery_channel_name',
+                DB::raw('count(prestations.id) as total_prestations')
+            )
+            ->groupBy('delivery_channels.id', 'delivery_channels.name')
+            ->get();
+
+        return response()->json([
+            'period' => [
+                'start' => $startDate->toDateTimeString(),
+                'end' => $endDate->toDateTimeString(),
+            ],
+            'data' => $stats
+        ]);
+    }
+
+
+
 
 
 

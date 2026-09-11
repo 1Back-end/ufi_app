@@ -3,7 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\DeliveryChannel;
+use App\Models\Prestation;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+
 /**
  * @permission_category Gestion du canal de remise des résultats du labo
  * @permission_module Gestion des prestations
@@ -61,10 +64,14 @@ class DeliveryChannelController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255|unique:delivery_channels,name',
             'code' => 'nullable|string|max:50|unique:delivery_channels,code',
+            'slug' => 'nullable|string|max:255|unique:delivery_channels,slug',
             'description' => 'nullable|string',
+            'is_patient_info' => 'boolean',
         ]);
 
         $validated['name'] = mb_strtoupper($validated['name']);
+        $validated['slug'] = $request->filled('slug') ? mb_strtolower($request->input('slug')) : mb_strtolower($validated['name']);
+        $validated['is_patient_info'] = $request->boolean('is_patient_info');
         $validated['created_by'] = $auth->id;
 
         $channel = DeliveryChannel::create($validated);
@@ -107,17 +114,16 @@ class DeliveryChannelController extends Controller
     {
         $auth = auth()->user();
         $validated = $request->validate([
-            'name' => 'sometimes|required|string|max:255|unique:delivery_channels,name,' . $deliveryChannel->id,
+            'name' => 'required|string|max:255|unique:delivery_channels,name,' . $deliveryChannel->id,
             'code' => 'nullable|string|max:50|unique:delivery_channels,code,' . $deliveryChannel->id,
+            'slug' => 'nullable|string|max:255|unique:delivery_channels,slug,' . $deliveryChannel->id,
             'description' => 'nullable|string',
-            'is_active' => 'boolean',
+            'is_patient_info' => 'boolean',
         ]);
 
-        if (isset($validated['name'])) {
-            $validated['name'] = mb_strtoupper($validated['name']);
-        }
-
-        $validated['updated_by'] = $auth->id;
+        $validated['name'] = mb_strtoupper($validated['name']);
+        $validated['slug'] = $request->filled('slug') ? mb_strtolower($request->input('slug')) : mb_strtolower($validated['name']);
+        $validated['is_patient_info'] = $request->boolean('is_patient_info');
 
         $deliveryChannel->update($validated);
 
@@ -125,7 +131,7 @@ class DeliveryChannelController extends Controller
             'success' => true,
             'message' => 'Canal de remise mis à jour avec succès.',
             'data' => $deliveryChannel
-        ]);
+        ], 200);
     }
 
 
@@ -177,6 +183,32 @@ class DeliveryChannelController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Canal de remise supprimé avec succès.'
+        ]);
+    }
+
+    public function get_resultats_by_chanal_delivey(Request $request)
+    {
+        $startDate = $request->input('start_date', now()->subDay()->startOfDay()->toDateTimeString());
+        $endDate = $request->input('end_date', now()->endOfDay()->toDateTimeString());
+
+        $query = Prestation::query()
+            ->select(
+                'delivery_channels_id',
+                DB::raw('DATE(result_delivered_at) as delivery_date'),
+                DB::raw('count(*) as total')
+            )
+            ->with('delivery_chanel')
+            ->whereNotNull('delivery_channels_id')
+            ->whereNotNull('result_delivered_at')
+            ->whereBetween('result_delivered_at', [$startDate, $endDate]);
+
+        $stats = $query->groupBy('delivery_channels_id', DB::raw('DATE(result_delivered_at)'))
+            ->orderBy('delivery_date', 'desc')
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => $stats
         ]);
     }
 }

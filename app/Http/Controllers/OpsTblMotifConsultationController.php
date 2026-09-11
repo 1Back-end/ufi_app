@@ -86,7 +86,6 @@ class OpsTblMotifConsultationController extends Controller
         ]);
 
         try {
-            // Création du nouveau motif
             $motif = OpsTbl_Motif_consultation::create([
                 'description' => $request->description,
                 'libelle'=> $request->libelle,
@@ -95,6 +94,8 @@ class OpsTblMotifConsultationController extends Controller
                 'type_visite_id' => $request->type_visite_id,
                 'created_by' => $auth->id
             ]);
+            \App\Models\DossierConsultation::where('id', $request->dossier_consultation_id)
+                ->update(['is_have_motif_consultation' => true]);
 
             return response()->json([
                 'message' => 'Motif ajouté avec succès.',

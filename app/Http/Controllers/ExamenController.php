@@ -294,14 +294,19 @@ class ExamenController extends Controller
             'data.*.examens' => ['required', 'array'],
             'data.*.examens.*' => ['required', 'exists:examens,id'],
         ]);
+
         $userId = auth()->id();
         $now = now();
 
         foreach ($request->data as $data) {
             $prestation = Prestation::find($data['prestation_id']);
+
+            $newDeliveryDate = $this->calculateResultDeliveryDate($data['examens']);
+
             $prestation->update([
-                'prelevate_at'  => $now,
-                'prelevated_by' => $userId,
+                'prelevate_at'        => $now,
+                'prelevated_by'       => $userId,
+                'result_delivered_at' => $newDeliveryDate,
             ]);
 
             foreach ($data['examens'] as $examenId) {
@@ -336,6 +341,35 @@ class ExamenController extends Controller
         return response()->json([
             'message' => 'All examens prelevement successfully',
         ]);
+    }
+
+    /**
+     * Calcule la date de rendu des résultats basée sur la durée maximale des examens.
+     * Règle : Date du jour + durée maximale - 1
+     *
+     * @param array $examens (accepte un tableau d'IDs ou un tableau d'objets)
+     * @return \Carbon\Carbon
+     */
+    private function calculateResultDeliveryDate(array $examens): \Carbon\Carbon
+    {
+        $maxDays = 0;
+
+        foreach ($examens as $item) {
+            $id = is_array($item) ? ($item['id'] ?? null) : $item;
+            if (!$id) {
+                continue;
+            }
+            $examen = \App\Models\Examen::find($id);
+
+            if ($examen && $examen->renderer_duration > $maxDays) {
+                $maxDays = (int) $examen->renderer_duration;
+            }
+        }
+
+        if ($maxDays > 0) {
+            return now()->addDays($maxDays - 1);
+        }
+        return now();
     }
 
     /**
@@ -726,6 +760,32 @@ class ExamenController extends Controller
                 "error" => $e->getMessage()
             ], 500);
         }
+    }
+
+    public function get_resultats_by_chanal_delivey(Request $request)
+    {
+        $startDate = $request->input('start_date', now()->subDay()->startOfDay()->toDateTimeString());
+        $endDate = $request->input('end_date', now()->endOfDay()->toDateTimeString());
+
+        $query = Prestation::query()
+            ->select(
+                'delivery_channels_id',
+                DB::raw('DATE(result_delivered_at) as delivery_date'),
+                DB::raw('count(*) as total')
+            )
+            ->with('delivery_chanel')
+            ->whereNotNull('delivery_channels_id')
+            ->whereNotNull('result_delivered_at')
+            ->whereBetween('result_delivered_at', [$startDate, $endDate]);
+
+        $stats = $query->groupBy('delivery_channels_id', DB::raw('DATE(result_delivered_at)'))
+            ->orderBy('delivery_date', 'desc')
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => $stats
+        ]);
     }
 
 }

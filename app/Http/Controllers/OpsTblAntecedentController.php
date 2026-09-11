@@ -60,25 +60,45 @@ class OpsTblAntecedentController extends Controller
         $auth = auth()->user();
 
         $messages = [
-            'client_id.required' => 'Le client est obligatoire.',
-            'client_id.exists' => 'Le client sélectionné est invalide.',
-            'categorie_antecedent_id.required' => 'La catégorie est obligatoire.',
-            'categorie_antecedent_id.exists' => 'La catégorie sélectionnée est invalide.',
-            'souscategorie_antecedent_id.required' => 'La sous-catégorie est obligatoire.',
-            'souscategorie_antecedent_id.exists' => 'La sous-catégorie sélectionnée est invalide.',
+            'dossier_consultation_id.required' => 'Le dossier de consultation est obligatoire.',
+            'dossier_consultation_id.exists' => 'Le dossier de consultation sélectionné est invalide.',
+            'category_label.required_unless' => 'La catégorie est obligatoire.',
             'description.string' => 'La description doit être une chaîne de caractères.',
         ];
 
         $validated = $request->validate([
-            'client_id' => 'required|exists:clients,id',
-            'categorie_antecedent_id' => 'required|exists:config_tbl_categorie_antecedents,id',
-            'souscategorie_antecedent_id' => 'required|exists:configtbl_souscategorie_antecedent,id',
+            'dossier_consultation_id' => 'required|exists:dossier_consultations,id',
+            'category_label' => 'nullable|string',
+            'sous_categorie_label' => 'nullable|string',
             'description' => 'nullable|string',
+            'pas_d_antecedent' => 'boolean',
         ], $messages);
 
+        $dossier = \App\Models\DossierConsultation::with('motifsConsultation')->find($request->dossier_consultation_id);
+
+
+        if (!$dossier || !$dossier->is_have_motif_consultation) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Impossible d\'ajouter des antécédents : aucun motif de consultation n\'est associé à ce dossier.'
+            ], 422);
+        }
+
+        $updatedRows = \App\Models\DossierConsultation::where('id', $request->dossier_consultation_id)
+            ->update(['is_have_antecedent' => true]);
+
+        if ($updatedRows === 0 && !$dossier->is_have_antecedent) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Impossible de mettre à jour le statut du dossier pour les antécédents.'
+            ], 422);
+        }
+
+        $validated['client_id'] = $dossier->rendezVous->client_id ?? null;
         $validated['created_by'] = $auth ? $auth->id : null;
 
         $antecedent = OpsTblAntecedent::create($validated);
+
         $antecedent->load(['createdBy', 'updatedBy', 'client', 'categorie', 'sousCategorie']);
 
         return response()->json([

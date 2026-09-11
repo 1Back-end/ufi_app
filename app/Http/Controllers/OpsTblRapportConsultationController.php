@@ -71,39 +71,6 @@ class OpsTblRapportConsultationController extends Controller
         ]);
     }
 
-
-
-    /**
-     * Display a listing of the resource.
-     * @permission OpsTblRapportConsultationController::getHistoriqueRapportClient
-     * @permission_desc Afficher l'historique des rapports de consultation d'un client
-     */
-    public function getHistoriqueRapportClient(Request $request, $client_id)
-    {
-        $perPage = $request->input('limit', 25);
-        $page = $request->input('page', 1);
-
-        $query = OpsTblRapportConsultation::where('is_deleted', false)
-            ->whereHas('dossierConsultation.rendezVous', function ($query) use ($client_id) {
-                $query->where('client_id', $client_id);
-            })
-            ->with([
-                'dossierConsultation:id,code,rendez_vous_id',
-                'dossierConsultation.rendezVous:id,dateheure_rdv,code,client_id',
-            ])
-            ->orderByDesc('created_at');
-
-        $results = $query->paginate($perPage, ['*'], 'page', $page);
-
-        return response()->json([
-            'data' => $results->items(),
-            'current_page' => $results->currentPage(),
-            'last_page' => $results->lastPage(),
-            'total' => $results->total(),
-        ]);
-    }
-
-
     /**
      * Display a listing of the resource.
      * @permission OpsTblRapportConsultationController::store
@@ -120,6 +87,14 @@ class OpsTblRapportConsultationController extends Controller
             'dossier_consultation_id' => 'required|exists:dossier_consultations,id',
         ]);
 
+        $dossier = DossierConsultation::find($request->dossier_consultation_id);
+        if (!$dossier || (!$dossier->is_have_examen_physique && !$dossier->is_have_enquete_systemique)) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Impossible d\'enregistrer le rapport : vous devez d\'abord renseigner au moins un examen physique ou une enquête systémique.'
+            ], 422);
+        }
+
         try {
             $result = DB::transaction(function () use ($request, $auth) {
 
@@ -133,11 +108,10 @@ class OpsTblRapportConsultationController extends Controller
 
                 $dossier = DossierConsultation::find($request->dossier_consultation_id);
 
-                if ($dossier && $dossier->rendez_vous_id) {
-                    RendezVous::where('id', $dossier->rendez_vous_id)->update([
-                        'etat' => 'Terminé'
-                    ]);
-                }
+                $dossier->update([
+                    'is_have_rapport_consultation' => true
+                ]);
+
 
                 return $rapport;
             });
