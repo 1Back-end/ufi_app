@@ -33,7 +33,7 @@ class ResultController extends Controller
     public function store(ResultRequest $request)
     {
         Log::info($request->all());
-        
+
         $hasAtLeastOneValue = false;
         foreach ($request->data as $data) {
             foreach ($data['results'] as $result) {
