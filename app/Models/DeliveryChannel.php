@@ -19,6 +19,8 @@ class DeliveryChannel extends Model
         'is_active',
         'created_by',
         'updated_by',
+        'is_patient_info',
+        'slug'
     ];
 
     protected $casts = [

@@ -2254,21 +2254,17 @@ class CaisseController extends Controller
 
         $timezone = config('app.timezone');
 
-        // Récupération des dates si elles sont fournies
         $startDateInput = $request->input('start_date');
         $endDateInput = $request->input('end_date');
         $dateInput = $request->input('date');
 
         if ($startDateInput && $endDateInput) {
-            // Si une plage de dates est fournie
             $startDate = Carbon::parse($startDateInput, $timezone)->startOfDay();
             $endDate = Carbon::parse($endDateInput, $timezone)->endOfDay();
         } elseif ($dateInput) {
-            // Si une seule date spécifique est fournie
             $startDate = Carbon::parse($dateInput, $timezone)->startOfDay();
             $endDate = Carbon::parse($dateInput, $timezone)->endOfDay();
         } else {
-            // Par défaut : Tout le mois en cours (du 1er au dernier jour du mois)
             $startDate = Carbon::now($timezone)->startOfMonth()->startOfDay();
             $endDate = Carbon::now($timezone)->endOfMonth()->endOfDay();
         }

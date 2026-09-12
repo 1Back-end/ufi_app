@@ -48,16 +48,19 @@ class StatistiqueController extends Controller
 
         $timezone = config('app.timezone');
 
-        // Récupération de la date unique (en utilisant start_date ou date)
-        $dateInput = $request->input('start_date', $request->input('date'));
+        $startDateInput = $request->input('start_date');
+        $endDateInput = $request->input('end_date');
+        $dateInput = $request->input('date');
 
-        if ($dateInput) {
+        if ($startDateInput && $endDateInput) {
+            $startDate = Carbon::parse($startDateInput, $timezone)->startOfDay();
+            $endDate   = Carbon::parse($endDateInput, $timezone)->endOfDay();
+        } elseif ($dateInput) {
             $startDate = Carbon::parse($dateInput, $timezone)->startOfDay();
             $endDate   = Carbon::parse($dateInput, $timezone)->endOfDay();
         } else {
-            // Par défaut : le mois en cours si aucune date n'est fournie
-            $startDate = Carbon::now($timezone)->startOfMonth();
-            $endDate   = Carbon::now($timezone)->endOfMonth();
+            $startDate = Carbon::yesterday($timezone)->startOfDay();
+            $endDate   = Carbon::yesterday($timezone)->endOfDay();
         }
 
         $results = DB::table('prestations')

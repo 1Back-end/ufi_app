@@ -12,10 +12,14 @@ class OpsTblAntecedent extends Model
     use HasFactory, SoftDeletes;
     protected $table = 'ops_tbl_antecedents';
     protected $fillable = [
+        'dossier_consultation_id',
         'client_id',
         'categorie_antecedent_id',
         'souscategorie_antecedent_id',
+        'category_label',
+        'sous_categorie_label',
         'description',
+        'pas_d_antecedent',
         'is_deleted',
         'created_by',
         'updated_by',

@@ -33,6 +33,23 @@ class ResultController extends Controller
     public function store(ResultRequest $request)
     {
         Log::info($request->all());
+
+        $hasAtLeastOneValue = false;
+        foreach ($request->data as $data) {
+            foreach ($data['results'] as $result) {
+                if (!empty($result['result_machine']) || (is_numeric($result['result_machine']) && $result['result_machine'] == 0)) {
+                    $hasAtLeastOneValue = true;
+                    break 2;
+                }
+            }
+        }
+
+        if (!$hasAtLeastOneValue) {
+            return response()->json([
+                "message" => __("Vous devez saisir au moins un résultat avant d'enregistrer !")
+            ], 422);
+        }
+
         DB::beginTransaction();
         try {
             foreach ($request->data as $data) {
@@ -40,7 +57,6 @@ class ResultController extends Controller
 
                 foreach ($data['results'] as $result) {
                     if (empty($result['result_machine']) && !(is_numeric($result['result_machine']) && $result['result_machine'] == 0)) {
-                        // Delete existing results for empty inputs
                         Result::where('prestation_id', $prestation->id)
                             ->where('element_paillasse_id', $result['element_paillasse_id'])
                             ->where('groupe_population_id', $result['groupe_population_id'])
@@ -62,11 +78,9 @@ class ResultController extends Controller
                     if ($element->typeResult->type != InputType::COMMENT->value) {
 
                         if ($resultExist) {
-                            // Comparer ancienne et nouvelle valeur
                             $oldValue = $resultExist->result_machine;
                             $newValue = $result['result_machine'];
 
-                            // Si la valeur a changé → remettre à PENDING, même si VALIDATED ou PRINTED
                             if ($oldValue != $newValue) {
                                 $prestationable->update([
                                     'status_examen' => StateExamen::PENDING->value,

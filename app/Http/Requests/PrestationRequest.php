@@ -26,6 +26,41 @@ class PrestationRequest extends FormRequest
             'type' => ['required', new Enum(TypePrestation::class)],
             'prise_charge_id' => ['nullable', 'exists:prise_en_charges,id'],
             'client_id' => ['required', 'exists:clients,id'],
+            'delivery_channels_id' => [
+                Rule::requiredIf(fn() => $this->input('type') == TypePrestation::LABORATOIR->value),
+                'nullable',
+                'exists:delivery_channels,id',
+                function ($attribute, $value, $fail) {
+                    if (!$value) {
+                        return;
+                    }
+
+                    $channel = \App\Models\DeliveryChannel::find($value);
+                    if (!$channel) {
+                        return;
+                    }
+
+                    $clientId = $this->input('client_id');
+                    if (!$clientId) {
+                        return;
+                    }
+
+                    $client = \App\Models\Client::find($clientId);
+                    if (!$client) {
+                        return;
+                    }
+
+                    $slug = strtolower($channel->slug ?? $channel->name);
+
+                    if (str_contains($slug, 'whatsapp') && empty($client->tel_whatsapp)) {
+                        $fail(__("Le client sélectionné ne possède pas de numéro WhatsApp pour ce canal."));
+                    }
+
+                    if (str_contains($slug, 'email') && empty($client->email)) {
+                        $fail(__("Le client sélectionné ne possède pas d'adresse e-mail pour ce canal."));
+                    }
+                },
+            ],
             'consultant_id' => [Rule::requiredIf(fn() => TypePrestation::PRODUITS->value != $this->input('type') && TypePrestation::LABORATOIR->value != $this->input('type')), 'nullable', 'exists:consultants,id'],
             'payable_by' => ['nullable', 'exists:clients,id'],
             'payable_by_file' => [Rule::requiredIf($this->input('payable_by') && !$this->input('payable_by_file_url')), 'file'],

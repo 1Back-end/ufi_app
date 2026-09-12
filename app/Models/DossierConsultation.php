@@ -3,15 +3,18 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Casts\Attribute;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use phpDocumentor\Reflection\Location;
 
 class DossierConsultation extends Model
 {
+    use HasFactory,SoftDeletes;
     protected $fillable = [
         'facture_id',
         'rendez_vous_id',
@@ -29,7 +32,12 @@ class DossierConsultation extends Model
         'is_open',
         'code',
         'physical_dossier_number',
-        'location_id'
+        'location_id',
+        'is_have_motif_consultation',
+        'is_have_antecedent',
+        'is_have_examen_physique',
+        'is_have_rapport_consultation',
+        'is_have_enquete_systemique'
 
     ];
     protected $appends = ['logo'];

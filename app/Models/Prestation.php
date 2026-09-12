@@ -52,8 +52,10 @@ class Prestation extends Model
         'printed_by',
         'prelevate_at',
         'prelevated_by',
-        'result_delivered_at',
         'delivered_by',
+        'delivery_channels_id',
+        'result_delivered_at',
+        'is_result_emitted'
     ];
 
     protected function casts(): array
@@ -582,5 +584,9 @@ class Prestation extends Model
     public function deliverer(): BelongsTo
     {
         return $this->belongsTo(User::class, 'delivered_by');
+    }
+    public function delivery_chanel(): BelongsTo
+    {
+        return $this->belongsTo(DeliveryChannel::class, 'delivery_channels_id');
     }
 }
