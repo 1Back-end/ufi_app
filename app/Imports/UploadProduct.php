@@ -33,7 +33,6 @@ class UploadProduct implements ToModel, WithHeadingRow
                 'name' => trim($row['designation']),
                 'laboratory_family' => trim($row['famille']) ?? null,
                 'fabricant' => trim($row['fabricant']) ?? null,
-                'fournisseurs_id' => $fournisseurId,
                 'is_active' => true,
                 'created_by' => Auth::id()
             ]
@@ -56,7 +55,7 @@ class UploadProduct implements ToModel, WithHeadingRow
                     'created_by' => Auth::id()
                 ]
             );
-            
+
             if (!$product->packagings()->where('packaging_product_id', $packaging->id)->exists()) {
                 $product->packagings()->attach($packaging->id, [
                     'is_default' => true,
@@ -65,16 +64,14 @@ class UploadProduct implements ToModel, WithHeadingRow
             }
         }
 
-        // 4. Gestion de l'Emplacement - Pas de doublon pour ce produit
         if (!empty($row['emplacement'])) {
             EmplacementsProduct::firstOrCreate(
                 [
-                    'product_id' => $product->id,
                     'zone_stockage' => trim($row['emplacement'])
                 ],
                 [
                     'is_active' => true,
-                    'is_primary' => true,
+                    'is_primary' => false,
                     'created_by' => Auth::id()
                 ]
             );

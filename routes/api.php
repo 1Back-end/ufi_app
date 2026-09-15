@@ -353,6 +353,7 @@ Route::middleware(['activity'])->group(function () {
         Route::get('exports_all_products_in_excel', [ProduitController::class, 'import']);
         Route::get('exports_all_products_in_pdf', [ProduitController::class, 'tarifaire_products']);
         Route::get('/products/fiche_stock/{idEmplacement?}/{idTypeProduit?}', [ProduitController::class, 'print_fiche_stocks']);
+        Route::post('exports_products_by_interface', [ProduitController::class, 'import_products']);
 
         Route::apiResource('packagings',\App\Http\Controllers\PackagingController::class);
         Route::patch('packagings/{id}/is_active', [\App\Http\Controllers\PackagingController::class, 'updateStatus']);

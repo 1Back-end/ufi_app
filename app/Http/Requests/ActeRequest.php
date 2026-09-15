@@ -11,6 +11,7 @@ class ActeRequest extends FormRequest
     {
         return [
             'name' => ['required'],
+            'prefix' => ['nullable', 'string'],
             'pu' => ['required', 'integer'],
             'type_acte_id' => ['required', 'exists:type_actes,id'],
             'delay' => ['required', 'integer'],
