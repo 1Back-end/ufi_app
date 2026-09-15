@@ -34,7 +34,9 @@ class User extends Authenticatable
         'connexion_counter',
         'password_expiated_at',
         'connected',
-        'default'
+        'default',
+        'first_connection',
+        'last_connected',
     ];
 
     protected $hidden = [
@@ -42,7 +44,9 @@ class User extends Authenticatable
     ];
 
     protected $casts = [
-        'password_expiated_at' => 'datetime'
+        'password_expiated_at' => 'datetime',
+        'first_connection' => 'datetime',
+        'last_connected' => 'datetime',
     ];
 
     public function centres(): BelongsToMany

@@ -47,7 +47,8 @@ class Product extends Model
         'moratorium_months',
         'is_suspended',
         'is_out_of_stock',
-        'dosage_id'
+        'dosage_id',
+        'fabricant'
     ];
 
     protected $casts = [

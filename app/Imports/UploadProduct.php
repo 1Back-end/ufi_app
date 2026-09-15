@@ -1,0 +1,85 @@
+<?php
+
+namespace App\Imports;
+
+use App\Models\Product;
+use App\Models\Fournisseurs;
+use App\Models\Packaging;
+use App\Models\EmplacementsProduct;
+use Maatwebsite\Excel\Concerns\ToModel;
+use Maatwebsite\Excel\Concerns\WithHeadingRow;
+use Illuminate\Support\Facades\Auth;
+
+class UploadProduct implements ToModel, WithHeadingRow
+{
+    public function model(array $row)
+    {
+        $fournisseurId = null;
+        if (!empty($row['fournisseur'])) {
+            $fournisseur = Fournisseurs::firstOrCreate(
+                ['full_name' => mb_strtoupper(trim($row['fournisseur']), 'UTF-8')],
+                [
+                    'company_name' => trim($row['fournisseur']),
+                    'is_active' => true,
+                    'created_by' => Auth::id()
+                ]
+            );
+            $fournisseurId = $fournisseur->id;
+        }
+
+        $product = Product::firstOrCreate(
+            ['ref' => trim($row['reference'])],
+            [
+                'name' => trim($row['designation']),
+                'laboratory_family' => trim($row['famille']) ?? null,
+                'fabricant' => trim($row['fabricant']) ?? null,
+                'fournisseurs_id' => $fournisseurId,
+                'is_active' => true,
+                'created_by' => Auth::id()
+            ]
+        );
+
+        if (!empty($row['fabricant']) && $product->fabricant !== trim($row['fabricant'])) {
+            $product->update(['fabricant' => trim($row['fabricant'])]);
+        }
+
+
+        if ($fournisseurId && !$product->fournisseurs()->where('fournisseur_id', $fournisseurId)->exists()) {
+            $product->fournisseurs()->attach($fournisseurId);
+        }
+
+        if (!empty($row['conditionnement'])) {
+            $packaging = Packaging::firstOrCreate(
+                ['name' => trim($row['conditionnement'])],
+                [
+                    'is_active' => true,
+                    'created_by' => Auth::id()
+                ]
+            );
+            
+            if (!$product->packagings()->where('packaging_product_id', $packaging->id)->exists()) {
+                $product->packagings()->attach($packaging->id, [
+                    'is_default' => true,
+                    'created_by' => Auth::id()
+                ]);
+            }
+        }
+
+        // 4. Gestion de l'Emplacement - Pas de doublon pour ce produit
+        if (!empty($row['emplacement'])) {
+            EmplacementsProduct::firstOrCreate(
+                [
+                    'product_id' => $product->id,
+                    'zone_stockage' => trim($row['emplacement'])
+                ],
+                [
+                    'is_active' => true,
+                    'is_primary' => true,
+                    'created_by' => Auth::id()
+                ]
+            );
+        }
+
+        return $product;
+    }
+}

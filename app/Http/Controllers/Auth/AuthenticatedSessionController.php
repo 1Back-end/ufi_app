@@ -120,6 +120,22 @@ class AuthenticatedSessionController extends Controller
             ->where('key', 'inactivity_timeout_minutes')
             ->value('value') ?? 30;
 
+        $auth = auth()->user();
+        $now = now();
+        if ($auth) {
+            $now = now();
+
+            $updateData = [
+                'connected'      => true,
+                'last_connected' => $now,
+            ];
+            if (!$auth->first_connection) {
+                $updateData['first_connection'] = $now;
+            }
+
+            $auth->update($updateData);
+        }
+
         return response()->json([
             'inactivity_timeout' => (int) $timeout
         ], Response::HTTP_OK);
@@ -130,6 +146,10 @@ class AuthenticatedSessionController extends Controller
         $auth = $request->user();
 
         if ($auth) {
+            $auth->update([
+                'connected' => false,
+                'last_connected' => now(),
+            ]);
             $sessions = SessionCaisse::where('user_id', $auth->id)
                 ->where('etat', 'OUVERTE')
                 ->whereNull('fermeture_ts')
