@@ -12,6 +12,7 @@ use App\Http\Controllers\ConsultantController;
 use App\Http\Controllers\ConsultantPrestationShareController;
 use App\Http\Controllers\ConventionAssocieController;
 use App\Http\Controllers\CountryController;
+use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ElementPaillasseController;
 use App\Http\Controllers\ElementResultController;
 use App\Http\Controllers\ExamenController;
@@ -425,14 +426,17 @@ Route::middleware(['activity'])->group(function () {
 
         Route::apiResource('ops_tbl_motif_consultations', OpsTblMotifConsultationController::class);
 
-
         Route::apiResource('bilan_acte_rendez_vous', BilanActeRendezVousController::class);
 
         Route::apiResource('delivery_channels', \App\Http\Controllers\DeliveryChannelController::class);
         Route::patch('delivery_channels/{deliveryChannel}/is_active', [\App\Http\Controllers\DeliveryChannelController::class, 'updateStatus']);
         Route::get('prestations_by_delivery_channel', [\App\Http\Controllers\DeliveryChannelController::class, 'get_resultats_by_chanal_delivey']);
 
-
+        Route::get('/dashboard/nursing', [DashboardController::class, 'get_data_for_nursing']);
+        Route::get('/dashboard/imagerie', [DashboardController::class, 'get_data_for_imagerie']);
+        Route::get('/dashboard/secretariat_stats_prestations_and_factures', [DashboardController::class, 'get_prestations_and_factures']);
+        Route::get('/dashboard/secretariat_stats_factures_and_encaissements', [DashboardController::class, 'get_factures_and_encaissements']);
+        Route::get('/dashboard/users_connected', [DashboardController::class, 'getConnectedUsersByDate']);
 
         Route::controller(PriseEnChargeController::class)->prefix('prise_en_charges')->group(function () {
             Route::get('/list', 'index');
