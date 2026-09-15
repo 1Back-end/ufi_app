@@ -32,7 +32,8 @@ class Acte extends Model
         'code',
         'sub_act_category_id',
         'is_used_for_commission',
-        'has_items'
+        'has_items',
+        'prefix'
     ];
 
     protected function casts(): array

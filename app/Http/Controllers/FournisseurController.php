@@ -54,7 +54,7 @@ class FournisseurController extends Controller
             });
         }
 
-        $fournisseurs = $query->latest()->paginate($perPage, ['*'], 'page', $page);
+        $fournisseurs = $query->orderBy('full_name', 'asc')->paginate($perPage, ['*'], 'page', $page);
 
         return response()->json([
             'data' => $fournisseurs->items(),

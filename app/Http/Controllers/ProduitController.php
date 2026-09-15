@@ -8,14 +8,18 @@ use App\Exports\ProductsExportSearch;
 use App\Imports\MaladieImport;
 use App\Imports\ProductsImport;
 use App\Imports\ProductsOtherImport;
+use App\Imports\UploadProduct;
 use App\Models\Centre;
 use App\Models\LotProduit;
 use Illuminate\Http\Request;
 use App\Models\Product;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpFoundation\Response;
 
 /**
  * @permission_category Gestion des produits
@@ -230,7 +234,7 @@ class ProduitController extends Controller
             ->when($request->filled('facturable'), function ($query) use ($request) {
                 $query->where('facturable', $request->facturable);
             })
-            ->latest()
+            ->orderBy('name', 'asc')
             ->paginate($perPage, ['*'], 'page', $page);
 
         return response()->json([
@@ -829,6 +833,38 @@ class ProduitController extends Controller
                 'error'   => $e->getMessage(),
                 'line'    => $e->getLine(),
             ], 500);
+        }
+    }
+
+    /**
+     * @param Request $request
+     * @return JsonResponse
+     *
+     * @permission ProductImportController::import_products
+     * @permission_desc Importation des produits via un fichier Excel
+     */
+    public function import_products(Request $request)
+    {
+        $request->validate([
+            'file' => 'required|file|mimes:xlsx,xls,csv|max:10240',
+        ]);
+
+        try {
+
+            Excel::import(new UploadProduct, $request->file('file'));
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Produits importés avec succès !',
+            ], Response::HTTP_OK);
+
+        } catch (\Exception $e) {
+            Log::error("Erreur lors de l'importation des produits : " . $e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => "Erreur lors de l'importation du fichier : " . $e->getMessage(),
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
 

@@ -71,8 +71,16 @@ class ActeController extends Controller
      */
     public function store(ActeRequest $request)
     {
-        DB::transaction(function () use ($request, &$acte) {
-            $acte = Acte::create($request->validated());
+        $validatedData = $request->validated();
+
+        if (!empty($validatedData['prefix'])) {
+            $validatedData['name'] = trim($validatedData['prefix']) . ' ' . trim($validatedData['name']);
+        }
+
+        $acte = null;
+
+        DB::transaction(function () use ($validatedData, $request, &$acte) {
+            $acte = Acte::create($validatedData);
 
             if ($request->has_items && $request->has('items')) {
                 foreach ($request->items as $item) {
@@ -100,14 +108,23 @@ class ActeController extends Controller
      */
     public function update(ActeRequest $request, Acte $acte)
     {
-        DB::transaction(function () use ($request, $acte) {
-            $acte->update($request->validated());
+        $validatedData = $request->validated();
+        if (!empty($validatedData['prefix'])) {
+            $prefix = trim($validatedData['prefix']);
+            $cleanName = trim($validatedData['name']);
+
+            if (!str_starts_with($cleanName, $prefix)) {
+                $validatedData['name'] = $prefix . ' ' . $cleanName;
+            }
+        }
+
+        DB::transaction(function () use ($request, $acte, $validatedData) {
+            $acte->update($validatedData);
 
             if ($request->has_items) {
                 $incomingItems = collect($request->input('items', []));
                 $incomingProductIds = $incomingItems->pluck('product_id')->toArray();
 
-                // Supprimer les produits qui ne sont plus dans la liste via la table pivot
                 $acte->acteProducts()->whereNotIn('product_id', $incomingProductIds)->delete();
 
                 foreach ($incomingItems as $item) {
@@ -123,7 +140,6 @@ class ActeController extends Controller
                     );
                 }
             } else {
-                // Si has_items est faux/décoché, on supprime tout via la table pivot
                 $acte->acteProducts()->delete();
             }
         });

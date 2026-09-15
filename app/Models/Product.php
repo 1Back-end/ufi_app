@@ -34,7 +34,6 @@ class Product extends Model
         'price',
         'pharmacy_price',
         'facturable',
-        'fournisseurs_id',
         'Dosage_defaut',
         'schema_administration',
         'created_by',
