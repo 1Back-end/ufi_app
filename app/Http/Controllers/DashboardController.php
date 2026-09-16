@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Enums\TypePrestation;
+use App\Models\ConsultantPaymentPrestation;
 use App\Models\Facture;
 use App\Models\Prestation;
 use App\Models\Regulation;
@@ -314,5 +315,65 @@ class DashboardController extends Controller
             'total' => $users->count(),
             'users' => $users
         ], Response::HTTP_OK);
+    }
+
+    /**
+     * @param Request $request
+     * @return JsonResponse
+     *
+     * @permission DashboardController::getConsultantPaymentsByDate
+     * @permission_desc Suivi et statistiques des paiements effectués aux consultants par période et par caisse
+     */
+    public function getConsultantPaymentsByDate(Request $request)
+    {
+        $startDate = $request->input('start_date')
+            ? Carbon::parse($request->input('start_date'))->startOfDay()
+            : Carbon::yesterday()->startOfDay();
+
+        $endDate = $request->input('end_date')
+            ? Carbon::parse($request->input('end_date'))->endOfDay()
+            : Carbon::yesterday()->endOfDay();
+
+        $payments = ConsultantPaymentPrestation::with([
+            'consultant:id,nom,prenom',
+            'caisse:id,code,name',
+            'creator:id,nom_utilisateur,prenom'
+        ])
+            ->whereBetween('created_at', [$startDate, $endDate])
+            ->get();
+
+        $formattedPayments = $payments->values()->map(function ($payment, $index) {
+            return [
+                'index' => $index + 1,
+                'id' => $payment->id,
+                'consultant' => $payment->consultant ? [
+                    'id' => $payment->consultant->id,
+                    'nom_complet' => trim($payment->consultant->prenom . ' ' . $payment->consultant->nom),
+                ] : null,
+                'amount' => $payment->amount,
+                'caisse' => $payment->caisse ? [
+                    'id' => $payment->caisse->id,
+                    'code' => $payment->caisse->code,
+                    'name' => $payment->caisse->name,
+                ] : null,
+                'effectue_par' => $payment->creator ? [
+                    'id' => $payment->creator->id,
+                    'nom_utilisateur' => $payment->creator->nom_utilisateur,
+                    'prenom' => $payment->creator->prenom,
+                ] : null,
+                'created_at' => $payment->created_at,
+            ];
+        });
+
+        return response()->json([
+            'success' => true,
+            'filters' => [
+                'start_date' => $startDate->toDateString(),
+                'end_date' => $endDate->toDateString(),
+            ],
+            'total' => $formattedPayments->count(),
+            'payments' => $formattedPayments
+        ], Response::HTTP_OK);
+
     }
 }

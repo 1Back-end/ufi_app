@@ -12,6 +12,7 @@ use App\Models\Prestation;
 use App\Models\PrestationCategory;
 use App\Models\SessionCaisse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 /**
@@ -80,7 +81,6 @@ class ConsultantPrestationShareController extends Controller
             ->pluck('prestation_type_id')
             ->toArray();
 
-        // ❌ delete removed
         ConsultantPrestationShare::where('consultant_id', $consultantId)
             ->whereNotIn('prestation_type_id', $incomingIds)
             ->delete();
@@ -263,15 +263,8 @@ class ConsultantPrestationShareController extends Controller
                 ], 422);
             }
 
-            Log::info($accountId);
-            Log::info($consultantShare);
-            Log::info($centreId);
-            Log::info($auth->id);
-
             $sessionCaisse = SessionCaisse::where('user_id', $auth->id)->where('centre_id', $centreId)->whereNull('fermeture_ts')->where('etat', 'OUVERTE')
                 ->first();
-
-            Log::info($sessionCaisse);
 
             if (!$sessionCaisse) {
                 return response()->json([
@@ -299,8 +292,12 @@ class ConsultantPrestationShareController extends Controller
             $payment = ConsultantPaymentPrestation::create([
                 'consultant_id' => $request->consultant_id,
                 'account_id' => $accountId,
-                'start_date' => $request->start_date,
-                'end_date' => $request->end_date,
+                'start_date' => $request->input('start_date')
+                    ? Carbon::parse($request->input('start_date'))->setTimeFrom(now())
+                    : now(),
+                'end_date' => $request->input('end_date')
+                    ? Carbon::parse($request->input('end_date'))->setTimeFrom(now())
+                    : now(),
                 'description' => $request->description,
                 'amount' => $request->amount,
                 'caisse_id' => $caisse->id,
@@ -380,11 +377,6 @@ class ConsultantPrestationShareController extends Controller
                 ], 422);
             }
 
-            Log::info($accountId);
-            Log::info($consultantShare);
-            Log::info($centreId);
-            Log::info($auth->id);
-
 
             $caisse = Caisse::where('centre_id', $centreId)
                 ->where('type_caisse', 'consolidation_caisse')
@@ -405,8 +397,12 @@ class ConsultantPrestationShareController extends Controller
             $payment = ConsultantPaymentPrestation::create([
                 'consultant_id' => $request->consultant_id,
                 'account_id' => $accountId,
-                'start_date' => $request->start_date,
-                'end_date' => $request->end_date,
+                'start_date' => $request->input('start_date')
+                    ? Carbon::parse($request->input('start_date'))->setTimeFrom(now())
+                    : now(),
+                'end_date' => $request->input('end_date')
+                    ? Carbon::parse($request->input('end_date'))->setTimeFrom(now())
+                    : now(),
                 'description' => $request->description,
                 'amount' => $request->amount,
                 'caisse_id' => $caisse->id,
@@ -462,7 +458,6 @@ class ConsultantPrestationShareController extends Controller
         $start_date = \Illuminate\Support\Carbon::parse($request->input('start_date'))->startOfDay();
         $end_date = \Illuminate\Support\Carbon::parse($request->input('end_date'))->endOfDay();
 
-        // ✅ Query optimisée
         $query = Prestation::with([
             'centre',
             'factures',
