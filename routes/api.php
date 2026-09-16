@@ -438,6 +438,7 @@ Route::middleware(['activity'])->group(function () {
         Route::get('/dashboard/secretariat_stats_prestations_and_factures', [DashboardController::class, 'get_prestations_and_factures']);
         Route::get('/dashboard/secretariat_stats_factures_and_encaissements', [DashboardController::class, 'get_factures_and_encaissements']);
         Route::get('/dashboard/users_connected', [DashboardController::class, 'getConnectedUsersByDate']);
+        Route::get('/dashboard/consultant_payments', [DashboardController::class, 'getConsultantPaymentsByDate']);
 
         Route::controller(PriseEnChargeController::class)->prefix('prise_en_charges')->group(function () {
             Route::get('/list', 'index');

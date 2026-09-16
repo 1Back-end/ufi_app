@@ -17,7 +17,10 @@ class PatientResultArchive extends Model
         'count',
         'created_by',
         'updated_by',
-        'delivery_channel_id'
+        'delivery_channel_id',
+        'otp_code',
+        'otp_expires_at',
+        'is_otp_verified'
     ];
 
     public function prestation()
