@@ -2056,7 +2056,7 @@ class PrestationController extends Controller
                     'results.elementPaillasse.group_populations',
                     'results.groupePopulation',
                 ])
-                    ->where('id', $request->prestation_ids)
+                    ->where('id', $request->prestation_ids[0])
                     ->first();
                 $results = $prestation->results;
                 $facture = $prestation->factures()->where('type', 2)->first();
@@ -2066,17 +2066,18 @@ class PrestationController extends Controller
                 foreach ($prestations as $prest) {
                     foreach ($prest->examens as $examen) {
                         foreach ($examen->elementPaillasses as $elementPaillasse) {
-                            $result = Result::query()->with([
-                                'elementPaillasse',
-                                'elementPaillasse.typeResult'
-                            ])
-                                ->where('element_paillasse_id', $elementPaillasse->id)
-                                ->whereNotIn('prestation_id', [$prestation->id])
-                                ->whereHas('prestation', function ($query) use ($prestation) {
-                                    $query->where('client_id', $prestation->client_id)
-                                        ->where('created_at', '<', $prestation->created_at);
-                                })
-                                ->latest()
+                            $result = Result::query()
+                                ->join('prestations', 'results.prestation_id', '=', 'prestations.id')
+                                ->with([
+                                    'elementPaillasse',
+                                    'elementPaillasse.typeResult'
+                                ])
+                                ->where('results.element_paillasse_id', $elementPaillasse->id)
+                                ->where('results.prestation_id', '!=', $prestation->id)
+                                ->where('prestations.client_id', $prestation->client_id)
+                                ->where('prestations.created_at', '<', $prestation->created_at)
+                                ->orderBy('prestations.created_at', 'desc')
+                                ->select('results.*')
                                 ->first();
 
                             Log::info($result);
