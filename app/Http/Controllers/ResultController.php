@@ -253,11 +253,14 @@ class ResultController extends Controller
                     ->where('prestationable_type', Examen::class)
                     ->where('prestationable_id', $examen_id)
                     ->first();
-                $prestationable->update([
-                    'status_examen' => "pending"
-                ]);
+                if ($prestationable) {
+                    $prestationable->update([
+                        'status_examen' => StateExamen::CANCELLED->value,
+                        'cancelled_at'  => now(),
+                        'cancelled_by'  => auth()->id(),
+                    ]);
+                }
 
-                // Supprimer le résultat
                 $examen = Examen::find($examen_id);
                 if (!$examen) {
                     continue;
@@ -268,6 +271,12 @@ class ResultController extends Controller
                         ->where('element_paillasse_id', $elementPaillasse->id)
                         ->forceDelete();
                 }
+            }
+            if ($prestation) {
+                $prestation->update([
+                    'cancelled_at' => now(),
+                    'cancelled_by' => auth()->id(),
+                ]);
             }
         }
 

@@ -6,6 +6,7 @@ use App\Models\Product;
 use App\Models\Fournisseurs;
 use App\Models\Packaging;
 use App\Models\EmplacementsProduct;
+use Illuminate\Support\Str;
 use Maatwebsite\Excel\Concerns\ToModel;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
 use Illuminate\Support\Facades\Auth;
@@ -27,8 +28,12 @@ class UploadProduct implements ToModel, WithHeadingRow
             $fournisseurId = $fournisseur->id;
         }
 
+        $reference = !empty($row['reference'])
+            ? trim($row['reference'])
+            : 'PRD-' . strtoupper(Str::random(8));
+
         $product = Product::firstOrCreate(
-            ['ref' => trim($row['reference'])],
+            ['ref' => $reference],
             [
                 'name' => trim($row['designation']),
                 'laboratory_family' => trim($row['famille']) ?? null,

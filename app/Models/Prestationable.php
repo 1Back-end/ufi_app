@@ -21,7 +21,9 @@ class Prestationable extends Model
         'validated_by',
         'printed_by',
         'prelevate_at',
-        'prelevated_by'
+        'prelevated_by',
+        'cancelled_at',
+        'cancelled_by'
     ];
 
     protected $casts = [
@@ -29,6 +31,7 @@ class Prestationable extends Model
         'validated_at' => 'datetime',
         'printed_at' => 'datetime',
         'prelevate_at' => 'datetime',
+        'cancelled_at' => 'datetime',
     ];
 
     public function prestation(): BelongsTo
@@ -47,5 +50,9 @@ class Prestationable extends Model
     public function prelevate(): BelongsTo
     {
         return $this->belongsTo(User::class, 'prelevated_by');
+    }
+    public function cancellor(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'cancelled_by');
     }
 }

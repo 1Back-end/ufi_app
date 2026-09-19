@@ -62,20 +62,24 @@ class OpsTblAntecedentController extends Controller
         $messages = [
             'dossier_consultation_id.required' => 'Le dossier de consultation est obligatoire.',
             'dossier_consultation_id.exists' => 'Le dossier de consultation sélectionné est invalide.',
-            'category_label.required_unless' => 'La catégorie est obligatoire.',
-            'description.string' => 'La description doit être une chaîne de caractères.',
+            'familial_description.required_if' => 'La description des antécédents familiaux est obligatoire.',
+            'personnel_description.required_if' => 'La description des antécédents personnels est obligatoire.',
+            'sous_categorie_label.required_if' => 'La sous-catégorie est obligatoire.',
         ];
 
         $validated = $request->validate([
             'dossier_consultation_id' => 'required|exists:dossier_consultations,id',
-            'category_label' => 'nullable|string',
-            'sous_categorie_label' => 'nullable|string',
-            'description' => 'nullable|string',
             'pas_d_antecedent' => 'boolean',
+            'has_familial' => 'boolean',
+            'familial_description' => 'nullable|string',
+            'has_personnel' => 'boolean',
+            'sous_categorie_label' => 'nullable|string',
+            'personnel_description' => 'nullable|string',
+            'category_label' => 'nullable|string',
+            'description' => 'nullable|string',
         ], $messages);
 
         $dossier = \App\Models\DossierConsultation::with('motifsConsultation')->find($request->dossier_consultation_id);
-
 
         if (!$dossier || !$dossier->is_have_motif_consultation) {
             return response()->json([

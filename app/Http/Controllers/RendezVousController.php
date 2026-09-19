@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Maatwebsite\Excel\Facades\Excel;
@@ -523,6 +524,72 @@ class RendezVousController extends Controller
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             return response()->json(['message' => 'Prise en charge introuvable'], 404);
         }
+    }
+
+    /**
+     * Display a listing of the resource.
+     * @permission RendezVousController::bulkDeliverImagingResults
+     * @permission_desc Remettre les résultats d'imagérie(Radio,Echographie)
+     */
+    public function bulkDeliverImagingResults(Request $request)
+    {
+        $request->validate([
+            'rendez_vous_ids' => ['required', 'array'],
+            'rendez_vous_ids.*' => ['integer', 'exists:rendez_vouses,id'],
+            'password' => ['required', 'string'],
+        ]);
+
+        $auth = auth()->user();
+
+        if (!Hash::check($request->password, $auth->password)) {
+            return response()->json([
+                'message' => 'Mot de passe incorrect. Impossible de valider la remise.'
+            ], 422);
+        }
+
+        RendezVous::whereIn('id', $request->rendez_vous_ids)->update([
+            'imaging_results_delivered' => true,
+            'imaging_delivered_by_user_id' => $auth->id,
+            'updated_at' => now(),
+        ]);
+
+        return response()->json([
+            'message' => 'Les résultats d’imagerie sélectionnés ont été marqués comme remis avec succès.',
+            'count' => count($request->rendez_vous_ids)
+        ], 200);
+    }
+
+    /**
+     * Display a listing of the resource.
+     * @permission RendezVousController::bulkDeliverNursingResults
+     * @permission_desc Remettre les résultats du nursing
+     */
+    public function bulkDeliverNursingResults(Request $request)
+    {
+        $request->validate([
+            'rendez_vous_ids' => ['required', 'array'],
+            'rendez_vous_ids.*' => ['integer', 'exists:rendez_vouses,id'],
+            'password' => ['required', 'string'],
+        ]);
+
+        $auth = auth()->user();
+
+        if (!Hash::check($request->password, $auth->password)) {
+            return response()->json([
+                'message' => 'Mot de passe incorrect. Impossible de valider la remise.'
+            ], 422);
+        }
+
+        RendezVous::whereIn('id', $request->rendez_vous_ids)->update([
+            'nursing_results_delivered' => true,
+            'nursing_delivered_by_user_id' => $auth->id,
+            'updated_at' => now(),
+        ]);
+
+        return response()->json([
+            'message' => 'Les résultats de nursing sélectionnés ont été marqués comme remis avec succès.',
+            'count' => count($request->rendez_vous_ids)
+        ], 200);
     }
 
 

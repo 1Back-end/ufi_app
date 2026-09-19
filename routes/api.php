@@ -399,6 +399,8 @@ Route::middleware(['activity'])->group(function () {
 
         Route::apiResource('rendez_vous', RendezVousController::class);
         Route::get('exports_all_rendez_vous_in_excel', [\App\Http\Controllers\RendezVousController::class, 'export_in_excel']);
+        Route::post('rendez_vous_bulk_deliver_imaging', [RendezVousController::class, 'bulkDeliverImagingResults']);
+        Route::post('rendez_vous_bulk_deliver_nursing', [RendezVousController::class, 'bulkDeliverNursingResults']);
         Route::patch('rendez-vous/{id}/status', [\App\Http\Controllers\RendezVousController::class, 'updateStatus']);
         Route::apiResource('dossier_locations', \App\Http\Controllers\DossierLocationController::class);
         Route::patch('dossier_locations/{id}/is_active', [\App\Http\Controllers\DossierLocationController::class, 'updateStatus']);
