@@ -55,7 +55,9 @@ class Prestation extends Model
         'delivered_by',
         'delivery_channels_id',
         'result_delivered_at',
-        'is_result_emitted'
+        'is_result_emitted',
+        'cancelled_at',
+        'cancelled_by'
     ];
 
     protected function casts(): array
@@ -68,6 +70,7 @@ class Prestation extends Model
             'validated_at' => 'datetime',
             'prelevated_at' => 'datetime',
             'result_delivered_at' => 'datetime',
+            'cancelled_at' => 'datetime',
         ];
     }
     public function rendezVous()
@@ -258,6 +261,10 @@ class Prestation extends Model
                         })
                         ->whereNull('element_paillasses_id')->count();
                 });
+
+                if ($this->examens()->wherePivot('status_examen', StateExamen::CANCELLED->value)->count() > 0) {
+                    return 12;
+                }
 
                 if ($this->examens()->wherePivotNull('prelevements')->count() == $this->examens()->count()) {
                     return 0; // return "Aucun prélèvement";
@@ -588,5 +595,9 @@ class Prestation extends Model
     public function delivery_chanel(): BelongsTo
     {
         return $this->belongsTo(DeliveryChannel::class, 'delivery_channels_id');
+    }
+    public function cancellor(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'cancelled_by');
     }
 }

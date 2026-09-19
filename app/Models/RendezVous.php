@@ -34,6 +34,10 @@ class RendezVous extends Model
         'is_deleted',
         'rendez_vous_id',
         'prestation_id',
+        'imaging_results_delivered',
+        'imaging_delivered_by_user_id',
+        'nursing_results_delivered',
+        'nursing_delivered_by_user_id'
     ];
 
     protected $casts = [

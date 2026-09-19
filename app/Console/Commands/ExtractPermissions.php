@@ -169,6 +169,11 @@ class ExtractPermissions extends Command
             'category' => 'Permissions supplémentaires',
             'modules' => ['Gestion des prestations','Autres Modules'],
         ],
+        'CANCEL_VALIDATION_FOR_EXAMNS' => [
+            'description' => 'Dévalider la saisie des examens de laboratoire après avoir validé ou imprimé',
+            'category'    => "Gestion des résultats d'examens",
+            'modules'     => ['Gestion du laboratoire', 'Autres Modules'],
+        ],
 
 
 
