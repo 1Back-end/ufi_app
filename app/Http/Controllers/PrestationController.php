@@ -1014,16 +1014,16 @@ class PrestationController extends Controller
             ], Response::HTTP_BAD_REQUEST);
         }
 
+        $centre = (int) $request->header('centre');
+
+        if ((int) $prestation->centre_id !== $centre) {
+            return response()->json([
+                'message' => "Cette prestation n'appartient pas à ce centre"
+            ], 403);
+        }
+
         DB::beginTransaction();
         try {
-            $centre = (int) $request->header('centre');
-
-            if ($prestation->centre_id !== $centre) {
-                return response()->json([
-                    'message' => "Cette prestation n'appartient pas à ce centre"
-                ], 403);
-            }
-
             $facture = save_facture($prestation, $centre, $request->input('proforma'));
 
             $prestation->update([
@@ -1033,13 +1033,13 @@ class PrestationController extends Controller
                     : $prestation->consultant_amount_status,
             ]);
 
+            DB::commit();
         } catch (\Throwable $th) {
             DB::rollBack();
             return response()->json([
                 'message' => $th->getMessage()
             ], Response::HTTP_BAD_REQUEST);
         }
-        DB::commit();
 
         return response()->json([
             'message' => "Facture enregistrée avec succès !",
@@ -1073,7 +1073,7 @@ class PrestationController extends Controller
      * @return JsonResponse
      *
      * @permission PrestationController::getFacturesInProgress
-     * @permission_desc Récupérer les factures non réglées par assurance ou par client associé
+     * @permission_desc Récupérer les factures non réglées par assurance et éffectué la ventilation
      */
     public function getFacturesInProgress(Request $request)
     {
@@ -1084,7 +1084,6 @@ class PrestationController extends Controller
             'end_date' => ['required', 'date'],
         ]);
 
-        // On récupère uniquement les prestations dont les factures sont dans la plage
         $prestations = Prestation::filterInProgress(
             startDate: $request->input('start_date'),
             endDate: $request->input('end_date'),
@@ -1135,12 +1134,10 @@ class PrestationController extends Controller
         $factures = collect($request->input('factures'));
         $totalAmount = $request->input('total_amount');
 
-        // 🔹 Factures saisies par l'utilisateur (montant_consteste > 0)
         $filledFactures = $factures
             ->filter(fn($f) => isset($f['montant_consteste']) && $f['montant_consteste'] > 0)
             ->keyBy('id');
 
-        // 🔹 Cas spécial : une seule facture saisie → elle prend tout
         if ($filledFactures->count() === 1) {
             $fullId = $filledFactures->keys()->first();
 
@@ -1156,7 +1153,6 @@ class PrestationController extends Controller
                 ];
             });
         } else {
-            // 🔹 Plusieurs factures saisies → répartir le reste proportionnellement
             $reste = $totalAmount - $filledFactures->sum('montant_consteste');
             $totalInitNonFilled = $factures
                 ->filter(fn($f) => !isset($filledFactures[$f['id']]))
@@ -1164,10 +1160,9 @@ class PrestationController extends Controller
 
             $facturesCalculated = $factures->map(function($f) use ($filledFactures, $totalAmount, $factures) {
                 if (isset($filledFactures[$f['id']])) {
-                    // Facture modifiée par l'utilisateur → garder la saisie
+                    //
                     $montant_consteste = round($filledFactures[$f['id']]['montant_consteste'], 2);
                 } else {
-                    // Facture non modifiée → calcul automatique proportionnel
                     $totalInitNonFilled = $factures->filter(fn($x) => !isset($filledFactures[$x['id']]))->sum('amount_init');
                     $reste = max($totalAmount - $filledFactures->sum('montant_consteste'), 0);
 
@@ -2605,6 +2600,9 @@ class PrestationController extends Controller
             'data' => $stats
         ]);
     }
+
+
+
 
 
 

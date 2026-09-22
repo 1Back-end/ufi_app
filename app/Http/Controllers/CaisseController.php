@@ -614,7 +614,6 @@ class CaisseController extends Controller
     {
         $auth = auth()->user();
 
-        // 🔥 sécuriser centre_id
         $centreId = $request->input('centre_id') ?? $request->header('centre');
 
         if (!$centreId) {
@@ -641,7 +640,6 @@ class CaisseController extends Controller
             $today = now()->toDateString();
             $alertMessage = null;
 
-            // 🔹 Session du jour
             $session = SessionCaisse::where('user_id', $caisse->user_id)
                 ->where('caisse_id', $caisse->id)
                 ->where('centre_id', $centreId)
@@ -650,9 +648,6 @@ class CaisseController extends Controller
                 ->latest('ouverture_ts')
                 ->first();
 
-            // ============================
-            // 🔓 OUVERTURE
-            // ============================
             if ($newPosition === 'open') {
 
                 if ($session) {
@@ -680,7 +675,7 @@ class CaisseController extends Controller
                     $fondsWithoutSold = $lastSession?->current_sold ?? 0;
 
                     if ($fondsOuverture > 0) {
-                        $alertMessage = "⚠️ Solde reporté : "
+                        $alertMessage = "Solde reporté : "
                             . number_format($fondsOuverture, 0, ',', ' ') . " FCFA";
                     }
 
@@ -699,9 +694,6 @@ class CaisseController extends Controller
                 }
             }
 
-            // ============================
-            // ⏸️ PAUSE
-            // ============================
             if ($newPosition === 'in_pause') {
                 if (!$session) {
                     return response()->json([
@@ -709,14 +701,12 @@ class CaisseController extends Controller
                     ], 404);
                 }
 
-                // 🔥 Si déjà en pause → on bloque proprement
                 if ($session->etat === 'EN_PAUSE') {
                     return response()->json([
                         'message' => 'La session est déjà en pause.'
                     ], 400);
                 }
 
-                // 🔥 Autoriser uniquement si ouverte
                 if ($session->etat !== 'OUVERTE') {
                     return response()->json([
                         'message' => 'Impossible de mettre en pause une session non ouverte.'
@@ -724,7 +714,6 @@ class CaisseController extends Controller
                 }
 
                 $fondsWithoutSold = $lastSession?->current_sold ?? 0;
-                // ✅ Mise en pause
                 $session->update([
                     'etat'           => 'EN_PAUSE',
                     'pause_ts'       => now(),
@@ -734,19 +723,13 @@ class CaisseController extends Controller
                 ]);
             }
 
-            // ============================
-            // 🔒 FERMETURE
-            // ============================
             if ($newPosition === 'close') {
-
                 if (!$session) {
                     return response()->json([
                         'message' => 'Aucune session à fermer.'
                     ], Response::HTTP_NOT_FOUND);
                 }
-
                 $total = ($session->fonds_ouverture ?? 0) + ($session->current_sold ?? 0) + ($session->small_change ?? 0);
-
                 $session->update([
                     'fermeture_ts'              => now(),
                     'etat'                      => 'FERMEE',
@@ -758,7 +741,6 @@ class CaisseController extends Controller
                 ]);
             }
 
-            // 🔄 Update caisse
             $caisse->update([
                 'position'   => $newPosition,
                 'updated_by' => $auth->id
@@ -781,8 +763,6 @@ class CaisseController extends Controller
             ], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
-
-
 
     /**
      * @return JsonResponse
@@ -871,7 +851,6 @@ class CaisseController extends Controller
             'secret_code.string' => "Le code secret doit être une chaîne de caractères",
         ]);
 
-        // 🔹 Chercher la caisse active de l'utilisateur pour ce centre
         $caisse = Caisse::where('user_id', $auth->id)
             ->where('centre_id', $centreId)
             ->where('is_active', true)
@@ -889,20 +868,31 @@ class CaisseController extends Controller
                 'message' => "Ouverture de caisse bloquée par l'administration. Veuillez contacter le super administrateur."
             ], 403);
         }
+        $lastClosedSession = SessionCaisse::where('caisse_id', $caisse->id)
+            ->where('user_id', $auth->id)
+            ->where('centre_id', $centreId)
+            ->whereNotNull('fermeture_ts')
+            ->latest('fermeture_ts')
+            ->first();
+
+        if ($lastClosedSession && ($lastClosedSession->solde > 0 || $lastClosedSession->current_sold > 0)) {
+            return response()->json([
+                'message' => "Votre session précédente comporte un solde en cours positif. Veuillez contacter l'administrateur pour procéder à la régularisation avant toute nouvelle ouverture de caisse."
+            ], Response::HTTP_FORBIDDEN);
+        }
+
         if (!$caisse->is_default_secret_code) {
             return response()->json([
                 'message' => 'Vous devez d’abord changer le code secret avant d’ouvrir la caisse.'
             ], Response::HTTP_FORBIDDEN);
         }
 
-        // 🔹 Vérification du code secret
         if (!Hash::check($request->secret_code, $caisse->secret_code)) {
             return response()->json([
                 'message' => 'Code secret incorrect.'
             ], Response::HTTP_UNAUTHORIZED);
         }
 
-        // 🔹 Vérifier si une session ouverte existe pour cette caisse + centre
         $session = SessionCaisse::where('caisse_id', $caisse->id)
             ->where('user_id', $auth->id)
             ->where('centre_id', $centreId)
@@ -910,15 +900,12 @@ class CaisseController extends Controller
             ->first();
 
         if ($session) {
-            // 🔹 Mettre à jour l'état de la session si elle est en pause
             if ($session->etat === 'EN_PAUSE') {
                 $session->update([
                     'etat' => 'OUVERTE',
                     'updated_by' => $auth->id
                 ]);
             }
-
-            // 🔹 Mettre à jour la caisse
             $caisse->update([
                 'position' => 'open'
             ]);
@@ -937,7 +924,7 @@ class CaisseController extends Controller
     public function CloseMyCaisse(Request $request)
     {
         $auth = auth()->user();
-        $centreId = $request->header('centre'); // 🔹 Centre spécifique
+        $centreId = $request->header('centre');
 
         $request->validate([
             'secret_code' => ['required', 'string'],
@@ -946,7 +933,6 @@ class CaisseController extends Controller
             'secret_code.string' => "Le code secret doit être une chaîne de caractères",
         ]);
 
-        // 🔹 Chercher la caisse active de l'utilisateur pour ce centre
         $caisse = Caisse::where('user_id', $auth->id)
             ->where('centre_id', $centreId)
             ->where('is_active', true)
@@ -958,21 +944,18 @@ class CaisseController extends Controller
             ], Response::HTTP_FORBIDDEN);
         }
 
-        // 🔹 Vérifier si la caisse est déjà fermée
         if ($caisse->position === 'close') {
             return response()->json([
                 'message' => 'La caisse est déjà fermée pour ce centre.'
             ], Response::HTTP_OK);
         }
 
-        // 🔹 Vérifier le code secret avant fermeture
         if (!Hash::check($request->secret_code, $caisse->secret_code)) {
             return response()->json([
                 'message' => 'Code secret incorrect.'
             ], Response::HTTP_UNAUTHORIZED);
         }
 
-        // 🔹 Récupérer la session ouverte ou en pause pour ce centre
         $session = SessionCaisse::where('caisse_id', $caisse->id)
             ->where('user_id', $auth->id)
             ->where('centre_id', $centreId)
@@ -985,7 +968,6 @@ class CaisseController extends Controller
             ], Response::HTTP_FORBIDDEN);
         }
 
-        // 🔹 Vérifier que le solde est strictement égal à 0 (arrondi à 2 décimales pour sécurité)
         if (round((float) $session->solde, 2) != 0) {
             return response()->json([
                 'message' => "Impossible de fermer la caisse : le solde est de {$session->solde}, il doit être exactement de 0. Veuillez régulariser l'écart."
@@ -994,13 +976,11 @@ class CaisseController extends Controller
 
         DB::beginTransaction();
         try {
-            // 🔹 Mettre à jour la caisse pour ce centre
             $caisse->update([
                 'position'   => 'close',
                 'updated_by' => $auth->id
             ]);
 
-            // 🔹 Mettre à jour la session correspondante
             $session->update([
                 'etat'        => 'FERMEE',
                 'fermeture_ts'=> now(),
@@ -1024,8 +1004,6 @@ class CaisseController extends Controller
         }
     }
 
-
-
     /**
      * @return JsonResponse
      *
@@ -1035,7 +1013,7 @@ class CaisseController extends Controller
     public function initTransfer(Request $request)
     {
         $auth = auth()->user();
-        $centreId = $request->header('centre'); // 🔹 Centre courant
+        $centreId = $request->header('centre');
 
         if (!$centreId) {
             return response()->json([
@@ -1043,7 +1021,6 @@ class CaisseController extends Controller
             ], 403);
         }
 
-        // 🔹 Validation de la requête
         $validated = $request->validate([
             'caisse_reception_id' => ['required', 'integer'],
             'montant' => ['required', 'integer', 'min:1'],
@@ -1067,7 +1044,6 @@ class CaisseController extends Controller
             ->where('centre_id', $centreId)
             ->first();
 
-
         if (!$caisseReception) {
             return response()->json([
                 'message' => 'Caisse de réception invalide pour ce centre.'
@@ -1089,10 +1065,7 @@ class CaisseController extends Controller
 
             $montantTotalTransfert = $cash;
             $smallChangeToSend = 0;
-        }
-
-        else {
-
+        } else {
             $expected = $cash + $smallChange;
 
             if ((int)$validated['montant'] !== $expected) {
@@ -1105,43 +1078,52 @@ class CaisseController extends Controller
             $smallChangeToSend = $smallChange;
         }
 
-        $transfert = TransfertFondsTampon::create([
-            'caisse_depart_id' => $session->caisse_id,
-            'caisse_reception_id' => $caisseReception->id,
-            'montant_send' => $montantTotalTransfert,
-            'small_change' => $smallChangeToSend,
-            'status' => 'pending',
-            'type' => 'debit',
-            'send_by' => $auth->id,
-            'session_id' => $session->id,
-            'centre_id' => $centreId,
-            'created_by' => $auth->id,
-        ]);
-
-        $montant = $validated['montant'];
-        if ($montant > $session->solde) {
+        if ($cash > (int) $session->solde) {
             return response()->json([
                 'message' => 'Solde insuffisant dans la caisse.'
             ], 400);
         }
 
-        $session->update([
-            'etat' => 'FERMEE',
-            'fermeture_ts' => now(),
-            'fonds_fermeture' => $session->solde,
-            'fonds_fermeture_exactly' => $session->solde,
-            'current_sold' => 0,
-            'sold_without_small_change' => 0,
-            'updated_by' => $auth->id,
-        ]);
+        DB::beginTransaction();
+        try {
+            $transfert = TransfertFondsTampon::create([
+                'caisse_depart_id' => $session->caisse_id,
+                'caisse_reception_id' => $caisseReception->id,
+                'montant_send' => $montantTotalTransfert,
+                'small_change' => $smallChangeToSend,
+                'status' => 'pending',
+                'type' => 'debit',
+                'send_by' => $auth->id,
+                'session_id' => $session->id,
+                'centre_id' => $centreId,
+                'created_by' => $auth->id,
+            ]);
 
-        $caisse = Caisse::find($session->caisse_id);
-        $caisse->update([
-            'position' => 'close',
-        ]);
+            $session->update([
+                'etat' => 'FERMEE',
+                'fermeture_ts' => now(),
+                'fonds_fermeture' => $session->solde,
+                'fonds_fermeture_exactly' => $session->solde,
+                'current_sold' => 0,
+                'solde' => 0,
+                'sold_without_small_change' => 0,
+                'updated_by' => $auth->id,
+            ]);
+
+            $caisseDepart->update([
+                'position' => 'close',
+            ]);
+
+            DB::commit();
+        } catch (\Throwable $th) {
+            DB::rollBack();
+            return response()->json([
+                'message' => "Erreur lors de l'initialisation du transfert : " . $th->getMessage()
+            ], 400);
+        }
 
         return response()->json([
-            'message' => 'Transfert initié avec succès (incluant la petite monnaie). La session est clôturée.',
+            'message' => 'Transfert initié avec succès. La session est clôturée.',
             'transfert' => $transfert,
             'montant_total' => $montantTotalTransfert
         ], 201);
