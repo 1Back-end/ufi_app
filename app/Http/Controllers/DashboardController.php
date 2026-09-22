@@ -396,30 +396,37 @@ class DashboardController extends Controller
             ? Carbon::parse($request->input('end_date'))->endOfDay()
             : Carbon::yesterday()->endOfDay();
 
-        $result = Prestation::where('centre_id', $centreId)
+        // 1. On récupère les prestations avec leur prise de charge et leur assureur
+        $prestations = Prestation::where('centre_id', $centreId)
             ->whereNotNull('prise_charge_id')
             ->whereBetween('created_at', [$startDate, $endDate])
             ->with('priseCharge.assureur')
-            ->select('prise_charge_id', DB::raw('count(*) as total_prestations'))
-            ->groupBy('prise_charge_id')
-            ->get()
-            ->map(function ($prestation) use ($startDate, $endDate, $centreId) {
+            ->get();
 
-                $factures = \App\Models\Facture::whereHas('prestation', function ($q) use ($prestation, $centreId, $startDate, $endDate) {
-                    $q->where('prise_charge_id', $prestation->prise_charge_id)
-                        ->where('centre_id', $centreId)
-                        ->whereBetween('created_at', [$startDate, $endDate]);
-                })->get();
+        // 2. On groupe les prestations en PHP directement par l'ID de l'assureur
+        $result = $prestations->groupBy(function ($prestation) {
+            return $prestation->priseCharge?->assureur?->id ?? 'inconnu';
+        })->map(function ($prestationsGroup, $assureurId) use ($startDate, $endDate, $centreId) {
 
-                $assureur = $prestation->priseCharge?->assureur;
+            $firstPrestation = $prestationsGroup->first();
+            $assureur = $firstPrestation->priseCharge?->assureur;
 
-                return [
-                    'assureur_id' => $assureur?->id ?? $prestation->prise_charge_id,
-                    'assureur_nom' => $assureur?->nom ?? $assureur?->nom_abrege ?? 'Inconnu',
-                    'nombre_factures' => $factures->count(),
-                    'montant_total' => $factures->sum('amount_pc')
-                ];
-            });
+            // On récupère toutes les factures liées à l'ensemble des prises en charge de cet assureur sur la période
+            $priseChargeIds = $prestationsGroup->pluck('prise_charge_id')->unique();
+
+            $factures = \App\Models\Facture::whereHas('prestation', function ($q) use ($priseChargeIds, $centreId, $startDate, $endDate) {
+                $q->whereIn('prise_charge_id', $priseChargeIds)
+                    ->where('centre_id', $centreId)
+                    ->whereBetween('created_at', [$startDate, $endDate]);
+            })->get();
+
+            return [
+                'assureur_id' => $assureurId,
+                'assureur_nom' => $assureur?->nom ?? $assureur?->nom_abrege ?? 'Inconnu',
+                'nombre_factures' => $factures->count(),
+                'montant_total' => $factures->sum('amount_pc')
+            ];
+        })->values();
 
         return response()->json([
             'data' => $result,
@@ -453,17 +460,18 @@ class DashboardController extends Controller
             ->with('payableBy')
             ->get()
             ->groupBy('payable_by')
-            ->map(function ($prestationsGroup, $payableById) use ($startDate, $endDate, $centreId) {
+            ->map(function ($prestationsGroup, $payableById) use ($centreId, $startDate, $endDate) {
 
                 $firstPrestation = $prestationsGroup->first();
                 $partenaire = $firstPrestation?->payableBy;
 
-                // Récupération des factures liées aux prestations de ce partenaire sur la période
-                $factures = \App\Models\Facture::whereHas('prestation', function ($q) use ($payableById, $centreId, $startDate, $endDate) {
-                    $q->where('centre_id', $centreId)
-                        ->whereBetween('created_at', [$startDate, $endDate])
-                        ->where('payable_by', $payableById);
-                })->get();
+                $prestationIds = $prestationsGroup->pluck('id');
+
+                $factures = \App\Models\Facture::whereHas('prestation', function ($q) use ($prestationIds, $centreId, $startDate, $endDate) {
+                    $q->whereIn('id', $prestationIds)
+                        ->where('centre_id', $centreId)
+                        ->whereBetween('created_at', [$startDate, $endDate]);
+                })->distinct()->get();
 
                 return [
                     'partenaire_id' => $partenaire?->id ?? $payableById,

@@ -233,7 +233,7 @@ class CaisseController extends Controller
             ], Response::HTTP_UNAUTHORIZED);
         }
 
-        // 🔎 Récupération caisse du centre
+
         $caisse = Caisse::where('id', $id)
             ->where('centre_id', $centreId)
             ->first();
@@ -244,7 +244,6 @@ class CaisseController extends Controller
             ], Response::HTTP_NOT_FOUND);
         }
 
-        // 🔁 Toggle status
         $caisse->update([
             'is_active'  => ! $caisse->is_active,
             'updated_by' => $auth->id,
@@ -361,7 +360,6 @@ class CaisseController extends Controller
             ], 403);
         }
 
-        // 🔹 Filtre de recherche
         if ($request->filled('search')) {
             $search = $request->input('search');
             $query->where(function ($q) use ($search) {
@@ -371,7 +369,6 @@ class CaisseController extends Controller
             });
         }
 
-        // 🔹 Pagination
         $data = $query->latest()->paginate($perPage, ['*'], 'page', $page);
 
         return response()->json([
@@ -918,6 +915,79 @@ class CaisseController extends Controller
 
         $request->merge(['position' => 'open', 'centre_id' => $centreId]);
         return $this->updatePosition($request, $caisse->id);
+    }
+
+    /**
+     * @param Request $request
+     * @param int $id
+     * @return JsonResponse
+     *
+     * @permission CaisseController::regularizeCaisse
+     * @permission_desc Régulariser le solde d'une caisse bloquée par un administrateur ou suite à un reliquat
+     */
+    public function regularizeCaisse(Request $request, $id)
+    {
+        $auth = auth()->user();
+        $centreId = $request->header('centre');
+
+        $request->validate([
+            'secret_code' => ['required', 'string'],
+        ], [
+            'secret_code.required' => "Le code secret est obligatoire",
+            'secret_code.string' => "Le code secret doit être une chaîne de caractères",
+        ]);
+
+        $caisse = Caisse::find($id);
+
+        if (!$caisse) {
+            return response()->json([
+                'message' => 'Caisse introuvable.'
+            ], Response::HTTP_NOT_FOUND);
+        }
+
+        if (!Hash::check($request->secret_code, $caisse->secret_code)) {
+            return response()->json([
+                'message' => 'Code secret incorrect.'
+            ], Response::HTTP_UNAUTHORIZED);
+        }
+
+        DB::beginTransaction();
+
+        try {
+            $today = now()->toDateString();
+
+            SessionCaisse::where('caisse_id', $caisse->id)
+                ->where('centre_id', $centreId)
+                ->whereNotNull('fermeture_ts')
+                ->whereDate('fermeture_ts', '<', $today)
+                ->update([
+                    'solde'                     => 0,
+                    'current_sold'              => 0,
+                    'fonds_fermeture'           => 0,
+                    'fonds_fermeture_exactly'   => 0,
+                    'sold_without_small_change' => 0,
+                    'updated_by'                => $auth->id,
+                ]);
+
+            $caisse->update([
+                'session_control_status' => 'active',
+                'updated_by'             => $auth->id
+            ]);
+
+            DB::commit();
+
+            return response()->json([
+                'message' => 'Toutes les sessions antérieures ont été régularisées et remises à zéro avec succès.',
+            ], Response::HTTP_OK);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            return response()->json([
+                'message' => 'Erreur lors de la régularisation de la caisse',
+                'error'   => $e->getMessage()
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
     }
 
 
