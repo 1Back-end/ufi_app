@@ -153,6 +153,7 @@ Route::middleware(['activity'])->group(function () {
         Route::get('/print_sold_by_day/{caisse_id}', [\App\Http\Controllers\CaisseController::class, 'get_sold_caisse_by_day']);
         Route::post('caisses/auto_close_cash_sessions', [\App\Http\Controllers\CaisseController::class, 'autoCloseSessions']);
         Route::get('stats_by_center', [\App\Http\Controllers\CaisseController::class, 'statsCaisseByCenter']);
+        Route::post('/caisses/{id}/regularize', [\App\Http\Controllers\CaisseController::class, 'regularizeCaisse']);
         Route::post('print_stats_caisse', [\App\Http\Controllers\CaisseController::class, 'PrintStatsByCaisseByCenter']);
 
         Route::post('/sessions/auto_close', function () {app(\App\Services\SessionCaisseService::class)->autoClose(auth()->id());
