@@ -22,7 +22,8 @@ class SessionElement extends Model
         'centre_id',
         'regulation_method_id',
         'regulation_id',
-        'is_deleted'
+        'is_deleted',
+        'prestation_id'
     ];
 
     public function centre()
@@ -35,19 +36,15 @@ class SessionElement extends Model
         return $this->belongsTo(Facture::class, 'facture_id');
     }
 
-    // 🔹 Relation avec la caisse
     public function caisse()
     {
         return $this->belongsTo(Caisse::class, 'caisse_id');
     }
 
-    // 🔹 Relation avec l'utilisateur créateur
     public function creator()
     {
         return $this->belongsTo(User::class, 'created_by');
     }
-
-    // 🔹 Relation avec l'utilisateur ayant modifié
     public function updater()
     {
         return $this->belongsTo(User::class, 'updated_by');
@@ -60,5 +57,8 @@ class SessionElement extends Model
     {
         return $this->belongsTo(Regulation::class, 'regulation_id');
     }
-    //
+    public function prestation()
+    {
+        return $this->belongsTo(Prestation::class, 'prestation_id');
+    }
 }

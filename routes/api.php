@@ -154,6 +154,7 @@ Route::middleware(['activity'])->group(function () {
         Route::post('caisses/auto_close_cash_sessions', [\App\Http\Controllers\CaisseController::class, 'autoCloseSessions']);
         Route::get('stats_by_center', [\App\Http\Controllers\CaisseController::class, 'statsCaisseByCenter']);
         Route::post('print_stats_caisse', [\App\Http\Controllers\CaisseController::class, 'PrintStatsByCaisseByCenter']);
+
         Route::post('/sessions/auto_close', function () {app(\App\Services\SessionCaisseService::class)->autoClose(auth()->id());
             return response()->json([
                 'status' => 'success',
@@ -169,6 +170,7 @@ Route::middleware(['activity'])->group(function () {
         Route::get('sessions_caisses/get_transfert_caisse_virtuel', [\App\Http\Controllers\SessionCaisseController::class,'get_transfert_caisse_virtuel']);
         Route::get('sessions_caisses/get_all_my_transferts', [\App\Http\Controllers\SessionCaisseController::class,'get_all_my_transferts']);
         Route::apiResource('sessions_caisses', \App\Http\Controllers\SessionCaisseController::class);
+        Route::post('/transferts_fonds/retransfer', [\App\Http\Controllers\SessionCaisseController::class, 'retransfer']);
 
         Route::apiResource('mouvements_caisses', \App\Http\Controllers\MouvementCaisseController::class);
         Route::post('store_transaction_between_big_caisses', [\App\Http\Controllers\MouvementCaisseController::class,'store_transaction_between_big_caisses']);
@@ -234,6 +236,7 @@ Route::middleware(['activity'])->group(function () {
         Route::get('/prestations/stats/by_delivery_channel', [PrestationController::class, 'getStatsByDeliveryChannel']);
 
         // Prestations
+
         Route::get('prestations/types', [PrestationController::class, 'typePrestation']);
         Route::post('prestations/{prestation}', [PrestationController::class, 'update']);
         Route::post('prestations/{prestation}/facture', [PrestationController::class, 'saveFacture']);
@@ -441,6 +444,8 @@ Route::middleware(['activity'])->group(function () {
         Route::get('/dashboard/secretariat_stats_factures_and_encaissements', [DashboardController::class, 'get_factures_and_encaissements']);
         Route::get('/dashboard/users_connected', [DashboardController::class, 'getConnectedUsersByDate']);
         Route::get('/dashboard/consultant_payments', [DashboardController::class, 'getConsultantPaymentsByDate']);
+        Route::get('/dashboard/assurance_summary', [DashboardController::class, 'get_facture_for_assurance']);
+        Route::get('/dashboard/partenaire_summary', [DashboardController::class, 'get_facture_for_partner']);
 
         Route::controller(PriseEnChargeController::class)->prefix('prise_en_charges')->group(function () {
             Route::get('/list', 'index');

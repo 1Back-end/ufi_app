@@ -22,7 +22,15 @@ class SpecialRegulation extends Model
         'date_reception',
         'assureur_id',
         'centre_id',
-        'amount_waiting'
+        'amount_waiting',
+        'apply_ir',
+        'ir_rate',
+        'total_ir_amount',
+        'apply_tva',
+        'tva_rate',
+        'total_tva_amount',
+        'others_amount_excluded',
+        'net_to_pay',
     ];
 
     protected function casts(): array

@@ -376,4 +376,107 @@ class DashboardController extends Controller
         ], Response::HTTP_OK);
 
     }
+
+    /**
+     * @param Request $request
+     * @return JsonResponse
+     *
+     * @permission DashboardController::get_facture_for_assurance
+     * @permission_desc Suivi et statistiques des factures par assurance par période
+     */
+    public function get_facture_for_assurance(Request $request)
+    {
+        $centreId = $request->header('centre');
+
+        $startDate = $request->input('start_date')
+            ? Carbon::parse($request->input('start_date'))->startOfDay()
+            : Carbon::yesterday()->startOfDay();
+
+        $endDate = $request->input('end_date')
+            ? Carbon::parse($request->input('end_date'))->endOfDay()
+            : Carbon::yesterday()->endOfDay();
+
+        $result = Prestation::where('centre_id', $centreId)
+            ->whereNotNull('prise_charge_id')
+            ->whereBetween('created_at', [$startDate, $endDate])
+            ->with('priseCharge.assureur')
+            ->select('prise_charge_id', DB::raw('count(*) as total_prestations'))
+            ->groupBy('prise_charge_id')
+            ->get()
+            ->map(function ($prestation) use ($startDate, $endDate, $centreId) {
+
+                $factures = \App\Models\Facture::whereHas('prestation', function ($q) use ($prestation, $centreId, $startDate, $endDate) {
+                    $q->where('prise_charge_id', $prestation->prise_charge_id)
+                        ->where('centre_id', $centreId)
+                        ->whereBetween('created_at', [$startDate, $endDate]);
+                })->get();
+
+                $assureur = $prestation->priseCharge?->assureur;
+
+                return [
+                    'assureur_id' => $assureur?->id ?? $prestation->prise_charge_id,
+                    'assureur_nom' => $assureur?->nom ?? $assureur?->nom_abrege ?? 'Inconnu',
+                    'nombre_factures' => $factures->count(),
+                    'montant_total' => $factures->sum('amount_pc')
+                ];
+            });
+
+        return response()->json([
+            'data' => $result,
+            'start_date' => $startDate->toDateString(),
+            'end_date' => $endDate->toDateString(),
+        ], 200);
+    }
+
+    /**
+     * @param Request $request
+     * @return JsonResponse
+     *
+     * @permission DashboardController::get_facture_for_partner
+     * @permission_desc Suivi et statistiques des factures par partenaire payeur par période
+     */
+    public function get_facture_for_partner(Request $request)
+    {
+        $centreId = $request->header('centre');
+
+        $startDate = $request->input('start_date')
+            ? Carbon::parse($request->input('start_date'))->startOfDay()
+            : Carbon::today()->startOfDay();
+
+        $endDate = $request->input('end_date')
+            ? Carbon::parse($request->input('end_date'))->endOfDay()
+            : Carbon::today()->endOfDay();
+
+        $result = Prestation::where('centre_id', $centreId)
+            ->whereBetween('created_at', [$startDate, $endDate])
+            ->whereNotNull('payable_by')
+            ->with('payableBy')
+            ->get()
+            ->groupBy('payable_by')
+            ->map(function ($prestationsGroup, $payableById) use ($startDate, $endDate, $centreId) {
+
+                $firstPrestation = $prestationsGroup->first();
+                $partenaire = $firstPrestation?->payableBy;
+
+                // Récupération des factures liées aux prestations de ce partenaire sur la période
+                $factures = \App\Models\Facture::whereHas('prestation', function ($q) use ($payableById, $centreId, $startDate, $endDate) {
+                    $q->where('centre_id', $centreId)
+                        ->whereBetween('created_at', [$startDate, $endDate])
+                        ->where('payable_by', $payableById);
+                })->get();
+
+                return [
+                    'partenaire_id' => $partenaire?->id ?? $payableById,
+                    'partenaire_nom' => $partenaire?->nomcomplet_client ?? $partenaire?->nom_cli ?? 'Partenaire Inconnu',
+                    'nombre_factures' => $factures->count(),
+                    'montant_total' => $factures->sum('amount')
+                ];
+            })->values();
+
+        return response()->json([
+            'data' => $result,
+            'start_date' => $startDate->toDateString(),
+            'end_date' => $endDate->toDateString(),
+        ], 200);
+    }
 }

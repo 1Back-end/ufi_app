@@ -52,6 +52,13 @@ class RegulationController extends Controller
         $centreId = $request->header('centre');
         $facture = Facture::find($request->input('facture_id'));
 
+        if (!$facture) {
+            return response()->json([
+                'message' => "Facture introuvable."
+            ], 404);
+        }
+
+
         $caisse = Caisse::where('user_id', $auth->id)
             ->where('centre_id', $centreId)
             ->where('is_active', true)
@@ -115,6 +122,7 @@ class RegulationController extends Controller
             $sessionElement = \App\Models\SessionElement::create([
                 'session_id' => $session->id,
                 'facture_id' => $facture->id,
+                'prestation_id' => $facture->prestation_id,
                 'montant' => $reg['amount'],
                 'regulation_id' => $regulation->id,
                 'caisse_id' => $session->caisse_id,
@@ -164,6 +172,10 @@ class RegulationController extends Controller
             'reference' => [Rule::requiredIf(RegulationMethod::find($request->post('regulation_method_id'))->phone_method)],
         ]);
 
+        $oldAmount = $regulation->amount;
+        $newAmount = $request->post('amount');
+        $diff = $newAmount - $oldAmount;
+
         $regulation->update([
             'regulation_method_id' => $request->post('regulation_method_id'),
             'amount' => $request->post('amount'),
@@ -180,9 +192,24 @@ class RegulationController extends Controller
 
         if ($sessionElement) {
             $sessionElement->update([
-                'montant' => $regulation->amount,
+                'montant' => $newAmount,
                 'regulation_method_id' => $regulation->regulation_method_id,
             ]);
+
+            if ($diff != 0) {
+                $session = SessionCaisse::find($sessionElement->session_id);
+                if ($session) {
+                    if ($diff > 0) {
+                        $session->increment('solde', $diff);
+                        $session->increment('sold_without_small_change', $diff);
+                        $session->increment('current_sold', $diff);
+                    } else {
+                        $session->decrement('solde', abs($diff));
+                        $session->decrement('sold_without_small_change', abs($diff));
+                        $session->decrement('current_sold', abs($diff));
+                    }
+                }
+            }
         }
 
         $this->validatedFacture($regulation->facture, false, true);
@@ -214,6 +241,8 @@ class RegulationController extends Controller
             'reason' => $request->input('reason')
         ]);
 
+        $amount = $regulation->amount;
+
         $sessionElement = \App\Models\SessionElement::where('regulation_id', $regulation->id)
             ->where('centre_id', $centreId)
             ->first();
@@ -221,20 +250,18 @@ class RegulationController extends Controller
         if ($sessionElement) {
             $session = \App\Models\SessionCaisse::find($sessionElement->session_id);
             if ($session && $session->centre_id == $centreId) {
-                $session->decrement('solde', $sessionElement->montant);
-                $session->decrement('current_sold', $sessionElement->montant);
-                $session->decrement('sold_without_small_change', $sessionElement->montant);
-                Log::info('Solde de la session mis à jour après annulation', [
-                    'session_id' => $session->id,
-                    'nouveau_solde' => $session->solde - $sessionElement->montant,
-                ]);
+                $session->decrement('solde', $amount);
+                $session->decrement('current_sold', $amount);
+                $session->decrement('sold_without_small_change', $amount);
             }
             $sessionElement->delete();
         }
         $this->validatedFacture($regulation->facture, false, true);
         $regulation->delete();
 
-        return response()->json([], 202);
+        return response()->json([
+            'message' => 'Régulation annulée avec succès'
+        ], 202);
     }
 
     /**
@@ -247,8 +274,15 @@ class RegulationController extends Controller
      */
     public function specialRegulation(Request $request)
     {
+        // 🔍 LOG DES DONNÉES ENVOYÉES PAR LE FRONT-END
+        \Log::info('--- DONNÉES FRONT-END SPECIAL REGULATION ---', [
+            'all' => $request->all(),
+            'factures' => $request->input('factures', []),
+        ]);
+
         $auth = auth()->user();
         $centreId = $request->header('centre');
+
         $request->validate([
             'regulation_method_id' => ['required', 'exists:regulation_methods,id'],
             'amount' => ['required'],
@@ -267,10 +301,14 @@ class RegulationController extends Controller
             'facture_ids.*' => ['exists:factures,id'],
             'factures.*.id' => ['required', 'exists:factures,id'],
             'factures.*.items' => ['array'],
-            'factures.*.amount' => ['required'],
+            'factures.*.amount' => ['nullable'], // Modifié en nullable pour éviter l'échec de validation si absent
             'type' => ['required', 'in:client,assureur'],
             'total_ir_amount' => ['nullable', 'numeric'],
             'ir_rate' => ['nullable', 'numeric'],
+            'apply_tva' => ['nullable', 'boolean'],
+            'tva_rate' => ['nullable', 'numeric'],
+            'total_tva_amount' => ['nullable', 'numeric'],
+            'others_amount_excluded' => ['nullable', 'numeric'],
             'net_to_pay' => ['required', 'numeric'],
 
             'factures.*.amount_contested' => ['nullable', 'numeric'],
@@ -283,7 +321,6 @@ class RegulationController extends Controller
 
         DB::beginTransaction();
         try {
-            // Save Spécial regulate
             $regulateType = $request->type == 'client' ? Client::class : Assureur::class;
             $regulateId = $request->type == 'client' ? $request->input('client_id') : $request->input('assureur_id');
 
@@ -318,6 +355,14 @@ class RegulationController extends Controller
                 'number_piece' => $request->input('number_piece'),
                 'date_piece' => $request->input('date_piece'),
                 'date_reception' => $request->input('date_reception'),
+                'apply_ir' => $request->input('apply_ir', false),
+                'ir_rate' => $request->input('ir_rate', 0),
+                'total_ir_amount' => $request->input('total_ir_amount', 0),
+                'apply_tva' => $request->input('apply_tva', false),
+                'tva_rate' => $request->input('tva_rate', 0),
+                'total_tva_amount' => $request->input('total_tva_amount', 0),
+                'others_amount_excluded' => $request->input('others_amount_excluded', 0),
+                'net_to_pay' => $request->input('net_to_pay', 0),
             ]);
 
             FacturationAssurance::create([
@@ -327,14 +372,13 @@ class RegulationController extends Controller
                 'facture_number' => $request->input('number_piece'),
                 'amount' => $request->input('amount'),
                 'price_after_application_hr' => $request->input('total_ir_amount'),
-                'price_after_application_tva' => 0,
+                'price_after_application_tva' => $request->input('total_tva_amount') ?? 0,
                 'net_to_pay' => $request->input('net_to_pay'),
                 'created_by' => $auth->id,
                 'updated_by' => $auth->id,
                 'assurance_id' => $regulateId,
             ]);
 
-            // If all factures
             if ($request->input('allFacture')) {
                 $prestations = Prestation::filterInProgress(
                     startDate: $request->input('start_date'),
@@ -356,45 +400,43 @@ class RegulationController extends Controller
                         continue;
                     }
 
-                    // ❗ skip si déjà dans la liste ignorée
                     if (in_array($facture->id, $request->input('facture_ids', []))) {
                         continue;
                     }
 
-                    // ❗ anti doublon global
                     if (isset($processedFactures[$facture->id])) {
                         continue;
                     }
 
                     $this->processFactureRegulation($facture, $request);
 
-                    $this->updatePrestationPivot($prestation,$facture);
+                    $this->updatePrestationPivot($prestation, $facture);
 
                     $processedFactures[$facture->id] = true;
                 }
             }
 
-            foreach ($request->input('factures') as $factureData) {
-                $facture = Facture::find($factureData['id']);
+            foreach ($request->input('factures', []) as $factureData) {
+                $facture = Facture::find($factureData['id'] ?? null);
 
                 if (!$facture) {
-                    \Log::warning("Facture introuvable: {$factureData['id']}");
+                    \Log::warning("Facture introuvable ou ID manquant: " . json_encode($factureData));
                     continue;
                 }
 
                 $this->validatedFacture($facture, true);
 
-                // 🔹 création du règlement
+                $amountFacture = $factureData['amount'] ?? $facture->amount_pc ?? $facture->amount_client ?? 0;
+
                 $facture->regulations()->create([
                     'regulation_method_id' => $request->input('regulation_method_id'),
-                    'amount' => $factureData['amount'],
+                    'amount' => $amountFacture,
                     'date' => now(),
-                    'type' => $request->type === 'client' ? 3 : 2,
+                    'type' => 2, // 2 = Assureur
                     'comment' => $request->input('comment'),
                     'particular' => true,
                 ]);
 
-                // 🔹 mise à jour du state + champs (UNE SEULE FOIS)
                 $facture->update(array_merge([
                     'state' => StateFacture::ASSURANCE->value,
                 ], [
@@ -406,17 +448,13 @@ class RegulationController extends Controller
                     'others_amount_excluded' => $factureData['others_amount_excluded'] ?? 0,
                 ]));
 
-                // 🔹 contentieux
-                if (
-                    ($request->type === 'client' && $factureData['amount'] < $facture->amount_client) ||
-                    ($request->type === 'assureur' && $factureData['amount'] < $facture->amount_pc)
-                ) {
+                if ($amountFacture < $facture->amount_pc) {
                     $facture->update(['contentieux' => true]);
                 }
 
-                // 🔹 items update pivot
+                // 🔹 items update pivot sécurisé
                 foreach ($factureData['items'] ?? [] as $item) {
-                    $amount = $item['amount'] * 100;
+                    $amount = ($item['amount'] ?? 0) * 100;
 
                     $relation = match ($facture->prestation->type) {
                         TypePrestation::ACTES => $facture->prestation->actes(),
@@ -440,10 +478,12 @@ class RegulationController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
+            \Log::error('Erreur SpecialRegulation: ' . $e->getMessage() . ' sur la ligne ' . $e->getLine());
             return response()->json([
                 'message' => $e->getMessage()
             ], $e->getCode() === 0 ? Response::HTTP_INTERNAL_SERVER_ERROR : Response::HTTP_BAD_REQUEST);
         }
+
         DB::commit();
 
         return response()->json([

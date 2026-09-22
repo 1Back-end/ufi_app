@@ -29,7 +29,11 @@ class TransfertFondsTampon extends Model
         'rejected_by',
         'rejected_at',
         'reason',
-        'small_change'
+        'small_change',
+        'reason_of_transfer',
+        'transfer_date',
+        'transferred_by',
+        'is_retransferred'
 
     ];
 
@@ -103,6 +107,10 @@ class TransfertFondsTampon extends Model
     public function session()
     {
         return $this->belongsTo(SessionCaisse::class, 'session_id');
+    }
+    public function transfered()
+    {
+        return $this->belongsTo(User::class, 'transfer_by');
     }
     //
 }
