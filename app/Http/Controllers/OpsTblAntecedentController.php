@@ -63,8 +63,8 @@ class OpsTblAntecedentController extends Controller
             'dossier_consultation_id.required' => 'Le dossier de consultation est obligatoire.',
             'dossier_consultation_id.exists' => 'Le dossier de consultation sélectionné est invalide.',
             'familial_description.required_if' => 'La description des antécédents familiaux est obligatoire.',
-            'personnel_description.required_if' => 'La description des antécédents personnels est obligatoire.',
-            'sous_categorie_label.required_if' => 'La sous-catégorie est obligatoire.',
+            'personnels.*.personnel_description.required' => 'La description de l\'antécédent personnel est obligatoire.',
+            'personnels.*.sous_categorie_label.required' => 'La sous-catégorie est obligatoire.',
         ];
 
         $validated = $request->validate([
@@ -73,10 +73,9 @@ class OpsTblAntecedentController extends Controller
             'has_familial' => 'boolean',
             'familial_description' => 'nullable|string',
             'has_personnel' => 'boolean',
-            'sous_categorie_label' => 'nullable|string',
-            'personnel_description' => 'nullable|string',
-            'category_label' => 'nullable|string',
-            'description' => 'nullable|string',
+            'personnels' => 'nullable|array',
+            'personnels.*.sous_categorie_label' => 'required_if:has_personnel,true|string',
+            'personnels.*.personnel_description' => 'required_if:has_personnel,true|string',
         ], $messages);
 
         $dossier = \App\Models\DossierConsultation::with('motifsConsultation')->find($request->dossier_consultation_id);
@@ -98,17 +97,56 @@ class OpsTblAntecedentController extends Controller
             ], 422);
         }
 
-        $validated['client_id'] = $dossier->rendezVous->client_id ?? null;
-        $validated['created_by'] = $auth ? $auth->id : null;
+        $clientId = $dossier->rendezVous->client_id ?? null;
+        $createdBy = $auth ? $auth->id : null;
 
-        $antecedent = OpsTblAntecedent::create($validated);
+        $createdAntecedents = [];
 
-        $antecedent->load(['createdBy', 'updatedBy', 'client', 'categorie', 'sousCategorie']);
+        if (!empty($validated['has_personnel']) && !empty($validated['personnels'])) {
+            foreach ($validated['personnels'] as $pers) {
+                $createdAntecedents[] = OpsTblAntecedent::create([
+                    'dossier_consultation_id' => $validated['dossier_consultation_id'],
+                    'pas_d_antecedent' => $validated['pas_d_antecedent'] ?? false,
+                    'has_familial' => false,
+                    'familial_description' => null,
+                    'has_personnel' => true,
+                    'sous_categorie_label' => $pers['sous_categorie_label'],
+                    'personnel_description' => $pers['personnel_description'],
+                    'client_id' => $clientId,
+                    'created_by' => $createdBy,
+                ]);
+            }
+        }
+
+        if (!empty($validated['has_familial'])) {
+            $createdAntecedents[] = OpsTblAntecedent::create([
+                'dossier_consultation_id' => $validated['dossier_consultation_id'],
+                'pas_d_antecedent' => $validated['pas_d_antecedent'] ?? false,
+                'has_familial' => true,
+                'familial_description' => $validated['familial_description'] ?? null,
+                'has_personnel' => false,
+                'sous_categorie_label' => null,
+                'personnel_description' => null,
+                'client_id' => $clientId,
+                'created_by' => $createdBy,
+            ]);
+        }
+
+        if (!empty($validated['pas_d_antecedent'])) {
+            $createdAntecedents[] = OpsTblAntecedent::create([
+                'dossier_consultation_id' => $validated['dossier_consultation_id'],
+                'pas_d_antecedent' => true,
+                'has_familial' => false,
+                'has_personnel' => false,
+                'client_id' => $clientId,
+                'created_by' => $createdBy,
+            ]);
+        }
 
         return response()->json([
-            'data' => $antecedent,
+            'data' => $createdAntecedents,
             'status' => 'success',
-            'message' => 'Antécédent enregistré avec succès.'
+            'message' => 'Antécédent(s) enregistré(s) avec succès.'
         ]);
     }
     /**

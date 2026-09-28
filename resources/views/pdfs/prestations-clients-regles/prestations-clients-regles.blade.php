@@ -104,15 +104,11 @@
     <div class="mb-2 w-100" style="border-top: 1px double rgb(0, 0, 0, 0.75);"></div>
 
 
-    <h1 class="fs-3 fw-bold text-center text-uppercase">
-        ETATS DES JOURNALIERS DES PRESTATIONS
-    </h1>
+    <h3 class="fs-3 fw-bold text-center text-uppercase">
+        {{ $centre->name }} - {{ $titre }}
+    </h3>
 
     <p class="fst-italic text-end">Date d'impression: {{ now()->format('d/m/Y H:i') }}</p>
-
-    <h2 class="fw-bold text-center fs-5 text-uppercase">
-        {{ $centre->name }} - {{ $titre }}
-    </h2>
 
     <div class="mt-2 w-100">
         <table class="table table-bordered table-striped text-center border-black" style="font-size: 12px;">
@@ -130,7 +126,7 @@
                 <th style="font-style: italic;font-size: 11px">Montant payé patient</th>
                 <th style="font-style: italic;font-size: 11px">Montant Remise</th>
                 <th style="font-style: italic;font-size: 11px">Reste à payer client</th>
-                <th style="font-style: italic;font-size: 11px">Assurance</th>
+                <th style="font-style: italic;font-size: 11px">Assurance / Client tiers</th>
             </tr>
             </thead>
             <tbody>

@@ -25,7 +25,7 @@ class ProductTypeController extends Controller
      */
     public function index(Request $request)
     {
-        $perPage = $request->input('limit', 5);
+        $perPage = $request->input('limit', 25);
         $page = $request->input('page', 1);
 
         $query = ProductType::with(['creator', 'updater']);

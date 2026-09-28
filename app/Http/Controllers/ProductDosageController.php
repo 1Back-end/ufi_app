@@ -18,7 +18,7 @@ class ProductDosageController extends Controller
      */
     public function index(Request $request)
     {
-        $perPage = $request->integer('limit', 5);
+        $perPage = $request->integer('limit', 25);
         $page    = $request->integer('page', 1);
         $query = ProductDosage::with(['creator:id,email,nom_utilisateur', 'editor:id,email,nom_utilisateur'])
             ->when($request->has('is_active'), fn($q) => $q->where('is_active', $request->is_active))

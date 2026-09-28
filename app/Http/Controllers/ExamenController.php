@@ -163,6 +163,7 @@ class ExamenController extends Controller
         DB::beginTransaction();
         try {
             $examen->update($request->validated());
+            Log::info('Technique analysis reçu :', $request->input('technique_analysis', []));
 
             $examen->techniqueAnalysis()->detach();
             foreach ($request->input('technique_analysis', []) as $item) {

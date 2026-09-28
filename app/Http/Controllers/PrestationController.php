@@ -149,6 +149,35 @@ class PrestationController extends Controller
             'results.elementPaillasse.group_populations',
             'results.groupePopulation',
         ])
+            ->when($request->filled('search'), function (Builder $query) use ($request) {
+                $search = $request->input('search');
+                $query->where(function (Builder $q) use ($search) {
+                    $q->where('id', 'like', "%{$search}%")
+                        ->orWhereHas('client', function ($clientQuery) use ($search) {
+                            $clientQuery->where('nomcomplet_client', 'like', "%{$search}%")
+                                ->orWhere('prenom_cli', 'like', "%{$search}%")
+                                ->orWhere('secondprenom_cli', 'like', "%{$search}%")
+                                ->orWhere('nom_cli', 'like', "%{$search}%");
+                        })
+                        ->orWhereHas('delivery_chanel', function ($channelQuery) use ($search) {
+                            $channelQuery->where('name', 'like', "%{$search}%")
+                                ->orWhere('code', 'like', "%{$search}%")
+                                ->orWhere('id', 'like', "%{$search}%");
+                        })
+                        ->orWhereHas('consultant', function ($consultantQuery) use ($search) {
+                            $consultantQuery->where('nom', 'like', "%{$search}%")
+                                ->orWhere('prenom', 'like', "%{$search}%")
+                                ->orWhere('ref', 'like', "%{$search}%")
+                                ->orWhere('id', 'like', "%{$search}%")
+                                ->orWhere('nomcomplet', 'like', "%{$search}%");
+                        })
+                        ->orWhereHas('factures', function ($factureQuery) use ($search) {
+                            $factureQuery->where('code', 'like', "%{$search}%")
+                                ->orWhere('id', 'like', "%{$search}%")
+                                ->orWhere('sequence', 'like', "%{$search}%");
+                        });
+                });
+            })
             ->when($request->input('client_id'), function ($query) use ($request) {
             $query->where('client_id', $request->input('client_id'));
         })
@@ -2374,7 +2403,8 @@ class PrestationController extends Controller
                 'consultant',
                 'prestationables',
                 'centre',
-                'priseCharge'
+                'priseCharge',
+                'payableBy'
             ])
                 ->where('centre_id', $request->header('centre'));
 
@@ -2391,6 +2421,21 @@ class PrestationController extends Controller
                 }
             } elseif (!$request->filled('date_reglement_start')) {
                 $titreParts[] = "Réglés et Non réglés";
+            }
+
+            if ($request->filled('payment_type')) {
+                $paymentType = $request->payment_type;
+                if ($paymentType === 'prise_en_charge') {
+                    $prestations->whereHas('priseCharge');
+                    $titreParts[] = "Prise en charge";
+                } elseif ($paymentType === 'client_tiers') {
+                    $prestations->whereHas('payableBy');
+                    $titreParts[] = "Client tiers";
+                } elseif ($paymentType === 'comptant') {
+                    $prestations->whereDoesntHave('priseCharge')
+                        ->whereNull('payable_by');
+                    $titreParts[] = "Comptant";
+                }
             }
 
             if ($request->filled('facture_start') && $request->filled('facture_end')) {

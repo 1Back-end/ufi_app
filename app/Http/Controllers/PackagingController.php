@@ -24,7 +24,7 @@ class PackagingController extends Controller
      */
     public function index(Request $request)
     {
-        $perPage = $request->input('limit', 5);
+        $perPage = $request->input('limit', 25);
         $page = $request->input('page', 1);
 
         $query = Packaging::with(['creator:id,nom_utilisateur', 'updater:id,nom_utilisateur'])
@@ -34,7 +34,7 @@ class PackagingController extends Controller
 
         if($search = trim($request->input('search'))){
             $query->where(function ($q) use ($search) {
-                $q->where('uuid', 'like', "%{$search}%")
+                $q->where('id', 'like', "%{$search}%")
                     ->orWhere('name', 'like', "%{$search}%");
             });
         }

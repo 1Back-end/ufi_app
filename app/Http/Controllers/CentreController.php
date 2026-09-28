@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\TypePrestation;
 use App\Http\Requests\CentreRequest;
 use App\Models\Centre;
 use App\Models\Media;
@@ -28,7 +29,7 @@ class CentreController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $centres = Centre::with(['createdBy:id,nom_utilisateur', 'updatedBy:id,nom_utilisateur'])
+        $centres = Centre::with(['createdBy:id,nom_utilisateur', 'updatedBy:id,nom_utilisateur','centrePrestations:id,name'])
             ->latest()
             ->get();
 
@@ -52,6 +53,8 @@ class CentreController extends Controller
         DB::beginTransaction();
         try {
             $data = $request->validated();
+            $prestations = $data['prestations'] ?? [];
+            unset($data['prestations']);
             foreach ($data as $key => $datum) {
                 if($datum === 'null'){
                     $data[$key] = null;
@@ -60,7 +63,17 @@ class CentreController extends Controller
 
             $centre = Centre::create(array_merge($data, ['reference' => $ref]));
 
-            // Save Logo
+            if (!empty($prestations)) {
+                foreach ($prestations as $prestationData) {
+                    $centre->centrePrestations()->create([
+                        'name' => $prestationData['name'],
+                        'is_active' => true,
+                        'created_by' => auth()->id(),
+                        'updated_by'=> auth()->id(),
+                    ]);
+                }
+            }
+
             if ($request->hasFile('logo')) {
                 upload_media(
                     model: $centre,
@@ -106,7 +119,7 @@ class CentreController extends Controller
     public function show(Centre $centre): JsonResponse
     {
         return response()->json([
-            'centre' => $centre->load(['createdBy:id,nom_utilisateur', 'updatedBy:id,nom_utilisateur']),
+            'centre' => $centre->load(['createdBy:id,nom_utilisateur', 'updatedBy:id,nom_utilisateur','centrePrestations:id,centre_id,name']),
         ]);
     }
 
@@ -124,6 +137,8 @@ class CentreController extends Controller
         DB::beginTransaction();
         try {
             $data = $request->validated();
+            $prestations = $data['prestations'] ?? null;
+            unset($data['prestations']);
             foreach ($data as $key => $datum) {
                 if ($datum === 'null') {
                     $data[$key] = null;
@@ -131,6 +146,18 @@ class CentreController extends Controller
             }
 
             $centre->update($data);
+            if ($prestations !== null) {
+                $centre->centrePrestations()->delete();
+
+                foreach ($prestations as $prestationData) {
+                    $centre->centrePrestations()->create([
+                        'name' => $prestationData['name'],
+                        'is_active' => true,
+                        'created_by' => auth()->id(),
+                        'updated_by'=> auth()->id(),
+                    ]);
+                }
+            }
 
             // Delete logo if request->logo_delete ist true
             if ($request->input('logo_delete')) {
