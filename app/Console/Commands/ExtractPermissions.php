@@ -174,9 +174,11 @@ class ExtractPermissions extends Command
             'category'    => "Gestion des résultats d'examens",
             'modules'     => ['Gestion du laboratoire', 'Autres Modules'],
         ],
-
-
-
+        'VIEW_DATA_FOR_DASHBOARD' => [
+            'description' => 'Afficher et consulter le tableau de bord global et ses indicateurs',
+            'category'    => "Permissions supplémentaires",
+            'modules'     => ['Gestion des rapports','Paramètres Applicatifs','Gestion des prestations','Paramètres Facturations','Autres Modules','Gestion des caisses','Gestion des stocks','Gestion du laboratoire'],
+        ],
 
 
     ];

@@ -47,7 +47,8 @@ class Product extends Model
         'is_suspended',
         'is_out_of_stock',
         'dosage_id',
-        'fabricant'
+        'fabricant',
+        'centre_id'
     ];
 
     protected $casts = [
@@ -134,5 +135,9 @@ class Product extends Model
     public function getTotalStockAttribute(): int
     {
         return \App\Models\LotProduit::where('id_produit', $this->id)->sum('quantite_actuelle');
+    }
+    public function centre()
+    {
+        return $this->belongsTo(Centre::class, 'centre_id');
     }
 }

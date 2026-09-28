@@ -186,10 +186,9 @@ class DashboardController extends Controller
      */
     public function get_prestations_and_factures(Request $request)
     {
-        $startDate = $request->input('start_date') ? Carbon::parse($request->input('start_date'))->startOfDay() : Carbon::today()->startOfDay();
-        $endDate = $request->input('end_date') ? Carbon::parse($request->input('end_date'))->endOfDay() : Carbon::today()->endOfDay();
+        $startDate = $request->input('start_date') ? Carbon::parse($request->input('start_date'))->startOfDay() : Carbon::yesterday()->startOfDay();
+        $endDate = $request->input('end_date') ? Carbon::parse($request->input('end_date'))->endOfDay() : Carbon::yesterday()->endOfDay();
 
-        // Prestations
         $totalPrestations = Prestation::whereBetween('created_at', [$startDate, $endDate])->count();
         $distributionPrestations = Prestation::whereBetween('created_at', [$startDate, $endDate])
             ->select('created_by', DB::raw('count(*) as total'))
@@ -205,7 +204,8 @@ class DashboardController extends Controller
         // Factures
         $facturesQuery = Facture::whereBetween('created_at', [$startDate, $endDate]);
         $totalFactures = $facturesQuery->count();
-        $montantTotalFactures = $facturesQuery->sum('amount');
+        $montantTotalFactures = $facturesQuery->sum('amount') / 100;
+
         $distributionFactures = $facturesQuery->select('created_by', DB::raw('count(*) as total_count'), DB::raw('sum(amount) as total_amount'))
             ->with('createdBy:id,nom_utilisateur')
             ->groupBy('created_by')
@@ -214,7 +214,7 @@ class DashboardController extends Controller
                 'user_id' => $item->created_by,
                 'user_name' => $item->createdBy->nom_utilisateur ?? 'Inconnu',
                 'total_count' => $item->total_count,
-                'total_amount' => $item->total_amount,
+                'total_amount' => $item->total_amount / 100,
             ]);
 
         return response()->json([
@@ -236,12 +236,13 @@ class DashboardController extends Controller
      */
     public function get_factures_and_encaissements(Request $request)
     {
-        $startDate = $request->input('start_date') ? Carbon::parse($request->input('start_date'))->startOfDay() : Carbon::today()->startOfDay();
-        $endDate = $request->input('end_date') ? Carbon::parse($request->input('end_date'))->endOfDay() : Carbon::today()->endOfDay();
+        $startDate = $request->input('start_date') ? Carbon::parse($request->input('start_date'))->startOfDay() : Carbon::yesterday()->startOfDay();
+        $endDate = $request->input('end_date') ? Carbon::parse($request->input('end_date'))->endOfDay() : Carbon::yesterday()->endOfDay();
 
         $facturesQuery = Facture::whereBetween('created_at', [$startDate, $endDate]);
         $totalFactures = $facturesQuery->count();
-        $montantTotalFactures = $facturesQuery->sum('amount');
+        $montantTotalFactures = $facturesQuery->sum('amount') / 100;
+
         $distributionFactures = $facturesQuery->select('created_by', DB::raw('count(*) as total_count'), DB::raw('sum(amount) as total_amount'))
             ->with('createdBy:id,nom_utilisateur')
             ->groupBy('created_by')
@@ -250,12 +251,13 @@ class DashboardController extends Controller
                 'user_id' => $item->created_by,
                 'user_name' => $item->createdBy->nom_utilisateur ?? 'Inconnu',
                 'total_count' => $item->total_count,
-                'total_amount' => $item->total_amount,
+                'total_amount' => $item->total_amount / 100,
             ]);
 
         $regulationsQuery = Regulation::whereBetween('created_at', [$startDate, $endDate]);
         $totalEncaissementsCount = $regulationsQuery->count();
-        $montantTotalEncaissements = $regulationsQuery->sum('amount');
+        $montantTotalEncaissements = $regulationsQuery->sum('amount') / 100;
+
         $distributionEncaissements = $regulationsQuery->select('created_by', DB::raw('count(*) as total_count'), DB::raw('sum(amount) as total_amount'))
             ->with('createdBy:id,nom_utilisateur')
             ->groupBy('created_by')
@@ -264,7 +266,7 @@ class DashboardController extends Controller
                 'user_id' => $item->created_by,
                 'user_name' => $item->createdBy->nom_utilisateur ?? 'Inconnu',
                 'total_count' => $item->total_count,
-                'total_amount' => $item->total_amount,
+                'total_amount' => $item->total_amount / 100,
             ]);
 
         return response()->json([
@@ -396,14 +398,12 @@ class DashboardController extends Controller
             ? Carbon::parse($request->input('end_date'))->endOfDay()
             : Carbon::yesterday()->endOfDay();
 
-        // 1. On récupère les prestations avec leur prise de charge et leur assureur
         $prestations = Prestation::where('centre_id', $centreId)
             ->whereNotNull('prise_charge_id')
             ->whereBetween('created_at', [$startDate, $endDate])
             ->with('priseCharge.assureur')
             ->get();
 
-        // 2. On groupe les prestations en PHP directement par l'ID de l'assureur
         $result = $prestations->groupBy(function ($prestation) {
             return $prestation->priseCharge?->assureur?->id ?? 'inconnu';
         })->map(function ($prestationsGroup, $assureurId) use ($startDate, $endDate, $centreId) {
@@ -411,7 +411,6 @@ class DashboardController extends Controller
             $firstPrestation = $prestationsGroup->first();
             $assureur = $firstPrestation->priseCharge?->assureur;
 
-            // On récupère toutes les factures liées à l'ensemble des prises en charge de cet assureur sur la période
             $priseChargeIds = $prestationsGroup->pluck('prise_charge_id')->unique();
 
             $factures = \App\Models\Facture::whereHas('prestation', function ($q) use ($priseChargeIds, $centreId, $startDate, $endDate) {

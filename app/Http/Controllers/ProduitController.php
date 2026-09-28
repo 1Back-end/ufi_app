@@ -340,6 +340,13 @@ class ProduitController extends Controller
     public function store(Request $request)
     {
         $auth = auth()->user();
+        $centreId = $request->header('centre');
+
+        if (!$centreId) {
+            return response()->json([
+                'message' => 'Centre non fourni'
+            ], 400);
+        }
 
         try {
             $validatedData = $request->validate([
@@ -435,6 +442,7 @@ class ProduitController extends Controller
             $data['ref']            = $ref;
             $data['name']       = strtoupper($data['name']);
             $data['created_by'] = $auth->id;
+            $data['centre_id']      = $centreId;
             $data['facturable'] = $data['facturable'] ?? false;
             $data['status']     = $data['status'] ?? 'ACTIVE';
 
@@ -557,6 +565,13 @@ class ProduitController extends Controller
     public function update(Request $request, $id)
     {
         $auth = auth()->user();
+        $centreId = $request->header('centre');
+
+        if (!$centreId) {
+            return response()->json([
+                'message' => 'Centre non fourni'
+            ], 400);
+        }
 
         try {
             $product = Product::findOrFail($id);
@@ -652,6 +667,7 @@ class ProduitController extends Controller
 
             $data['name']       = strtoupper($data['name']);
             $data['updated_by'] = $auth->id;
+            $data['centre_id']  = $centreId;
 
             if (isset($data['has_moratorium']) && !$data['has_moratorium']) {
                 $data['moratorium_months'] = null;

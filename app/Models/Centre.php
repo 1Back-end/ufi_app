@@ -77,6 +77,10 @@ class Centre extends Model
     }
     public function caisses(): HasMany
     {
-        return $this->hasMany(Caisse::class, 'centre_id'); // 'centre_id' est la clé étrangère dans la table caisses
+        return $this->hasMany(Caisse::class, 'centre_id');
+    }
+    public function centrePrestations(): HasMany
+    {
+        return $this->hasMany(CentrePrestation::class, 'centre_id');
     }
 }

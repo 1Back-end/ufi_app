@@ -2,10 +2,12 @@
 
 namespace App\Http\Requests;
 
+use App\Enums\TypePrestation;
 use App\Rules\UniqueCentreRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\Enum;
 use Illuminate\Validation\Rules\Unique;
 
 class CentreRequest extends FormRequest
@@ -35,6 +37,8 @@ class CentreRequest extends FormRequest
             'horaires.*.close' => ['nullable', 'date_format:H:i'],
             'horaires.*.closed' => ['in:0,1'],
             'postal_code' => ['nullable', 'string'],
+            'prestations' => ['nullable', 'array'],
+            'prestations.*.name' => ['required', 'string', 'in:' . implode(',', TypePrestation::toArray())],
         ];
     }
 
