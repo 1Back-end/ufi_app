@@ -1199,68 +1199,6 @@ class CaisseController extends Controller
         ], 201);
     }
 
-    private function processValidation($transfert, $auth)
-    {
-        $session = SessionCaisse::where('caisse_id', $transfert->caisse_depart_id)
-            ->latest('created_at')
-            ->first();
-
-        if (!$session) {
-            throw new \Exception('Aucune session trouvée');
-        }
-
-        if ($session->solde < $transfert->montant_send) {
-            throw new \Exception('Solde insuffisant');
-        }
-
-        $caisseDepart = $session->caisse;
-        $caisseReception = Caisse::find($transfert->caisse_reception_id);
-
-        if (!$caisseReception) {
-            throw new \Exception('Caisse de réception introuvable');
-        }
-
-        // 🔻 Débit
-        $caisseDepart->decrement('solde_caisse', $transfert->montant_send);
-
-        // 🔺 Crédit
-        $caisseReception->increment('solde_caisse', $transfert->montant_send);
-
-        // 🔹 update transfert
-        $transfert->update([
-            'status' => 'validated',
-            'validated_by' => $auth->id,
-            'validated_at' => now(),
-            'session_id' => $session->id,
-        ]);
-
-        // 🔹 historique
-        TransfertFonds::create([
-            'code' => $transfert->code,
-            'caisse_depart_id' => $transfert->caisse_depart_id,
-            'caisse_reception_id' => $transfert->caisse_reception_id,
-            'montant_send' => $transfert->montant_send,
-            'status' => 'validated',
-            'type' => 'debit',
-            'send_by' => $transfert->send_by,
-            'validated_by' => $auth->id,
-            'centre_id' => $transfert->centre_id,
-            'created_by' => $auth->id,
-        ]);
-
-        MouvementCaisse::create([
-            'type' => 'transfert',
-            'caisse_depart_id' => $transfert->caisse_depart_id,
-            'caisse_arrivee_id' => $transfert->caisse_reception_id,
-            'montant' => $transfert->montant_send,
-            'description' => "Transfert validé: {$transfert->code}",
-            'status' => 'validated',
-            'created_by' => $auth->id,
-            'updated_by' => $auth->id,
-            'centre_id' => $transfert->centre_id,
-        ]);
-    }
-
     /**
      * @return JsonResponse
      *
@@ -1287,93 +1225,42 @@ class CaisseController extends Controller
         DB::beginTransaction();
 
         try {
-
             $transferts = TransfertFondsTampon::whereIn('id', $request->ids)
                 ->where('status', 'pending')
                 ->lockForUpdate()
                 ->get();
 
             if ($transferts->count() !== count($request->ids)) {
-                throw new \Exception("Certains transferts sont invalides ou déjà traités");
+                throw new \Exception("Certains transferts sont introuvables ou déjà traités.");
             }
 
-            $validTransferts = collect();
-            $errors = [];
-            $invalidIds = [];
-
-
-
-            /**
-             * =========================
-             * 🔥 VALIDATION
-             * =========================
-             */
             foreach ($request->ids as $id) {
-
                 $transfert = $transferts->firstWhere('id', $id);
 
-                // ❌ introuvable
                 if (!$transfert) {
-                    $errors[] = "Transfert ID {$id} introuvable ou déjà traité";
-
-                    TransfertFondsTampon::where('id', $id)->update([
-                        'status' => 'failed'
-                    ]);
-
-                    continue;
+                    throw new \Exception("Transfert ID {$id} introuvable.");
                 }
 
                 $session = SessionCaisse::find($transfert->session_id);
-
-                // ❌ session inexistante
                 if (!$session) {
-                    $errors[] = "Session introuvable pour {$transfert->code}";
-
-                    $transfert->update([
-                        'status' => 'failed'
-                    ]);
-
-                    continue;
+                    throw new \Exception("Session introuvable pour le transfert {$transfert->code}");
                 }
 
-                // ❌ solde insuffisant
-                if ((float) $session->solde < (float) $transfert->montant_send) {
-                    $errors[] = "Solde insuffisant pour {$transfert->code}";
-
-                    $transfert->update([
-                        'status' => 'failed'
-                    ]);
-
-                    continue;
+                if ((float) $session->fonds_fermeture_exactly < (float) $transfert->montant_send) {
+                    throw new \Exception("Solde insuffisant dans la session pour le transfert {$transfert->code}");
                 }
 
                 $caisseReception = Caisse::find($transfert->caisse_reception_id);
-
-                // ❌ caisse introuvable
                 if (!$caisseReception) {
-                    $errors[] = "Caisse réception introuvable pour {$transfert->code}";
-
-                    $transfert->update([
-                        'status' => 'failed'
-                    ]);
-
-                    continue;
+                    throw new \Exception("Caisse de réception introuvable pour le transfert {$transfert->code}");
                 }
-
-                // ✅ valide
-                $validTransferts->push($transfert);
             }
 
-            /**
-             * =========================
-             * 🔥 EXECUTION
-             * =========================
-             */
-            foreach ($validTransferts as $transfert) {
-
+            foreach ($transferts as $transfert) {
                 $session = SessionCaisse::find($transfert->session_id);
                 $caisseReception = Caisse::find($transfert->caisse_reception_id);
                 $caisseDepart = Caisse::find($transfert->caisse_depart_id);
+
                 $caisseReception->increment('solde_caisse', $transfert->montant_send);
 
                 if (!empty($transfert->small_change) && $transfert->small_change > 0) {
@@ -1388,7 +1275,6 @@ class CaisseController extends Controller
                     'updated_by' => $auth->id,
                 ]);
 
-                // 🔹 historique
                 TransfertFonds::create([
                     'caisse_depart_id' => $transfert->caisse_depart_id,
                     'caisse_reception_id' => $transfert->caisse_reception_id,
@@ -1422,7 +1308,6 @@ class CaisseController extends Controller
             ]);
 
         } catch (\Throwable $e) {
-
             DB::rollBack();
 
             return response()->json([
@@ -1431,8 +1316,6 @@ class CaisseController extends Controller
             ], 500);
         }
     }
-
-
 
     /**
      * @return JsonResponse
@@ -1445,7 +1328,7 @@ class CaisseController extends Controller
         $auth = auth()->user();
 
         $request->validate([
-            'reason' => 'required',
+            'reason' => 'required|string',
             'ids' => 'required|array|min:1',
             'ids.*' => 'integer'
         ]);
@@ -1453,7 +1336,6 @@ class CaisseController extends Controller
         DB::beginTransaction();
 
         try {
-            // 2. On récupère uniquement les transferts annulés (cancelled)
             $transferts = TransfertFondsTampon::whereIn('id', $request->ids)
                 ->where('status', 'cancelled')
                 ->lockForUpdate()
@@ -1463,76 +1345,29 @@ class CaisseController extends Controller
                 throw new \Exception("Certains transferts ne sont pas annulés ou sont introuvables.");
             }
 
-            $validTransferts = collect();
-            $errors = [];
-
-            /**
-             * =========================
-             * 🔥 ETAPE 1 : VERIFICATION DES SOLDES
-             * =========================
-             */
             foreach ($request->ids as $id) {
-
                 $transfert = $transferts->firstWhere('id', $id);
 
-                // ❌ introuvable
                 if (!$transfert) {
-                    $errors[] = "Transfert ID {$id} introuvable ou déjà traité";
-
-                    TransfertFondsTampon::where('id', $id)->update([
-                        'status' => 'failed'
-                    ]);
-
-                    continue;
+                    throw new \Exception("Transfert ID {$id} introuvable.");
                 }
 
                 $session = SessionCaisse::find($transfert->session_id);
-
-                // ❌ session inexistante
                 if (!$session) {
-                    $errors[] = "Session introuvable pour {$transfert->code}";
-
-                    $transfert->update([
-                        'status' => 'failed'
-                    ]);
-
-                    continue;
+                    throw new \Exception("Session introuvable pour le transfert {$transfert->code}");
                 }
 
-                // ❌ solde insuffisant
-                if ((float) $session->solde < (float) $transfert->montant_send) {
-                    $errors[] = "Solde insuffisant pour {$transfert->code}";
-
-                    $transfert->update([
-                        'status' => 'failed'
-                    ]);
-
-                    continue;
+                if ((float) $session->fonds_fermeture_exactly < (float) $transfert->montant_send) {
+                    throw new \Exception("Solde insuffisant dans la session pour le transfert {$transfert->code}");
                 }
 
                 $caisseReception = Caisse::find($transfert->caisse_reception_id);
-
-                // ❌ caisse introuvable
                 if (!$caisseReception) {
-                    $errors[] = "Caisse réception introuvable pour {$transfert->code}";
-
-                    $transfert->update([
-                        'status' => 'failed'
-                    ]);
-
-                    continue;
+                    throw new \Exception("Caisse de réception introuvable pour le transfert {$transfert->code}");
                 }
-
-                // ✅ valide
-                $validTransferts->push($transfert);
             }
 
-            /**
-             * =========================
-             * 🔥 ETAPE 2 : EXECUTION ET HISTORIQUE
-             * =========================
-             */
-            foreach ($validTransferts as $transfert) {
+            foreach ($transferts as $transfert) {
                 $caisseReception = Caisse::find($transfert->caisse_reception_id);
                 $caisseReception->increment('solde_caisse', $transfert->montant_send);
 
@@ -1543,10 +1378,9 @@ class CaisseController extends Controller
                     'reason'       => 'Revalidé : ' . $request->reason,
                     'rejected_by'  => null,
                     'rejected_at'  => null,
-                    'updated_by' => $auth->id,
+                    'updated_by'   => $auth->id,
                 ]);
 
-                // 🔹 Création dans l'historique officiel
                 TransfertFonds::create([
                     'caisse_depart_id'    => $transfert->caisse_depart_id,
                     'caisse_reception_id' => $transfert->caisse_reception_id,
@@ -1559,7 +1393,6 @@ class CaisseController extends Controller
                     'created_by'          => $auth->id,
                 ]);
 
-                // 🔹 Création du mouvement de caisse
                 MouvementCaisse::create([
                     'type'              => 'transfert',
                     'caisse_depart_id'  => $transfert->caisse_depart_id,
@@ -1598,7 +1431,6 @@ class CaisseController extends Controller
     {
         $auth = auth()->user();
 
-        // 🔹 Validation
         $request->validate([
             'reason' => ['required', 'string', 'max:255'],
             'ids' => ['required', 'array', 'min:1'],
@@ -1608,22 +1440,18 @@ class CaisseController extends Controller
         DB::beginTransaction();
 
         try {
-
             $transferts = TransfertFondsTampon::whereIn('id', $request->ids)
                 ->where('status', 'pending')
                 ->lockForUpdate()
                 ->get();
 
-            // 🚨 sécurité : vérifier cohérence
             if ($transferts->count() !== count($request->ids)) {
-                throw new \Exception("Certains transferts sont invalides ou déjà traités");
+                throw new \Exception("Certains transferts sont introuvables ou ne sont plus en attente.");
             }
 
             $results = [];
-            $rejectedCount = 0;
 
             foreach ($transferts as $transfert) {
-
                 $transfert->update([
                     'status'       => 'cancelled',
                     'reason'       => $request->reason,
@@ -1637,19 +1465,16 @@ class CaisseController extends Controller
                     'code' => $transfert->code,
                     'status' => 'rejected'
                 ];
-
-                $rejectedCount++;
             }
 
             DB::commit();
 
             return response()->json([
-                'message' => "{$rejectedCount} transfert(s) rejeté(s) avec succès",
+                'message' => count($transferts) . " transfert(s) rejeté(s) avec succès",
                 'results' => $results
             ]);
 
         } catch (\Throwable $e) {
-
             DB::rollBack();
 
             return response()->json([
@@ -1666,7 +1491,6 @@ class CaisseController extends Controller
         $user = $request->user();
         $centreId = $request->header('centre');
 
-        // 🔹 Validation de la requête
         $request->validate([
             'old_secret_code' => ['required', 'string'],
             'new_secret_code' => ['required', 'string'],
@@ -1675,7 +1499,6 @@ class CaisseController extends Controller
             'new_secret_code.required' => "Le nouveau code secret est obligatoire",
         ]);
 
-        // 🔹 Récupère la caisse active de l'utilisateur pour ce centre
         $caisse = Caisse::where('user_id', $user->id)
             ->where('centre_id', $centreId)
             ->where('is_active', true)
@@ -1695,9 +1518,8 @@ class CaisseController extends Controller
             ], Response::HTTP_UNAUTHORIZED);
         }
 
-        // 🔹 Récupère les sessions ouvertes pour cette caisse
         $sessions = SessionCaisse::where('caisse_id', $caisse->id)
-            ->whereNull('fermeture_ts') // sessions encore ouvertes
+            ->whereNull('fermeture_ts')
             ->get();
 
         foreach ($sessions as $session) {
@@ -1707,7 +1529,6 @@ class CaisseController extends Controller
                 'updated_by'   => $user->id,
             ]);
         }
-        // 🔹 Mise à jour du code secret de la caisse
         $caisse->update([
             'secret_code' => Hash::make($request->new_secret_code),
             'is_default_secret_code' => true,
@@ -1755,7 +1576,6 @@ class CaisseController extends Controller
             $start_date = \Illuminate\Support\Carbon::parse($request->input('start_date'))->startOfDay();
             $end_date = \Illuminate\Support\Carbon::parse($request->input('end_date'))->endOfDay();
 
-            // 🔹 Query propre
             $query = SessionElement::with(['centre', 'creator', 'updater', 'facture.prestation.client', 'caisse', 'regulation_method','regulation'])
                 ->where('centre_id', $centreId) ->where('caisse_id', $request->caisse_id)
                 ->whereBetween('created_at', [$start_date, $end_date]);
@@ -1841,8 +1661,6 @@ class CaisseController extends Controller
         }
     }
 
-
-
     /**
      * @return JsonResponse
      *
@@ -1864,7 +1682,6 @@ class CaisseController extends Controller
             $start_date = \Illuminate\Support\Carbon::parse($request->input('start_date'))->startOfDay();
             $end_date = \Illuminate\Support\Carbon::parse($request->input('end_date'))->endOfDay();
 
-            // 🔹 Query avec ou sans filtre caisse
             $query = SessionElement::with([
                 'centre',
                 'creator',
@@ -1876,7 +1693,6 @@ class CaisseController extends Controller
                 ->where('centre_id', $centreId)
                 ->whereBetween('created_at', [$start_date, $end_date]);
 
-            // Si un filtre caisse est fourni, on l'applique
             if ($request->filled('caisse_id')) {
                 $query->where('caisse_id', $request->caisse_id);
             }
