@@ -2,11 +2,14 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
 class GroupeMaladie extends Model
 {
-    protected $table = 'groupes_maladies';
+    use HasFactory, SoftDeletes;
+    protected $table = 'disease_groups';
 
     protected $fillable = [
         'classe_maladie_id',

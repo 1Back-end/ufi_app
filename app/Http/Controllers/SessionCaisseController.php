@@ -9,6 +9,7 @@ use App\Models\TransfertFondsTampon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response;
@@ -373,71 +374,62 @@ class SessionCaisseController extends Controller
         $centreId = $request->header('centre');
 
         $validated = $request->validate([
-            'ids' => ['required', 'array', 'min:1'],
-            'ids.*' => ['integer', 'exists:transfert_fonds_tampons,id'],
-            'password' => ['required', 'string'],
+            'id' => ['required', 'integer', 'exists:transfert_fonds_tampons,id'],
+            'amount' => ['required', 'numeric', 'min:0.01'],
+            'reason' => ['required', 'string', 'max:255'],
         ], [
-            'ids.required' => "Aucun transfert sélectionné.",
-            'password.required' => "Veuillez entrer votre mot de passe pour confirmer.",
+            'id.required' => "Aucun transfert sélectionné.",
+            'amount.required' => "Veuillez entrer le montant.",
+            'reason.required' => "Veuillez entrer la description ou le motif.",
         ]);
 
-        if (!Hash::check($request->password, $auth->password)) {
-            return response()->json([
-                'message' => "Mot de passe incorrect. Action non autorisée."
-            ], Response::HTTP_UNAUTHORIZED);
-        }
-
         try {
-            $oldTransferts = TransfertFondsTampon::whereIn('id', $validated['ids'])
+            $old = TransfertFondsTampon::where('id', $validated['id'])
                 ->where('status', 'cancelled')
                 ->where('centre_id', $centreId)
-                ->get();
+                ->first();
 
-            if ($oldTransferts->isEmpty()) {
+            if (!$old) {
                 return response()->json([
-                    'message' => "Aucun transfert rejeté valide trouvé pour cette opération."
+                    'message' => "Le transfert sélectionné est introuvable ou n'est pas au statut rejeté."
                 ], Response::HTTP_NOT_FOUND);
             }
 
-            $newTransfersCount = 0;
+            DB::beginTransaction();
 
-            foreach ($oldTransferts as $old) {
-                $dateRejet = $old->rejected_at ? date('d/m/Y à H:i', strtotime($old->rejected_at)) : '';
-                $reasonMessage = "Relance de transfert consécutive au rejet de la référence {$old->code} en date du {$dateRejet}";
-                TransfertFondsTampon::create([
-                    'caisse_depart_id' => $old->caisse_depart_id,
-                    'caisse_reception_id' => $old->caisse_reception_id,
-                    'session_id' => $old->session_id,
-                    'montant_send' => $old->montant_send,
-                    'small_change' => $old->small_change,
-                    'type' => $old->type,
-                    'status' => 'pending',
-                    'centre_id' => $old->centre_id,
-                    'send_by' => $auth->id,
-                    'created_by' => $auth->id,
-                    'updated_by' => $auth->id,
-                    'transfer_date' => now(),
-                    'transferred_by' => $auth->id,
-                    'reason_of_transfer' => $reasonMessage,
-                    'is_retransferred' => true
-                ]);
+            TransfertFondsTampon::create([
+                'caisse_depart_id' => $old->caisse_depart_id,
+                'caisse_reception_id' => $old->caisse_reception_id,
+                'session_id' => $old->session_id,
+                'montant_send' => $validated['amount'],
+                'small_change' => $old->small_change,
+                'type' => $old->type,
+                'status' => 'pending',
+                'centre_id' => $old->centre_id,
+                'send_by' => $auth->id,
+                'created_by' => $auth->id,
+                'updated_by' => $auth->id,
+                'transfer_date' => now(),
+                'transferred_by' => $auth->id,
+                'reason_of_transfer' => $validated['reason'],
+                'is_retransferred' => true
+            ]);
 
-                $old->update([
-                    'status' => 'archived',
-                    'updated_by' => $auth->id
-                ]);
+            $old->update([
+                'status' => 'archived',
+                'updated_by' => $auth->id
+            ]);
 
-                $newTransfersCount++;
-            }
+            DB::commit();
 
             return response()->json([
-                'message' => "Les nouveaux transferts ont été créés avec succès à partir des éléments rejetés.",
-                'count' => $newTransfersCount
+                'message' => "Le transfert a été relancé avec succès.",
             ], Response::HTTP_OK);
 
         } catch (\Throwable $th) {
+            DB::rollBack();
             return response()->json([
-                'message' => "Une erreur est survenue lors de la recréation des transferts : " . $th->getMessage()
+                'message' => "Une erreur est survenue lors de la recréation du transfert : " . $th->getMessage()
             ], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }

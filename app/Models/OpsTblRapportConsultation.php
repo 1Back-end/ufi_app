@@ -17,10 +17,17 @@ class OpsTblRapportConsultation extends Model
         'recommandations',
         'dossier_consultation_id',
         'created_by',
-        'updated_by'
+        'updated_by',
+        'can_add_examens',
+        'can_add_actes',
+        'can_add_diagnostic',
+        'can_add_ordonnance',
+        'can_add_certificat_medical',
+        'can_add_mise_en_observation',
+        'can_add_referre_medical',
     ];
 
-    public function dossierConsultation()
+        public function dossierConsultation()
     {
         return $this->belongsTo(DossierConsultation::class, 'dossier_consultation_id');
 

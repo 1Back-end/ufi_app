@@ -16,15 +16,16 @@ class MaladieController extends Controller
     /**
      * Display a listing of the resource.
      * @permission MaladieController::store
-     * @permission_desc Création de maladies
+     * @permission_desc Créer de maladies
      */
     public function store(Request $request)
     {
         $auth = auth()->user();
+
         $request->validate([
-            'classe_maladie_id' => 'required|exists:classe_maladie,id',
-            'groupe_maladie_id' => 'required|exists:groupes_maladies,id',
-            'code' => 'required|string|max:50|unique:maladies,code',
+            'classe_maladie_id' => 'required|exists:disease_classes,id',
+            'groupe_maladie_id' => 'required|exists:disease_groups,id',
+            'code' => 'nullable|string|max:50|unique:diseases,code',
             'name' => 'required|string|max:255',
         ]);
 
@@ -33,7 +34,8 @@ class MaladieController extends Controller
             'groupe_maladie_id' => $request->groupe_maladie_id,
             'code' => $request->code,
             'name' => $request->name,
-            'created_by' => $auth->id
+            'created_by' => $auth->id,
+            'updated_by' => $auth->id
         ]);
 
         return response()->json([
@@ -44,11 +46,9 @@ class MaladieController extends Controller
 
     public function import(Request $request)
     {
-
         $request->validate([
             'file' => 'required|file|mimes:xlsx,xls,csv',
         ]);
-
         try {
             Excel::import(new MaladieImport, $request->file('file'));
             return response()->json(['message' => 'Importation réussie.']);
@@ -57,41 +57,43 @@ class MaladieController extends Controller
         }
     }
 
-
-
     /**
      * Display a listing of the resource.
      * @permission MaladieController::update
-     * @permission_desc Modification de maladies
+     * @permission_desc Modifier les maladies
      */
 
     public function update(Request $request, $id)
     {
-        $request->validate([
-            'classe_maladie_id' => 'required|exists:classe_maladie,id',
-            'groupe_maladie_id' => 'required|exists:groupes_maladies,id',
-            'code' => 'required|string|max:50|unique:maladies,code,' . $id,
-            'name' => 'required|string|max:255',
-        ]);
+        $auth = auth()->user();
 
         $maladie = Maladie::findOrFail($id);
+
+        $request->validate([
+            'classe_maladie_id' => 'required|exists:disease_classes,id',
+            'groupe_maladie_id' => 'required|exists:disease_groups,id',
+            'code' => 'nullable|string|max:50|unique:diseases,code,' . $id,
+            'name' => 'required|string|max:255',
+        ]);
 
         $maladie->update([
             'classe_maladie_id' => $request->classe_maladie_id,
             'groupe_maladie_id' => $request->groupe_maladie_id,
             'code' => $request->code,
             'name' => $request->name,
+            'updated_by' => $auth->id
         ]);
 
         return response()->json([
             'message' => 'Maladie mise à jour avec succès.',
             'data' => $maladie,
-        ]);
+        ], 200);
     }
+
     /**
      * Display a listing of the resource.
      * @permission MaladieController::update
-     * @permission_desc Afficher les détails de maladies
+     * @permission_desc Afficher les détails d'une maladie
      */
     public function show($id)
     {
@@ -113,20 +115,16 @@ class MaladieController extends Controller
         $perPage = $request->input('limit', 25);
         $page = $request->input('page', 1);
 
-        $query = Maladie::where('is_deleted', false)
-            ->with(['classeMaladie', 'groupeMaladie', 'creator', 'updater']);
+        $query = Maladie::with(['classeMaladie', 'groupeMaladie', 'creator', 'updater']);
 
-        // Filtrage par classe_maladie_id
         if ($request->filled('classe_maladie_id')) {
             $query->where('classe_maladie_id', $request->input('classe_maladie_id'));
         }
 
-        // Filtrage par groupe_maladie_id
         if ($request->filled('groupe_maladie_id')) {
             $query->where('groupe_maladie_id', $request->input('groupe_maladie_id'));
         }
 
-        // Recherche globale
         if ($request->filled('search')) {
             $search = $request->input('search');
 
@@ -147,7 +145,7 @@ class MaladieController extends Controller
             });
         }
 
-        $results = $query->latest()->paginate(perPage: $perPage, page: $page);
+        $results = $query->latest()->paginate($perPage, ['*'], 'page', $page);
 
         return response()->json([
             'data' => $results->items(),
@@ -161,16 +159,18 @@ class MaladieController extends Controller
     /**
      * Display a listing of the resource.
      * @permission MaladieController::updateStatus
-     * @permission_desc Changer le statut  de maladies
+     * @permission_desc Activer/Désactiver les maladies
      */
     public function updateStatus(Request $request, $id)
     {
         $auth = auth()->user();
+
         $request->validate([
             'is_active' => 'required|boolean',
         ]);
 
-        $maladie = Maladie::where('is_deleted', false)->find($id);
+        $maladie = Maladie::findOrFail($id);
+
         $maladie->is_active = $request->is_active;
         $maladie->updated_by = $auth->id;
         $maladie->save();

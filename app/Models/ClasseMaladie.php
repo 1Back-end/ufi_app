@@ -2,11 +2,14 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
 class ClasseMaladie extends Model
 {
-    protected $table = 'classe_maladie';
+    use HasFactory,SoftDeletes;
+    protected $table = 'disease_classes';
 
     protected $fillable = ['code', 'name', 'created_by', 'updated_by','is_deleted'];
 
