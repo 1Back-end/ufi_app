@@ -2,10 +2,13 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class ConfigTbl_Type_Diagnostic extends Model
 {
+    use HasFactory,SoftDeletes;
     protected $table = 'configtbl_type_diagnostic';
 
     protected $fillable = [
@@ -29,5 +32,4 @@ class ConfigTbl_Type_Diagnostic extends Model
     {
         return $this->belongsTo(User::class, 'updated_by');
     }
-    //
 }

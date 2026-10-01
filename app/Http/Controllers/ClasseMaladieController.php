@@ -22,22 +22,18 @@ class ClasseMaladieController extends Controller
      */
     public function index(Request $request)
     {
-        $perPage = $request->input('limit', 25);
-        $page = $request->input('page', 1);
+        $perPage = (int) $request->input('limit', 5);
 
-        $query = ClasseMaladie::where('is_deleted', false)
-            ->with(['creator', 'updater']);
-
-        // Ajout de la recherche si le champ 'search' est rempli
-        if ($request->filled('search')) {
-            $search = $request->input('search');
-            $query->where(function ($q) use ($search) {
-                $q->where('name', 'like', "%$search%")
-                    ->orWhere('id', 'like', "%$search%");
-            });
-        }
-
-        $results = $query->latest()->paginate(perPage: $perPage, page: $page);
+        $results = ClasseMaladie::with(['creator', 'updater'])
+            ->when($request->filled('search'), function ($query) use ($request) {
+                $search = $request->input('search');
+                $query->where(function ($q) use ($search) {
+                    $q->where('name', 'like', "%{$search}%")
+                        ->orWhere('code', 'like', "%{$search}%");
+                });
+            })
+            ->latest()
+            ->paginate($perPage);
 
         return response()->json([
             'data' => $results->items(),
@@ -55,8 +51,8 @@ class ClasseMaladieController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'name' => 'required|string|max:255|unique:classe_maladie,name',
-            'code' => 'required|string|max:255|unique:classe_maladie,code',
+            'name' => 'required|string|max:255|unique:disease_classes,name',
+            'code' => 'nullable|string|max:255|unique:disease_classes,code',
         ]);
 
         $user = auth()->user();
@@ -92,19 +88,19 @@ class ClasseMaladieController extends Controller
      */
     public function update(Request $request, $id)
     {
-        $request->validate([
-            'code' => 'required|string|max:255|unique:classe_maladie,code,'.$id,
-            'name'      => 'sometimes|string|max:255|unique:classe_maladie,name,'.$id,
-            'is_active' => 'sometimes|boolean',
-        ]);
-
         $classe = ClasseMaladie::findOrFail($id);
 
+        $request->validate([
+            'name' => 'required|string|max:255|unique:disease_classes,name,' . $id,
+            'code' => 'nullable|string|max:255|unique:disease_classes,code,' . $id,
+        ]);
+
+        $user = auth()->user();
+
         $classe->update([
-            'code' => $request->code,
-            'name'       => $request->name ?? $classe->name,
-            'is_active'  => $request->has('is_active') ? $request->is_active : $classe->is_active,
-            'updated_by' => auth()->id(),
+            'name'       => $request->name,
+            'code'       => $request->code,
+            'updated_by' => $user?->id,
         ]);
 
         return response()->json([
@@ -116,7 +112,7 @@ class ClasseMaladieController extends Controller
     /**
      * Display a listing of the resource.
      * @permission ClasseMaladieController::updateStatus
-     * @permission_desc Changer le statut  des classes maladies
+     * @permission_desc Activer/Désactiver les classes maladies
      */
     public function updateStatus(Request $request, $id)
     {

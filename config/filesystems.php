@@ -165,6 +165,12 @@ return [
             'url' => env('APP_URL') . '/rapport-clients',
             'visibility' => 'public',
         ],
+        'reports_folder_patients' => [
+            'driver' => 'local',
+            'root' => public_path('reports_folder_patients'),
+            'url' => env('APP_URL') . '/reports_folder_patients',
+            'visibility' => 'public',
+        ],
 
 
 

@@ -24,23 +24,23 @@ class GroupeMaladieController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'classe_maladie_id' => 'required|exists:classe_maladie,id',
-            'name' => 'required|string|max:255|unique:groupes_maladies,name',
-            'code' => 'required|string|max:255|unique:groupes_maladies,code',
+            'classe_maladie_id' => 'required|exists:disease_classes,id',
+            'name'              => 'required|string|max:255|unique:disease_groups,name',
+            'code'              => 'nullable|string|max:255|unique:disease_groups,code',
         ]);
 
         $auth = auth()->user();
 
         $groupe = GroupeMaladie::create([
             'classe_maladie_id' => $request->classe_maladie_id,
-            'name' => $request->name,
-            'code' => $request->code,
-            'created_by' => $auth->id,
+            'name'              => $request->name,
+            'code'              => $request->code,
+            'created_by'        => $auth?->id,
         ]);
 
         return response()->json([
             'message' => 'Groupe maladie créé avec succès.',
-            'data' => $groupe,
+            'data'    => $groupe,
         ], 201);
     }
 
@@ -65,24 +65,26 @@ class GroupeMaladieController extends Controller
      */
     public function update(Request $request, $id)
     {
-        $request->validate([
-            'classe_maladie_id' => 'sometimes|exists:classe_maladie,id',
-            'name' => 'sometimes|string|max:255|unique:groupes_maladies,name,' . $id,
-            'code' => 'required|string|max:255|unique:groupes_maladies,code,' . $id,
-        ]);
-
         $groupe = GroupeMaladie::findOrFail($id);
 
+        $request->validate([
+            'classe_maladie_id' => 'required|exists:disease_classes,id',
+            'name'              => 'required|string|max:255|unique:disease_groups,name,' . $id,
+            'code'              => 'nullable|string|max:255|unique:disease_groups,code,' . $id,
+        ]);
+
+        $auth = auth()->user();
+
         $groupe->update([
-            'classe_maladie_id' => $request->classe_maladie_id ?? $groupe->classe_maladie_id,
-            'name' => $request->name ?? $groupe->name,
-            'code' => $request->code ?? $groupe->code,
-            'updated_by' => auth()->id(),
+            'classe_maladie_id' => $request->classe_maladie_id,
+            'name'              => $request->name,
+            'code'              => $request->code,
+            'updated_by'        => $auth?->id,
         ]);
 
         return response()->json([
             'message' => 'Groupe maladie mis à jour avec succès.',
-            'data' => $groupe,
+            'data'    => $groupe,
         ]);
     }
 
@@ -109,17 +111,18 @@ class GroupeMaladieController extends Controller
      */
     public function index(Request $request)
     {
-        $perPage = $request->input('limit', 25);
-        $page = $request->input('page', 1);
+        $perPage = (int) $request->input('limit', 25);
 
-        $query = GroupeMaladie::where('is_deleted', false)
-            ->with(['creator', 'updater', 'classeMaladie']);
+        $query = GroupeMaladie::with([
+            'creator',
+            'updater',
+            'classeMaladie:id,name,code'
+        ]);
 
         if ($request->filled('classe_maladie_id')) {
             $query->where('classe_maladie_id', $request->input('classe_maladie_id'));
         }
 
-        // Recherche globale (id, name, ou categorie.name)
         if ($request->filled('search')) {
             $search = $request->input('search');
 
@@ -127,17 +130,15 @@ class GroupeMaladieController extends Controller
                 $q->where('name', 'like', "%{$search}%")
                     ->orWhere('id', 'like', "%{$search}%")
                     ->orWhere('code', 'like', "%{$search}%")
-
                     ->orWhereHas('classeMaladie', function ($subQ) use ($search) {
                         $subQ->where('name', 'like', "%{$search}%")
                             ->orWhere('code', 'like', "%{$search}%")
                             ->orWhere('id', 'like', "%{$search}%");
-
                     });
             });
         }
 
-        $results = $query->latest()->paginate(perPage: $perPage, page: $page);
+        $results = $query->latest()->paginate($perPage);
 
         return response()->json([
             'data' => $results->items(),
@@ -150,7 +151,7 @@ class GroupeMaladieController extends Controller
     /**
      * Display a listing of the resource.
      * @permission GroupeMaladieController::updateStatus
-     * @permission_desc Changer le statut des classes de maladies
+     * @permission_desc Activer/Désactiver les classes de maladies
      */
     public function updateStatus(Request $request, $id)
     {

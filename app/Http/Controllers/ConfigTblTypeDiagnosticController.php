@@ -6,7 +6,7 @@ use App\Models\ConfigTbl_Type_Diagnostic;
 use Illuminate\Http\Request;
 
 /**
- * @permission_category Gestion des Types de diagnostics
+ * @permission_category Gestion des types de diagnostics
  * @permission_module Paramètres Applicatifs
  */
 class ConfigTblTypeDiagnosticController extends Controller
@@ -14,29 +14,56 @@ class ConfigTblTypeDiagnosticController extends Controller
     /**
      * Display a listing of the resource.
      * @permission ConfigTblTypeDiagnosticController::index
-     * @permission_desc Afficher la liste des Types de diagnostics
+     * @permission_desc Afficher la liste des types de diagnostics
      */
     public function index(Request $request)
     {
-        $perPage = $request->input('limit', 5);  // Par défaut, 10 éléments par page
-        $page = $request->input('page', 1);  // Page courante
+        $perPage = $request->input('limit', 25);
+        $page = $request->input('page', 1);
 
-        $diagnostic = ConfigTbl_Type_Diagnostic::where('is_deleted', false)
-            ->with(['creator:id,login','updater:id,login'])
+        $diagnostic = ConfigTbl_Type_Diagnostic::with(['creator', 'updater'])
             ->when($request->input('search'), function ($query) use ($request) {
                 $search = $request->input('search');
                 $query->where('name', 'like', '%' . $search . '%')
                     ->orWhere('description', 'like', '%' . $search . '%')
                     ->orWhere('id', 'like', '%' . $search . '%');
             })
-            ->latest()->paginate(perPage: $perPage, page: $page);
+            ->latest()
+            ->paginate($perPage, ['*'], 'page', $page);
+
         return response()->json([
             'data' => $diagnostic->items(),
-            'current_page' => $diagnostic->currentPage(),  // Page courante
-            'last_page' => $diagnostic->lastPage(),  // Dernière page
-            'total' => $diagnostic->total(),  // Nombre total d'éléments
+            'current_page' => $diagnostic->currentPage(),
+            'last_page' => $diagnostic->lastPage(),
+            'total' => $diagnostic->total(),
         ]);
-        //
+    }
+
+    /**
+     * Display a listing of the resource.
+     * @permission ConfigTblTypeDiagnosticController::updateStatus
+     * @permission_desc Activer/Désactiver les types de diagnostics
+     */
+    public function updateStatus($id)
+    {
+        $diagnostic = ConfigTbl_Type_Diagnostic::find($id);
+
+        if (!$diagnostic) {
+            return response()->json([
+                'message' => "Type de diagnostic introuvable.",
+                'success' => false,
+            ], 404);
+        }
+
+        $diagnostic->is_active = !$diagnostic->is_active;
+        $diagnostic->updated_by = auth()->id();
+        $diagnostic->save();
+
+        return response()->json([
+            'message' => "Statut mis à jour avec succès.",
+            'success' => true,
+            'data' => $diagnostic
+        ]);
     }
 
 
@@ -116,6 +143,9 @@ class ConfigTblTypeDiagnosticController extends Controller
         ], $messages);
 
         $diagnostic = ConfigTbl_Type_Diagnostic::findOrFail($id);
+
+        $validated['updated_by'] = auth()->id();
+
         $diagnostic->update($validated);
 
         return response()->json([

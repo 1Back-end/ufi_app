@@ -2,9 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\YesNoEnum;
+use App\Models\OpsTblRapportConsultation;
 use App\Models\RapportActe;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rules\Enum;
 
 /**
  * @permission_category Gestion du rapport des actes
@@ -40,39 +44,62 @@ class RapportActeController extends Controller
         $auth = auth()->user();
 
         $request->validate([
-            'rapport_consultation_id' => 'nullable|exists:ops_tbl_rapport_consultations,id',
-            'type' => 'required|string|in:Oui,Non',
+            'rapport_consultation_id' => 'required|exists:ops_tbl_rapport_consultations,id',
+            'type' => ['required', new Enum(YesNoEnum::class)],
             'acte_id' => 'nullable|array',
             'acte_id.*' => 'exists:actes,id',
             'actes_libres' => 'nullable|array',
-            'actes_libres.*.name' => 'required_if:type,Non|string',
+            'actes_libres.*.name' => 'required_if:type,' . YesNoEnum::NON->value . '|string',
             'actes_libres.*.description' => 'nullable|string',
         ]);
 
-        if ($request->type === 'Oui' && $request->acte_id) {
-            foreach ($request->acte_id as $acteId) {
-                RapportActe::create([
-                    'rapport_consultation_id' => $request->rapport_consultation_id,
-                    'acte_id' => $acteId,
-                    'type' => 'Oui',
-                    'created_by' => $auth->id,
-                    'updated_by' => $auth->id,
-                ]);
-            }
+        $rapportConsultation = \App\Models\OpsTblRapportConsultation::find($request->rapport_consultation_id);
+
+        if (!$rapportConsultation) {
+            return response()->json([
+                'message' => "Rapport de consultation introuvable.",
+                'success' => false,
+            ], 404);
         }
 
-        if ($request->type === 'Non' && $request->actes_libres) {
-            foreach ($request->actes_libres as $acteLibre) {
-                RapportActe::create([
-                    'rapport_consultation_id' => $request->rapport_consultation_id,
-                    'name' => $acteLibre['name'],
-                    'description' => $acteLibre['description'] ?? null,
-                    'type' => 'Non',
-                    'created_by' => $auth->id,
-                    'updated_by' => $auth->id,
-                ]);
-            }
+        if (!$rapportConsultation->can_add_examens) {
+            return response()->json([
+                'message' => "Impossible d'ajouter des examens. L'autorisation (can_add_examens) n'est pas activée.",
+                'success' => false,
+            ], 422);
         }
+
+        DB::transaction(function () use ($request, $auth, $rapportConsultation) {
+            if ($request->type === YesNoEnum::OUI->value && $request->acte_id) {
+                foreach ($request->acte_id as $acteId) {
+                    RapportActe::create([
+                        'rapport_consultation_id' => $request->rapport_consultation_id,
+                        'acte_id' => $acteId,
+                        'type' => YesNoEnum::OUI->value,
+                        'created_by' => $auth->id,
+                        'updated_by' => $auth->id,
+                    ]);
+                }
+            }
+
+            if ($request->type === YesNoEnum::NON->value && $request->actes_libres) {
+                foreach ($request->actes_libres as $acteLibre) {
+                    RapportActe::create([
+                        'rapport_consultation_id' => $request->rapport_consultation_id,
+                        'name' => $acteLibre['name'],
+                        'description' => $acteLibre['description'] ?? null,
+                        'type' => YesNoEnum::NON->value,
+                        'created_by' => $auth->id,
+                        'updated_by' => $auth->id,
+                    ]);
+                }
+            }
+
+            $rapportConsultation->update([
+                'can_add_actes' => true,
+                'updated_by' => $auth->id ?? null,
+            ]);
+        });
 
         return response()->json([
             'message' => 'Rapports actes enregistrés avec succès',

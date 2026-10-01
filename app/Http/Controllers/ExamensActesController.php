@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\YesNoEnum;
 use App\Models\ExamenActes;
 use App\Models\OpsTblRapportConsultation;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rules\Enum;
 
 
 /**
@@ -14,22 +16,6 @@ use Illuminate\Http\Request;
  */
 class ExamensActesController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
-    public function index()
-    {
-        //
-    }
-
-    /**
-     * Show the form for creating a new resource.
-     */
-    public function create()
-    {
-        //
-    }
-
     /**
      * @return JsonResponse
      *
@@ -42,35 +28,33 @@ class ExamensActesController extends Controller
 
         $request->validate([
             'rapport_consultation_id' => 'nullable|exists:ops_tbl_rapport_consultations,id',
-            'type' => 'required|string|in:Oui,Non',
+            'type' => ['required', new Enum(YesNoEnum::class)],
             'examen_id' => 'nullable|array',
             'examen_id.*' => 'exists:examens,id',
             'examens_libres' => 'nullable|array',
-            'examens_libres.*.name' => 'required_if:type,Non|string',
+            'examens_libres.*.name' => 'required_if:type,' . YesNoEnum::NON->value . '|string',
             'examens_libres.*.description' => 'nullable|string',
         ]);
 
-        // Cas "Oui" : plusieurs examens sélectionnés
-        if ($request->type === 'Oui' && $request->examen_id) {
+        if ($request->type === YesNoEnum::OUI->value && $request->filled('examen_id')) {
             foreach ($request->examen_id as $examenId) {
                 ExamenActes::create([
                     'rapport_consultation_id' => $request->rapport_consultation_id,
                     'examen_id' => $examenId,
-                    'type' => 'Oui',
+                    'type' => YesNoEnum::OUI->value,
                     'created_by' => $auth->id,
                     'updated_by' => $auth->id,
                 ]);
             }
         }
 
-        // Cas "Non" : examens libres
-        if ($request->type === 'Non' && $request->examens_libres) {
+        if ($request->type === YesNoEnum::NON->value && $request->filled('examens_libres')) {
             foreach ($request->examens_libres as $examenLibre) {
                 ExamenActes::create([
                     'rapport_consultation_id' => $request->rapport_consultation_id,
                     'name' => $examenLibre['name'],
                     'description' => $examenLibre['description'] ?? null,
-                    'type' => 'Non',
+                    'type' => YesNoEnum::NON->value,
                     'created_by' => $auth->id,
                     'updated_by' => $auth->id,
                 ]);
@@ -80,11 +64,17 @@ class ExamensActesController extends Controller
         if ($request->rapport_consultation_id) {
             $rapport = OpsTblRapportConsultation::find($request->rapport_consultation_id);
 
-            if ($rapport && $rapport->dossierConsultation && $rapport->dossierConsultation->rendezVous) {
-                $rendezVous = $rapport->dossierConsultation->rendezVous;
-                $rendezVous->etat = 'Clos';
-                $rendezVous->updated_by = $auth->id ?? null;
-                $rendezVous->save();
+            if ($rapport) {
+                $rapport->can_add_examens = true;
+                $rapport->updated_by = $auth->id ?? null;
+                $rapport->save();
+
+                if ($rapport->dossierConsultation && $rapport->dossierConsultation->rendezVous) {
+                    $rendezVous = $rapport->dossierConsultation->rendezVous;
+                    $rendezVous->etat = 'Clos';
+                    $rendezVous->updated_by = $auth->id ?? null;
+                    $rendezVous->save();
+                }
             }
         }
 

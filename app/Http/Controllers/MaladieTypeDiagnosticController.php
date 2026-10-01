@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\MaladieTypeDiagnostic;
+use App\Models\OpsTblRapportConsultation;
 use Illuminate\Http\Request;
 
 class MaladieTypeDiagnosticController extends Controller
@@ -12,21 +13,29 @@ class MaladieTypeDiagnosticController extends Controller
         $auth = auth()->user();
 
         $request->validate([
-            'maladie_ids' => 'required|array|min:1',
-            'maladie_ids.*' => 'exists:maladies,id',
+            'disease_ids' => 'nullable|array',
+            'disease_ids.*' => 'exists:diseases,id',
             'type_diagnostic_id' => 'required|exists:configtbl_type_diagnostic,id',
             'rapport_consultations_id' => 'required|exists:ops_tbl_rapport_consultations,id',
             'description' => 'nullable|string',
         ]);
 
-        foreach ($request->maladie_ids as $maladieId) {
-            MaladieTypeDiagnostic::create([
-                'maladie_id' => $maladieId,
-                'rapport_consultations_id' => $request->rapport_consultations_id,
-                'type_diagnostic_id' => $request->type_diagnostic_id,
-                'description' => $request->description,
-                'created_by' => $auth->id,
-            ]);
+        $consultation = OpsTblRapportConsultation::findOrFail($request->rapport_consultations_id);
+        $consultation->update([
+            'can_add_diagnostic' => true,
+            'updated_by' => $auth->id
+        ]);
+
+        if (!empty($request->disease_ids)) {
+            foreach ($request->disease_ids as $diseaseId) {
+                MaladieTypeDiagnostic::create([
+                    'maladie_id' => $diseaseId,
+                    'rapport_consultations_id' => $request->rapport_consultations_id,
+                    'type_diagnostic_id' => $request->type_diagnostic_id,
+                    'description' => $request->description,
+                    'created_by' => $auth->id,
+                ]);
+            }
         }
 
         return response()->json([
@@ -36,44 +45,46 @@ class MaladieTypeDiagnosticController extends Controller
     }
 
 
-
-    public function update(Request $request, $type_diagnostic_id)
+    public function update(Request $request, $id)
     {
         $auth = auth()->user();
 
+        $diagnostic = MaladieTypeDiagnostic::findOrFail($id);
+
         $request->validate([
-            'maladie_id' => 'required|array|min:1',
-            'maladie_id.*' => 'exists:maladies,id',
+            'disease_id' => 'required|exists:diseases,id',
             'type_diagnostic_id' => 'required|exists:configtbl_type_diagnostic,id',
             'rapport_consultations_id' => 'required|exists:ops_tbl_rapport_consultations,id',
             'description' => 'nullable|string',
         ]);
 
-        // Supprimer les anciennes associations (soft delete ou hard delete)
-        MaladieTypeDiagnostic::where('type_diagnostic_id', $type_diagnostic_id)->delete();
+        $diagnostic->update([
+            'disease_id' => $request->disease_id,
+            'rapport_consultations_id' => $request->rapport_consultations_id,
+            'type_diagnostic_id' => $request->type_diagnostic_id,
+            'description' => $request->description,
+            'updated_by' => $auth->id,
+        ]);
 
-        // Recréer les nouvelles
-        foreach ($request->maladie_id as $maladieId) {
-            MaladieTypeDiagnostic::create([
-                'maladie_id' => $maladieId,
-                'type_diagnostic_id' => $type_diagnostic_id,
-                'rapport_consultations_id' => $request->rapport_consultations_id,
-                'description' => $request->description,
-                'created_by' => $auth->id,
+        $consultation = OpsTblRapportConsultation::find($request->rapport_consultations_id);
+        if ($consultation) {
+            $consultation->update([
+                'can_add_diagnostic' => true,
+                'updated_by' => $auth->id
             ]);
         }
 
         return response()->json([
             'success' => true,
-            'message' => 'Associations mises à jour avec succès.'
-        ]);
+            'message' => 'Association mise à jour avec succès.',
+            'data' => $diagnostic
+        ], 200);
     }
 
     public function show($type_diagnostic_id)
     {
         $associations = MaladieTypeDiagnostic::with('maladie')
             ->where('type_diagnostic_id', $type_diagnostic_id)
-            ->where('is_deleted', false)  // si tu utilises suppression logique
             ->get();
 
         return response()->json([

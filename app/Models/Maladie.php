@@ -4,10 +4,13 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Maladie extends Model
 {
-    use HasFactory;
+    use HasFactory,SoftDeletes;
+
+    protected $table = 'diseases';
 
     protected $fillable = [
         'classe_maladie_id',
@@ -25,7 +28,6 @@ class Maladie extends Model
         'is_deleted' => 'boolean',
     ];
 
-    // Relations
     public function classeMaladie()
     {
         return $this->belongsTo(ClasseMaladie::class, 'classe_maladie_id');
