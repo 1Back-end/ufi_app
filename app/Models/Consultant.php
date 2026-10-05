@@ -34,7 +34,8 @@ class Consultant extends Model
         'centre_id',
         'user_id',
         'is_used_commission',
-        'order_number'
+        'order_number',
+        'is_active', 'is_archived'
     ];
 
     protected $appends = ['fullname'];

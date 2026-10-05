@@ -41,9 +41,13 @@ class DashboardController extends Controller
         $endDate = $request->input('end_date')
             ? Carbon::parse($request->input('end_date'))->endOfDay()
             : Carbon::yesterday()->endOfDay();
+        $centreId = $request->header('centre');
 
         $prestationsQuery = Prestation::where('type', TypePrestation::CONSULTATIONS)
-            ->whereBetween('created_at', [$startDate, $endDate]);
+            ->whereBetween('created_at', [$startDate, $endDate])
+            ->when($centreId, function ($query, $centreId) {
+                return $query->where('centre_id', $centreId);
+            });
 
         $totalPrestations = $prestationsQuery->count();
         $prestationIds = $prestationsQuery->pluck('id');
@@ -117,9 +121,13 @@ class DashboardController extends Controller
         $endDate = $request->input('end_date')
             ? Carbon::parse($request->input('end_date'))->endOfDay()
             : Carbon::yesterday()->endOfDay();
+        $centreId = $request->header('centre');
 
         $prestationsQuery = Prestation::where('type', TypePrestation::ACTES)
-            ->whereBetween('created_at', [$startDate, $endDate]);
+            ->whereBetween('created_at', [$startDate, $endDate])
+            ->when($centreId, function ($query, $centreId) {
+                return $query->where('centre_id', $centreId);
+            });
 
         $totalPrestations = $prestationsQuery->count();
         $prestationIds = $prestationsQuery->pluck('id');
@@ -189,9 +197,15 @@ class DashboardController extends Controller
         $startDate = $request->input('start_date') ? Carbon::parse($request->input('start_date'))->startOfDay() : Carbon::yesterday()->startOfDay();
         $endDate = $request->input('end_date') ? Carbon::parse($request->input('end_date'))->endOfDay() : Carbon::yesterday()->endOfDay();
 
-        $totalPrestations = Prestation::whereBetween('created_at', [$startDate, $endDate])->count();
-        $distributionPrestations = Prestation::whereBetween('created_at', [$startDate, $endDate])
-            ->select('created_by', DB::raw('count(*) as total'))
+        $centreId = $request->header('centre');
+
+        $prestationsQuery = Prestation::whereBetween('created_at', [$startDate, $endDate])
+            ->when($centreId, function ($query, $centreId) {
+                return $query->where('centre_id', $centreId);
+            });
+
+        $totalPrestations = $prestationsQuery->count();
+        $distributionPrestations = $prestationsQuery->select('created_by', DB::raw('count(*) as total'))
             ->with('createdBy:id,nom_utilisateur')
             ->groupBy('created_by')
             ->get()
@@ -201,8 +215,11 @@ class DashboardController extends Controller
                 'total' => $item->total,
             ]);
 
-        // Factures
-        $facturesQuery = Facture::whereBetween('created_at', [$startDate, $endDate]);
+        $facturesQuery = Facture::whereBetween('created_at', [$startDate, $endDate])
+            ->when($centreId, function ($query, $centreId) {
+                return $query->where('centre_id', $centreId);
+            });
+
         $totalFactures = $facturesQuery->count();
         $montantTotalFactures = $facturesQuery->sum('amount') / 100;
 
@@ -219,7 +236,11 @@ class DashboardController extends Controller
 
         return response()->json([
             'success' => true,
-            'filters' => ['start_date' => $startDate->toDateString(), 'end_date' => $endDate->toDateString()],
+            'filters' => [
+                'start_date' => $startDate->toDateString(),
+                'end_date' => $endDate->toDateString(),
+                'centre_id' => $centreId,
+            ],
             'data' => [
                 'prestations' => ['total' => $totalPrestations, 'distribution_by_user' => $distributionPrestations],
                 'factures' => ['total_count' => $totalFactures, 'total_amount' => $montantTotalFactures, 'distribution_by_user' => $distributionFactures],
@@ -239,7 +260,13 @@ class DashboardController extends Controller
         $startDate = $request->input('start_date') ? Carbon::parse($request->input('start_date'))->startOfDay() : Carbon::yesterday()->startOfDay();
         $endDate = $request->input('end_date') ? Carbon::parse($request->input('end_date'))->endOfDay() : Carbon::yesterday()->endOfDay();
 
-        $facturesQuery = Facture::whereBetween('created_at', [$startDate, $endDate]);
+        $centreId = $request->header('centre');
+
+        $facturesQuery = Facture::whereBetween('created_at', [$startDate, $endDate])
+            ->when($centreId, function ($query, $centreId) {
+                return $query->where('centre_id', $centreId);
+            });
+
         $totalFactures = $facturesQuery->count();
         $montantTotalFactures = $facturesQuery->sum('amount') / 100;
 
@@ -255,6 +282,7 @@ class DashboardController extends Controller
             ]);
 
         $regulationsQuery = Regulation::whereBetween('created_at', [$startDate, $endDate]);
+
         $totalEncaissementsCount = $regulationsQuery->count();
         $montantTotalEncaissements = $regulationsQuery->sum('amount') / 100;
 
@@ -271,7 +299,11 @@ class DashboardController extends Controller
 
         return response()->json([
             'success' => true,
-            'filters' => ['start_date' => $startDate->toDateString(), 'end_date' => $endDate->toDateString()],
+            'filters' => [
+                'start_date' => $startDate->toDateString(),
+                'end_date' => $endDate->toDateString(),
+                'centre_id' => $centreId,
+            ],
             'data' => [
                 'factures' => ['total_count' => $totalFactures, 'total_amount' => $montantTotalFactures, 'distribution_by_user' => $distributionFactures],
                 'encaissements' => ['total_count' => $totalEncaissementsCount, 'total_amount' => $montantTotalEncaissements, 'distribution_by_user' => $distributionEncaissements],
@@ -328,6 +360,7 @@ class DashboardController extends Controller
      */
     public function getConsultantPaymentsByDate(Request $request)
     {
+        $centreId = $request->header('centre');
         $startDate = $request->input('start_date')
             ? Carbon::parse($request->input('start_date'))->startOfDay()
             : Carbon::yesterday()->startOfDay();
@@ -342,6 +375,9 @@ class DashboardController extends Controller
             'creator:id,nom_utilisateur,prenom'
         ])
             ->whereBetween('created_at', [$startDate, $endDate])
+            ->when($centreId, function ($query, $centreId) {
+                return $query->where('centre_id', $centreId);
+            })
             ->get();
 
         $formattedPayments = $payments->values()->map(function ($payment, $index) {

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\BilanActeRendezVous;
+use App\Models\Centre;
 use App\Models\Client;
 use App\Models\OpsTblRapportConsultation;
 use App\Models\Ordonnance;
@@ -17,55 +18,6 @@ use Illuminate\Support\Facades\Log;
  */
 class OrdonnanceController extends Controller
 {
-    public function index()
-    {
-
-    }
-    /**
-     * Display a listing of the resource.
-     * @permission OpsTblReferreMedicalController::historiqueReferresMedicaux
-     * @permission_desc Afficher l'historique des referres médicals d'un client
-     */
-    public function HistoriqueOrdonnancesClient(Request $request, $client_id)
-    {
-        try {
-            $perPage = $request->input('limit', 25);
-            $page = $request->input('page', 1);
-
-            // Vérifier si le client existe
-            $client = Client::find($client_id);
-            if (!$client) {
-                return response()->json(['message' => 'Client non trouvé'], 404);
-            }
-
-            // Requête des ordonnances liées au client via les rapports de consultation
-            $ordonnances = Ordonnance::whereHas('rapportConsultation.dossierConsultation.rendezVous', function ($query) use ($client_id) {
-                $query->where('client_id', $client_id);
-            })
-                ->with([
-                    'rapportConsultation.dossierConsultation.rendezVous.client',
-                    'rapportConsultation.dossierConsultation.rendezVous.consultant',
-                    'produits', // Produits de l'ordonnance
-                    'creator',
-                    'updater',
-                ])
-                ->orderByDesc('created_at')
-                ->paginate($perPage, ['*'], 'page', $page);
-
-            return response()->json([
-                'data' => $ordonnances->items(),
-                'current_page' => $ordonnances->currentPage(),
-                'last_page' => $ordonnances->lastPage(),
-                'total' => $ordonnances->total(),
-            ]);
-
-        } catch (\Exception $e) {
-            return response()->json([
-                'message' => 'Erreur lors de la récupération des ordonnances.',
-                'error' => $e->getMessage()
-            ], 500);
-        }
-    }
 
     /**
      * Display a listing of the resource.
@@ -76,13 +28,21 @@ class OrdonnanceController extends Controller
     {
         $auth = auth()->user();
 
+        $centreId = $request->header('centre');
+
+        if (!$centreId) {
+            return response()->json([
+                'message' => 'Centre non fourni'
+            ], 400);
+        }
+
         $request->validate([
             'rapport_consultations_id' => 'nullable|exists:ops_tbl_rapport_consultations,id',
             'description' => 'nullable|string',
-            'produits' => 'required|array|min:1',
-            'produits.*.nom' => 'required|string',
-            'produits.*.quantite' => 'required|integer|min:1',
-            'produits.*.protocole' => 'required|string',
+            'products' => 'required|array|min:1',
+            'products.*.name' => 'required|string',
+            'products.*.quantity' => 'required|integer|min:1',
+            'products.*.protocol' => 'required|string',
         ]);
 
         DB::beginTransaction();
@@ -94,29 +54,38 @@ class OrdonnanceController extends Controller
                 'created_by' => $auth->id
             ]);
 
-            foreach ($request->produits as $produit) {
+            foreach ($request->products as $product) {
                 OrdonnanceProduit::create([
                     'ordonnance_id' => $ordonnance->id,
-                    'nom' => $produit['nom'],
-                    'quantite' => $produit['quantite'],
-                    'protocole' => $produit['protocole'],
+                    'nom' => $product['name'],
+                    'quantite' => $product['quantity'],
+                    'protocole' => $product['protocol'],
                     'created_by' => $auth->id
                 ]);
+            }
+
+            if ($request->rapport_consultations_id) {
+                \App\Models\OpsTblRapportConsultation::where('id', $request->rapport_consultations_id)
+                    ->update(['can_add_ordonnance' => true]);
             }
 
             $rapport = optional($ordonnance->rapportConsultation);
             $client = optional($rapport->dossierConsultation->rendezVous->client);
             $consultant = optional($rapport->dossierConsultation->rendezVous->consultant);
 
-            // Préparer les données pour le PDF
+            $centre = Centre::find($centreId);
+            $media = $centre?->medias()->where('name', 'logo')->first();
+
             $data = [
                 'ordonnance' => $ordonnance->load('produits'),
                 'consultant' => $consultant->nomcomplet,
-                'patient' => $client->nomcomplet_client ?? '...........................',
+                'patient' => $client->nomcomplet_client ?? '',
+                'logo' => $media ? 'storage/' . $media->path . '/' . $media->filename : '',
+                'centre' => $centre,
                 'date_aujourdhui' => now()->format('d/m/Y'),
             ];
 
-            $fileName = 'ordonnance-' . now()->format('YmdHis') . '.pdf';
+            $fileName = 'ORDONNANCE-N°' . now()->format('YmdHis') . '.pdf';
             $folderPath = 'storage/ordonnances';
             $filePath = $folderPath . '/' . $fileName;
 
@@ -124,7 +93,6 @@ class OrdonnanceController extends Controller
                 mkdir($folderPath, 0755, true);
             }
 
-            // Génération du PDF avec format A5 et marges élargies
             save_browser_shot_pdf(
                 view: 'pdfs.ordonnances.ordonnance',
                 data: ['data' => $data],
@@ -132,7 +100,7 @@ class OrdonnanceController extends Controller
                 path: $filePath,
                 margins: [15, 10, 15, 10],
                 format: 'A5',
-                direction: 'portrait'
+                direction: 'landscape'
             );
 
             DB::commit();

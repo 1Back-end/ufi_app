@@ -132,35 +132,38 @@ class ConsultantController extends Controller
     }
 
 
-
     /**
      * @permission ConsultantController::updateStatus
-     * @permission_desc Mettre à jour le statut d'un consultant
+     * @permission_desc Mettre à jour le statut d'un consultant (Activer/Désactiver/Archiver)
      */
+    public function updateStatus(Request $request, $id)
+    {
+        $consultant = Consultant::findOrFail($id);
 
-    public function updateStatus(Request $request, $id, $status)
-        {
-            $consultant = Consultant::find($id);
-            if (!$consultant) {
-                return response()->json(['message' => 'Consultant non trouvé'], 404);
-            }
+        $request->validate([
+            'is_active'   => 'sometimes|boolean',
+            'is_archived' => 'sometimes|boolean',
+        ]);
 
-            if (!in_array($status, ['Actif', 'Inactif', 'Archivé'])) {
-                return response()->json(['message' => 'Statut invalide'], 400);
-            }
-
-            $consultant->status = $status;
-            $consultant->save();
-
-            return response()->json([
-                'message' => 'Statut mis à jour avec succès',
-                'consultant' => $consultant
-            ], 200);
+        if ($request->has('is_active')) {
+            $consultant->is_active = $request->input('is_active');
         }
+
+        if ($request->has('is_archived')) {
+            $consultant->is_archived = $request->input('is_archived');
+        }
+
+        $consultant->save();
+
+        return response()->json([
+            'message' => 'Statut mis à jour avec succès.',
+            'consultant' => $consultant
+        ], 200);
+    }
 
     /**
      * @permission ConsultantController::show
-     * @permission_desc Afficher un consultant spécifique
+     * @permission_desc Afficher les détails d'un consultant
      */
     public function show(string $id)
     {
@@ -180,14 +183,12 @@ class ConsultantController extends Controller
 
     /**
      * @permission ConsultantController::export
-     * @permission_desc Exporter les données des consultants
+     * @permission_desc Exporter la liste des consultants en excel
      */
     public function export()
     {
-        $fileName = 'consultants-' . Carbon::now()->format('Y-m-d') . '.xlsx';
-
+        $fileName = 'LISTE-DES-CONSULTANTS-' . Carbon::now()->format('Y-m-d_H-i-s') . '.xlsx';
         Excel::store(new ConsultantsExport(), $fileName, 'exportconsultants');
-
         return response()->json([
             "message" => "Exportation des données effectuée avec succès",
             "filename" => $fileName,
@@ -291,34 +292,6 @@ class ConsultantController extends Controller
         }
     }
 
-
-
-
-    public function import(Request $request)
-    {
-        $request->validate([
-            'file' => 'required|file|mimes:xlsx,xls,csv'
-        ]);
-
-        Excel::import(new PescripteursImport(), $request->file('file'));
-
-        return response()->json([
-            'message' => 'Importation effectuée avec succès.'
-        ], 200);
-    }
-
-    public function import_medecin(Request $request)
-    {
-        $request->validate([
-            'file' => 'required|file|mimes:xlsx,xls,csv'
-        ]);
-
-        Excel::import(new MedecinImport(), $request->file('file'));
-
-        return response()->json([
-            'message' => 'Importation effectuée avec succès.'
-        ], 200);
-    }
     /**
      * Update the specified resource in storage.
      */
@@ -332,10 +305,8 @@ class ConsultantController extends Controller
         try {
             $auth = auth()->user();
 
-            // Récupérer consultant
             $consultant = Consultant::findOrFail($id);
 
-            // Validation
             $data = $request->validate([
                 'code_hopi' => 'required|exists:hopitals,id',
                 'code_service_hopi' => 'required|exists:service__hopitals,id',
@@ -438,27 +409,6 @@ class ConsultantController extends Controller
 
 
 
-
-
-    /**
-     * Display a listing of the resource.
-     * @permission ConsultantController::destroy
-     * @permission_desc Supprimer un consultant
-     */
-    public function destroy(string $id)
-    {
-        $consultant = Consultant::find($id);
-        if (!$consultant) {
-            return response()->json(['message' => 'Consultant non trouvé'], 404);
-        }
-
-        $consultant->is_deleted = true;
-        $consultant->save();
-        return response()->json(['message' => 'Consultant supprimé'], 200);
-        //
-    }
-
-
     public function PlanningConsultant(Request $request)
     {
         $centreId = $request->header('centre');
@@ -523,6 +473,150 @@ class ConsultantController extends Controller
                 'error' => $e->getMessage(),
             ], 500);
         }
+    }
+
+    /**
+     * Display a listing of the resource.
+     * @permission ConsultantController::getDuplicates
+     * @permission_desc Afficher la liste des consultants en doublon
+     */
+    public function getDuplicates(Request $request)
+    {
+        $consultants = Consultant::with(['specialite', 'code_hopi', 'prestations'])
+            ->get();
+
+        if ($consultants->isEmpty()) {
+            return response()->json(['data' => [], 'total_groupes' => 0]);
+        }
+
+        $items = $consultants->map(function ($c) {
+            return [
+                'model'          => $c,
+                'key_nomcomplet' => $this->normalizeName($c->nomcomplet),
+                'key_nom_prenom' => $this->normalizeName($c->nom . ' ' . $c->prenom),
+                'key_tel'        => $this->normalizePhone($c->tel),
+                'key_tel1'       => $this->normalizePhone($c->tel1),
+            ];
+        })->values();
+
+        $count = $items->count();
+
+        $parent = range(0, $count - 1);
+
+        $find = function ($x) use (&$parent, &$find) {
+            if ($parent[$x] !== $x) {
+                $parent[$x] = $find($parent[$x]);
+            }
+            return $parent[$x];
+        };
+
+        $union = function ($a, $b) use (&$parent, $find) {
+            $rootA = $find($a);
+            $rootB = $find($b);
+            if ($rootA !== $rootB) {
+                $parent[$rootA] = $rootB;
+            }
+        };
+
+        $buckets = [
+            'nomcomplet' => [],
+            'nom_prenom' => [],
+            'tel'        => [],
+        ];
+
+        foreach ($items as $i => $item) {
+            if ($item['key_nomcomplet'] !== '') {
+                $buckets['nomcomplet'][$item['key_nomcomplet']][] = $i;
+            }
+            if ($item['key_nom_prenom'] !== '') {
+                $buckets['nom_prenom'][$item['key_nom_prenom']][] = $i;
+            }
+            if ($item['key_tel'] !== '') {
+                $buckets['tel'][$item['key_tel']][] = $i;
+            }
+            if ($item['key_tel1'] !== '') {
+                $buckets['tel'][$item['key_tel1']][] = $i;
+            }
+        }
+
+        foreach ($buckets as $bucketGroup) {
+            foreach ($bucketGroup as $indices) {
+                if (count($indices) < 2) {
+                    continue;
+                }
+                $first = $indices[0];
+                for ($k = 1; $k < count($indices); $k++) {
+                    $union($first, $indices[$k]);
+                }
+            }
+        }
+
+        $groups = [];
+        for ($i = 0; $i < $count; $i++) {
+            $root = $find($i);
+            $groups[$root][] = $items[$i]['model'];
+        }
+
+        $duplicates = collect($groups)
+            ->filter(fn ($group) => count($group) > 1)
+            ->values()
+            ->map(fn ($group) => collect($group));
+
+        return response()->json([
+            'data'              => $duplicates,
+            'total_groupes'     => $duplicates->count(),
+            'total_consultants' => $duplicates->sum(fn ($g) => $g->count()),
+        ]);
+    }
+
+    private function normalizeName(?string $value): string
+    {
+        if (!$value) {
+            return '';
+        }
+
+        $value = $this->removeAccents($value);
+        $value = mb_strtoupper(trim($value));
+        $value = preg_replace('/\s+/', ' ', $value);
+
+        $words = array_filter(explode(' ', $value));
+        sort($words);
+
+        return implode(' ', $words);
+    }
+
+    private function normalizePhone(?string $value): string
+    {
+        if (!$value) {
+            return '';
+        }
+
+        $digits = preg_replace('/\D+/', '', $value);
+
+        if (strlen($digits) < 8) {
+            return '';
+        }
+
+        return substr($digits, -9);
+    }
+
+    private function removeAccents(string $value): string
+    {
+        $unwanted = [
+            'à' => 'a', 'á' => 'a', 'â' => 'a', 'ä' => 'a', 'ã' => 'a',
+            'è' => 'e', 'é' => 'e', 'ê' => 'e', 'ë' => 'e',
+            'ì' => 'i', 'í' => 'i', 'î' => 'i', 'ï' => 'i',
+            'ò' => 'o', 'ó' => 'o', 'ô' => 'o', 'ö' => 'o', 'õ' => 'o',
+            'ù' => 'u', 'ú' => 'u', 'û' => 'u', 'ü' => 'u',
+            'ç' => 'c', 'ñ' => 'n',
+            'À' => 'A', 'Á' => 'A', 'Â' => 'A', 'Ä' => 'A',
+            'È' => 'E', 'É' => 'E', 'Ê' => 'E', 'Ë' => 'E',
+            'Ò' => 'O', 'Ó' => 'O', 'Ô' => 'O', 'Ö' => 'O',
+            'Ù' => 'U', 'Ú' => 'U', 'Û' => 'U', 'Ü' => 'U',
+            'Ç' => 'C', 'Ñ' => 'N',
+        ];
+
+        return strtr($value, $unwanted);
     }
 
 }

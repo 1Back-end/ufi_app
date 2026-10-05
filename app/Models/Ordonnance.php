@@ -4,9 +4,11 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\SoftDeletes;
+
 class Ordonnance extends Model
 {
-    use HasFactory;
+    use HasFactory,SoftDeletes;
 
     protected $table = 'ops_tbl_ordonnance';
 
@@ -17,8 +19,15 @@ class Ordonnance extends Model
         'created_by',
         'updated_by',
     ];
+    protected static function boot()
+    {
+        parent::boot();
 
-    // Relation vers le rapport de consultation
+        static::creating(function ($model) {
+            $model->code = self::generateCode();
+        });
+    }
+
     public function rapportConsultation()
     {
         return $this->belongsTo(OpsTblRapportConsultation::class, 'rapport_consultations_id');
@@ -37,14 +46,19 @@ class Ordonnance extends Model
     {
         return $this->hasMany(OrdonnanceProduit::class, 'ordonnance_id');
     }
-    protected static function boot()
+    public static function generateCode(): string
     {
-        parent::boot();
+        $datePart = now()->format('Ydm');
+        $prefix = '#' . $datePart;
 
-        static::creating(function ($ordonnance) {
-            $prefix = 'ORDONNANCE-';
-            $timestamp = now()->format('YmdHis');
-            $ordonnance->code = $prefix . $timestamp;
-        });
+        $last = self::withTrashed()->orderBy('created_at', 'desc')->first();
+
+        if ($last && preg_match('/(\d{6})$/', $last->code, $matches)) {
+            $number = (int) $matches[1] + 1;
+        } else {
+            $number = 1;
+        }
+
+        return $prefix . str_pad($number, 6, '0', STR_PAD_LEFT);
     }
 }
