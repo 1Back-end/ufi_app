@@ -48,15 +48,18 @@ class Product extends Model
         'is_out_of_stock',
         'dosage_id',
         'fabricant',
-        'centre_id'
+        'centre_id',
+        'is_kit',
+        'kit_id'
     ];
 
     protected $casts = [
         'facturable'           => 'boolean',
         'is_active'            => 'boolean',
+        'is_out_of_stock'      => 'boolean',
+        'is_kit'              => 'boolean',
         'allow_negative_stock' => 'boolean',
         'is_suspended'         => 'boolean',
-        'is_out_of_stock'      => 'boolean',
         'has_expiration_date'  => 'boolean',
         'has_moratorium'       => 'boolean',
         'moratorium_months'    => 'integer',
@@ -68,6 +71,11 @@ class Product extends Model
     protected $appends = [
         'total_stock'
     ];
+
+    public function kit(): BelongsTo
+    {
+        return $this->belongsTo(KitProduct::class, 'kit_id');
+    }
 
     public function packagings(): BelongsToMany
     {

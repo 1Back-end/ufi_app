@@ -264,22 +264,7 @@ Route::middleware(['activity'])->group(function () {
         Route::post('/print-facture-assurance', [PrestationController::class, 'printFactureAssurance']);
         Route::post('/ventilate_assurance/{assureur_id}', [RegulationController::class, 'get_ventilate_assurance']);
 
-        Route::controller(ConsultantController::class)->prefix('consultants')->group(function () {
-            Route::get('/list', 'index');
-            Route::post('/create', 'store');
-            Route::put('/edit/{id}', 'update');
-            Route::delete('/delete/{id}', 'destroy');
-            Route::put('update_status/{id}/status/{status}', 'updateStatus');
-            Route::get('/search', 'search');
-            Route::get('/export', 'export');
-            Route::get('/searchandexport', 'searchAndExport');
-            Route::get('/get_by_id/{id}', 'show');
-            Route::post('/import', 'import');
-            Route::post('/import_medecin', 'import_medecin');
-            Route::get('/planning_patient', 'PlanningConsultant');
 
-            // routes/api.php
-        });
 
         Route::controller(HopitalController::class)->prefix('hopitals')->group(function () {
             Route::get('/list', 'index');
@@ -451,9 +436,18 @@ Route::middleware(['activity'])->group(function () {
         Route::patch('disease_groups/{id}/status', [\App\Http\Controllers\GroupeMaladieController::class, 'updateStatus']);
 
         Route::apiResource('disease_diagnostics', MaladieTypeDiagnosticController::class);
+        Route::get('consultants/duplicates', [ConsultantController::class, 'getDuplicates']);
+        Route::get('clients_duplicates', [ClientController::class, 'getDuplicates']);
+
+        Route::apiResource('consultants', ConsultantController::class);
+        Route::put('consultants/{id}/status', [\App\Http\Controllers\ConsultantController::class, 'updateStatus']);
+        Route::get('consultants/planning_patient', [\App\Http\Controllers\ConsultantController::class, 'PlanningConsultant']);
+        Route::get('exports_all_consultants', [\App\Http\Controllers\ConsultantController::class, 'export']);
+        Route::apiResource('prescriptions', OrdonnanceController::class);
 
 
-
+        Route::apiResource('kits', \App\Http\Controllers\KitProductController::class);
+        Route::patch('kits/{id}/status', [\App\Http\Controllers\KitProductController::class, 'updateStatus']);
 
 
 
@@ -608,15 +602,7 @@ Route::middleware(['activity'])->group(function () {
             Route::delete('/delete/{id}', 'destroy');
             Route::get('/client/{client_id}/', 'historiqueReferresMedicaux');
         });
-        Route::controller(OrdonnanceController::class)->prefix('ordonnances')->group(function () {
-            Route::get('/list', 'index');
-            Route::post('/create', 'store');
-            Route::get('/get_by_id/{id}', 'show');
-            Route::put('/edit/{id}', 'update');
-            Route::delete('/delete/{id}', 'destroy');
-            Route::get('/client/{client_id}/', 'HistoriqueOrdonnancesClient');
-            Route::get('/print_ordonnances/{rapport_consultation_id}/', 'printFromRapport');
-        });
+
         Route::controller(DiagnosticController::class)->prefix('diagnostics')->group(function () {
             Route::get('/list', 'index');
             Route::post('/create', 'store');

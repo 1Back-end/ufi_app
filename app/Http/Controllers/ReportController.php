@@ -256,9 +256,7 @@ class ReportController extends Controller
                 $start = Carbon::parse($request->prestation_start)->startOfDay();
                 $end   = Carbon::parse($request->prestation_end)->endOfDay();
                 $prestations->where(function($query) use ($start, $end) {
-                    // Prestations créées dans la période
                     $query->whereBetween('created_at', [$start, $end])
-                        // OU prestations dont les règlements sont dans la période
                         ->orWhereHas('factures.regulations', function($q) use ($start, $end) {
                             $q->whereBetween('date', [$start, $end]);
                         });
@@ -280,11 +278,9 @@ class ReportController extends Controller
                 $prestations->where('type', $type);
 
                 $actionLabel = TypePrestation::label($type);
-                // Ajouter le label lisible
                 $titreParts[] = "Type prestation : " . $actionLabel;
             }
 
-            // Filtre par mode de règlement
             if ($request->filled('mode_reglement')) {
                 $mode = \App\Models\RegulationMethod::find($request->mode_reglement);
 
@@ -294,7 +290,6 @@ class ReportController extends Controller
                 $titreParts[] = "Mode de règlement : " . ($mode?->name ?? '');
             }
 
-            // Filtre par date de règlement
             if ($request->filled('reglement_start') && $request->filled('reglement_end')) {
                 $start = Carbon::parse($request->reglement_start)->startOfDay();
                 $end   = Carbon::parse($request->reglement_end)->endOfDay();
@@ -318,15 +313,12 @@ class ReportController extends Controller
                     $titreParts[] = "Toutes les prestations";
                 }
             }
-
-            // 🔹 Filtre client
             if ($request->client === 'client' && $request->filled('client_id')) {
                 $prestations->where('client_id', $request->client_id);
                 $client = \App\Models\Client::find($request->client_id);
                 $titreParts[] = "Client : " . ($client ? $client->nomcomplet_client : '');
             }
 
-            // 🔹 Filtre consultant
             if ($request->consultant === 'consultant' && $request->filled('consultant_id')) {
                 $prestations->where('consultant_id', $request->consultant_id);
                 $consultant = \App\Models\Consultant::find($request->consultant_id);
@@ -334,7 +326,6 @@ class ReportController extends Controller
             }
 
 
-            // Si aucun filtre n’est fourni, on prend seulement les prestations du jour
             if (
                 !$request->filled('facture_start') &&
                 !$request->filled('facture_end') &&

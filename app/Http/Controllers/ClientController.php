@@ -429,4 +429,146 @@ class ClientController extends Controller
             'url' => Storage::disk('public')->url($path)
         ]);
     }
+
+    public function getDuplicates(Request $request)
+    {
+        $clients = Client::with(['societe', 'prefix', 'typeDocument'])
+            ->get();
+
+        if ($clients->isEmpty()) {
+            return response()->json(['data' => [], 'total_groupes' => 0]);
+        }
+
+        $items = $clients->map(function ($c) {
+            return [
+                'model'          => $c,
+                'key_nomcomplet' => $this->normalizeName($c->nomcomplet_client),
+                'key_nom_prenom' => $this->normalizeName(
+                    $c->nom_cli . ' ' . $c->prenom_cli . ' ' . $c->secondprenom_cli
+                ),
+                'key_tel'        => $this->normalizePhone($c->tel_cli),
+                'key_tel2'       => $this->normalizePhone($c->tel2_cli),
+            ];
+        })->values();
+
+        $count = $items->count();
+
+        // --- Union-Find ---
+        $parent = range(0, $count - 1);
+
+        $find = function ($x) use (&$parent, &$find) {
+            if ($parent[$x] !== $x) {
+                $parent[$x] = $find($parent[$x]);
+            }
+            return $parent[$x];
+        };
+
+        $union = function ($a, $b) use (&$parent, $find) {
+            $rootA = $find($a);
+            $rootB = $find($b);
+            if ($rootA !== $rootB) {
+                $parent[$rootA] = $rootB;
+            }
+        };
+
+        $buckets = [
+            'nomcomplet' => [],
+            'nom_prenom' => [],
+            'tel'        => [],
+        ];
+
+        foreach ($items as $i => $item) {
+            if ($item['key_nomcomplet'] !== '') {
+                $buckets['nomcomplet'][$item['key_nomcomplet']][] = $i;
+            }
+            if ($item['key_nom_prenom'] !== '') {
+                $buckets['nom_prenom'][$item['key_nom_prenom']][] = $i;
+            }
+            if ($item['key_tel'] !== '') {
+                $buckets['tel'][$item['key_tel']][] = $i;
+            }
+            if ($item['key_tel2'] !== '') {
+                $buckets['tel'][$item['key_tel2']][] = $i;
+            }
+        }
+
+        foreach ($buckets as $bucketGroup) {
+            foreach ($bucketGroup as $indices) {
+                if (count($indices) < 2) {
+                    continue;
+                }
+                $first = $indices[0];
+                for ($k = 1; $k < count($indices); $k++) {
+                    $union($first, $indices[$k]);
+                }
+            }
+        }
+
+        $groups = [];
+        for ($i = 0; $i < $count; $i++) {
+            $root = $find($i);
+            $groups[$root][] = $items[$i]['model'];
+        }
+
+        $duplicates = collect($groups)
+            ->filter(fn ($group) => count($group) > 1)
+            ->values()
+            ->map(fn ($group) => collect($group));
+
+        return response()->json([
+            'data'              => $duplicates,
+            'total_groupes'     => $duplicates->count(),
+            'total_consultants' => $duplicates->sum(fn ($g) => $g->count()),
+        ]);
+    }
+
+    private function normalizeName(?string $value): string
+    {
+        if (!$value) {
+            return '';
+        }
+
+        $value = $this->removeAccents($value);
+        $value = mb_strtoupper(trim($value));
+        $value = preg_replace('/\s+/', ' ', $value);
+
+        $words = array_filter(explode(' ', $value));
+        sort($words);
+
+        return implode(' ', $words);
+    }
+
+    private function normalizePhone(?string $value): string
+    {
+        if (!$value) {
+            return '';
+        }
+
+        $digits = preg_replace('/\D+/', '', $value);
+
+        if (strlen($digits) < 8) {
+            return '';
+        }
+
+        return substr($digits, -9);
+    }
+
+    private function removeAccents(string $value): string
+    {
+        $unwanted = [
+            'à' => 'a', 'á' => 'a', 'â' => 'a', 'ä' => 'a', 'ã' => 'a',
+            'è' => 'e', 'é' => 'e', 'ê' => 'e', 'ë' => 'e',
+            'ì' => 'i', 'í' => 'i', 'î' => 'i', 'ï' => 'i',
+            'ò' => 'o', 'ó' => 'o', 'ô' => 'o', 'ö' => 'o', 'õ' => 'o',
+            'ù' => 'u', 'ú' => 'u', 'û' => 'u', 'ü' => 'u',
+            'ç' => 'c', 'ñ' => 'n',
+            'À' => 'A', 'Á' => 'A', 'Â' => 'A', 'Ä' => 'A',
+            'È' => 'E', 'É' => 'E', 'Ê' => 'E', 'Ë' => 'E',
+            'Ò' => 'O', 'Ó' => 'O', 'Ô' => 'O', 'Ö' => 'O',
+            'Ù' => 'U', 'Ú' => 'U', 'Û' => 'U', 'Ü' => 'U',
+            'Ç' => 'C', 'Ñ' => 'N',
+        ];
+
+        return strtr($value, $unwanted);
+    }
 }
