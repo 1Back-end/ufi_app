@@ -185,7 +185,7 @@ class Client extends Model
         return $this->belongsTo(Prefix::class);
     }
 
-    public function statusFamiliale()
+        public function statusFamiliale()
     {
         return $this->belongsTo(StatusFamiliale::class);
     }

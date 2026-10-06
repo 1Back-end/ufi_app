@@ -37,7 +37,10 @@ class Facture extends Model
         'amount_ir',
         'amount_received',
         'amount_prorate',
-        'others_amount_excluded'
+        'others_amount_excluded',
+        'regulated_at',
+        'is_regulated',
+        'regulated',
     ];
 
     protected function casts(): array

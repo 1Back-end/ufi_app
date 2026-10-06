@@ -494,13 +494,10 @@ class ConsultantController extends Controller
                 'model'          => $c,
                 'key_nomcomplet' => $this->normalizeName($c->nomcomplet),
                 'key_nom_prenom' => $this->normalizeName($c->nom . ' ' . $c->prenom),
-                'key_tel'        => $this->normalizePhone($c->tel),
-                'key_tel1'       => $this->normalizePhone($c->tel1),
             ];
         })->values();
 
         $count = $items->count();
-
         $parent = range(0, $count - 1);
 
         $find = function ($x) use (&$parent, &$find) {
@@ -518,24 +515,18 @@ class ConsultantController extends Controller
             }
         };
 
+        // On ne garde QUE les critères sur les noms (plus de 'tel' ou 'tel1')
         $buckets = [
             'nomcomplet' => [],
             'nom_prenom' => [],
-            'tel'        => [],
         ];
 
         foreach ($items as $i => $item) {
-            if ($item['key_nomcomplet'] !== '') {
+            if (!empty($item['key_nomcomplet'])) {
                 $buckets['nomcomplet'][$item['key_nomcomplet']][] = $i;
             }
-            if ($item['key_nom_prenom'] !== '') {
+            if (!empty($item['key_nom_prenom'])) {
                 $buckets['nom_prenom'][$item['key_nom_prenom']][] = $i;
-            }
-            if ($item['key_tel'] !== '') {
-                $buckets['tel'][$item['key_tel']][] = $i;
-            }
-            if ($item['key_tel1'] !== '') {
-                $buckets['tel'][$item['key_tel1']][] = $i;
             }
         }
 
@@ -557,15 +548,21 @@ class ConsultantController extends Controller
             $groups[$root][] = $items[$i]['model'];
         }
 
-        $duplicates = collect($groups)
-            ->filter(fn ($group) => count($group) > 1)
-            ->values()
-            ->map(fn ($group) => collect($group));
+        $duplicates = [];
+        foreach ($groups as $group) {
+            if (count($group) > 1) {
+                $groupName = $group[0]->nomcomplet ?? 'Groupe de doublons';
+                if (isset($duplicates[$groupName])) {
+                    $groupName .= ' (' . $group[0]->id . ')';
+                }
+                $duplicates[$groupName] = $group;
+            }
+        }
 
         return response()->json([
             'data'              => $duplicates,
-            'total_groupes'     => $duplicates->count(),
-            'total_consultants' => $duplicates->sum(fn ($g) => $g->count()),
+            'total_groupes'     => count($duplicates),
+            'total_consultants' => collect($duplicates)->sum(fn ($g) => count($g)),
         ]);
     }
 
