@@ -6,9 +6,17 @@ use App\DTO\ClientFilterData;
 use App\Enums\StatusClient;
 use App\Exports\ClientsExport;
 use App\Http\Requests\ClientRequest;
+use App\Models\CampagneFacture;
 use App\Models\Centre;
 use App\Models\Client;
+use App\Models\ConventionAssocie;
+use App\Models\PatientArchive;
 use App\Models\Prefix;
+use App\Models\Prestation;
+use App\Models\PriseEnCharge;
+use App\Models\Proforma;
+use App\Models\RendezVous;
+use App\Models\ResultatExamenCampagneFacture;
 use App\Models\Sexe;
 use App\Models\Societe;
 use App\Models\StatusFamiliale;
@@ -430,9 +438,16 @@ class ClientController extends Controller
         ]);
     }
 
+
+    /**
+     * @return JsonResponse
+     *
+     * @permission ClientController::getDuplicates
+     * @permission_desc Afficher la liste des clients en doublons
+     */
     public function getDuplicates(Request $request)
     {
-        $clients = Client::with(['societe', 'prefix', 'typeDocument'])
+        $clients = Client::with(['societe', 'prefix', 'typeDocument','createByCli','updateByCli','sexe','statusFamiliale'])
             ->get();
 
         if ($clients->isEmpty()) {
@@ -446,14 +461,11 @@ class ClientController extends Controller
                 'key_nom_prenom' => $this->normalizeName(
                     $c->nom_cli . ' ' . $c->prenom_cli . ' ' . $c->secondprenom_cli
                 ),
-                'key_tel'        => $this->normalizePhone($c->tel_cli),
-                'key_tel2'       => $this->normalizePhone($c->tel2_cli),
             ];
         })->values();
 
         $count = $items->count();
 
-        // --- Union-Find ---
         $parent = range(0, $count - 1);
 
         $find = function ($x) use (&$parent, &$find) {
@@ -474,7 +486,6 @@ class ClientController extends Controller
         $buckets = [
             'nomcomplet' => [],
             'nom_prenom' => [],
-            'tel'        => [],
         ];
 
         foreach ($items as $i => $item) {
@@ -483,12 +494,6 @@ class ClientController extends Controller
             }
             if ($item['key_nom_prenom'] !== '') {
                 $buckets['nom_prenom'][$item['key_nom_prenom']][] = $i;
-            }
-            if ($item['key_tel'] !== '') {
-                $buckets['tel'][$item['key_tel']][] = $i;
-            }
-            if ($item['key_tel2'] !== '') {
-                $buckets['tel'][$item['key_tel2']][] = $i;
             }
         }
 
@@ -513,7 +518,9 @@ class ClientController extends Controller
         $duplicates = collect($groups)
             ->filter(fn ($group) => count($group) > 1)
             ->values()
-            ->map(fn ($group) => collect($group));
+            ->map(function ($group) {
+                return collect($group)->sortByDesc('created_at')->values();
+            });
 
         return response()->json([
             'data'              => $duplicates,
@@ -538,21 +545,6 @@ class ClientController extends Controller
         return implode(' ', $words);
     }
 
-    private function normalizePhone(?string $value): string
-    {
-        if (!$value) {
-            return '';
-        }
-
-        $digits = preg_replace('/\D+/', '', $value);
-
-        if (strlen($digits) < 8) {
-            return '';
-        }
-
-        return substr($digits, -9);
-    }
-
     private function removeAccents(string $value): string
     {
         $unwanted = [
@@ -570,5 +562,70 @@ class ClientController extends Controller
         ];
 
         return strtr($value, $unwanted);
+    }
+
+    /**
+     * @return JsonResponse
+     *
+     * @permission ClientController::mergeDuplicates
+     * @permission_desc Fusionner les fiches de clients en doublons
+     */
+    public function mergeDuplicates(Request $request)
+    {
+        $request->validate([
+            'master_id' => 'required|exists:clients,id',
+            'duplicate_ids' => 'required|array',
+            'duplicate_ids.*' => 'exists:clients,id|different:master_id',
+        ]);
+
+        $masterId = $request->input('master_id');
+        $duplicateIds = $request->input('duplicate_ids');
+
+        DB::beginTransaction();
+
+        try {
+            $masterClient = Client::findOrFail($masterId);
+
+            Prestation::whereIn('client_id', $duplicateIds)
+                ->update(['client_id' => $masterId]);
+
+            PriseEnCharge::whereIn('client_id', $duplicateIds)
+                ->update(['client_id' => $masterId]);
+
+            CampagneFacture::whereIn('patient_id', $duplicateIds)
+                ->update(['patient_id' => $masterId]);
+
+            ConventionAssocie::whereIn('client_id', $duplicateIds)
+                ->update(['client_id' => $masterId]);
+
+            PatientArchive::whereIn('patient_id', $duplicateIds)
+                ->update(['patient_id' => $masterId]);
+
+            Proforma::whereIn('client_id', $duplicateIds)
+                ->update(['client_id' => $masterId]);
+
+            RendezVous::whereIn('client_id', $duplicateIds)
+                ->update(['client_id' => $masterId]);
+
+            ResultatExamenCampagneFacture::whereIn('patient_id', $duplicateIds)
+                ->update(['patient_id' => $masterId]);
+
+            Client::whereIn('id', $duplicateIds)->delete();
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Fusion des fiches et réassignation de toutes les données associées effectuées avec succès.',
+                'master_id' => $masterId
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la fusion : ' . $e->getMessage()
+            ], 500);
+        }
     }
 }

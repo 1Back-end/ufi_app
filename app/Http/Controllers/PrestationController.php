@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Enums\StateExamen;
 use App\Enums\StateFacture;
 use App\Enums\TypePrestation;
+use App\Enums\TypeRegulation;
 use App\Http\Requests\PrestationRequest;
 use App\Models\Acte;
 use App\Models\Assureur;
@@ -34,6 +35,7 @@ use App\Models\SessionElement;
 use App\Models\Setting;
 use App\Models\Soins;
 use App\Models\SessionCaisse;
+use App\Models\SpecialRegulation;
 use App\Notifications\SendRdvNotification;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -1097,6 +1099,83 @@ class PrestationController extends Controller
         ], 202);
     }
 
+    public function scopeFilterAllPaid(Builder $query, $startDate, $endDate, $assurance = null): Builder {
+        $centreId = request()->header('centre');
+
+        $factureFilter = function ($q) use ($startDate, $endDate) {
+            $q->where('factures.type', 2)
+                ->where('factures.regulated', 2)
+                ->where('factures.is_regulated', true)
+                ->where('factures.state', StateFacture::ASSURANCE->value)
+                ->whereBetween('factures.regulated_at', [$startDate, $endDate])
+                ->orderBy('factures.regulated_at', 'asc');
+        };
+
+        return $query->where('prestations.centre_id', $centreId)
+            ->whereHas('factures', $factureFilter)
+            ->with([
+                'factures' => $factureFilter,
+                'actes', 'soins', 'consultations', 'hospitalisations',
+                'products', 'examens', 'client', 'priseCharge.assureur', 'payableBy'
+            ])
+            ->when($assurance, fn($q) => $q->whereHas('priseCharge.assureur', fn($q) => $q->where('id', $assurance)));
+    }
+
+    /**
+     * @param Request $request
+     * @return JsonResponse
+     *
+     * @permission PrestationController::getFacturesPaid
+     * @permission_desc Afficher les factures déja réglées par assurance sur une période
+     */
+    public function getFacturesPaid(Request $request)
+    {
+        $request->validate([
+            'assurance' => ['nullable', 'exists:assureurs,id'],
+            'payable_by' => ['nullable', 'exists:clients,id'],
+            'start_date' => ['required', 'date'],
+            'end_date' => ['required', 'date'],
+        ]);
+
+        $startDate = $request->input('start_date');
+        $endDate = $request->input('end_date');
+        $assurance = $request->input('assurance');
+
+        $query = Prestation::query();
+
+        $prestations = $this->scopeFilterAllPaid(
+            $query,
+            startDate: $startDate,
+            endDate: $endDate,
+            assurance: $assurance
+        )->paginate(
+            perPage: $request->input('per_page', 25),
+            page: $request->input('page', 1)
+        );
+
+        $column = $assurance ? 'amount_pc' : 'amount_client';
+
+        $totalAmount = DB::table('factures')
+            ->join('prestations', 'factures.prestation_id', '=', 'prestations.id')
+            ->where('factures.type', 2)
+            ->where('factures.regulated', 2)
+            ->where('factures.is_regulated', true)
+            ->where('factures.state', StateFacture::ASSURANCE->value)
+            ->whereBetween('factures.regulated_at', [$startDate, $endDate])
+            ->where('prestations.centre_id', $request->header('centre'))
+            ->when($assurance, function($q) use ($assurance) {
+                return $q->join('prise_en_charges', 'prestations.prise_charge_id', '=', 'prise_en_charges.id')
+                    ->where('prise_en_charges.assureur_id', $assurance);
+            })
+            ->selectRaw("SUM(factures.$column) / 100 as total")
+            ->value('total');
+
+        return response()->json([
+            'prestations' => $prestations,
+            'total_amount' => round($totalAmount ?? 0, 2)
+        ]);
+    }
+
     /**
      * @param Request $request
      * @return JsonResponse
@@ -1129,7 +1208,7 @@ class PrestationController extends Controller
         $totalAmount = DB::table('factures')
             ->join('prestations', 'factures.prestation_id', '=', 'prestations.id')
             ->where('factures.type', 2)
-            ->whereIn('factures.state', [StateFacture::IN_PROGRESS->value, StateFacture::CREATE->value])
+            ->whereIn('factures.state', [StateFacture::IN_PROGRESS->value,StateFacture::CREATE->value])
             ->whereBetween('factures.date_fact', [$request->input('start_date'), $request->input('end_date')])
             ->where('prestations.centre_id', $request->header('centre'))
             ->when($request->input('assurance'), function($q) use ($request) {
@@ -1836,7 +1915,6 @@ class PrestationController extends Controller
             mkdir($folderPath, 0755, true);
         }
 
-        // Récupération des prestations filtrées par date et assureur
         $prestations = Prestation::filterInProgress(
             startDate: $request->input('start_date'),
             endDate: $request->input('end_date'),
@@ -2643,6 +2721,160 @@ class PrestationController extends Controller
                 'end' => $endDate->toDateTimeString(),
             ],
             'data' => $stats
+        ]);
+    }
+
+
+    public function filterAssurancePaid($startDate, $endDate, $assurance = null)
+    {
+        $centreId = request()->header('centre');
+
+        $factureFilter = function ($q) use ($startDate, $endDate) {
+            $q->where('factures.type', 2)
+                ->where('factures.state', StateFacture::ASSURANCE->value)
+                ->whereBetween('factures.regulated_at', [$startDate, $endDate])
+                ->orderBy('factures.regulated_at', 'asc');
+        };
+
+        return Prestation::where('prestations.centre_id', $centreId)
+            ->whereHas('factures', $factureFilter)
+            ->with([
+                'factures' => $factureFilter,
+                'actes', 'soins', 'consultations', 'hospitalisations',
+                'products', 'examens', 'client', 'priseCharge.assureur', 'payableBy'
+            ])
+            ->when($assurance, fn($q) => $q->whereHas('priseCharge.assureur', fn($q) => $q->where('id', $assurance)));
+    }
+
+
+    /**
+     * @param Request $request
+     * @return JsonResponse
+     *
+     * @permission PrestationController::printFactureAssurancePaid
+     * @permission_desc Imprimer les factures déja réglées par assurance sur une période
+     */
+    public function printFactureAssurancePaid(Request $request)
+    {
+        $request->validate([
+            'assurance' => ['required', 'exists:assureurs,id'],
+            'start_date' => ['required', 'date'],
+            'end_date' => ['required', 'date'],
+        ]);
+
+        $assurance = Assureur::find($request->assurance);
+        $centre = Centre::find($request->header('centre'));
+
+        $startDate = Carbon::parse($request->input("start_date"))->startOfDay();
+        $endDate = Carbon::parse($request->input("end_date"))->endOfDay();
+
+        \Log::info('PrintFactureAssurancePaid - Dates reçues', [
+            'raw_start_date' => $request->input('start_date'),
+            'raw_end_date' => $request->input('end_date'),
+            'parsed_start_date' => $startDate->toDateTimeString(),
+            'parsed_end_date' => $endDate->toDateTimeString(),
+        ]);
+
+        $fileName = strtoupper('FACTURE-REGLE-DE-' . $assurance->nom . '-' . $startDate->format('d-m-Y') . '-' . $endDate->format('d-m-Y') . '.pdf');
+
+        $folderPath = 'storage/facture-assurance-paid';
+        $filePath   = $folderPath . '/' . $fileName;
+        $footer = 'pdfs.reports.factures.footer';
+
+        if (!is_dir($folderPath)) {
+            mkdir($folderPath, 0755, true);
+        }
+
+        $prestations = $this->filterAssurancePaid(
+            startDate: $startDate,
+            endDate: $endDate,
+            assurance: $request->input('assurance'),
+        )->get();
+
+
+        $factures = $prestations->flatMap(function ($prestation) use ($startDate, $endDate) {
+            return $prestation->factures->filter(function ($facture) use ($startDate, $endDate) {
+                return $facture->type == TypeRegulation::ASSURANCE->value
+                    && $facture->state === StateFacture::ASSURANCE
+                    && $facture->regulated_at
+                    && Carbon::parse($facture->regulated_at)->between($startDate, $endDate);
+            })->map(function ($facture) use ($prestation) {
+                $facture->setRelation('prestation', $prestation);
+                return $facture;
+            });
+        });
+
+        $specialRegulation = SpecialRegulation::where('assureur_id', $assurance->id)
+            ->where('centre_id', $centre->id)
+            ->whereDate('start_date', $request->input('start_date'))
+            ->whereDate('end_date', $request->input('end_date'))
+            ->first();
+
+        $centre = Centre::find($request->header('centre'));
+        $factureAssurance = FactureAssuranceByCentre::where('centre_id', $centre->id)->first();
+        $numero = FactureAssociate::max('id') ? FactureAssociate::max('id') + 1 : 1;
+        $numeroPad = Str::padLeft((string) $numero, 4, '0');
+        $month = now()->format('m');
+        $year = now()->format('Y');
+        $code = 'N°' . $numeroPad . $month . '/' . Str::upper($centre->reference) . '/' . $year;
+        $media = $centre->medias()->where('name', 'logo')->first();
+
+        $data = [
+            'assurance' => $assurance,
+            'prestations' => $prestations,
+            'factures' => $factures,
+            'code' => $code,
+            'centre' => $centre,
+            'logo' => $media ? 'storage/' . $media->path . '/' . $media->filename : '',
+            'startDate' => $startDate,
+            'endDate' => $endDate,
+            'factureAssurance' => $factureAssurance,
+            'specialRegulation' => $specialRegulation,
+        ];
+
+        try {
+            save_browser_shot_pdf(
+                view: 'pdfs.facture-assurance-paid.facture-assurance-paid',
+                data: $data,
+                folderPath: $folderPath,
+                path: $filePath,
+                footer: $footer,
+                margins: [15, 10, 15, 10]
+            );
+        } catch (CouldNotTakeBrowsershot | Throwable $e) {
+            Log::error($e->getMessage());
+            return response()->json([
+                'message' => __("Une erreur inattendue est survenue lors de la génération du PDF.")
+            ], 400);
+        }
+
+        $totalAmount = $factures->sum(function ($facture) {
+            return $facture->amount_pc / 100;
+        });
+
+        $facture = $assurance->factures()->create([
+            'start_date' => $request->input('start_date'),
+            'end_date' => $request->input('end_date'),
+            'code' => $code,
+            'amount' => $totalAmount,
+            'date' => now(),
+        ]);
+
+        $facture->medias()->create([
+            'name' => "FACTURE-ASSOCIATE",
+            'disk' => 'public',
+            'path' => 'facture-assurance/' . $fileName,
+            'filename' => $fileName,
+            'mimetype' => 'pdf',
+            'extension' => 'pdf',
+        ]);
+
+        $pdfContent = file_get_contents($filePath);
+        $base64 = base64_encode($pdfContent);
+
+        return response()->json([
+            'base64' => $base64,
+            'filename' => $fileName
         ]);
     }
 

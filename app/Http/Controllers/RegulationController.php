@@ -274,11 +274,6 @@ class RegulationController extends Controller
      */
     public function specialRegulation(Request $request)
     {
-        // 🔍 LOG DES DONNÉES ENVOYÉES PAR LE FRONT-END
-        \Log::info('--- DONNÉES FRONT-END SPECIAL REGULATION ---', [
-            'all' => $request->all(),
-            'factures' => $request->input('factures', []),
-        ]);
 
         $auth = auth()->user();
         $centreId = $request->header('centre');
@@ -301,7 +296,7 @@ class RegulationController extends Controller
             'facture_ids.*' => ['exists:factures,id'],
             'factures.*.id' => ['required', 'exists:factures,id'],
             'factures.*.items' => ['array'],
-            'factures.*.amount' => ['nullable'], // Modifié en nullable pour éviter l'échec de validation si absent
+            'factures.*.amount' => ['nullable'],
             'type' => ['required', 'in:client,assureur'],
             'total_ir_amount' => ['nullable', 'numeric'],
             'ir_rate' => ['nullable', 'numeric'],
@@ -432,13 +427,16 @@ class RegulationController extends Controller
                     'regulation_method_id' => $request->input('regulation_method_id'),
                     'amount' => $amountFacture,
                     'date' => now(),
-                    'type' => 2, // 2 = Assureur
+                    'type' => 2,
                     'comment' => $request->input('comment'),
                     'particular' => true,
                 ]);
 
                 $facture->update(array_merge([
                     'state' => StateFacture::ASSURANCE->value,
+                    'regulated_at' => now(),
+                    'is_regulated' => true,
+                    'regulated' => 2,
                 ], [
                     'amount_prorate' => $factureData['amount_prorate'] ?? 0,
                     'amount_contested' => $factureData['amount_contested'] ?? 0,
@@ -452,7 +450,6 @@ class RegulationController extends Controller
                     $facture->update(['contentieux' => true]);
                 }
 
-                // 🔹 items update pivot sécurisé
                 foreach ($factureData['items'] ?? [] as $item) {
                     $amount = ($item['amount'] ?? 0) * 100;
 
@@ -585,6 +582,9 @@ class RegulationController extends Controller
 
         $facture->update([
             'state' => StateFacture::ASSURANCE->value,
+            'regulated_at' => now(),
+            'is_regulated' => true,
+            'regulated' => 2,
         ]);
     }
 
@@ -737,120 +737,6 @@ class RegulationController extends Controller
 
 
 
-    /**
-     * @param Request $request
-     * @return JsonResponse
-     *
-     * @permission RegulationController::get_ventilate_assurance
-     * @permission_desc Imprimer les factures des assurances dejà réglées
-     */
-    public function get_ventilate_assurance(Request $request, $assureur_id)
-    {
-        try {
-            $centreId = $request->header('centre');
-
-            if (!$centreId) {
-                return response()->json([
-                    'message' => 'Centre non fourni'
-                ], 400);
-            }
-
-            $request->validate([
-                'start_date' => ['required', 'date'],
-                'end_date' => ['required', 'date'],
-            ]);
-
-            $query = SpecialRegulation::with([
-                'regulationMethod:id,name',
-                'assureur',
-                'centre',
-                'assurance.priseEnCharges.prestations.client',
-                'assurance.priseEnCharges.prestations.factures' => function ($q) {
-                    $q->where('state', StateFacture::ASSURANCE->value);
-                }
-            ])
-                ->where('assureur_id', $assureur_id)
-                ->where('centre_id', $centreId)
-                ->whereBetween('created_at', [
-                    $request->start_date . ' 00:00:00',
-                    $request->end_date . ' 23:59:59'
-                ])
-                ->whereHas('assurance.priseEnCharges.prestations', function ($p) {
-                    $p->whereHas('factures', function ($f) {
-                        $f->where('state', StateFacture::ASSURANCE->value);
-                    });
-                });
-
-            $result = $query->orderBy('created_at', 'ASC')->get();
-
-            if ($result->isEmpty()) {
-                return response()->json([
-                    'message' => 'Aucune donnée trouvée.'
-                ], 404);
-            }
-
-            $centre = Centre::find($centreId);
-            $media = $centre?->medias()->where('name', 'logo')->first();
-            $assureur = Assureur::find($assureur_id);
-
-            $data = [
-                'result' => $result,
-                'logo' => $media ? 'storage/' . $media->path . '/' . $media->filename : '',
-                'centre' => $centre,
-                'assureur' => $assureur,
-                'start' => $request->start_date,
-                'end' => $request->end_date
-            ];
-            $fileName = 'etats-des-factures-assurances-reglees' . now()->format('YmdHis') . '.pdf';
-            $folderPath = 'storage/etats-des-factures-assurances-reglees';
-            $filePath = $folderPath . '/' . $fileName;
-
-            if (!file_exists($folderPath)) {
-                mkdir($folderPath, 0755, true);
-            }
-            save_browser_shot_pdf(
-                view: 'pdfs.etats-des-factures-assurances-reglees.etats-des-factures-assurances-reglees',
-                data: $data,
-                folderPath: $folderPath,
-                path: $filePath,
-                margins: [15, 10, 15, 10],
-                footer: 'pdfs.reports.factures.footer',
-                format: 'A5',
-                direction: 'landscape'
-            );
-
-            if (!file_exists($filePath)) {
-                return response()->json([
-                    'message' => 'Le fichier PDF n\'a pas été généré.'
-                ], 500);
-            }
-
-            // 🔹 Encodage
-            $pdfContent = file_get_contents($filePath);
-            $base64 = base64_encode($pdfContent);
-
-            return response()->json([
-                'result' => $result,
-                'base64' => $base64,
-                'url' => $filePath,
-                'filename' => $fileName,
-            ], 200);
-
-        } catch (\Illuminate\Validation\ValidationException $e) {
-
-            return response()->json([
-                'error' => 'Erreur de validation',
-                'messages' => $e->errors()
-            ], 422);
-
-        } catch (\Exception $e) {
-
-            return response()->json([
-                'error' => 'Une erreur est survenue',
-                'message' => $e->getMessage()
-            ], 500);
-        }
-    }
 
 
 }

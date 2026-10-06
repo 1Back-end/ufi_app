@@ -57,7 +57,8 @@ class Prestation extends Model
         'result_delivered_at',
         'is_result_emitted',
         'cancelled_at',
-        'cancelled_by'
+        'cancelled_by',
+        'regulated'
     ];
 
     protected function casts(): array
@@ -350,9 +351,8 @@ class Prestation extends Model
 
         $factureFilter = function ($q) use ($startDate, $endDate, $search) {
             $q->where('factures.type', 2)
-                ->whereIn('factures.state', [StateFacture::IN_PROGRESS->value, StateFacture::CREATE->value])
+                ->whereIn('factures.state', [StateFacture::IN_PROGRESS->value,StateFacture::CREATE->value])
                 ->when($search, fn($q) => $q->where('factures.code', 'like', "%$search%"))
-                // Strictement entre les deux dates
                 ->whereBetween('factures.date_fact', [$startDate, $endDate])
                 ->orderBy('factures.date_fact', 'asc');
         };
@@ -366,6 +366,9 @@ class Prestation extends Model
             ->when($assurance, fn($q) => $q->whereHas('priseCharge.assureur', fn($q) => $q->where('id', $assurance)))
             ->when($payableBy, fn($q) => $q->where('payable_by', $payableBy));
     }
+
+
+
 
 
 //    public function scopeFilterInProgress(

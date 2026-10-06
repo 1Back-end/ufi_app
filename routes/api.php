@@ -257,11 +257,13 @@ Route::middleware(['activity'])->group(function () {
         Route::apiResource('regulations', RegulationController::class)->except(['show', 'index', 'destroy']);
         Route::post('/regulations/{regulation}', [RegulationController::class, 'cancel']);
         Route::get("/factures/in-progress", [PrestationController::class, 'getFacturesInProgress']);
+        Route::get("/factures/paid", [PrestationController::class, 'getFacturesPaid']);
         Route::post('/factures/calculate', [PrestationController::class, 'calculateFactureAmounts']);
         Route::post('/special-regulations', [RegulationController::class, 'specialRegulation']);
         Route::post('/factures/regulates_items_for_facture', [RegulationController::class, 'updateSpecialRegulationItems']);
         Route::post('/ignore-factures', [RegulationController::class, 'ignoreFacture']);
         Route::post('/print-facture-assurance', [PrestationController::class, 'printFactureAssurance']);
+        Route::post('/print-facture-assurance-paid', [PrestationController::class, 'printFactureAssurancePaid']);
         Route::post('/ventilate_assurance/{assureur_id}', [RegulationController::class, 'get_ventilate_assurance']);
 
 
@@ -438,6 +440,7 @@ Route::middleware(['activity'])->group(function () {
         Route::apiResource('disease_diagnostics', MaladieTypeDiagnosticController::class);
         Route::get('consultants/duplicates', [ConsultantController::class, 'getDuplicates']);
         Route::get('clients_duplicates', [ClientController::class, 'getDuplicates']);
+        Route::post('clients/merge_duplicates', [ClientController::class, 'mergeDuplicates']);
 
         Route::apiResource('consultants', ConsultantController::class);
         Route::put('consultants/{id}/status', [\App\Http\Controllers\ConsultantController::class, 'updateStatus']);
