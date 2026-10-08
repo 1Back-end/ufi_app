@@ -470,6 +470,71 @@ class DashboardController extends Controller
         ], 200);
     }
 
+
+    /**
+     * @param Request $request
+     * @return JsonResponse
+     *
+     * @permission DashboardController::get_paid_consultant_payments
+     * @permission_desc Suivi et statistiques des consultants payé et non payé
+     */
+    public function get_paid_consultant_payments(Request $request)
+    {
+        $centreId = $request->header('centre');
+
+        if (!$centreId) {
+            return response()->json([
+                'message' => 'Centre non fourni'
+            ], 400);
+        }
+
+        $timezone = config('app.timezone', 'UTC');
+
+        $startDate = $request->input('start_date')
+            ? Carbon::parse($request->input('start_date'), $timezone)->startOfDay()
+            : Carbon::yesterday($timezone)->startOfDay();
+
+        $endDate = $request->input('end_date')
+            ? Carbon::parse($request->input('end_date'), $timezone)->endOfDay()
+            : Carbon::yesterday($timezone)->endOfDay();
+
+
+        $query = Prestation::where('centre_id', $centreId)
+            ->whereBetween('created_at', [$startDate, $endDate]);
+
+        $totalCount = (clone $query)->count();
+
+        $paidQuery = (clone $query)->where('consultant_amount_status', 'paid');
+        $countPaid = $paidQuery->count();
+        $amountPaid = $paidQuery->sum('consultant_amount');
+
+        $pendingQuery = (clone $query)->where('consultant_amount_status', 'pending');
+        $countPending = $pendingQuery->count();
+        $amountPending = $pendingQuery->sum('consultant_amount');
+
+        $prestations = $query->with('consultant:id,nomcomplet')->get();
+
+        return response()->json([
+            'message' => 'Statistiques des paiements consultants récupérées avec succès.',
+            'periode' => [
+                'start_date' => $startDate->toDateTimeString(),
+                'end_date'   => $endDate->toDateTimeString(),
+            ],
+            'stats' => [
+                'total_prestations' => $totalCount,
+                'paid' => [
+                    'count' => $countPaid,
+                    'total_amount' => (double) $amountPaid,
+                ],
+                'pending' => [
+                    'count' => $countPending,
+                    'total_amount' => (double) $amountPending,
+                ],
+            ],
+            'data' => $prestations
+        ], 200);
+    }
+
     /**
      * @param Request $request
      * @return JsonResponse
