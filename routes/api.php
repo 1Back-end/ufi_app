@@ -466,6 +466,7 @@ Route::middleware(['activity'])->group(function () {
         Route::get('/dashboard/consultant_payments', [DashboardController::class, 'getConsultantPaymentsByDate']);
         Route::get('/dashboard/assurance_summary', [DashboardController::class, 'get_facture_for_assurance']);
         Route::get('/dashboard/partenaire_summary', [DashboardController::class, 'get_facture_for_partner']);
+        Route::get('/dashboard/consultants/payments_stats', [DashboardController::class, 'get_paid_consultant_payments']);
 
         Route::controller(PriseEnChargeController::class)->prefix('prise_en_charges')->group(function () {
             Route::get('/list', 'index');

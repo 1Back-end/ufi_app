@@ -2133,14 +2133,16 @@ class CaisseController extends Controller
             $startDate = Carbon::parse($dateInput, $timezone)->startOfDay();
             $endDate = Carbon::parse($dateInput, $timezone)->endOfDay();
         } else {
-            $startDate = Carbon::now($timezone)->startOfMonth()->startOfDay();
-            $endDate = Carbon::now($timezone)->endOfMonth()->endOfDay();
+            // Par défaut : Journée d'hier (N-1)
+            $startDate = Carbon::yesterday($timezone)->startOfDay();
+            $endDate = Carbon::yesterday($timezone)->endOfDay();
         }
 
         $stats = DB::table('transfert_fonds_tampons')
             ->where('centre_id', $centreId)
             ->whereBetween('created_at', [$startDate, $endDate])
             ->select(
+                DB::raw("DATE(created_at) as date"),
                 DB::raw("CAST(COUNT(id) AS UNSIGNED) as total_operations"),
                 DB::raw("CAST(COALESCE(SUM(montant_send), 0) AS DOUBLE) as total_general"),
 
@@ -2152,10 +2154,12 @@ class CaisseController extends Controller
                 DB::raw("CAST(COALESCE(SUM(CASE WHEN status = 'pending' THEN montant_send ELSE 0 END), 0) AS DOUBLE) as total_en_attente"),
                 DB::raw("CAST(COALESCE(SUM(CASE WHEN status = 'cancelled' THEN montant_send ELSE 0 END), 0) AS DOUBLE) as total_annule")
             )
-            ->first();
+            ->groupBy(DB::raw("DATE(created_at)"))
+            ->orderBy('date', 'ASC')
+            ->get();
 
         return response()->json([
-            'message' => 'Statistiques de caisse récupérées avec succès.',
+            'message' => 'Statistiques de caisse par jour récupérées avec succès.',
             'centre_id' => $centreId,
             'periode' => [
                 'start_date' => $startDate->toDateTimeString(),

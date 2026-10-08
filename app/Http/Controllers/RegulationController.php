@@ -274,7 +274,6 @@ class RegulationController extends Controller
      */
     public function specialRegulation(Request $request)
     {
-
         $auth = auth()->user();
         $centreId = $request->header('centre');
 
@@ -282,8 +281,7 @@ class RegulationController extends Controller
             'regulation_method_id' => ['required', 'exists:regulation_methods,id'],
             'amount' => ['required'],
             'amount_waiting' => ['required'],
-            'assureur_id' => ['required_if:client_id,null', 'exists:assureurs,id'],
-            'client_id' => ['required_if:assureur_id,null', 'exists:clients,id'],
+            'assureur_id' => ['required', 'exists:assureurs,id'],
             'start_date' => ['required', 'date'],
             'end_date' => ['required', 'date'],
             'number_piece' => ['required'],
@@ -297,7 +295,6 @@ class RegulationController extends Controller
             'factures.*.id' => ['required', 'exists:factures,id'],
             'factures.*.items' => ['array'],
             'factures.*.amount' => ['nullable'],
-            'type' => ['required', 'in:client,assureur'],
             'total_ir_amount' => ['nullable', 'numeric'],
             'ir_rate' => ['nullable', 'numeric'],
             'apply_tva' => ['nullable', 'boolean'],
@@ -316,10 +313,9 @@ class RegulationController extends Controller
 
         DB::beginTransaction();
         try {
-            $regulateType = $request->type == 'client' ? Client::class : Assureur::class;
-            $regulateId = $request->type == 'client' ? $request->input('client_id') : $request->input('assureur_id');
+            $assureurId = $request->input('assureur_id');
 
-            $existing = FacturationAssurance::where('assurance_id', $regulateId)
+            $existing = FacturationAssurance::where('assurance_id', $assureurId)
                 ->where(function ($q) use ($request) {
                     $start = \Carbon\Carbon::parse($request->start_date)->format('Y-m-d H:i:s');
                     $end = \Carbon\Carbon::parse($request->end_date)->format('Y-m-d H:i:s');
@@ -337,11 +333,12 @@ class RegulationController extends Controller
                 \Log::info('Facturation déjà existante pour cette période, ignorée.');
             }
 
+            // Insertion dans SpecialRegulation en ciblant explicitement l'assureur
             SpecialRegulation::create([
-                'assureur_id' => $request->input('assureur_id'),
+                'assureur_id' => $assureurId,
                 'centre_id' => $centreId,
-                'regulation_id' => $regulateId,
-                'regulation_type' => $regulateType,
+                'regulation_id' => $assureurId, // On affecte l'ID de l'assureur pour éviter le champ null
+                'regulation_type' => Assureur::class,
                 'regulation_method_id' => $request->input('regulation_method_id'),
                 'amount' => $request->input('amount'),
                 'amount_waiting' => $request->input('amount_waiting'),
@@ -371,40 +368,30 @@ class RegulationController extends Controller
                 'net_to_pay' => $request->input('net_to_pay'),
                 'created_by' => $auth->id,
                 'updated_by' => $auth->id,
-                'assurance_id' => $regulateId,
+                'assurance_id' => $assureurId,
             ]);
 
             if ($request->input('allFacture')) {
                 $prestations = Prestation::filterInProgress(
                     startDate: $request->input('start_date'),
                     endDate: $request->input('end_date'),
-                    assurance: $request->input('assureur_id'),
-                    payableBy: $request->input('client_id')
+                    assurance: $assureurId,
+                    payableBy: null
                 )->get();
 
                 $processedFactures = [];
 
                 foreach ($prestations as $prestation) {
-
                     $facture = $prestation->factures()
                         ->where('factures.type', 2)
                         ->where('factures.state', StateFacture::IN_PROGRESS->value)
                         ->first();
 
-                    if (!$facture) {
-                        continue;
-                    }
-
-                    if (in_array($facture->id, $request->input('facture_ids', []))) {
-                        continue;
-                    }
-
-                    if (isset($processedFactures[$facture->id])) {
+                    if (!$facture || in_array($facture->id, $request->input('facture_ids', [])) || isset($processedFactures[$facture->id])) {
                         continue;
                     }
 
                     $this->processFactureRegulation($facture, $request);
-
                     $this->updatePrestationPivot($prestation, $facture);
 
                     $processedFactures[$facture->id] = true;
@@ -467,8 +454,6 @@ class RegulationController extends Controller
                         $relation->updateExistingPivot($item['id'], [
                             'amount_regulate' => $amount
                         ]);
-                    } else {
-                        \Log::warning("Type prestation non géré: {$facture->prestation->type}");
                     }
                 }
             }

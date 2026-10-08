@@ -47,6 +47,12 @@ class AuthenticatedSessionController extends Controller
             abilities: $permissions,
             expiresAt: now()->addMinutes(config('sanctum.expiration'))
         );
+        $now = now();
+        $user->update([
+            'connected'        => true,
+            'last_connected'   => $now,
+            'first_connection' => $user->last_connected ?? $now,
+        ]);
 
         $user->increment('connexion_counter');
 
@@ -121,19 +127,12 @@ class AuthenticatedSessionController extends Controller
             ->value('value') ?? 30;
 
         $auth = auth()->user();
-        $now = now();
+
         if ($auth) {
-            $now = now();
-
-            $updateData = [
+            $auth->update([
                 'connected'      => true,
-                'last_connected' => $now,
-            ];
-            if (!$auth->first_connection) {
-                $updateData['first_connection'] = $now;
-            }
-
-            $auth->update($updateData);
+                'last_connected' => now(),
+            ]);
         }
 
         return response()->json([
