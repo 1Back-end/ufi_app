@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\StateFacture;
 use App\Enums\TypePrestation;
 use App\Models\ConsultantPaymentPrestation;
 use App\Models\Facture;
@@ -12,6 +13,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response;
 /**
  * @permission_category Gestion du tableau de bord d'activité
@@ -482,22 +484,13 @@ class DashboardController extends Controller
     {
         $centreId = $request->header('centre');
 
-        if (!$centreId) {
-            return response()->json([
-                'message' => 'Centre non fourni'
-            ], 400);
-        }
+        $startDate = $request->filled('start_date')
+            ? Carbon::parse($request->input('start_date'))->startOfDay()
+            : Carbon::yesterday()->startOfDay();
 
-        $timezone = config('app.timezone', 'UTC');
-
-        $startDate = $request->input('start_date')
-            ? Carbon::parse($request->input('start_date'), $timezone)->startOfDay()
-            : Carbon::yesterday($timezone)->startOfDay();
-
-        $endDate = $request->input('end_date')
-            ? Carbon::parse($request->input('end_date'), $timezone)->endOfDay()
-            : Carbon::yesterday($timezone)->endOfDay();
-
+        $endDate = $request->filled('end_date')
+            ? Carbon::parse($request->input('end_date'))->endOfDay()
+            : Carbon::yesterday()->endOfDay();
 
         $query = Prestation::where('centre_id', $centreId)
             ->whereBetween('created_at', [$startDate, $endDate]);
@@ -508,7 +501,7 @@ class DashboardController extends Controller
         $countPaid = $paidQuery->count();
         $amountPaid = $paidQuery->sum('consultant_amount');
 
-        $pendingQuery = (clone $query)->where('consultant_amount_status', 'pending');
+        $pendingQuery = (clone $query)->where('consultant_amount_status', 'available');
         $countPending = $pendingQuery->count();
         $amountPending = $pendingQuery->sum('consultant_amount');
 
@@ -546,13 +539,13 @@ class DashboardController extends Controller
     {
         $centreId = $request->header('centre');
 
-        $startDate = $request->input('start_date')
+        $startDate = $request->filled('start_date')
             ? Carbon::parse($request->input('start_date'))->startOfDay()
-            : Carbon::today()->startOfDay();
+            : Carbon::yesterday()->startOfDay();
 
-        $endDate = $request->input('end_date')
+        $endDate = $request->filled('end_date')
             ? Carbon::parse($request->input('end_date'))->endOfDay()
-            : Carbon::today()->endOfDay();
+            : Carbon::yesterday()->endOfDay();
 
         $result = Prestation::where('centre_id', $centreId)
             ->whereBetween('created_at', [$startDate, $endDate])
@@ -575,7 +568,7 @@ class DashboardController extends Controller
 
                 return [
                     'partenaire_id' => $partenaire?->id ?? $payableById,
-                    'partenaire_nom' => $partenaire?->nomcomplet_client ?? $partenaire?->nom_cli ?? 'Partenaire Inconnu',
+                    'partenaire_nom' => $partenaire?->nomcomplet_client ?? $partenaire?->nom_cli ?? '',
                     'nombre_factures' => $factures->count(),
                     'montant_total' => $factures->sum('amount')
                 ];
@@ -586,5 +579,83 @@ class DashboardController extends Controller
             'start_date' => $startDate->toDateString(),
             'end_date' => $endDate->toDateString(),
         ], 200);
+    }
+
+    /**
+     * @param Request $request
+     * @return JsonResponse
+     *
+     * @permission DashboardController::getInsuranceRecoveriesKpi
+     * @permission_desc Suivi et statistiques sur le recouvrements des factures assurances
+     */
+    public function getInsuranceRecoveriesKpi(Request $request)
+    {
+        $centreId = $request->header('centre');
+
+        $startDate = $request->filled('start_date')
+            ? Carbon::parse($request->input('start_date'))->startOfDay()
+            : Carbon::yesterday()->startOfDay();
+
+        $endDate = $request->filled('end_date')
+            ? Carbon::parse($request->input('end_date'))->endOfDay()
+            : Carbon::yesterday()->endOfDay();
+
+        $facturesQuery = Facture::where('centre_id', $centreId)
+            ->whereBetween('regulated_at', [$startDate, $endDate]);
+
+        $totalFacturesCount = $facturesQuery->count();
+
+        $totalFacturesAmount = $facturesQuery->sum('amount_pc') / 100;
+        $totalRecouvrementAmount = $facturesQuery->sum('amount_paid');
+
+        $totalContentieuxAmount = $totalFacturesAmount - $totalRecouvrementAmount;
+
+        $tauxRecouvrement = $totalFacturesAmount > 0
+            ? round(($totalRecouvrementAmount / $totalFacturesAmount) * 100, 2)
+            : 0;
+
+        $chartData = Facture::where('centre_id', $centreId)
+            ->whereBetween('regulated_at', [$startDate, $endDate])
+            ->selectRaw('DATE(regulated_at) as date, COUNT(*) as count, SUM(amount_pc) as total_amount, SUM(amount_paid) as total_paid')
+            ->groupByRaw('DATE(regulated_at)')
+            ->orderBy('date')
+            ->get()
+            ->map(function ($item) {
+                $item->total_amount = (double) ($item->total_amount / 100);
+                $item->total_paid = (double) ($item->total_paid);
+                return $item;
+            });
+
+        return response()->json([
+            'message' => 'KPI des factures et recouvrements récupéré avec succès.',
+            'periode' => [
+                'start_date' => $startDate->toDateTimeString(),
+                'end_date'   => $endDate->toDateTimeString(),
+            ],
+            'kpi' => [
+                'total_factures_count' => $totalFacturesCount,
+                'total_factures_amount' => (double) $totalFacturesAmount,
+                'total_recouvrement_amount' => (double) $totalRecouvrementAmount,
+                'total_contentieux_amount' => (double) $totalContentieuxAmount,
+                'taux_recouvrement' => $tauxRecouvrement,
+            ],
+            'chart_data' => $chartData,
+        ], 200);
+    }
+
+    public function get_statics_by_users_in_labo(Request $request)
+    {
+        $startDate = $request->filled('start_date')
+            ? Carbon::parse($request->input('start_date'))->startOfDay()
+            : Carbon::yesterday()->startOfDay();
+
+        $endDate = $request->filled('end_date')
+            ? Carbon::parse($request->input('end_date'))->endOfDay()
+            : Carbon::yesterday()->endOfDay();
+
+        $centreId = $request->header('centre');
+
+        $query = Prestation::where('centre_id', $centreId)
+            ->whereBetween('created_at', [$startDate, $endDate]);
     }
 }

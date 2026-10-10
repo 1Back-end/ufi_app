@@ -27,6 +27,7 @@ class Regulation extends Model
         'state',
         'particular',
         'phone',
+        'centre_id',
         'reference',
     ];
 
@@ -66,5 +67,9 @@ class Regulation extends Model
     public function updatedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'updated_by');
+    }
+    public function centre(): BelongsTo
+    {
+        return $this->belongsTo(Centre::class, 'centre_id');
     }
 }

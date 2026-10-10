@@ -10,39 +10,42 @@
     </style>
 
     <style>
-        @page {
-            margin: 5mm 5mm 8mm 5mm; /* 🔥 réduit les marges PDF */
-        }
-
-        html, body {
-            margin: 0 !important;
-            padding: 0 !important;
-            font-family: "Times New Roman", serif;
+        body, html {
+            height: 100%;
+            margin: 0;
+            padding: 0;
             font-size: 3mm !important;
-            width: 100%;
+            font-family: "Times New Roman", serif;
         }
 
         .print-wrapper {
-            margin: 0 !important;
-            padding: 0 !important;
-            width: 100%;
+            position: relative;
         }
 
-        h1, h2, h3, h4, h5, h6 {
-            margin: 2px 0 !important;
-            padding: 0 !important;
+        .print-footer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 10mm;
+            text-align: center;
+        }
+
+        .page-number:before {
+            content: "Page " counter(page) " / " counter(pages);
+        }
+
+        h1 {
+            font-size: 5mm !important;
         }
 
         table {
+            page-break-inside: auto;
             width: 100%;
-            border-collapse: collapse;
-            margin: 0 !important;
-            padding: 0 !important;
-            font-size: 3mm !important;
         }
 
         thead {
-            display: table-header-group;
+            display: table-header-group; /* Garde l'en-tête sur chaque page */
         }
 
         tfoot {
@@ -51,24 +54,11 @@
 
         tr {
             page-break-inside: avoid;
-        }
-
-        td, th {
-            padding: 2px 3px !important; /* 🔥 réduit espace cellules */
-        }
-
-        .print-footer {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            height: 8mm;
-            text-align: center;
-            font-size: 3mm;
+            page-break-after: auto;
         }
 
         img {
-            max-width: 100%;
+            width: auto;
             height: auto;
         }
     </style>
@@ -117,7 +107,7 @@
 
 
     <h4 class="fs-3 fw-bold text-center text-uppercase">
-        ÉTAT DES PRESTATIONS DU CONSULTANT {{ $consultant->nomcomplet ?? '-' }}
+        {{ isset($consultant) && $consultant ? 'ÉTAT DES PRESTATIONS DU CONSULTANT ' . $consultant->nomcomplet : 'ÉTATS DES PRESTATIONS DES CONSULTATIONS NON RÈGLES' }}
     </h4>
 
     <p class="fst-italic text-end">Date d'impression: {{ now()->format('d/m/Y H:i') }}</p>
@@ -131,7 +121,7 @@
     @endif
 
     <div class="mt-2 w-100">
-        <table class="table table-bordered table-striped table-sm" style="font-size: 10px;">
+        <table  class="table table-bordered table-striped text-center" style="font-size: 12px;">
             <thead>
             <tr class="bg-dark text-white">
                 <th>#</th>
@@ -139,7 +129,6 @@
                 <th>Patient</th>
                 <th>Montant prestation</th>
                 <th>Montant consultant</th>
-                <th>Elements</th>
                 <th>Prise en charge</th>
                 <th>Client associé</th>
             </tr>
@@ -159,33 +148,6 @@
                     <td>{{ \App\Helpers\FormatPrice::format(optional($facture)->amount) }}</td>
                     <td>
                         {{ \App\Helpers\FormatPrice::format($prestation->consultant_amount) }}
-                    </td>
-                    <td>
-                        <ul class="list-unstyled">
-                            @foreach($prestation->actes as $acte)
-                                <li>- {{ $acte->name }}</li>
-                            @endforeach
-
-                            @foreach($prestation->soins as $soin)
-                                <li>- {{ $soin->name }}</li>
-                            @endforeach
-
-                            @foreach($prestation->consultations as $consultation)
-                                <li>- {{ $consultation->name }}</li>
-                            @endforeach
-
-                            @foreach($prestation->hospitalisations as $hospitalisation)
-                                <li>- {{ $hospitalisation->name }}</li>
-                            @endforeach
-
-                            @foreach($prestation->products as $product)
-                                <li>- {{ $product->name }}</li>
-                            @endforeach
-
-                            @foreach($prestation->examens as $examen)
-                                <li>- {{ $examen->name }}</li>
-                            @endforeach
-                        </ul>
                     </td>
                     <td style="width: 10% !important;">
                         @if($prestation->priseCharge)
