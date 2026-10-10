@@ -27,6 +27,23 @@ enum TypePrestation: int
         ];
     }
 
+    public static function forCentre(?string $centreReference): array
+    {
+        $ref = strtoupper(trim($centreReference ?? ''));
+
+        if (in_array($ref, ['GTLABO', 'AM_TSG'])) {
+            return [
+                self::LABORATOIR->value => 'Examen de laboratoire',
+                self::CAMPAGNE->value => 'Campagne',
+            ];
+        }
+        return [
+            self::ACTES->value => 'Actes',
+            self::CONSULTATIONS->value => 'Consultations',
+            self::HOSPITALISATION->value => 'Hospitalisation',
+        ];
+    }
+
     public static function label($value): string
     {
         return match ($value) {

@@ -109,7 +109,6 @@ class AuthenticatedSessionController extends Controller
 
         $permissions = load_permissions($user);
 
-        // Recharge les rôles
         $roles = $user->roles()->pluck('name');
 
         return response()->json([

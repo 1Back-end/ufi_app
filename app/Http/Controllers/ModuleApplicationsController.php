@@ -276,10 +276,22 @@ class ModuleApplicationsController extends Controller
     }
 
 
-    public function get_permissions_by_module($id)
+    public function get_permissions_by_module($id, Request $request)
     {
-        // Récupère le module avec ses permissions
-        $module = ModuleApplications::with('permissions')->where('id', $id)->first();
+        $centreId = $request->header('centre');
+        $moduleQuery = ModuleApplications::where('id', $id);
+
+        $moduleQuery->with(['permissions' => function ($query) use ($centreId) {
+            $query->where('permissions.active', true);
+
+            if ($centreId) {
+                $query->whereHas('centres', function ($q) use ($centreId) {
+                    $q->where('centres.id', $centreId);
+                });
+            }
+        }]);
+
+        $module = $moduleQuery->first();
 
         if (!$module) {
             return response()->json([
@@ -287,10 +299,15 @@ class ModuleApplicationsController extends Controller
             ], 404);
         }
 
+        $permissions = collect($module->permissions)->tap(function ($collection) {
+            return $collection->values();
+        });
+
         return response()->json([
             'module_id' => $module->id,
             'module_name' => $module->name,
-            'permissions' => $module->permissions, // Retourne toutes les permissions associées
+            'permissions_count' => $permissions->count(),
+            'permissions' => $permissions->values(),
         ]);
     }
 

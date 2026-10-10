@@ -467,7 +467,7 @@ Route::middleware(['activity'])->group(function () {
         Route::get('/dashboard/assurance_summary', [DashboardController::class, 'get_facture_for_assurance']);
         Route::get('/dashboard/partenaire_summary', [DashboardController::class, 'get_facture_for_partner']);
         Route::get('/dashboard/consultants/payments_stats', [DashboardController::class, 'get_paid_consultant_payments']);
-
+        Route::get('/dashboard/insurance_recoveries', [DashboardController::class, 'getInsuranceRecoveriesKpi']);
         Route::controller(PriseEnChargeController::class)->prefix('prise_en_charges')->group(function () {
             Route::get('/list', 'index');
             Route::post('/create', 'store');
@@ -759,12 +759,11 @@ Route::middleware(['activity'])->group(function () {
         // Gestion des commissions des consultants
         Route::get('/get_all_prestations_type', [ConsultantPrestationShareController::class, 'get_all_prestations_type']);
         Route::post('/save_commisions_for_consultants', [ConsultantPrestationShareController::class, 'save_commisions_for_consultants']);
-        Route::get('commissions/{consultant_id}/paiements', [ConsultantPrestationShareController::class, 'get_all_paiement_for_consultants']);
+        Route::get('commissions/paiements', [ConsultantPrestationShareController::class, 'get_all_paiement_for_consultants']);
         Route::post('commissions/paiement', [ConsultantPrestationShareController::class, 'store_paiement_consultant']);
         Route::post('commissions/store_paiement_consultant_before_center', [ConsultantPrestationShareController::class, 'store_paiement_consultant_before_center']);
-        Route::get('commissions/{consultant_id}/consultants_paid', [ConsultantPrestationShareController::class, 'get_consultant_paid']);
-        Route::get('commissions/{consultant_id}/consultants_not_paid', [ConsultantPrestationShareController::class, 'get_consultant_not_paid']);
-
+        Route::get('commissions/consultants_paid', [ConsultantPrestationShareController::class, 'get_consultant_paid']);
+        Route::get('commissions/consultants_not_paid', [ConsultantPrestationShareController::class, 'get_consultant_not_paid']);
         Route::get('prestations_by_types', [StatistiqueController::class, 'statsPrestationsParType']);
 
 

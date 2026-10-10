@@ -160,7 +160,7 @@ class ConsultantPrestationShareController extends Controller
      * @permission ConsultantPrestationShareController::get_all_paiement_for_consultants
      * @permission_desc Afficher la liste des prestations d'un consultant sur une période
      */
-    public function get_all_paiement_for_consultants(Request $request, $consultant_id)
+    public function get_all_paiement_for_consultants(Request $request)
     {
         $perPage = $request->input('limit', 25);
         $page = $request->input('page', 1);
@@ -173,14 +173,13 @@ class ConsultantPrestationShareController extends Controller
             ], 400);
         }
 
-        // ✅ sécurisation des dates
         $start_date = $request->input('start_date')
             ? \Carbon\Carbon::parse($request->input('start_date'))->startOfDay()
-            : null;
+            : \Carbon\Carbon::today()->startOfDay();
 
         $end_date = $request->input('end_date')
             ? \Carbon\Carbon::parse($request->input('end_date'))->endOfDay()
-            : null;
+            : \Carbon\Carbon::today()->endOfDay();
 
         $query = Prestation::with([
             'centre',
@@ -197,14 +196,16 @@ class ConsultantPrestationShareController extends Controller
             'prestationables'
         ])
             ->where('centre_id', $centreId)
-            ->where('consultant_id', $consultant_id)
             ->where('consultant_amount_status', 'available')
             ->where('consultant_amount', '>', 0);
 
-        // ✅ filtre date seulement si fourni
-        if ($start_date && $end_date) {
-            $query->whereBetween('created_at', [$start_date, $end_date]);
+        $consultantId = $request->input('consultant_id');
+        if (!empty($consultantId)) {
+            $query->where('consultant_id', $consultantId);
         }
+
+        $query->whereBetween('created_at', [$start_date, $end_date]);
+
         $totalConsultantAmount = (clone $query)->sum('consultant_amount');
 
         $results = $query->latest()->paginate(
@@ -445,7 +446,7 @@ class ConsultantPrestationShareController extends Controller
      * @permission ConsultantPrestationShareController::get_consultant_paid
      * @permission_desc Imprimer l'état des prestations d'un consultant déjà reglées
      */
-    public function get_consultant_paid(Request $request, $consultant_id)
+    public function get_consultant_paid(Request $request)
     {
         $centreId = $request->header('centre');
 
@@ -473,18 +474,16 @@ class ConsultantPrestationShareController extends Controller
             'prestationables'
         ])
             ->where('centre_id', $centreId)
-            ->where('consultant_id', $consultant_id)
             ->where('consultant_amount_status', 'paid')
             ->where('consultant_amount', '>', 0)
             ->whereBetween('created_at', [$start_date, $end_date]);
 
-        $result = $query->orderBy('created_at', 'ASC')->get();
+        $consultantId = $request->input('consultant_id');
+        if (!empty($consultantId)) {
+            $query->where('consultant_id', $consultantId);
+        }
 
-        logger()->info('📊 CONSULTANT PAID RESULT DEBUG', [
-            'count' => $result->count(),
-            'ids' => $result->pluck('id'),
-            'first_item' => $result->first(),
-        ]);
+        $result = $query->orderBy('created_at', 'ASC')->get();
 
         if ($result->isEmpty()) {
             return response()->json([
@@ -494,7 +493,8 @@ class ConsultantPrestationShareController extends Controller
 
         $centre = Centre::find($centreId);
         $media = $centre?->medias()->where('name', 'logo')->first();
-        $consultant = Consultant::find($consultant_id);
+
+        $consultant = $consultantId ? Consultant::find($consultantId) : null;
 
         $data = [
             'result' => $result,
@@ -523,8 +523,6 @@ class ConsultantPrestationShareController extends Controller
                 path: $filePath,
                 margins: [5, 5, 5, 5],
                 footer: $footer,
-                format: 'A5',
-                direction: 'landscape'
             );
         }
 
@@ -534,7 +532,6 @@ class ConsultantPrestationShareController extends Controller
             ], 500);
         }
 
-        // 🔹 Base64
         $pdfContent = file_get_contents($filePath);
         $base64 = base64_encode($pdfContent);
 
@@ -551,7 +548,7 @@ class ConsultantPrestationShareController extends Controller
      * @permission ConsultantPrestationShareController::get_consultant_not_paid
      * @permission_desc Imprimer l'état des prestations d'un consultant non reglées
      */
-    public function get_consultant_not_paid(Request $request, $consultant_id)
+    public function get_consultant_not_paid(Request $request)
     {
         $centreId = $request->header('centre');
 
@@ -580,14 +577,18 @@ class ConsultantPrestationShareController extends Controller
             'prestationables'
         ])
             ->where('centre_id', $centreId)
-            ->where('consultant_id', $consultant_id)
             ->whereIn('consultant_amount_status', ['available', 'pending'])
             ->where('consultant_amount', '>', 0)
             ->whereBetween('created_at', [$start_date, $end_date]);
 
+        $consultantId = $request->input('consultant_id');
+        if (!empty($consultantId)) {
+            $query->where('consultant_id', $consultantId);
+        }
+
         $result = $query->orderBy('created_at', 'ASC')->get();
 
-        logger()->info('📊 CONSULTANT PAID RESULT DEBUG', [
+        logger()->info('📊 CONSULTANT NOT PAID RESULT DEBUG', [
             'count' => $result->count(),
             'ids' => $result->pluck('id'),
             'first_item' => $result->first(),
@@ -601,7 +602,7 @@ class ConsultantPrestationShareController extends Controller
 
         $centre = Centre::find($centreId);
         $media = $centre?->medias()->where('name', 'logo')->first();
-        $consultant = Consultant::find($consultant_id);
+        $consultant = $consultantId ? Consultant::find($consultantId) : null;
 
         $data = [
             'result' => $result,
@@ -630,8 +631,6 @@ class ConsultantPrestationShareController extends Controller
                 path: $filePath,
                 margins: [5, 5, 5, 5],
                 footer: $footer,
-                format: 'A5',
-                direction: 'landscape'
             );
         }
 

@@ -182,12 +182,17 @@ class ExtractPermissions extends Command
         'VIEW_DATA_FOR_CONSULTANTS' => [
             'description' => 'Accéder au menu principal des consultants',
             'category'    => "Permissions supplémentaires",
-            'modules'     => ['Gestion des rapports','Paramètres Applicatifs','Gestion des prestations','Paramètres Facturations','Autres Modules','Gestion des caisses','Gestion des stocks','Gestion du laboratoire'],
+            'modules'     => ['Gestion des prestations','Autres Modules','Gestion du laboratoire'],
         ],
         'VIEW_DATA_FOR_CLIENTS' => [
             'description' => 'Accéder au menu principal des clients',
             'category'    => "Permissions supplémentaires",
-            'modules'     => ['Gestion des rapports','Paramètres Applicatifs','Gestion des prestations','Paramètres Facturations','Autres Modules','Gestion des caisses','Gestion des stocks','Gestion du laboratoire'],
+            'modules'     => ['Gestion des prestations','Autres Modules','Gestion du laboratoire'],
+        ],
+        'ActionCentre' => [
+            'description' => 'Accéder au menu actions du menu de gestion des centres',
+            'category'    => 'Gestion des centres',
+            'modules'     => ['Paramètres applicatifs'],
         ],
     ];
 
@@ -200,7 +205,10 @@ class ExtractPermissions extends Command
         $systemId = $systemUser?->id ?? 1;
         $superAdminRole = Role::find(1);
 
-        // 1️⃣ Extraction
+        // 🟢 Récupérer tous les centres pour les lier automatiquement aux permissions
+        $centres = \App\Models\Centre::all();
+
+        // 1️⃣ Extraction depuis les contrôleurs
         foreach ($this->getControllers($controllersPath) as $controller) {
             $this->extractPermissionsFromController($controller, $permissions);
         }
@@ -210,10 +218,10 @@ class ExtractPermissions extends Command
         $validPermissions = [];
 
         // 🔁 Fonction interne pour éviter duplication
-        $syncPermission = function ($name, $data) use (&$validPermissions, $systemId, $superAdminRole) {
+        $syncPermission = function ($name, $data) use (&$validPermissions, $systemId, $superAdminRole, $centres) {
 
             $categoryName = $data['category'] ?? 'Autres';
-            $modules = $data['modules'] ?? [$this->defaultManualModule];
+            $modules = $data['modules'] ?? [$this->defaultManualModule ?? 'AUTRES MODULES'];
 
             // ✅ Catégorie
             $category = PermissionCategory::firstOrCreate(
@@ -240,7 +248,17 @@ class ExtractPermissions extends Command
 
             $validPermissions[] = $permission->name;
 
-            // 🔥 Synchronisation des modules (IMPORTANT)
+            $centreSyncData = [];
+            foreach ($centres as $centre) {
+                $centreSyncData[$centre->id] = [
+                    'created_by' => $systemId,
+                    'updated_by' => $systemId,
+                ];
+            }
+            if (method_exists($permission, 'centres')) {
+                $permission->centres()->syncWithoutDetaching($centreSyncData);
+            }
+
             $moduleIds = [];
 
             foreach ($modules as $moduleName) {
@@ -257,19 +275,14 @@ class ExtractPermissions extends Command
                     ]
                 );
 
-                $this->info("📦 Module synchronisé : {$module->name}");
-
                 $moduleIds[] = $module->id;
             }
 
-            // 🔥 MAGIC : ajoute + supprime anciens modules
             $permission->modules()->sync($moduleIds);
 
-            // Optionnel
             $permission->module_id = $moduleIds[0] ?? null;
             $permission->save();
 
-            // ✅ Super admin
             if ($superAdminRole && !$superAdminRole->permissions()->where('permission_id', $permission->id)->exists()) {
                 $superAdminRole->permissions()->attach($permission->id, [
                     'created_by' => $systemId,
@@ -277,10 +290,9 @@ class ExtractPermissions extends Command
                 ]);
             }
 
-            $this->info("✅ Permission synchronisée : {$permission->name}");
+            $this->info("✅ Permission synchronisée (et liée à tous les centres) : {$permission->name}");
         };
 
-        // ----------------------- Permissions contrôleurs -----------------------
         foreach ($permissions as $controller => $methods) {
             ksort($methods);
             usort($methods, fn($a, $b) => strcmp($a['permission'], $b['permission']));
@@ -289,42 +301,62 @@ class ExtractPermissions extends Command
                 $syncPermission($perm['permission'], [
                     'description' => $perm['permission_desc'] ?? '',
                     'category' => $perm['category'] ?? 'Autres',
-                    'modules' => $perm['modules'] ?? [$this->defaultManualModule],
+                    'modules' => $perm['modules'] ?? [$this->defaultManualModule ?? 'AUTRES MODULES'],
                 ]);
             }
         }
 
-        // ----------------------- Permissions manuelles -----------------------
-        foreach ($this->manualPermissions as $name => $data) {
-            $syncPermission($name, $data);
+        // Traitement sécurisé des permissions manuelles
+        $manuals = property_exists($this, 'manualPermissions') ? $this->manualPermissions : [];
+        if (!empty($manuals)) {
+            foreach ($manuals as $name => $data) {
+                $syncPermission($name, [
+                    'description' => $data['description'] ?? '',
+                    'category' => $data['category'] ?? 'Autres',
+                    'modules' => $data['modules'] ?? [$this->defaultManualModule ?? 'AUTRES MODULES'],
+                ]);
+            }
         }
 
-        // ----------------------- Nettoyage -----------------------
-
-        // ❌ Permissions supprimées
         Permission::where('system', true)
             ->whereNotIn('name', $validPermissions)
             ->get()
             ->each(function ($permission) {
                 $permission->modules()->detach(); // important
+                if (method_exists($permission, 'centres')) {
+                    $permission->centres()->detach();
+                }
                 $permission->delete();
                 $this->warn("🗑️ Permission supprimée : {$permission->name}");
             });
 
-        // ❌ Catégories inutilisées
         $usedCategoryIds = Permission::pluck('category_id')->unique()->filter();
         PermissionCategory::whereNotIn('id', $usedCategoryIds)->each(function ($category) {
             $category->delete();
             $this->warn("🗑️ Catégorie supprimée : {$category->name}");
         });
 
-        // ❌ Modules sans permissions
         \App\Models\ModuleApplications::doesntHave('permissions')
             ->get()
             ->each(function ($module) {
                 $module->delete();
                 $this->warn("🗑️ Module supprimé : {$module->name}");
             });
+
+        // 🟢 Sécurité globale finale : Rattache toutes les permissions existantes (ex: ActionCentre) aux centres si ce n'est pas fait
+        $allPermissions = Permission::all();
+        foreach ($allPermissions as $p) {
+            $centreSyncData = [];
+            foreach ($centres as $centre) {
+                $centreSyncData[$centre->id] = [
+                    'created_by' => $systemId,
+                    'updated_by' => $systemId,
+                ];
+            }
+            if (method_exists($p, 'centres')) {
+                $p->centres()->syncWithoutDetaching($centreSyncData);
+            }
+        }
 
         $this->info("\n✅ Synchronisation complète terminée !");
     }
@@ -338,16 +370,13 @@ class ExtractPermissions extends Command
 
         $reflection = new \ReflectionClass($controller);
 
-        // Docblock du contrôleur
         $doc = $reflection->getDocComment() ?: '';
 
-        // Récupère la catégorie (une seule)
-        $category = $this->extractTagValue($doc, '@permission_category') ?: 'Autres';
+        $category = $this->extractTagValue($doc, '@permission_category') ?: 'AUTRES';
 
-        // Récupère tous les modules (peut être plusieurs)
         $modules = $this->extractTagValues($doc, '@permission_module');
         if (empty($modules)) {
-            $modules = ['Autres Modules']; // fallback
+            $modules = ['AUTRES MODULES'];
         }
 
         // Parcours des méthodes publiques
@@ -371,7 +400,6 @@ class ExtractPermissions extends Command
 
     /**
      * Récupère toutes les valeurs d'un tag dans un docblock
-     * Permet de gérer plusieurs modules
      */
     private function extractTagValues(string $doc, string $tag): array
     {

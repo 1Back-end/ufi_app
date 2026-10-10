@@ -58,7 +58,9 @@ class Prestation extends Model
         'is_result_emitted',
         'cancelled_at',
         'cancelled_by',
-        'regulated'
+        'regulated',
+        'entered_by',
+        'entered_at'
     ];
 
     protected function casts(): array
@@ -72,6 +74,7 @@ class Prestation extends Model
             'prelevated_at' => 'datetime',
             'result_delivered_at' => 'datetime',
             'cancelled_at' => 'datetime',
+            'entered_at' => 'datetime',
         ];
     }
     public function rendezVous()
@@ -602,5 +605,9 @@ class Prestation extends Model
     public function cancellor(): BelongsTo
     {
         return $this->belongsTo(User::class, 'cancelled_by');
+    }
+    public function enteredBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'entered_by');
     }
 }

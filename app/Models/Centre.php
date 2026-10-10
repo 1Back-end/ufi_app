@@ -33,6 +33,15 @@ class Centre extends Model
         'deleted_at' => 'datetime',
     ];
 
+    public function permissions()
+    {
+        return $this->belongsToMany(Permission::class, 'centre_permission')
+            ->using(CentrePermission::class)
+            ->withPivot(['created_by', 'updated_by'])
+            ->withTimestamps()
+            ->whereNull('centre_permission.deleted_at');
+    }
+
     protected function logo(): Attribute
     {
         return Attribute::make(

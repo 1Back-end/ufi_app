@@ -12,7 +12,12 @@ class Permission extends \Spatie\Permission\Models\Permission
 {
     use UpdatingUser;
 
-
+    public function centres()
+    {
+        return $this->belongsToMany(Centre::class, 'centre_permission', 'permission_id', 'centre_id')
+            ->withPivot(['created_by', 'updated_by'])
+            ->withTimestamps();
+    }
     public function roles(): BelongsToMany
     {
         return $this->belongsToMany(

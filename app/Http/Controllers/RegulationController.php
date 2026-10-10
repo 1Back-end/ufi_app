@@ -34,7 +34,8 @@ use Symfony\Component\HttpFoundation\Response;
 
 
 /**
- * @permission_category Gestion des regulations
+ * @permission_category Gestion des règlements
+ * @permission_module Gestion des prestations
  */
 class RegulationController extends Controller
 {
@@ -110,6 +111,7 @@ class RegulationController extends Controller
             $regulation = Regulation::create([
                 'facture_id' => $request->input('facture_id'),
                 'regulation_method_id' => $reg['method'],
+                'centre_id' => $centreId,
                 'amount' => $reg['amount'],
                 'date' => now(),
                 'type' => $request->input('type'),
@@ -333,11 +335,10 @@ class RegulationController extends Controller
                 \Log::info('Facturation déjà existante pour cette période, ignorée.');
             }
 
-            // Insertion dans SpecialRegulation en ciblant explicitement l'assureur
             SpecialRegulation::create([
                 'assureur_id' => $assureurId,
                 'centre_id' => $centreId,
-                'regulation_id' => $assureurId, // On affecte l'ID de l'assureur pour éviter le champ null
+                'regulation_id' => $assureurId,
                 'regulation_type' => Assureur::class,
                 'regulation_method_id' => $request->input('regulation_method_id'),
                 'amount' => $request->input('amount'),
@@ -419,11 +420,13 @@ class RegulationController extends Controller
                     'particular' => true,
                 ]);
 
+                $amountPaid = $factureData['amount_paid'] ?? 0;
                 $facture->update(array_merge([
                     'state' => StateFacture::ASSURANCE->value,
                     'regulated_at' => now(),
                     'is_regulated' => true,
                     'regulated' => 2,
+                    'contentieux' => $amountPaid != $facture->amount_pc,
                 ], [
                     'amount_prorate' => $factureData['amount_prorate'] ?? 0,
                     'amount_contested' => $factureData['amount_contested'] ?? 0,
@@ -432,10 +435,6 @@ class RegulationController extends Controller
                     'amount_received' => $factureData['amount_received'] ?? 0,
                     'others_amount_excluded' => $factureData['others_amount_excluded'] ?? 0,
                 ]));
-
-                if ($amountFacture < $facture->amount_pc) {
-                    $facture->update(['contentieux' => true]);
-                }
 
                 foreach ($factureData['items'] ?? [] as $item) {
                     $amount = ($item['amount'] ?? 0) * 100;
@@ -564,12 +563,14 @@ class RegulationController extends Controller
             'comment' => $request->input('comment'),
             'particular' => true,
         ]);
+        $amountPaid = $request->input('amount_paid') ?? $facture->amount_paid ?? 0;
 
         $facture->update([
             'state' => StateFacture::ASSURANCE->value,
             'regulated_at' => now(),
             'is_regulated' => true,
             'regulated' => 2,
+            'contentieux' => $amountPaid != $facture->amount_pc,
         ]);
     }
 
@@ -594,10 +595,14 @@ class RegulationController extends Controller
 
                 foreach ($factureData['items'] as $item) {
                     $prestation = $facture->prestation;
+                    $amount = $item['amount'] ?? 0;
+                    $amountProrate = $item['amount_prorate'] ?? 0;
+                    $isContentieux = ($amountProrate != $amount);
                     $pivotData = [
                         'amount_regulate' => $item['amount'] * 100,
                         'amount_prorate' => $item['amount_prorate'] ?? 0,
                         'amount_contested' => $item['amount_contested'] ?? 0,
+                        'contentieux' => $isContentieux,
                     ];
 
                     switch ($prestation->type) {

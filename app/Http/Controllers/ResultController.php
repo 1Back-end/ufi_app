@@ -70,6 +70,7 @@ class ResultController extends Controller
                         ->where('prestationable_type', Examen::class)
                         ->where('prestationable_id', $element->examen_id)
                         ->first();
+
                     $resultExist = Result::where('prestation_id', $prestation->id)
                         ->where('element_paillasse_id', $result['element_paillasse_id'])
                         ->where('groupe_population_id', $result['groupe_population_id'])
@@ -84,12 +85,19 @@ class ResultController extends Controller
                             if ($oldValue != $newValue) {
                                 $prestationable->update([
                                     'status_examen' => StateExamen::PENDING->value,
+                                    'entered_by'    => auth()->id(),
+                                    'entered_at'    => now(),
                                 ]);
                             }
 
                             $resultExist->update($result);
+
                             if ($prestationable) {
-                                $prestationable->update(['is_result_entered' => true]);
+                                $prestationable->update([
+                                    'is_result_entered' => true,
+                                    'entered_by'        => auth()->id(),
+                                    'entered_at'        => now(),
+                                ]);
                             }
                             continue;
                         }
@@ -100,6 +108,8 @@ class ResultController extends Controller
                         ])) {
                             $prestationable->update([
                                 'status_examen' => StateExamen::PENDING->value,
+                                'entered_by'    => auth()->id(),
+                                'entered_at'    => now(),
                             ]);
                         }
                     }
@@ -108,7 +118,11 @@ class ResultController extends Controller
                         $resultExist->update($result);
 
                         if ($prestationable) {
-                            $prestationable->update(['is_result_entered' => true]);
+                            $prestationable->update([
+                                'is_result_entered' => true,
+                                'entered_by'        => auth()->id(),
+                                'entered_at'        => now(),
+                            ]);
                         }
                         continue;
                     }
@@ -117,8 +131,13 @@ class ResultController extends Controller
                         ...$result,
                         'prestation_id' => $prestation->id,
                     ]);
+
                     if ($prestationable) {
-                        $prestationable->update(['is_result_entered' => true]);
+                        $prestationable->update([
+                            'is_result_entered' => true,
+                            'entered_by'        => auth()->id(),
+                            'entered_at'        => now(),
+                        ]);
                     }
                 }
             }

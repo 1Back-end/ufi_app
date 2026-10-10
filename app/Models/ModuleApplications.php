@@ -45,7 +45,7 @@ class ModuleApplications extends Model
             'module_permission',
             'module_id',
             'permission_id'
-        )->using(ModulePermission::class) // <-- modèle pivot avec UUID
+        )->using(ModulePermission::class)
         ->withTimestamps();
     }
 
