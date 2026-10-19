@@ -239,6 +239,7 @@ Route::middleware(['activity'])->group(function () {
         // Prestations
 
         Route::get('prestations/types', [PrestationController::class, 'typePrestation']);
+        Route::get('prestations/types_visites', [PrestationController::class, 'typeVisitePrestation']);
         Route::post('prestations/{prestation}', [PrestationController::class, 'update']);
         Route::post('prestations/{prestation}/facture', [PrestationController::class, 'saveFacture']);
         Route::patch('prestations/{prestation}/change-state', [PrestationController::class, 'changeState']);
@@ -326,6 +327,10 @@ Route::middleware(['activity'])->group(function () {
             Route::get('/{id}/hospitalisations', 'getHospitalisations');
             Route::post('/import', 'import');
         });
+
+
+        Route::apiResource('prise_en_charges',PriseEnChargeController::class);
+        Route::get('fournisseurs/{id}/is_active', [FournisseurController::class, 'update_status']);
 
         Route::apiResource('fournisseurs',FournisseurController::class);
         Route::patch('fournisseurs/{id}/is_active', [FournisseurController::class, 'update_status']);
@@ -428,7 +433,7 @@ Route::middleware(['activity'])->group(function () {
         Route::patch('config_type_diagnostics/{id}/status', [\App\Http\Controllers\ConfigTblTypeDiagnosticController::class, 'updateStatus']);
 
 
-        Route::apiResource('diseases', MaladieController::class);
+        Route::apiResource('diseases',MaladieController::class);
         Route::patch('diseases/{id}/status', [\App\Http\Controllers\MaladieController::class, 'updateStatus']);
 
         Route::apiResource('disease_classes', ClasseMaladieController::class);
@@ -439,6 +444,7 @@ Route::middleware(['activity'])->group(function () {
 
         Route::apiResource('disease_diagnostics', MaladieTypeDiagnosticController::class);
         Route::get('consultants/duplicates', [ConsultantController::class, 'getDuplicates']);
+        Route::post('consultants/merge_duplicates', [ConsultantController::class, 'mergeConsultantDuplicates']);
         Route::get('clients_duplicates', [ClientController::class, 'getDuplicates']);
         Route::post('clients/merge_duplicates', [ClientController::class, 'mergeDuplicates']);
 
@@ -468,17 +474,7 @@ Route::middleware(['activity'])->group(function () {
         Route::get('/dashboard/partenaire_summary', [DashboardController::class, 'get_facture_for_partner']);
         Route::get('/dashboard/consultants/payments_stats', [DashboardController::class, 'get_paid_consultant_payments']);
         Route::get('/dashboard/insurance_recoveries', [DashboardController::class, 'getInsuranceRecoveriesKpi']);
-        Route::controller(PriseEnChargeController::class)->prefix('prise_en_charges')->group(function () {
-            Route::get('/list', 'index');
-            Route::post('/create', 'store');
-            Route::get('/get_by_id/{id}', 'show');
-            Route::put('/edit/{id}', 'update');
-            Route::delete('/delete/{id}', 'destroy');
-            Route::get('/get_data', 'getAllClients');
-            Route::get('/export-prises-en-charges', 'export');
-            Route::get('/search', 'search');
-            Route::get('/search-and-export', 'searchAndExport');
-        });
+
         Route::controller(VoixTransmissionController::class)->prefix('voie_administrations')->group(function () {
             Route::get('/list', 'index');
             Route::post('/create', 'store');

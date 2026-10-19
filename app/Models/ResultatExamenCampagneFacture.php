@@ -4,10 +4,12 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class ResultatExamenCampagneFacture extends Model
 {
-    protected $table = 'resultats_examens_campagne_factures'; // ⚡ le nom exact
+    use HasFactory,SoftDeletes;
+    protected $table = 'resultats_examens_campagne_factures';
     use HasFactory;
     protected $fillable = [
         'consultant_id',

@@ -8,10 +8,20 @@ use App\Exports\ConsultantExportSearch;
 use App\Imports\ClasseMaladieImport;
 use App\Imports\MedecinImport;
 use App\Imports\PescripteursImport;
+use App\Models\CampagneFacture;
 use App\Models\Centre;
 use App\Models\ConsultantDisponibilite;
+use App\Models\ConsultantDuplicatesArchive;
 use App\Models\Consultation;
+use App\Models\ConventionAssocie;
+use App\Models\PatientArchive;
+use App\Models\Prestation;
+use App\Models\PriseEnCharge;
+use App\Models\Proforma;
+use App\Models\RendezVous;
+use App\Models\ResultatExamenCampagneFacture;
 use App\Models\User;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use App\Models\Consultant;
 use App\Models\Titre;
@@ -21,6 +31,7 @@ use App\Enums\TelWhatsAppEnum;
 use App\Enums\TypeConsultEnum;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rules\Enum;
 use Maatwebsite\Excel\Facades\Excel;
@@ -70,7 +81,7 @@ class ConsultantController extends Controller
         if ($request->filled('code_titre')) {
             $consultants->where('code_titre', $request->code_specialite);
         }
-        // Recherche globale
+
         $consultants->when($request->input('search'), function ($query) use ($request) {
             $search = $request->input('search');
 
@@ -88,13 +99,13 @@ class ConsultantController extends Controller
                     ->orWhere('status', 'like', "%$search%")
                     ->orWhere('id', 'like', "%$search%");
 
-                // code_specialite
+
                 $q->orWhereHas('specialite', function ($qq) use ($search) {
                     $qq->where('nom_specialite', 'like', "%$search%")
                         ->orWhere('id', 'like', "%$search%");
                 });
 
-                // code_titre
+
                 $q->orWhereHas('code_titre', function ($qq) use ($search) {
                     $qq->where('nom_titre', 'like', "%$search%")
                         ->orWhere('abbreviation_titre', 'like', "%$search%")
@@ -118,10 +129,11 @@ class ConsultantController extends Controller
             });
         });
 
-        $consultants = $consultants->latest()->paginate(
-            perPage: $perPage,
-            page: $page
-        );
+        $consultants = $consultants->orderBy('nomcomplet', 'asc')
+            ->paginate(
+                perPage: $perPage,
+                page: $page
+            );
 
         return response()->json([
                 'data' => $consultants->items(),
@@ -482,7 +494,7 @@ class ConsultantController extends Controller
      */
     public function getDuplicates(Request $request)
     {
-        $consultants = Consultant::with(['specialite', 'code_hopi', 'prestations'])
+        $consultants = Consultant::with(['specialite', 'code_hopi', 'prestations','creator','updater'])
             ->get();
 
         if ($consultants->isEmpty()) {
@@ -614,6 +626,108 @@ class ConsultantController extends Controller
         ];
 
         return strtr($value, $unwanted);
+    }
+
+
+    /**
+     * @return JsonResponse
+     *
+     * @permission ConsultantController::mergeConsultantDuplicates
+     * @permission_desc Fusionner les fiches de consultants en doublons
+     */
+    public function mergeConsultantDuplicates(Request $request)
+    {
+        $request->validate([
+            'master_id' => 'required|exists:consultants,id',
+            'duplicate_ids' => 'required|array',
+            'duplicate_ids.*' => 'exists:consultants,id|different:master_id',
+        ]);
+
+        $masterId = $request->input('master_id');
+        $duplicateIds = $request->input('duplicate_ids');
+        $userId = $request->user()?->id ?? 1;
+
+        DB::beginTransaction();
+
+        try {
+            $masterConsultant = Consultant::findOrFail($masterId);
+
+            $duplicates = Consultant::whereIn('id', $duplicateIds)->get();
+
+            foreach ($duplicates as $duplicate) {
+                ConsultantDuplicatesArchive::create([
+                    'original_id' => $duplicate->id,
+                    'reference' => $masterConsultant->reference ?? ('REF-' . $masterConsultant->id),
+                    'nom' => $duplicate->nom ?? null,
+                    'prenom' => $duplicate->prenom ?? null,
+                    'telephone' => $duplicate->telephone ?? null,
+                    'donnees_completes' => $duplicate->toArray(),
+                    'created_by' => $userId,
+                    'updated_by' => $userId,
+                ]);
+            }
+
+            Prestation::withTrashed()->whereIn('consultant_id', $duplicateIds)
+                ->update(['consultant_id' => $masterId]);
+
+            CampagneFacture::withTrashed()->whereIn('consultant_id', $duplicateIds)
+                ->update(['consultant_id' => $masterId]);
+
+            RendezVous::withTrashed()->whereIn('consultant_id', $duplicateIds)
+                ->update(['consultant_id' => $masterId]);
+
+            ResultatExamenCampagneFacture::withTrashed()->whereIn('consultant_id', $duplicateIds)
+                ->update(['consultant_id' => $masterId]);
+
+            Consultant::whereIn('id', $duplicateIds)->delete();
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Fusion des consultants effectuée avec succès : doublons archivés avec la référence du maître et historiques réassignés.',
+                'master_id' => $masterId
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            Log::error('Erreur lors de la fusion des consultants doublons : ' . $e->getMessage(), [
+                'exception' => $e,
+                'master_id' => $masterId,
+                'duplicate_ids' => $duplicateIds
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la fusion : ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * @return JsonResponse
+     *
+     * @permission ConsultantController::destroy
+     * @permission_desc Supprimer un consultant
+     */
+    public function destroy($id)
+    {
+        $consultant = Consultant::findOrFail($id);
+
+        if ($consultant->is_used) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Impossible de supprimer ce consultant car il est déjà lié à des prestations.'
+            ], 422);
+        }
+
+        $consultant->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Consultant supprimé avec succès.'
+        ]);
     }
 
 }

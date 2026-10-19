@@ -39,6 +39,7 @@ class DatabaseSeeder extends Seeder
             TypeDocumentSeeder::class,
             CountriesTableSeeder::class,
             SystemSettingsSeeder::class,
+            CentreRecommendationSeeder::class,
         ]);
     }
 

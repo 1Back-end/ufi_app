@@ -12,10 +12,12 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('ops_tbl_antecedents', function (Blueprint $table) {
+            // 1. Ajouter la colonne dossier_consultation_id si elle n'existe pas
             if (!Schema::hasColumn('ops_tbl_antecedents', 'dossier_consultation_id')) {
                 $table->unsignedBigInteger('dossier_consultation_id')->nullable()->after('id');
-                $table->foreign('dossier_consultation_id')->references('id')->on('dossiers_consultations')->onDelete('cascade');
             }
+
+            // 2. Ajouter les autres colonnes
             if (!Schema::hasColumn('ops_tbl_antecedents', 'categorie_antecedent_id')) {
                 $table->unsignedBigInteger('categorie_antecedent_id')->nullable();
             }
@@ -35,6 +37,21 @@ return new class extends Migration
                 $table->boolean('pas_d_antecedent')->default(false);
             }
         });
+
+        // 3. Attacher la clé étrangère SEULEMENT si la table ciblée existe déjà
+        if (Schema::hasTable('dossiers_consultations') && Schema::hasColumn('ops_tbl_antecedents', 'dossier_consultation_id')) {
+            Schema::table('ops_tbl_antecedents', function (Blueprint $table) {
+                // Évite les doublons de contraintes si la clé existe déjà
+                try {
+                    $table->foreign('dossier_consultation_id')
+                        ->references('id')
+                        ->on('dossiers_consultations')
+                        ->onDelete('cascade');
+                } catch (\Exception $e) {
+                    // La contrainte existe déjà ou ne peut pas être appliquée pour l'instant
+                }
+            });
+        }
     }
 
     /**
@@ -43,10 +60,14 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('ops_tbl_antecedents', function (Blueprint $table) {
+            // 1. Supprimer la clé étrangère en premier
             try {
                 $table->dropForeign(['dossier_consultation_id']);
-            } catch (\Exception $e) {}
+            } catch (\Exception $e) {
+                // Ignore si la contrainte n'existe pas
+            }
 
+            // 2. Supprimer les colonnes existantes
             $columns = [
                 'dossier_consultation_id',
                 'categorie_antecedent_id',

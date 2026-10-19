@@ -4,11 +4,14 @@ namespace App\Models;
 
 use App\Enums\StateFacture;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class PriseEnCharge extends Model
 {
+    use HasFactory,SoftDeletes;
     protected $fillable = [
         'assureur_id',
         'quotation_id',
