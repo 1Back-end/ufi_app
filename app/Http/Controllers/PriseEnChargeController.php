@@ -11,6 +11,7 @@ use App\Models\PriseEnCharge;
 use Illuminate\Contracts\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Maatwebsite\Excel\Facades\Excel;
 
@@ -147,7 +148,6 @@ class PriseEnChargeController extends Controller
             'usage_unique' => 'boolean',
         ]);
 
-        // Validation de la date de début
         if (strtotime($data['date_debut']) < strtotime(date('Y-m-d'))) {
             return response()->json([
                 'message' => 'La date de début ne peut pas être antérieure à la date d\'aujourd\'hui.'
@@ -160,32 +160,28 @@ class PriseEnChargeController extends Controller
             ], 400);
         }
 
-        $overlapping = PriseEnCharge::where('assureur_id', $data['assureur_id'])
-            ->where('client_id', $data['client_id'])
-            ->where(function ($query) use ($data) {
-                $query->whereBetween('date_debut', [$data['date_debut'], $data['date_fin']])
-                    ->orWhereBetween('date_fin', [$data['date_debut'], $data['date_fin']])
-                    ->orWhere(function ($q) use ($data) {
-                        $q->where('date_debut', '<=', $data['date_debut'])
-                            ->where('date_fin', '>=', $data['date_fin']);
-                    });
-            })
-            ->exists();
+        DB::beginTransaction();
 
-        if ($overlapping) {
+        try {
+            $data['created_by'] = $auth->id;
+
+            $prise_en_charge = PriseEnCharge::create($data);
+
+            DB::commit();
+
             return response()->json([
-                'message' => 'Une prise en charge existe déjà pour ce client et cet assureur sur cette période.'
-            ], 400);
+                'data' => $prise_en_charge,
+                'message' => 'Prise en charge enregistrée avec succès'
+            ], 201);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            return response()->json([
+                'message' => 'Une erreur est survenue lors de l\'enregistrement.',
+                'error'   => $e->getMessage()
+            ], 500);
         }
-
-        $data['created_by'] = $auth->id;
-
-        $prise_en_charge = PriseEnCharge::create($data);
-
-        return response()->json([
-            'data' => $prise_en_charge,
-            'message' => 'Prise en charge enregistrée avec succès'
-        ], 201);
     }
 
 
@@ -227,68 +223,53 @@ class PriseEnChargeController extends Controller
      * @permission PriseEnChargeController::update
      * @permission_desc Mettre à jour des prises en charges
      */
-    public function update(Request $request, $id)
+    public function update(Request $request, string $id)
     {
         $auth = auth()->user();
 
-        $priseEnCharge = PriseEnCharge::find($id);
-        if (!$priseEnCharge) {
-            return response()->json([
-                'message' => 'Prise en charge introuvable.'
-            ], 404);
-        }
+        $priseEnCharge = PriseEnCharge::findOrFail($id);
 
         $data = $request->validate([
-            'assureur_id'  => 'required|exists:assureurs,id',
-            'quotation_id' => 'required|exists:quotations,id',
-            'code'         => 'required|string',
-            'date_debut'   => 'required|date',
-            'date_fin'     => 'required|date',
-            'client_id'    => 'required|exists:clients,id',
-            'taux_pc'      => 'required|integer',
+            'assureur_id'  => 'sometimes|required|exists:assureurs,id',
+            'quotation_id' => 'sometimes|required|exists:quotations,id',
+            'code'         => 'sometimes|required|string',
+            'date_debut'   => 'sometimes|required|date',
+            'date_fin'     => 'sometimes|required|date',
+            'client_id'    => 'sometimes|required|exists:clients,id',
+            'taux_pc'      => 'sometimes|required|integer',
             'usage_unique' => 'boolean',
         ]);
 
-        if (strtotime($data['date_debut']) < strtotime(date('Y-m-d'))) {
-            return response()->json([
-                'message' => 'La date de début ne peut pas être antérieure à la date d\'aujourd\'hui.'
-            ], 400);
+        if (isset($data['date_debut']) && isset($data['date_fin'])) {
+            if (strtotime($data['date_fin']) <= strtotime($data['date_debut'])) {
+                return response()->json([
+                    'message' => 'La date de fin doit être supérieure à la date de début.'
+                ], 400);
+            }
         }
 
-        if (strtotime($data['date_fin']) <= strtotime($data['date_debut'])) {
+        DB::beginTransaction();
+
+        try {
+            $data['updated_by'] = $auth->id;
+
+            $priseEnCharge->update($data);
+
+            DB::commit();
+
             return response()->json([
-                'message' => 'La date de fin doit être supérieure à la date de début.'
-            ], 400);
-        }
+                'data' => $priseEnCharge->fresh(),
+                'message' => 'Prise en charge mise à jour avec succès'
+            ], 200);
 
-        $overlapping = PriseEnCharge::where('assureur_id', $data['assureur_id'])
-            ->where('client_id', $data['client_id'])
-            ->where('id', '!=', $id)
-            ->where(function ($query) use ($data) {
-                $query->whereBetween('date_debut', [$data['date_debut'], $data['date_fin']])
-                    ->orWhereBetween('date_fin', [$data['date_debut'], $data['date_fin']])
-                    ->orWhere(function ($q) use ($data) {
-                        $q->where('date_debut', '<=', $data['date_debut'])
-                            ->where('date_fin', '>=', $data['date_fin']);
-                    });
-            })
-            ->exists();
+        } catch (\Exception $e) {
+            DB::rollBack();
 
-        if ($overlapping) {
             return response()->json([
-                'message' => 'Une autre prise en charge existe déjà pour ce client et cet assureur sur cette période.'
-            ], 400);
+                'message' => 'Une erreur est survenue lors de la mise à jour.',
+                'error'   => $e->getMessage()
+            ], 500);
         }
-
-
-        $data['updated_by'] = $auth->id;
-
-        $priseEnCharge->update($data);
-
-        return response()->json([
-            'data' => $priseEnCharge,
-            'message' => 'Prise en charge modifiée avec succès'
-        ], 200);
     }
 
 
