@@ -6,7 +6,10 @@ use App\Enums\StateExamen;
 use App\Enums\StateFacture;
 use App\Enums\TypePrestation;
 use App\Enums\TypeRegulation;
+use App\Enums\TypeVisitePrestation;
 use App\Http\Requests\PrestationRequest;
+use App\Mail\PatientResultCodeMail;
+use App\Mail\PatientResultSecuredMail;
 use App\Models\Acte;
 use App\Models\Assureur;
 use App\Models\Caisse;
@@ -23,6 +26,7 @@ use App\Models\FactureAssociate;
 use App\Models\FactureAssuranceByCentre;
 use App\Models\Media;
 use App\Models\OpsTblHospitalisation;
+use App\Models\PatientAccessCode;
 use App\Models\PatientResultArchive;
 use App\Models\Prestation;
 use App\Models\Prestationable;
@@ -43,6 +47,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -64,6 +69,11 @@ class PrestationController extends Controller
     public function typePrestation()
     {
         return TypePrestation::toArray();
+    }
+
+    public function typeVisitePrestation()
+    {
+        return TypeVisitePrestation::toArray();
     }
 
 
@@ -894,6 +904,7 @@ class PrestationController extends Controller
 
             $data = $request->validated();
             $data['centre_id'] = $centre;
+            $data['updated_by'] = $auth->id ?? null;
 
             $data = $this->getDataForPriseEnCharge($request, $data);
 
@@ -2017,8 +2028,48 @@ class PrestationController extends Controller
         $deliveryChannelId = $request->input('delivery_channel_id');
         $userId = auth()->id();
 
+        $resultsDebug = [];
+
         foreach ($request->input('prestation_ids') as $prestationId) {
-            $prestation = Prestation::find($prestationId);
+            $prestation = Prestation::with([
+                'createdBy:id,nom_utilisateur',
+                'updatedBy:id,nom_utilisateur',
+                'payableBy',
+                'client',
+                'client.sexe',
+                'client.societe',
+                'consultant',
+                'priseCharge',
+                'priseCharge.assureur',
+                'priseCharge.quotation',
+                'actes',
+                'soins',
+                'consultations',
+                'hospitalisations',
+                'products',
+                'examens',
+                'examens.kbPrelevement',
+                'examens.typePrelevement',
+                'examens.paillasse',
+                'examens.subFamilyExam',
+                'examens.subFamilyExam.familyExam',
+                'examens.elementPaillasses',
+                'examens.elementPaillasses.group_populations',
+                'examens.elementPaillasses.typeResult',
+                'examens.elementPaillasses.catPredefinedList',
+                'examens.elementPaillasses.parent',
+                'examens.elementPaillasses.children',
+                'centre',
+                'factures',
+                'factures.regulations',
+                'factures.regulations.regulationMethod',
+                'results',
+                'results.elementPaillasse',
+                'results.elementPaillasse.examen',
+                'results.elementPaillasse.group_populations',
+                'results.groupePopulation',
+            ])->find($prestationId);
+
             if (!$prestation) {
                 continue;
             }
@@ -2036,42 +2087,179 @@ class PrestationController extends Controller
                 continue;
             }
 
-            DB::table('prestationables')
-                ->where('prestation_id', $prestation->id)
-                ->where(function ($query) {
-                    $query->where('status_examen', StateExamen::VALIDATED->value)
-                        ->orWhere('status_examen', StateExamen::PRINTED->value)
-                        ->orWhere('status_examen', StateExamen::REMIS->value);
-                })
-                ->update([
-                    'status_examen' => $newStatus,
+            DB::beginTransaction();
+            try {
+                DB::table('prestationables')
+                    ->where('prestation_id', $prestation->id)
+                    ->where(function ($query) {
+                        $query->where('status_examen', StateExamen::VALIDATED->value)
+                            ->orWhere('status_examen', StateExamen::PRINTED->value)
+                            ->orWhere('status_examen', StateExamen::REMIS->value);
+                    })
+                    ->update([
+                        'status_examen' => $newStatus,
+                    ]);
+
+                $prestation->update([
+                    'is_result_emitted' => true
                 ]);
 
-            $prestation->update([
-                'is_result_emitted' => true
-            ]);
+                // Gestion de l'archive et calcul du nombre d'impressions
+                $archive = PatientResultArchive::where('prestation_id', $prestation->id)->first();
+                $archiveData = [
+                    'delivery_channel_id' => $deliveryChannelId,
+                    'updated_by'          => $userId,
+                ];
 
-            $archive = PatientResultArchive::where('prestation_id', $prestation->id)->first();
+                $printCount = 1;
+                if ($archive) {
+                    $archive->increment('count');
+                    $archive->update($archiveData);
+                    $printCount = $archive->fresh()->count;
+                } else {
+                    PatientResultArchive::create(array_merge([
+                        'prestation_id' => $prestation->id,
+                        'count'         => 1,
+                        'created_by'    => $userId,
+                    ], $archiveData));
+                    $printCount = 1;
+                }
 
-            $archiveData = [
-                'delivery_channel_id' => $deliveryChannelId,
-                'updated_by'          => $userId,
-            ];
+                // Vrai duplicata si imprimé plus de 2 fois (c'est-à-dire count >= 3)
+                $isDuplicata = ($printCount > 2);
 
-            if ($archive) {
-                $archive->increment('count');
-                $archive->update($archiveData);
-            } else {
-                PatientResultArchive::create(array_merge([
-                    'prestation_id' => $prestation->id,
-                    'count'         => 1,
-                    'created_by'    => $userId,
-                ], $archiveData));
+                $results = $prestation->results;
+                $facture = $prestation->factures()->where('type', 2)->first();
+
+                $anteriorityResult = [];
+                $prestations = Prestation::where('client_id', $prestation->client_id)->get();
+                foreach ($prestations as $prest) {
+                    foreach ($prest->examens as $examen) {
+                        foreach ($examen->elementPaillasses as $elementPaillasse) {
+                            $result = Result::query()->with([
+                                'elementPaillasse',
+                                'elementPaillasse.typeResult'
+                            ])
+                                ->where('element_paillasse_id', $elementPaillasse->id)
+                                ->whereNotIn('prestation_id', [$prestation->id])
+                                ->whereHas('prestation', function ($query) use ($prestation) {
+                                    $query->where('client_id', $prestation->client_id)
+                                        ->where('created_at', '<', $prestation->created_at);
+                                })
+                                ->latest()
+                                ->first();
+
+                            if ($result) {
+                                $anteriorityResult[] = [
+                                    'prestation_id' => $result->prestation_id,
+                                    'element_paillasse_id' => $elementPaillasse->id,
+                                    'result' => $result,
+                                ];
+                            }
+                        }
+                    }
+                }
+
+                $centre = $prestation->centre;
+                $media = $centre ? $centre->medias()->where('name', 'logo')->first() : null;
+
+                $folderPath = "storage/results";
+                if (!file_exists(public_path($folderPath))) {
+                    mkdir(public_path($folderPath), 0755, true);
+                }
+
+                $fileName = "RESULT_" . ($centre ? $centre->reference : 'LAB') . '_' . now()->format("d_m_Y_H_i_s") . '_' . $prestation->client->ref_cli . '_' . $prestation->id . '.pdf';
+                $relativePath = "$folderPath/$fileName";
+                $absolutePdfPath = public_path($relativePath);
+                $footer = 'pdfs.results.footer';
+
+                $data = [
+                    'print_date' => now()->format('d/m/Y'),
+                    'date_saisie' => $results->isNotEmpty() && $results->first()->created_at ? $results->first()->created_at->format('d/m/Y') : now()->format('d/m/Y'),
+                    'prestation' => $prestation,
+                    'results' => $results,
+                    'facture' => $facture,
+                    'preleve_date' => !empty($prestation->last_prelevement['preleve_date']) ? Carbon::parse($prestation->last_prelevement['preleve_date'])->format('d/m/Y') : now()->format('d/m/Y'),
+                    'logo' => $media ? 'storage/' . $media->path . '/' . $media->filename : '',
+                    'centre' => $centre,
+                    'anteriorities' => $anteriorityResult,
+                    'filename' => $fileName,
+                    'is_duplicata' => $isDuplicata,
+                    'print_count' => $printCount
+                ];
+
+                // Génération du PDF via Browsershot
+                save_browser_shot_pdf(
+                    view: 'pdfs.results.body',
+                    data: $data,
+                    folderPath: $folderPath,
+                    path: $relativePath,
+                    footer: $footer,
+                    margins: [5, 8, 10, 8]
+                );
+
+                DB::commit();
+
+                // Chiffrement et Envoi
+                $client = $prestation->client;
+                if ($client && !empty($client->email) && file_exists($absolutePdfPath)) {
+                    $codePin = (string) rand(1000, 9999);
+                    $token = Str::random(64);
+
+                    PatientAccessCode::updateOrCreate(
+                        ['prestation_id' => $prestation->id],
+                        [
+                            'client_id'  => $client->id,
+                            'code'       => $codePin,
+                            'token'      => $token,
+                            'expires_at' => Carbon::now()->addHours(48),
+                            'is_used'    => false,
+                            'created_by' => $userId,
+                            'updated_by' => $userId,
+                        ]
+                    );
+
+                    $encryptedFileName = "SECURED_" . $fileName;
+                    $encryptedRelativePath = "$folderPath/$encryptedFileName";
+                    $absoluteEncryptedPath = public_path($encryptedRelativePath);
+
+                    // Chiffrement via qpdf.exe situé dans public/
+                    $qpdfPath = public_path('qpdf.exe');
+                    $command = "\"{$qpdfPath}\" --encrypt {$codePin} {$codePin} 256 -- \"{$absolutePdfPath}\" \"{$absoluteEncryptedPath}\"";
+
+                    exec($command, $output, $returnVar);
+
+                    $pdfToSend = ($returnVar === 0 && file_exists($absoluteEncryptedPath)) ? $absoluteEncryptedPath : $absolutePdfPath;
+
+                    try {
+                        Mail::to($client->email)->send(new PatientResultSecuredMail($client, $codePin, $pdfToSend));
+                        Log::info("PDF chiffré envoyé avec succès à : {$client->email} (Code PIN: {$codePin}) [Duplicata: " . ($isDuplicata ? 'OUI' : 'NON') . "]");
+                    } catch (\Exception $e) {
+                        Log::error("Erreur d'envoi de l'e-mail sécurisé : " . $e->getMessage());
+                    }
+
+                    $resultsDebug[] = [
+                        'prestation_id' => $prestation->id,
+                        'client_email' => $client->email,
+                        'code_pin' => $codePin,
+                        'print_count' => $printCount,
+                        'is_duplicata' => $isDuplicata
+                    ];
+                }
+
+            } catch (CouldNotTakeBrowsershot | Throwable $e) {
+                DB::rollBack();
+                Log::error("Erreur génération PDF / Envoi : " . $e->getMessage());
+
+                return response()->json([
+                    'message' => __("Une erreur inattendue est survenue lors de la génération du document.")
+                ], 400);
             }
         }
 
         return response()->json([
-            'message' => __("L'état des examens des prestations a bien été mis à jour."),
+            'message' => __("L'état des examens a bien été mis à jour, le PDF a été chiffré et envoyé au patient par e-mail."),
+            'debug' => $resultsDebug
         ]);
     }
 
@@ -2095,6 +2283,7 @@ class PrestationController extends Controller
         ]);
 
         $status = $request->input('status');
+        $userId = auth()->id();
 
         $prestationables = Prestationable::whereIn('prestation_id', $request->prestation_ids)
             ->where('status_examen', StateExamen::VALIDATED->value)
@@ -2160,6 +2349,31 @@ class PrestationController extends Controller
                 ])
                     ->where('id', $request->prestation_ids[0])
                     ->first();
+                if (!$prestation) {
+                    DB::rollBack();
+                    return response()->json(['message' => __("Prestation introuvable.")], 404);
+                }
+                $archive = PatientResultArchive::where('prestation_id', $prestation->id)->first();
+                $archiveData = [
+                    'updated_by' => $userId,
+                ];
+                $printCount = 1;
+                if ($archive) {
+                    $archive->increment('count');
+                    $archive->update($archiveData);
+                    $printCount = $archive->fresh()->count;
+                } else {
+                    PatientResultArchive::create([
+                        'prestation_id' => $prestation->id,
+                        'count'         => 1,
+                        'created_by'    => $userId,
+                        'updated_by'    => $userId,
+                    ]);
+                    $printCount = 1;
+                }
+
+                $isDuplicata = ($printCount > 2);
+
                 $results = $prestation->results;
                 $facture = $prestation->factures()->where('type', 2)->first();
 
@@ -2181,7 +2395,6 @@ class PrestationController extends Controller
                                 ->latest()
                                 ->first();
 
-                            Log::info($result);
 
                             if ($result) {
                                 $anteriorityResult[] = [
@@ -2193,12 +2406,6 @@ class PrestationController extends Controller
                         }
                     }
                 }
-
-                Log::info('RESULT QUERY', [
-                    'element_paillasse_id' => $elementPaillasse->id,
-                    'found' => $result ? true : false,
-                    'result' => $result
-                ]);
 
                 $centre = $prestation->centre;
                 $media = $centre->medias()->where('name', 'logo')->first();
@@ -2218,10 +2425,10 @@ class PrestationController extends Controller
                     'logo' => $media ? 'storage/' . $media->path . '/' . $media->filename : '',
                     'centre' => $centre,
                     'anteriorities' => $anteriorityResult,
-                    'filename' => $fileName
+                    'filename' => $fileName,
+                    'is_duplicata' => $isDuplicata,
+                    'print_count' => $printCount
                 ];
-
-
                 save_browser_shot_pdf(
                     view: 'pdfs.results.body',
                     data: $data,

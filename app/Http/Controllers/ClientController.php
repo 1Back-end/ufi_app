@@ -9,6 +9,7 @@ use App\Http\Requests\ClientRequest;
 use App\Models\CampagneFacture;
 use App\Models\Centre;
 use App\Models\Client;
+use App\Models\ClientArchive;
 use App\Models\ConventionAssocie;
 use App\Models\PatientArchive;
 use App\Models\Prefix;
@@ -580,11 +581,28 @@ class ClientController extends Controller
 
         $masterId = $request->input('master_id');
         $duplicateIds = $request->input('duplicate_ids');
+        $userId = $request->user()?->id ?? 1;
 
         DB::beginTransaction();
 
         try {
+
             $masterClient = Client::findOrFail($masterId);
+
+            $duplicates = Client::whereIn('id', $duplicateIds)->get();
+
+            foreach ($duplicates as $duplicate) {
+                ClientArchive::create([
+                    'original_id' => $duplicate->id,
+                    'reference' => $masterClient->ref_cli ?? ('REF-' . $masterClient->id),
+                    'nom' => $duplicate->nom_cli ?? null,
+                    'prenom' => $duplicate->prenom_cli ?? null,
+                    'telephone' => $duplicate->tel_cli ?? null,
+                    'donnees_completes' => $duplicate->toArray(),
+                    'created_by' => $userId,
+                    'updated_by' => $userId,
+                ]);
+            }
 
             Prestation::whereIn('client_id', $duplicateIds)
                 ->update(['client_id' => $masterId]);
@@ -616,12 +634,19 @@ class ClientController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Fusion des fiches et réassignation de toutes les données associées effectuées avec succès.',
+                'message' => 'Fusion effectuée avec succès : doublons archivés avec la référence du maître et historiques réassignés.',
                 'master_id' => $masterId
             ]);
 
         } catch (\Exception $e) {
             DB::rollBack();
+
+            Log::error('Erreur lors de la fusion des patients doublons : ' . $e->getMessage(), [
+                'exception' => $e,
+                'master_id' => $masterId,
+                'duplicate_ids' => $duplicateIds
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Erreur lors de la fusion : ' . $e->getMessage()

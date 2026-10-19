@@ -23,7 +23,9 @@ class Centre extends Model
         'autorisation', 'town', 'fax', 'email', 'website',
         'created_by', 'updated_by', 'deleted_at', 'horaires', 'postal_code',
         'active',
-        'name_alias'
+        'name_alias',
+        'is_acte_recommendation_center',
+        'is_exam_recommendation_center'
     ];
 
     protected $appends = ['logo'];

@@ -161,8 +161,24 @@ class ExtractPermissions extends Command
         ],
         'view_access_for_order_number' => [
             'description' => 'Afficher le numéro d\'ordre des consultants',
-            'category' => 'Permissions supplémentaires',
-            'modules' => ['Gestion du laboratoire','Autres Modules'],
+            'category' => 'Gestion des consultants',
+            'modules' => ['Gestion du laboratoire','Autres Modules','Gestion des prestations'],
+        ],
+        'view_access_for_nb_prestations' => [
+            'description' => 'Afficher le nombre de prestations des consultants',
+            'category' => 'Gestion des consultants',
+            'modules' => ['Gestion du laboratoire', 'Autres Modules','Gestion des prestations'],
+        ],
+        'view_consultants_to_pay' => [
+            'description' => 'Afficher tous les consultants devant être payés',
+            'category' => 'Gestion des consultants',
+            'modules' => ['Gestion du laboratoire', 'Autres Modules','Gestion des prestations'],
+        ],
+
+        'process_secretary_payment' => [
+            'description' => 'Effectuer ou afficher les paiements par la secrétaire',
+            'category' => 'Gestion des consultants',
+            'modules' => ['Gestion du laboratoire', 'Autres Modules','Gestion des prestations'],
         ],
         'VIEW_ACCESS_FOR_RENDEZ_VOUS' => [
             'description' => 'Afficher la liste des actions de module des dossiers patients',

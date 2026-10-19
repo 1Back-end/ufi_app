@@ -27,7 +27,7 @@ class OpsTblRapportConsultation extends Model
         'can_add_referre_medical',
     ];
 
-        public function dossierConsultation()
+    public function dossierConsultation()
     {
         return $this->belongsTo(DossierConsultation::class, 'dossier_consultation_id');
 

@@ -162,6 +162,7 @@ class ConsultantPrestationShareController extends Controller
      */
     public function get_all_paiement_for_consultants(Request $request)
     {
+        $user = $request->user();
         $perPage = $request->input('limit', 25);
         $page = $request->input('page', 1);
 
@@ -202,6 +203,17 @@ class ConsultantPrestationShareController extends Controller
         $consultantId = $request->input('consultant_id');
         if (!empty($consultantId)) {
             $query->where('consultant_id', $consultantId);
+        }
+
+
+        if ($user->can('view_consultants_to_pay')) {
+        } elseif ($user->can('process_secretary_payment')) {
+            $query->where('created_by', $user->id);
+        } else {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Vous n\'avez pas la permission de consulter les prestations.'
+            ], 403);
         }
 
         $query->whereBetween('created_at', [$start_date, $end_date]);

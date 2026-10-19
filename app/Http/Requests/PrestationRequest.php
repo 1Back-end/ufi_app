@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use App\Enums\TypePrestation;
 use App\Enums\TypeSalle;
+use App\Enums\TypeVisitePrestation;
 use App\Models\Acte;
 use App\Models\Consultation;
 use App\Models\OpsTblHospitalisation;
@@ -24,6 +25,7 @@ class PrestationRequest extends FormRequest
     {
         return [
             'type' => ['required', new Enum(TypePrestation::class)],
+            'type_visite' => ['nullable', new Enum(TypeVisitePrestation::class)],
             'prise_charge_id' => ['nullable', 'exists:prise_en_charges,id'],
             'client_id' => ['required', 'exists:clients,id'],
             'delivery_channels_id' => [

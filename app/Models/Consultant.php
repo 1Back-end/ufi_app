@@ -38,7 +38,7 @@ class Consultant extends Model
         'is_active', 'is_archived'
     ];
 
-    protected $appends = ['fullname'];
+    protected $appends = ['fullname','nb_prestations', 'is_used'];
 
     protected function fullname(): Attribute
     {
@@ -126,6 +126,26 @@ class Consultant extends Model
     public function account()
     {
         return $this->belongsTo(PaymentAccount::class, 'account_id');
+    }
+
+    /**
+     * Accesseur pour obtenir le nombre total de prestations de ce consultant dans l'application.
+     */
+    protected function nbPrestations(): Attribute
+    {
+        return Attribute::make(
+            get: fn () => Prestation::where('consultant_id', $this->id)->count(),
+        );
+    }
+
+    /**
+     * Accesseur pour savoir si le consultant a déjà été utilisé au moins une fois dans l'application.
+     */
+    protected function isUsed(): Attribute
+    {
+        return Attribute::make(
+            get: fn () => Prestation::where('consultant_id', $this->id)->exists(),
+        );
     }
 
 

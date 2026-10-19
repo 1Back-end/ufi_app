@@ -31,7 +31,6 @@ class PriseEnChargeController extends Controller
         try {
             $fileName = 'prises-en-charges' . Carbon::now()->format('Y-m-d') . '.xlsx';
 
-            // Tentative d'exportation des données
             Excel::store(new PrisesEnChargeExport(), $fileName, 'exportprisesencharges');
 
             // Retourner la réponse si l'exportation réussit
@@ -49,69 +48,57 @@ class PriseEnChargeController extends Controller
         }
     }
 
-    public function getAllClients()
-    {
-        $clients = Client::select('id', 'nomcomplet_client')
-            ->get();
-
-        return response()->json([
-            'clients' => $clients
-        ]);
-    }
     /**
      * Display a listing of the resource.
      * @permission PriseEnChargeController::index
-     * @permission_desc Afficher les prises en charges avec pagination
+     * @permission_desc Afficher la liste des prises en charges
      */
     public function index(Request $request)
     {
         $perPage = $request->input('limit', 10);
         $page = $request->input('page', 1);
-        $search = $request->input('search'); // mot-clé global
+        $search = $request->input('search');
+        $clientId = $request->input('client');
+        $assureurFilter = $request->input('assureur');
 
-        $prise_en_charges = PriseEnCharge::where('is_deleted', false)
-            ->with([
-                'assureur:id,nom',
-                'quotation:id,taux,code',
-                'client',
-                'creator:id,login',
-                'updater:id,login'
-            ])
-            ->when($request->input('client'), function ($query) use ($request) {
+        $prise_en_charges = PriseEnCharge::with([
+            'assureur',
+            'quotation',
+            'client',
+            'creator',
+            'updater'
+        ])
+            ->when($clientId, function ($query) use ($clientId, $assureurFilter) {
                 $query->with([
                     'assureur.actes',
                     'assureur.soins',
                     'assureur.consultations',
                     'assureur.hospitalisations'
                 ])
-                    ->where('client_id', $request->input('client'))
+                    ->where('client_id', $clientId)
                     ->whereDate('date_debut', '<=', now())
                     ->whereDate('date_fin', '>=', now())
-                    ->whereIsDeleted(false)
-                    ->whereUsed(false)
-                    ->when($request->input('assureur'), function ($query) use ($request) {
-                        $query->whereHas('assureur', function ($query) use ($request) {
-                            $query->where('nom', 'like', '%' . $request->input('assureur') . '%')
-                                ->orWhere('nom_abrege', 'like', '%' . $request->input('assureur') . '%')
-                                ->orWhere('adresse', 'like', '%' . $request->input('assureur') . '%')
-                                ->orWhere('tel1', 'like', '%' . $request->input('assureur') . '%');
+                    ->where('used', false)
+                    ->when($assureurFilter, function ($q) use ($assureurFilter) {
+                        $q->whereHas('assureur', function ($subQuery) use ($assureurFilter) {
+                            $subQuery->where('nom', 'like', '%' . $assureurFilter . '%')
+                                ->orWhere('nom_abrege', 'like', '%' . $assureurFilter . '%')
+                                ->orWhere('adresse', 'like', '%' . $assureurFilter . '%')
+                                ->orWhere('tel1', 'like', '%' . $assureurFilter . '%');
                         });
                     });
             })
-            ->when($search, function ($query, $search) {
+            ->when($search, function ($query) use ($search) {
                 $query->where(function ($q) use ($search) {
-                    // recherche sur le client
-                    $q->whereHas('client', function ($q2) use ($search) {
-                        $q2->where('prenom_cli', 'like', "%$search%")
+                    $q->whereHas('client', function ($qClient) use ($search) {
+                        $qClient->where('prenom_cli', 'like', "%$search%")
                             ->orWhere('nom_cli', 'like', "%$search%")
                             ->orWhere('secondprenom_cli', 'like', "%$search%")
                             ->orWhere('nomcomplet_client', 'like', "%$search%")
                             ->orWhere('ref_cli', 'like', "%$search%");
-
                     })
-                        // recherche sur l'assureur
-                        ->orWhereHas('assureur', function ($q2) use ($search) {
-                            $q2->where('nom', 'like', "%$search%")
+                        ->orWhereHas('assureur', function ($qAssureur) use ($search) {
+                            $qAssureur->where('nom', 'like', "%$search%")
                                 ->orWhere('nom_abrege', 'like', "%$search%")
                                 ->orWhere('adresse', 'like', "%$search%")
                                 ->orWhere('tel1', 'like', "%$search%")
@@ -148,30 +135,31 @@ class PriseEnChargeController extends Controller
     public function store(Request $request)
     {
         $auth = auth()->user();
+
         $data = $request->validate([
-            'assureur_id' => 'required|exists:assureurs,id',
+            'assureur_id'  => 'required|exists:assureurs,id',
             'quotation_id' => 'required|exists:quotations,id',
-            'code' => 'required|string',
-            'date_debut' => 'required|date',
-            'date_fin' => 'required|date', // ✅ Ici
-            'client_id' => 'required|exists:clients,id',
-            'taux_pc' => 'required|integer',
+            'code'         => 'required|string',
+            'date_debut'   => 'required|date',
+            'date_fin'     => 'required|date',
+            'client_id'    => 'required|exists:clients,id',
+            'taux_pc'      => 'required|integer',
             'usage_unique' => 'boolean',
         ]);
-        // Vérifier que date_debut >= aujourd'hui
+
+        // Validation de la date de début
         if (strtotime($data['date_debut']) < strtotime(date('Y-m-d'))) {
             return response()->json([
                 'message' => 'La date de début ne peut pas être antérieure à la date d\'aujourd\'hui.'
             ], 400);
         }
-        // Vérification si la date de début est après la date de fin
+
         if (strtotime($data['date_fin']) <= strtotime($data['date_debut'])) {
             return response()->json([
                 'message' => 'La date de fin doit être supérieure à la date de début.'
             ], 400);
         }
 
-        // ✅ Empêcher doublons sur même assureur/client/date
         $overlapping = PriseEnCharge::where('assureur_id', $data['assureur_id'])
             ->where('client_id', $data['client_id'])
             ->where(function ($query) use ($data) {
@@ -182,8 +170,14 @@ class PriseEnChargeController extends Controller
                             ->where('date_fin', '>=', $data['date_fin']);
                     });
             })
-            ->where('is_deleted', false)
             ->exists();
+
+        if ($overlapping) {
+            return response()->json([
+                'message' => 'Une prise en charge existe déjà pour ce client et cet assureur sur cette période.'
+            ], 400);
+        }
+
         $data['created_by'] = $auth->id;
 
         $prise_en_charge = PriseEnCharge::create($data);
@@ -233,76 +227,68 @@ class PriseEnChargeController extends Controller
      * @permission PriseEnChargeController::update
      * @permission_desc Mettre à jour des prises en charges
      */
-    public function update(Request $request, string $id)
+    public function update(Request $request, $id)
     {
-        try {
-            $auth = auth()->user();
+        $auth = auth()->user();
 
-            $data = $request->validate([
-                'assureur_id' => 'required|exists:assureurs,id',
-                'quotation_id' => 'required|exists:quotations,id',
-                'code' => 'required|string',
-                'date_debut' => 'required|date',
-                'date_fin' => 'required|date|after:date_debut', // ✅ Ici
-                'client_id' => 'required|exists:clients,id',
-                'taux_pc' => 'required|integer',
-                'usage_unique' => 'boolean',
-            ]);
-            // Vérification si la date de début est après la date de fin
-            // Vérification si la date de début est après la date de fin
-            if (strtotime($data['date_debut']) > strtotime($data['date_fin'])) {
-                return response()->json([
-                    'message' => 'La date de début ne peut pas être supérieure à la date de fin.'
-                ], 400);
-            }
-            // ✅ Empêcher doublons sur même assureur/client/date
-            $overlapping = PriseEnCharge::where('assureur_id', $data['assureur_id'])
-                ->where('client_id', $data['client_id'])
-                ->where(function ($query) use ($data) {
-                    $query->whereBetween('date_debut', [$data['date_debut'], $data['date_fin']])
-                        ->orWhereBetween('date_fin', [$data['date_debut'], $data['date_fin']])
-                        ->orWhere(function ($q) use ($data) {
-                            $q->where('date_debut', '<=', $data['date_debut'])
-                                ->where('date_fin', '>=', $data['date_fin']);
-                        });
-                })
-                ->where('is_deleted', false)
-                ->exists();
-            // Vérifier si l'ID de la prise en charge existe déjà dans la table prestation
-//            $existingPrestation = Prestation::where('prise_charge_id', $id)->first();
-//
-//            if ($existingPrestation) {
-//                return response()->json([
-//                    'error' => 'Cette prise en charge est déjà associée à une prestation.'
-//                ], 400);
-//            }
-
-
-            $prise_en_charge = PriseEnCharge::where('is_deleted', false)->findOrFail($id);
-
-            $data['updated_by'] = $auth->id;
-
-            $prise_en_charge->update($data);
-
+        $priseEnCharge = PriseEnCharge::find($id);
+        if (!$priseEnCharge) {
             return response()->json([
-                'data' => $prise_en_charge,
-                'message' => 'Prise en charge mise à jour avec succès'
-            ]);
-        } catch (\Illuminate\Validation\ValidationException $e) {
-            return response()->json([
-                'error' => 'Erreur de validation',
-                'details' => $e->errors()
-            ], 422);
-        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
-            return response()->json([
-                'error' => 'Prise en charge non trouvée'
+                'message' => 'Prise en charge introuvable.'
             ], 404);
-        } catch (\Exception $e) {
-            return response()->json([
-                'error' => 'Une erreur est survenue',
-                'message' => $e->getMessage()
-            ], 500);
         }
+
+        $data = $request->validate([
+            'assureur_id'  => 'required|exists:assureurs,id',
+            'quotation_id' => 'required|exists:quotations,id',
+            'code'         => 'required|string',
+            'date_debut'   => 'required|date',
+            'date_fin'     => 'required|date',
+            'client_id'    => 'required|exists:clients,id',
+            'taux_pc'      => 'required|integer',
+            'usage_unique' => 'boolean',
+        ]);
+
+        if (strtotime($data['date_debut']) < strtotime(date('Y-m-d'))) {
+            return response()->json([
+                'message' => 'La date de début ne peut pas être antérieure à la date d\'aujourd\'hui.'
+            ], 400);
+        }
+
+        if (strtotime($data['date_fin']) <= strtotime($data['date_debut'])) {
+            return response()->json([
+                'message' => 'La date de fin doit être supérieure à la date de début.'
+            ], 400);
+        }
+
+        $overlapping = PriseEnCharge::where('assureur_id', $data['assureur_id'])
+            ->where('client_id', $data['client_id'])
+            ->where('id', '!=', $id)
+            ->where(function ($query) use ($data) {
+                $query->whereBetween('date_debut', [$data['date_debut'], $data['date_fin']])
+                    ->orWhereBetween('date_fin', [$data['date_debut'], $data['date_fin']])
+                    ->orWhere(function ($q) use ($data) {
+                        $q->where('date_debut', '<=', $data['date_debut'])
+                            ->where('date_fin', '>=', $data['date_fin']);
+                    });
+            })
+            ->exists();
+
+        if ($overlapping) {
+            return response()->json([
+                'message' => 'Une autre prise en charge existe déjà pour ce client et cet assureur sur cette période.'
+            ], 400);
+        }
+
+
+        $data['updated_by'] = $auth->id;
+
+        $priseEnCharge->update($data);
+
+        return response()->json([
+            'data' => $priseEnCharge,
+            'message' => 'Prise en charge modifiée avec succès'
+        ], 200);
     }
 
 

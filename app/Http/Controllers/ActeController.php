@@ -33,17 +33,28 @@ class ActeController extends Controller
         if($request->input('actes')) {
             $query = Acte::with(['typeActe', 'createdBy:id,nom_utilisateur', 'updatedBy:id,nom_utilisateur']);
 
-            if ($request->has('search')) {
-                $query->where('name', 'like', '%' . $request->input('search') . '%');
+            if ($request->filled('search')) {
+                $search = $request->input('search');
+                $query->where(function($q) use ($search) {
+                    $q->where('name', 'like', '%' . $search . '%')
+                        ->orWhere('code', 'like', '%' . $search . '%')
+                        ->orWhere('prefix', 'like', '%' . $search . '%')
+                        ->orWhere('state', 'like', '%' . $search . '%');
+                });
             }
+            $query->orderBy('name', 'asc');
 
             return response()->json([
-                'actes' => $query->paginate($request->input('per_page', 10))
+                'actes' => $query->paginate($request->input('per_page', 50))
             ]);
         }
 
         return response()->json([
-            'type_actes' => TypeActe::with(['actes', 'actes.createdBy:id,nom_utilisateur', 'actes.updatedBy:id,nom_utilisateur'])->get()
+            'type_actes' => TypeActe::with(['actes' => function($q) {
+                $q->orderBy('name', 'asc');
+            }, 'actes.createdBy:id,nom_utilisateur', 'actes.updatedBy:id,nom_utilisateur'])
+                ->orderBy('nom', 'asc')
+                ->get()
         ]);
     }
 

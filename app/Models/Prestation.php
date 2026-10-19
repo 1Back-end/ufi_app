@@ -60,7 +60,9 @@ class Prestation extends Model
         'cancelled_by',
         'regulated',
         'entered_by',
-        'entered_at'
+        'entered_at',
+        'type_visite',
+        'recommended_by_doctor'
     ];
 
     protected function casts(): array

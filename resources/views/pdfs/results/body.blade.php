@@ -78,12 +78,35 @@
             width: 25%;
             /* Valeurs normales */
         }
+
+        .watermark {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-30deg);
+            width: 100%;
+            text-align: center;
+            font-size: 65pt;
+            font-weight: bold;
+            color: rgba(220, 53, 69, 0.18);
+            text-transform: uppercase;
+            letter-spacing: 12px;
+            z-index: -1000;
+            pointer-events: none;
+            font-family: 'Helvetica', 'Arial', sans-serif;
+        }
     </style>
 
     <title>{{ $filename }}</title>
 </head>
 
 <body>
+
+@if(isset($is_duplicata) && $is_duplicata)
+    <div class="watermark">
+        DUPLICATA
+    </div>
+@endif
 {{-- Header --}}
 @php
     try {

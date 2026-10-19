@@ -49,12 +49,9 @@ class SessionCaisseController extends Controller
         ])->where('centre_id', $centreId);
 
         if ($user->can('view_all_sessions_caisses')) {
-            Log::info("User {$user->id} voit toutes les sessions du centre {$centreId}");
         } elseif ($user->can('view_my_sessions_caisses')) {
             $query->where('user_id', $user->id);
-            Log::info("User {$user->id} voit uniquement ses propres sessions dans le centre {$centreId}");
         } else {
-            Log::warning("User {$user->id} n'a pas la permission de voir les sessions");
             return response()->json([
                 'status' => 'error',
                 'message' => 'Vous n\'avez pas la permission de consulter les sessions.'
