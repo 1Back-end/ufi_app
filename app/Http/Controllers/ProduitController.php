@@ -251,7 +251,6 @@ class ProduitController extends Controller
      * @permission ProduitController::updateStatus
      * @permission_desc Activer/Désactiver un produit
      */
-
     public function updateStatus(Request $request, string $id)
     {
         $auth = auth()->user();
@@ -795,7 +794,10 @@ class ProduitController extends Controller
                 'productType',
                 'packagings',
                 'dosages'
-            ])->orderBy("name")->get();
+            ])
+                ->where('centre_id', $centreId)
+            ->orderBy("name")
+                ->get();
 
             $centre = Centre::find($centreId);
             $media = $centre?->medias()->where('name', 'logo')->first();

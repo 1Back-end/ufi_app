@@ -62,7 +62,11 @@ class Prestation extends Model
         'entered_by',
         'entered_at',
         'type_visite',
-        'recommended_by_doctor'
+        'recommended_by_doctor',
+        'is_updated',
+        'adjusted_at',
+        'adjusted_by',
+        'is_adjustable'
     ];
 
     protected function casts(): array
@@ -77,6 +81,8 @@ class Prestation extends Model
             'result_delivered_at' => 'datetime',
             'cancelled_at' => 'datetime',
             'entered_at' => 'datetime',
+            'adjusted_at' => 'datetime',
+            'is_adjustable' => 'boolean',
         ];
     }
     public function rendezVous()
@@ -503,7 +509,7 @@ class Prestation extends Model
     public function actes(): MorphToMany
     {
         return $this->morphedByMany(Acte::class, 'prestationable')
-            ->withPivot(['remise', 'quantity', 'date_rdv', 'date_rdv_end', 'amount_regulate', 'b', 'k_modulateur', 'pu'])
+            ->withPivot(['remise', 'quantity', 'date_rdv', 'date_rdv_end', 'amount_regulate', 'b', 'k_modulateur', 'pu','day_of_week'])
             ->withTimestamps();
     }
 
@@ -517,7 +523,7 @@ class Prestation extends Model
     public function consultations(): MorphToMany
     {
         return $this->morphedByMany(Consultation::class, 'prestationable')
-            ->withPivot(['amount_regulate', 'date_rdv', 'remise', 'quantity', 'pu'])
+            ->withPivot(['amount_regulate', 'date_rdv', 'remise', 'quantity', 'pu','day_of_week'])
             ->withTimestamps();
     }
 
@@ -611,5 +617,9 @@ class Prestation extends Model
     public function enteredBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'entered_by');
+    }
+    public function adjustedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'adjusted_by');
     }
 }

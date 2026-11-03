@@ -2,8 +2,15 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\AppointmentDuration;
+use App\Enums\AppointmentType;
+use App\Enums\DayOfWeek;
+use App\Enums\RendezVousStatus;
+use App\Enums\RendezVousType;
+use App\Enums\TypePrestation;
 use App\Exports\PrisesEnChargeExport;
 use App\Exports\RendezVousExport;
+use App\Models\ConsultantDisponibilite;
 use App\Models\DossierConsultation;
 use App\Models\RendezVous;
 use App\Models\Setting;
@@ -14,6 +21,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Maatwebsite\Excel\Facades\Excel;
 
 /**
@@ -41,9 +50,25 @@ class RendezVousController extends Controller
             'prestation.actes.typeActe',
             'parent:id,code,dateheure_rdv',
         ])
+            ->whereNull('deleted_at')
+            ->when(!$request->has('start_date') && !$request->has('end_date'), function($q) {
+                $q->whereBetween('date_expiration', [
+                    \Carbon\Carbon::now()->startOfDay(),
+                    \Carbon\Carbon::now()->addMonth()->endOfDay()
+                ]);
+            })
+
+            ->when($request->filled('start_date') && $request->filled('end_date'), function($q) use ($request) {
+                $q->whereBetween('date_expiration', [
+                    \Carbon\Carbon::parse($request->start_date)->startOfDay(),
+                    \Carbon\Carbon::parse($request->end_date)->endOfDay()
+                ]);
+            })
+
             ->when($request->filled('etat'), fn($q) => $q->where('etat', $request->etat))
             ->when($request->filled('type'), fn($q) => $q->where('type', $request->type))
             ->when($request->filled('client_id'), fn($q) => $q->where('client_id', $request->client_id))
+            ->when($request->filled('consultant_id'), fn($q) => $q->where('consultant_id', $request->consultant_id))
             ->when($request->filled('prestation_id'), fn($q) => $q->where('prestation_id', $request->prestation_id))
             ->when($request->filled('type_prestation'), function($q) use ($request) {
                 $q->whereHas('prestation', function($subQ) use ($request) {
@@ -66,7 +91,7 @@ class RendezVousController extends Controller
                 });
             });
 
-        $rendezVous = $query->latest()->paginate($perPage, ['*'], 'page', $page);
+        $rendezVous = $query->latest('date_expiration')->paginate($perPage, ['*'], 'page', $page);
 
         return response()->json([
             'data'         => $rendezVous->items(),
@@ -76,225 +101,368 @@ class RendezVousController extends Controller
         ]);
     }
 
-
-
-
-
-
-
-    /**
-     * Display a listing of the resource.
-     * @permission RendezVousController::PrintRapport
-     * @permission_desc Imprimer les états de consultations des rendez-vous
-     */
-    public function PrintRapport(Request $request)
+    public function dernieresChronologies($clientId)
     {
-        DB::beginTransaction();
-
-        try {
-            // Période
-            $date_debut = $request->input('start') ? Carbon::parse($request->input('start'))->startOfDay() : null;
-            $date_fin   = $request->input('end')   ? Carbon::parse($request->input('end'))->endOfDay() : null;
-
-
-            // Requête principale
-            // Requête principale
-            $query = RendezVous::with([
-                'client.sexe',
-                'consultant',
-                'prestation',
-            ])
-                ->where('is_deleted', false)
-                ->when($request->filled('consultant_id'), fn($q) => $q->where('consultant_id', $request->consultant_id))
-                ->when($request->filled('client_id'), fn($q) => $q->where('client_id', $request->client_id))
-                ->when($request->filled('type'), fn($q) => $q->whereHas('prestation', fn($subQ) => $subQ->where('type', $request->type)))
-                ->when($date_debut && $date_fin, fn($q) => $q->whereBetween('dateheure_rdv', [$date_debut, $date_fin]));
-
-            $rendezVous = $query->orderBy('dateheure_rdv', 'desc')->get();
-
-            // Préparer les données pour le PDF
-            $data = [
-                'rendezVous' => $rendezVous,
-                'periode' => $date_debut && $date_fin ? [
-                    'du' => $date_debut->format('Y-m-d'),
-                    'au' => $date_fin->format('Y-m-d')
-                ] : null,
-                'filtre' => [
-                    'type' => $request->input('type'),
-                    'client_id' => $request->input('client_id'),
-                    'consultant_id' => $request->input('consultant_id'),
-                ]
-            ];
-
-            // Nom et chemin du fichier PDF
-            $fileName = 'etat-consultations-' . now()->format('YmdHis') . '.pdf';
-            $folderPath = 'storage/etat_consultations';
-            $filePath = $folderPath . '/' . $fileName;
-
-            // Génération du PDF
-            save_browser_shot_pdf(
-                view: 'pdfs.etats.rendez_vous',
-                data: ['data' => $data],
-                folderPath: $folderPath,
-                path: $filePath,
-                margins: [15, 10, 15, 10],
-                format: 'A4',
-                direction: 'paysage'
-            );
-
-            DB::commit();
-
-            // Retourner le PDF en base64
-            $pdfContent = file_get_contents($filePath);
-            $base64 = base64_encode($pdfContent);
-
-            return response()->json([
-                "data" => $rendezVous,
-                'base64' => $base64,
-                'url' => $filePath,
-                'filename' => $fileName,
-            ]);
-
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return response()->json([
-                'error' => 'Une erreur est survenue lors de la génération du rapport.',
-                'message' => $e->getMessage()
-            ], 500);
-        }
-    }
-
-    /**
-     * Display a listing of the resource.
-     * @permission RendezVousController::rapportResume
-     * @permission_desc Imprimer les rapports des consultants par prestations
-     */
-    public function rapportResume(Request $request)
-    {
-        $date_debut = $request->input('start') ? Carbon::parse($request->input('start'))->startOfDay() : null;
-        $date_fin   = $request->input('end')   ? Carbon::parse($request->input('end'))->endOfDay() : null;
-
-        $rendezVous = RendezVous::with(['consultant', 'prestation'])
-            ->where('is_deleted', false)
-            ->when($request->filled('consultant_id'), fn($q) => $q->where('consultant_id', $request->consultant_id))
-            ->when($request->filled('client_id'), fn($q) => $q->where('client_id', $request->client_id))
-            ->when($request->filled('type'), fn($q) => $q->whereHas('prestation', fn($subQ) => $subQ->where('type', $request->type)))
-            ->when($date_debut && $date_fin, fn($q) => $q->whereBetween('dateheure_rdv', [$date_debut, $date_fin]))
+        $rendezVous = RendezVous::with([
+            'consultant:id,nomcomplet',
+            'prestation',
+            'createdBy:id,email,nom_utilisateur',
+            'updatedBy:id,email,nom_utilisateur',
+        ])
+            ->where('client_id', $clientId)
+            ->whereNull('deleted_at')
+            ->latest('dateheure_rdv')
+            ->take(5)
             ->get();
 
-        $summary = $rendezVous->groupBy('consultant_id')->map(function ($rdvs) {
-            $consultantName = $rdvs->first()->consultant->nomcomplet ?? 'N/A';
-            $types = [
-                'Actes' => 0,
-                'Consultations' => 0,
-                'Soins' => 0,
-                'Produits' => 0,
-                'Examen de laboratoire' => 0,
-                'Hospitalisation' => 0,
-            ];
+        return response()->json([
+            'data' => $rendezVous
+        ]);
+    }
 
-            foreach ($rdvs as $rdv) {
-                $typeLabel = $rdv->prestation->type_label ?? null;
-                if ($typeLabel && array_key_exists($typeLabel, $types)) {
-                    $types[$typeLabel]++;
-                }
+    public function dernieresParametres($clientId)
+    {
+        $parametres = DossierConsultation::with([
+            'rendezVous:id,code,dateheure_rdv',
+            'creator:id,email,nom_utilisateur',
+            'updater:id,email,nom_utilisateur',
+        ])
+            ->whereHas('rendezVous', function ($query) use ($clientId) {
+                $query->where('client_id', $clientId);
+            })
+            ->whereNull('deleted_at')
+            ->latest('created_at')
+            ->take(5)
+            ->get();
+
+        return response()->json([
+            'data' => $parametres
+        ]);
+    }
+
+    /**
+     * Display a listing of the resource.
+     * @permission RendezVousController::rdvconsultantIndex
+     * @permission_desc Afficher la liste des rendez-vous des consultants
+     */
+    public function rdvconsultantIndex(Request $request)
+    {
+        $perPage = $request->integer('limit', 25);
+        $page    = $request->integer('page', 1);
+
+        if ($request->filled('start_date') && $request->filled('end_date')) {
+            $startDate = \Carbon\Carbon::parse($request->start_date)->startOfDay();
+            $endDate   = \Carbon\Carbon::parse($request->end_date)->endOfDay();
+        } else {
+            $startDate = now()->startOfDay();
+            $endDate   = now()->addDays(10)->endOfDay();
+        }
+
+        $query = RendezVous::with([
+            'client',
+            'consultant:id,nomcomplet',
+            'createdBy:id,email,nom_utilisateur',
+            'updatedBy:id,email,nom_utilisateur',
+            'prestation.actes.typeActe',
+            'parent:id,code,dateheure_rdv',
+        ])
+            ->where('doctor_approved', true)
+            ->whereBetween('dateheure_rdv', [$startDate, $endDate])
+
+            ->when($request->filled('etat'), fn($q) => $q->where('etat', $request->etat))
+            ->when($request->filled('type'), fn($q) => $q->where('type', $request->type))
+            ->when($request->filled('client_id'), fn($q) => $q->where('client_id', $request->client_id))
+            ->when($request->filled('consultant_id'), fn($q) => $q->where('consultant_id', $request->consultant_id))
+            ->when($request->filled('prestation_id'), fn($q) => $q->where('prestation_id', $request->prestation_id))
+            ->when($request->filled('type_prestation'), function($q) use ($request) {
+                $q->whereHas('prestation', function($subQ) use ($request) {
+                    $subQ->where('type', $request->type_prestation);
+                });
+            })
+            ->when($request->filled('type_acte_id'), function($q) use ($request) {
+                $q->whereHas('prestation.actes', function($subQ) use ($request) {
+                    $subQ->where('type_acte_id', $request->type_acte_id);
+                });
+            })
+            ->when(trim($request->search), function ($q, $search) {
+                $q->where(function ($subQ) use ($search) {
+                    $subQ->where('nombre_jour_validite', 'like', "%{$search}%")
+                        ->orWhere('type', 'like', "%{$search}%")
+                        ->orWhere('code', 'like', "%{$search}%")
+                        ->orWhere('id', 'like', "%{$search}%")
+                        ->orWhereHas('client', fn($clientQ) => $clientQ->where('nomcomplet_client', 'like', "%{$search}%"))
+                        ->orWhereHas('consultant', fn($consultantQ) => $consultantQ->where('nomcomplet', 'like', "%{$search}%"));
+                });
+            });
+
+        $rendezVous = $query->orderBy('dateheure_rdv', 'asc')->paginate($perPage, ['*'], 'page', $page);
+
+        return response()->json([
+            'data'         => $rendezVous->items(),
+            'current_page' => $rendezVous->currentPage(),
+            'last_page'    => $rendezVous->lastPage(),
+            'total'        => $rendezVous->total(),
+        ]);
+    }
+
+    /**
+     * Display a listing of the resource.
+     * @permission RendezVousController::create_new_rdv
+     * @permission_desc Créer un rendez-vous
+     */
+    public function create_new_rdv(Request $request)
+    {
+        $rules = [
+            'client_id'        => 'required|exists:clients,id',
+            'consultant_id'    => 'required|exists:consultants,id',
+            'appointment_type' => ['required', Rule::enum(AppointmentType::class)],
+            'details'          => 'nullable|string',
+        ];
+
+        if ($request->input('appointment_type') === AppointmentType::SCHEDULED->value) {
+            $rules['appointment_date'] = 'required|date';
+            $rules['appointment_time'] = 'nullable';
+            $rules['day_of_week']      = ['required', Rule::enum(DayOfWeek::class)];
+        } else {
+            $rules['appointment_date'] = 'nullable|date';
+            $rules['appointment_time'] = 'nullable';
+            $rules['day_of_week']      = ['nullable', Rule::enum(DayOfWeek::class)];
+        }
+
+        $validatedData = $request->validate($rules);
+
+        $dernierRdvPaye = RendezVous::where('client_id', $validatedData['client_id'])
+            ->where('type', RendezVousType::BILLED->value)
+            ->whereHas('prestation', function ($query) {
+                $query->where('type', TypePrestation::CONSULTATIONS->value);
+            })
+            ->latest('dateheure_rdv')
+            ->first();
+
+        if ($dernierRdvPaye && $dernierRdvPaye->dateheure_rdv) {
+            $dateDernierRdv = \Carbon\Carbon::parse($dernierRdvPaye->dateheure_rdv);
+            $joursEcoules = round($dateDernierRdv->diffInDays(now()));
+
+            if ($joursEcoules > 14) {
+                throw ValidationException::withMessages([
+                    'client_id' => ["Le dernier rendez-vous payé date de plus de 14 jours ({$joursEcoules} jours). Le patient doit se rendre à la caisse pour effectuer un règlement avant de prendre un nouveau rendez-vous."],
+                ]);
+            }
+        }
+
+        if (!empty($validatedData['day_of_week'])) {
+            $dayValue = $validatedData['day_of_week'];
+            $time = $validatedData['appointment_time'] ?? null;
+
+            $disponibiliteQuery = ConsultantDisponibilite::where('consultant_id', $validatedData['consultant_id'])
+                ->where('jour', $dayValue)
+                ->where(function ($q) {
+                    $q->whereNull('is_deleted')->orWhere('is_deleted', 0);
+                });
+
+            if (!empty($time)) {
+                $disponibiliteQuery->where('heure_debut', '<=', $time)
+                    ->where('heure_fin', '>=', $time);
             }
 
-            $nbRdv = $rdvs->count();
-            $nbTypeConsultation = $rdvs->pluck('prestation.type_label')->unique()->count();
+            $isDisponible = $disponibiliteQuery->exists();
 
-            return array_merge([
-                'consultant' => $consultantName,
-                'nombre_rdv' => $nbRdv,
-                'nombre_type_consultation' => $nbTypeConsultation
-            ], $types);
-        })->values();
+            if (!$isDisponible) {
+                $dayLabel = DayOfWeek::safeLabel($dayValue);
 
-        // --- Génération du PDF ---
-        $fileName = 'rapport_resume_' . now()->format('YmdHis') . '.pdf';
-        $folderPath = 'storage/rapport_resume';
-        $filePath = $folderPath . '/' . $fileName;
+                $errorMessage = !empty($time)
+                    ? "Le consultant n'est pas disponible le {$dayLabel} à {$time}."
+                    : "Le consultant n'est pas disponible le {$dayLabel}.";
 
-        if (!file_exists($folderPath)) {
-            mkdir($folderPath, 0755, true);
+                throw ValidationException::withMessages([
+                    'day_of_week' => [$errorMessage],
+                ]);
+            }
         }
 
-        save_browser_shot_pdf(
-            view: 'pdfs.etats.rapport_resume', // Crée une vue Blade pour afficher $summary
-            data: ['summary' => $summary],
-            folderPath: $folderPath,
-            path: $filePath,
-            margins: [15, 10, 15, 10],
-            format: 'A4',
-            direction: 'portrait'
-        );
-        DB::commit();
+        $client = \App\Models\Client::find($validatedData['client_id']);
+        $consultant = \App\Models\Consultant::find($validatedData['consultant_id']);
 
-        // Retourner le PDF en base64 et URL
-        $pdfContent = file_get_contents($filePath);
-        $base64 = base64_encode($pdfContent);
+        $clientName = $client->nomcomplet_client ?? '';
+        $consultantName = $consultant->nomcomplet ?? '';
 
-        return response()->json([
-            'success' => true,
-            'data' => $summary,
-            'url' => $filePath,
-            'filename' => $fileName,
-            'base64' => $base64
-        ]);
-    }
+        $dernierePrestationId = $dernierRdvPaye ? $dernierRdvPaye->prestation_id : null;
 
+        $details = $validatedData['details'];
 
+        if (empty($details)) {
+            $appointmentTypeEnum = AppointmentType::tryFrom($validatedData['appointment_type']);
+            $typeLabel = $appointmentTypeEnum ? $appointmentTypeEnum->label() : 'Rendez-vous';
 
+            $details = "Rendez-vous de type '{$typeLabel}' enregistré pour le client {$clientName} avec le consultant {$consultantName}.";
+        }
 
-    public function HistoriqueRendezVous(Request $request, $client_id)
-    {
-        $perPage = $request->input('limit', 10);
-        $page = $request->input('page', 1);
-
-        $query = RendezVous::where('is_deleted', false)
-            ->where('client_id', $client_id)
-            ->with([
-                'consultant:id,nomcomplet',
-                'createdBy:id,email',
-                'updatedBy:id,email',
-                'prestation:id,type',
-                'parent:id,code,dateheure_rdv'
-            ])
-            ->orderByDesc('dateheure_rdv'); // du plus récent au plus ancien
-
-        // Filtrage sur le(s) état(s)
-        if ($request->has('etat')) {
-            // On récupère les états passés en query, séparés par des virgules
-            $etats = explode(',', $request->input('etat'));
-            $query->whereIn('etat', $etats);
+        if (!empty($validatedData['appointment_date'])) {
+            $timePart = $validatedData['appointment_time'] ?? '00:00:00';
+            $dateHeureRdv = $validatedData['appointment_date'] . ' ' . $timePart;
         } else {
-            // Par défaut, ces états seulement
-            $query->whereIn('etat', ['Actif', 'Inactif', 'No show', 'En cours de consultation']);
+            $dateHeureRdv = now();
         }
 
-        if ($request->filled('type')) {
-            $query->where('type', $request->input('type'));
-        }
+        $appointment = RendezVous::create([
+            'client_id'            => $validatedData['client_id'],
+            'consultant_id'        => $validatedData['consultant_id'],
+            'appointment_type'     => $validatedData['appointment_type'],
+            'appointment_date'     => $validatedData['appointment_date'] ?? null,
+            'appointment_time'     => $validatedData['appointment_time'] ?? null,
+            'day_of_week'          => $validatedData['day_of_week'] ?? null,
+            'dateheure_rdv'        => $dateHeureRdv,
+            'duration'             => AppointmentDuration::DEFAULT->value,
+            'nombre_jour_validite' => AppointmentDuration::DEFAULT->value,
+            'details'              => $details,
+            'etat'                 => $validatedData['appointment_type'],
+            'type'                 => RendezVousType::UNBILLED->value,
+            'prestation_id'        => $dernierePrestationId,
+            'created_by'           => auth()->id(),
+            'doctor_approved'      => true
+        ]);
 
-        $rendez_vous = $query->paginate($perPage, ['*'], 'page', $page);
+        $appointment->load(['client', 'consultant']);
 
         return response()->json([
-            'data' => $rendez_vous->items(),
-            'current_page' => $rendez_vous->currentPage(),
-            'last_page' => $rendez_vous->lastPage(),
-            'total' => $rendez_vous->total(),
-        ]);
+            'message'     => 'Rendez-vous créé avec succès !',
+            'appointment' => $appointment
+        ], 201);
     }
-
 
 
     /**
-     * Show the form for creating a new resource.
+     * Display a listing of the resource.
+     * @permission RendezVousController::update_rendez_vous
+     * @permission_desc Mettre à jour un rendez-vous
      */
-    public function create()
+    public function update_rendez_vous(Request $request, $id)
     {
-        //
+        $appointment = RendezVous::findOrFail($id);
+
+        if ($appointment->is_closed) {
+            return response()->json([
+                'message' => 'Ce rendez-vous est déjà clôturé et ne peut plus être modifié.'
+            ], 403);
+        }
+
+        $rules = [
+            'client_id'        => 'required|exists:clients,id',
+            'consultant_id'    => 'required|exists:consultants,id',
+            'appointment_type' => ['required', Rule::enum(AppointmentType::class)],
+            'details'          => 'nullable|string',
+        ];
+
+        if ($request->input('appointment_type') === AppointmentType::SCHEDULED->value) {
+            $rules['appointment_date'] = 'required|date';
+            $rules['appointment_time'] = 'nullable';
+            $rules['day_of_week']      = ['required', Rule::enum(DayOfWeek::class)];
+        } else {
+            $rules['appointment_date'] = 'nullable|date';
+            $rules['appointment_time'] = 'nullable';
+            $rules['day_of_week']      = ['nullable', Rule::enum(DayOfWeek::class)];
+        }
+
+        $validatedData = $request->validate($rules);
+
+        $dernierRdvPaye = RendezVous::where('client_id', $validatedData['client_id'])
+            ->where('id', '!=', $id)
+            ->where('type', RendezVousType::BILLED->value)
+            ->whereHas('prestation', function ($query) {
+                $query->where('type', TypePrestation::CONSULTATIONS->value);
+            })
+            ->latest('dateheure_rdv')
+            ->first();
+
+        if ($dernierRdvPaye && $dernierRdvPaye->dateheure_rdv) {
+            $dateDernierRdv = \Carbon\Carbon::parse($dernierRdvPaye->dateheure_rdv);
+            $joursEcoules = round($dateDernierRdv->diffInDays(now()));
+
+            if ($joursEcoules > 14) {
+                throw ValidationException::withMessages([
+                    'client_id' => ["Le dernier rendez-vous payé date de plus de 14 jours ({$joursEcoules} jours). Le patient doit se rendre à la caisse pour effectuer un règlement."],
+                ]);
+            }
+        }
+
+        // Vérification de la disponibilité du consultant
+        if (!empty($validatedData['day_of_week'])) {
+            $dayValue = $validatedData['day_of_week'];
+            $time = $validatedData['appointment_time'] ?? null;
+
+            $disponibiliteQuery = ConsultantDisponibilite::where('consultant_id', $validatedData['consultant_id'])
+                ->where('jour', $dayValue)
+                ->where(function ($q) {
+                    $q->whereNull('is_deleted')->orWhere('is_deleted', 0);
+                });
+
+            if (!empty($time)) {
+                $disponibiliteQuery->where('heure_debut', '<=', $time)
+                    ->where('heure_fin', '>=', $time);
+            }
+
+            $isDisponible = $disponibiliteQuery->exists();
+
+            if (!$isDisponible) {
+                $dayLabel = DayOfWeek::safeLabel($dayValue);
+
+                $errorMessage = !empty($time)
+                    ? "Le consultant n'est pas disponible le {$dayLabel} à {$time}."
+                    : "Le consultant n'est pas disponible le {$dayLabel}.";
+
+                throw ValidationException::withMessages([
+                    'day_of_week' => [$errorMessage],
+                ]);
+            }
+        }
+
+        $client = \App\Models\Client::find($validatedData['client_id']);
+        $consultant = \App\Models\Consultant::find($validatedData['consultant_id']);
+
+        $clientName = $client->nomcomplet_client ?? '';
+        $consultantName = $consultant->nomcomplet ?? '';
+
+        $dernierePrestationId = $dernierRdvPaye ? $dernierRdvPaye->prestation_id : $appointment->prestation_id;
+
+        $details = $validatedData['details'];
+
+        if (empty($details)) {
+            $appointmentTypeEnum = AppointmentType::tryFrom($validatedData['appointment_type']);
+            $typeLabel = $appointmentTypeEnum ? $appointmentTypeEnum->label() : 'Rendez-vous';
+
+            $details = "Mise à jour du rendez-vous de type '{$typeLabel}' pour le client {$clientName} avec le consultant {$consultantName}.";
+        }
+
+        if (!empty($validatedData['appointment_date'])) {
+            $timePart = $validatedData['appointment_time'] ?? '00:00:00';
+            $dateHeureRdv = $validatedData['appointment_date'] . ' ' . $timePart;
+        } else {
+            $dateHeureRdv = $appointment->dateheure_rdv ?? now();
+        }
+
+
+        $appointment->update([
+            'client_id'            => $validatedData['client_id'],
+            'consultant_id'        => $validatedData['consultant_id'],
+            'appointment_type'     => $validatedData['appointment_type'],
+            'appointment_date'     => $validatedData['appointment_date'] ?? null,
+            'appointment_time'     => $validatedData['appointment_time'] ?? null,
+            'day_of_week'          => $validatedData['day_of_week'] ?? null,
+            'dateheure_rdv'        => $dateHeureRdv,
+            'details'              => $details,
+            'etat'                 => $validatedData['appointment_type'],
+            'prestation_id'        => $dernierePrestationId,
+            'updated_by'           => auth()->id(),
+        ]);
+
+        $appointment->load(['client', 'consultant']);
+
+        return response()->json([
+            'message'     => 'Rendez-vous mis à jour avec succès !',
+            'appointment' => $appointment
+        ]);
     }
+
 
     /**
      * Display a listing of the resource.
@@ -369,78 +537,6 @@ class RendezVousController extends Controller
         }
     }
 
-
-    /**
-     * Display a listing of the resource.
-     * @permission RendezVousController::update
-     * @permission_desc Mettre à jour des rendez-vous
-     */
-    public function update(Request $request, $id)
-    {
-        $auth = auth()->user();
-
-        try {
-            $data = $request->validate([
-                'client_id' => 'required|integer|exists:clients,id',
-                'consultant_id' => 'required|exists:consultants,id',
-                'dateheure_rdv' => 'required|date',
-                'heure_debut' => 'required|date_format:H:i',
-                'heure_fin' => 'required|date_format:H:i|after:heure_debut',
-                'details' => 'required|string',
-                'nombre_jour_validite' => 'required|integer',
-            ]);
-
-            $rendezVous = RendezVous::findOrFail($id);
-
-            $rdvDate = \Carbon\Carbon::parse($data['dateheure_rdv'])->toDateString();
-
-            $hasConflict = RendezVous::where('consultant_id', $data['consultant_id'])
-                ->whereDate('dateheure_rdv', $rdvDate)
-                ->where('id', '!=', $rendezVous->id)
-                ->where(function ($query) use ($data) {
-                    $query->where('heure_debut', '<', $data['heure_fin'])
-                        ->where('heure_fin', '>', $data['heure_debut']);
-                })
-                ->exists();
-
-            if ($hasConflict) {
-                return response()->json([
-                    'message' => 'Le consultant a déjà un rendez-vous dans cette plage horaire.',
-                ], 400);
-            }
-
-            $existingClientRdv = RendezVous::where('client_id', $data['client_id'])
-                ->whereDate('dateheure_rdv', $rdvDate)
-                ->where('id', '!=', $rendezVous->id)
-                ->exists();
-
-            if ($existingClientRdv) {
-                return response()->json([
-                    'message' => 'Un autre rendez-vous est déjà prévu pour ce client à cette date.',
-                ], 400);
-            }
-
-            $data['updated_by'] = $auth->id;
-            $rendezVous->update($data);
-
-            return response()->json([
-                'data' => $rendezVous,
-                'message' => 'Rendez-vous mis à jour avec succès'
-            ]);
-        } catch (\Illuminate\Validation\ValidationException $e) {
-            return response()->json([
-                'error' => 'Erreur de validation',
-                'details' => $e->errors()
-            ], 422);
-        } catch (\Exception $e) {
-            return response()->json([
-                'error' => 'Une erreur est survenue',
-                'message' => $e->getMessage()
-            ], 500);
-        }
-    }
-
-
     /**
      * Display a listing of the resource.
      * @permission RendezVousController::updateStatus
@@ -448,6 +544,10 @@ class RendezVousController extends Controller
      */
     public function updateStatus(Request $request, $id)
     {
+        $request->validate([
+            'etat' => ['required', Rule::enum(RendezVousStatus::class)],
+        ]);
+
         $etat = $request->input('etat');
 
         $rendez_vous = RendezVous::find($id);
@@ -456,14 +556,10 @@ class RendezVousController extends Controller
             return response()->json(['message' => 'Rendez-vous non trouvé'], 404);
         }
 
-        if (!in_array($etat, ['Actif', 'Inactif', 'Clos', 'No show'])) {
-            return response()->json(['message' => 'Type invalide'], 400);
-        }
-
         $hasConsultation = DossierConsultation::where('rendez_vous_id', $id)
             ->exists();
 
-        if ($etat === 'No show' && $hasConsultation) {
+        if ($etat === RendezVousStatus::NO_SHOW->value && $hasConsultation) {
             return response()->json([
                 'message' => 'Impossible de marquer comme No show : ce rendez-vous a déjà un dossier de consultation.'
             ], 400);
@@ -510,10 +606,10 @@ class RendezVousController extends Controller
     {
         try {
             $rendez_vous = RendezVous::with([
-                    'client.sexe',
-                    'consultant',
-                    'createdBy',
-                    'updatedBy',
+                    'client',
+                    'consultant:id,nomcomplet',
+                    'createdBy:id,nom_utilisateur',
+                    'updatedBy:id,nom_utilisateur',
                     'prestation'
                 ])
                 ->findOrFail($id);
@@ -591,6 +687,54 @@ class RendezVousController extends Controller
             'count' => count($request->rendez_vous_ids)
         ], 200);
     }
+
+    /**
+     * Display a listing of the resource.
+     * @permission RendezVousController::close_rdv
+     * @permission_desc Clôturer les rendez-vous en accord avec les médécins
+     */
+    public function close_rdv(Request $request)
+    {
+        $request->validate([
+            'ids' => 'required|array',
+            'ids.*' => 'exists:appointments,id'
+        ]);
+
+        RendezVous::whereIn('id', $request->ids)->update([
+            'is_closed' => true,
+            'etat'      => RendezVousStatus::CLOSED->value,
+            'updated_by' => auth()->id(),
+        ]);
+
+        return response()->json([
+            'message' => 'Les rendez-vous sélectionnés ont été clôturés avec succès.'
+        ]);
+    }
+
+    /**
+     * Display a listing of the resource.
+     *
+     * @permission RendezVousController::no_show_rdv
+     * @permission_desc Marquer les rendez-vous en accord avec lés médécins comme non honorés
+     */
+    public function no_show_rdv(Request $request)
+    {
+        $request->validate([
+            'ids' => 'required|array',
+            'ids.*' => 'exists:appointments,id'
+        ]);
+
+        RendezVous::whereIn('id', $request->ids)->update([
+            'is_no_show' => true,
+            'etat'       => RendezVousStatus::NO_SHOW->value,
+            'updated_by' => auth()->id(),
+        ]);
+
+        return response()->json([
+            'message' => 'Les rendez-vous sélectionnés ont été marqués comme non honorés.'
+        ]);
+    }
+
 
 
 }

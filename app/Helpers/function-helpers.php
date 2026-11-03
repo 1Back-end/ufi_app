@@ -183,7 +183,7 @@ if (!function_exists('calculate_amount_facture')) {
 
                     $amount_acte_pc = 0;
                     if ($prestation->priseCharge) {
-                        $pu = $acte->pivot->b * $acte->pivot->k_modulateur;
+//                        $pu = $acte->pivot->b * $acte->pivot->k_modulateur;
 
                         $amount_acte_pc = ($acte->pivot->quantity * $pu * $prestation->priseCharge->taux_pc) / 100;
                         $amount_pc += $amount_acte_pc;
@@ -246,7 +246,7 @@ if (!function_exists('calculate_amount_facture')) {
                     $pu = $examen->pivot->pu;
                     $amount_examen_pc = 0;
                     if ($prestation->priseCharge) {
-                        $pu = $examen->pivot->b * $prestation->priseCharge->quotation->taux;
+//                        $pu = $examen->pivot->b * $prestation->priseCharge->quotation->taux;
 
                         $amount_examen_pc = ($examen->pivot->quantity * $pu * $prestation->priseCharge->taux_pc) / 100;
                         $amount_pc += $amount_examen_pc;

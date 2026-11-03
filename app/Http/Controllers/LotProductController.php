@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Imports\LotProduitsImport;
+use App\Imports\UploadProduct;
 use App\Models\Approvisionnement;
 use App\Models\ApprovisionnementConditionnement;
 use App\Models\LotProduit;
@@ -9,8 +11,11 @@ use App\Models\LotProduitConditionnement;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
+use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\Response;
 
 /**
  * @permission_category Gestion des lots de produits
@@ -31,12 +36,10 @@ class LotProductController extends Controller
 
         $query = LotProduit::with(["creator", "updater", "produit","emplacement","fournisseur","conditionnements.packaging"]);
 
-        $query->whereNotNull('date_peremption')
-            ->where('date_peremption', '>=', Carbon::now()->toDateString());
-
         if ($days = $request->input('expiring_within_days')) {
             $thresholdDate = Carbon::now()->addDays((int)$days)->toDateString();
-            $query->where('date_peremption', '<=', $thresholdDate);
+            $query->whereNotNull('date_peremption')
+                ->where('date_peremption', '<=', $thresholdDate);
         }
 
         if ($search = trim($request->input('search'))) {
@@ -397,6 +400,36 @@ class LotProductController extends Controller
                 'error' => 'Une erreur est survenue.',
                 'message' => $e->getMessage()
             ], 500);
+        }
+    }
+
+    /**
+     * Display a listing of the resource.
+     * @permission LotProductController::import_products
+     * @permission_desc Importer les lots produits du Laboratoire
+     */
+    public function import_products(Request $request)
+    {
+        $request->validate([
+            'file' => 'required|file|mimes:xlsx,xls,csv|max:10240',
+        ]);
+
+        try {
+
+            Excel::import(new LotProduitsImport(), $request->file('file'));
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Produits importés avec succès !',
+            ], Response::HTTP_OK);
+
+        } catch (\Exception $e) {
+            Log::error("Erreur lors de l'importation des produits : " . $e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => "Erreur lors de l'importation du fichier : " . $e->getMessage(),
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
 }

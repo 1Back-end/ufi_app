@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\StateFacture;
 use App\Enums\TypePrestation;
 use App\Enums\TypeVisitePrestation;
 use App\Enums\YesNoEnum;
+use App\Models\DeliveryChannel;
 use App\Models\OpsTblRapportConsultation;
 use App\Models\Prestation;
 use App\Models\RapportActe;
@@ -20,21 +22,6 @@ use Illuminate\Validation\Rules\Enum;
 
 class RapportActeController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
-    public function index()
-    {
-        //
-    }
-
-    /**
-     * Show the form for creating a new resource.
-     */
-    public function create()
-    {
-        //
-    }
 
     /**
      * @return JsonResponse
@@ -110,17 +97,21 @@ class RapportActeController extends Controller
                     }
                 }
 
+                $defaultDeliveryChannel = DeliveryChannel::where('default', true)->first();
+
                 if ($clientId && !empty($actesDataForPrestation)) {
                     $prestation = Prestation::create([
-                        'type' => TypePrestation::ACTES->value ?? 'ACTE',
-                        'type_visite' => TypeVisitePrestation::AUTRES->value,
+                        'type' => TypePrestation::ACTES->value,
+                        'type_visite' => TypeVisitePrestation::MEDICALE->value,
                         'client_id' => $clientId,
                         'consultant_id' => $consultantId,
                         'centre_id' => $centreId,
                         'recommended_by_doctor' => true,
                         'programmation_date' => now(),
+                        'regulated' => StateFacture::PENDING_CONFIRMATION->value,
                         'created_by' => $auth->id,
                         'updated_by' => $auth->id,
+                        'delivery_channels_id' => $defaultDeliveryChannel ? $defaultDeliveryChannel->id : null,
                     ]);
 
                     if (!$prestation) {
@@ -157,13 +148,25 @@ class RapportActeController extends Controller
                 }
             }
 
-            $updated = $rapportConsultation->update([
-                'can_add_actes' => true,
-                'updated_by' => $auth->id ?? null,
-            ]);
 
-            if (!$updated) {
-                throw new \Exception("Impossible de mettre à jour le rapport de consultation.");
+            if ($rapportConsultation) {
+                $rapportConsultation->can_add_actes = true;
+                $rapportConsultation->updated_by = $auth->id ?? null;
+                $saved = $rapportConsultation->save();
+
+                if (!$saved) {
+                    throw new \Exception("Impossible de mettre à jour le rapport de consultation.");
+                }
+
+                if ($rapportConsultation->dossierConsultation && $rapportConsultation->dossierConsultation->rendezVous) {
+                    $rendezVous = $rapportConsultation->dossierConsultation->rendezVous;
+                    $rendezVous->updated_by = $auth->id ?? null;
+                    $rdvSaved = $rendezVous->save();
+
+                    if (!$rdvSaved) {
+                        throw new \Exception("Impossible de clore le rendez-vous associé.");
+                    }
+                }
             }
 
             DB::commit();

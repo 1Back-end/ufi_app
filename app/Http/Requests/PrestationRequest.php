@@ -2,10 +2,12 @@
 
 namespace App\Http\Requests;
 
+use App\Enums\DayOfWeek;
 use App\Enums\TypePrestation;
 use App\Enums\TypeSalle;
 use App\Enums\TypeVisitePrestation;
 use App\Models\Acte;
+use App\Models\ConsultantDisponibilite;
 use App\Models\Consultation;
 use App\Models\OpsTblHospitalisation;
 use App\Models\Prestation;
@@ -25,7 +27,25 @@ class PrestationRequest extends FormRequest
     {
         return [
             'type' => ['required', new Enum(TypePrestation::class)],
-            'type_visite' => ['nullable', new Enum(TypeVisitePrestation::class)],
+            'type_visite' => [
+                'nullable',
+                new Enum(TypeVisitePrestation::class),
+                function ($attribute, $value, $fail) {
+                    $typesVisiteSociete = [
+                        TypeVisitePrestation::SYSTEMATIQUE->value,
+                        TypeVisitePrestation::EMBAUCHE->value
+                    ];
+                    if (in_array($value, $typesVisiteSociete)) {
+                        $clientId = $this->input('client_id');
+                        if ($clientId) {
+                            $client = \App\Models\Client::find($clientId);
+                            if (!$client || empty($client->societe_id)) {
+                                $fail(__("Le client sélectionné doit obligatoirement être rattaché à une société pour cette prestation."));
+                            }
+                        }
+                    }
+                },
+            ],
             'prise_charge_id' => ['nullable', 'exists:prise_en_charges,id'],
             'client_id' => ['required', 'exists:clients,id'],
             'delivery_channels_id' => [
@@ -78,6 +98,7 @@ class PrestationRequest extends FormRequest
             'actes.*.pu' => ['required_if:type,' . TypePrestation::ACTES->value],
             'actes.*.b' => ['required_if:type,' . TypePrestation::ACTES->value],
             'actes.*.k_modulateur' => ['required_if:type,' . TypePrestation::ACTES->value],
+            'actes.*.day_of_week' => ['required_if:type,' . TypePrestation::ACTES->value, 'integer'],
             // Soins
             'soins' => ['nullable', 'array', 'required_if:type,' . TypePrestation::SOINS->value,],
             'soins.*.id' => ['integer', 'required_if:type,' . TypePrestation::SOINS->value, 'exists:soins,id'],
@@ -93,6 +114,7 @@ class PrestationRequest extends FormRequest
             'consultations.*.quantity' => ['integer', 'required_if:type,' . TypePrestation::CONSULTATIONS->value, 'min:1'],
             'consultations.*.date_rdv' => ['required_if:type,' . TypePrestation::CONSULTATIONS->value, 'date'],
             'consultations.*.pu' => ['required_if:type,' . TypePrestation::CONSULTATIONS->value],
+            'consultations.*.day_of_week' => ['required_if:type,' . TypePrestation::CONSULTATIONS->value, 'integer'],
             // Hospitalisation
             'hospitalisations' => ['nullable', 'array', 'required_if:type,' . TypePrestation::HOSPITALISATION->value],
             'hospitalisations.*.id' => ['integer', 'required_if:type,' . TypePrestation::HOSPITALISATION->value, 'exists:ops_tbl_hospitalisation,id'],
@@ -165,6 +187,43 @@ class PrestationRequest extends FormRequest
     {
         switch ($this->type) {
             case TypePrestation::ACTES->value:
+                $errorConflit = [];
+
+                $hasDisponibilites = ConsultantDisponibilite::where('consultant_id', $this->consultant_id)->exists();
+
+                if ($hasDisponibilites) {
+                    foreach ($this->actes as $item) {
+                        $acte = Acte::find($item['id']);
+                        $date_rdv = Carbon::createFromTimeString($item['date_rdv']);
+
+                        $dayOfWeek = $item['day_of_week'] ?? $date_rdv->dayOfWeekIso;
+                        $timeRdv = $date_rdv->format('H:i:s');
+
+                        $isAvailable = ConsultantDisponibilite::where('consultant_id', $this->consultant_id)
+                            ->where('jour', $dayOfWeek)
+                            ->where('heure_debut', '<=', $timeRdv)
+                            ->where('heure_fin', '>=', $timeRdv)
+                            ->exists();
+
+                        if (!$isAvailable) {
+                            $dayName = DayOfWeek::tryFrom($dayOfWeek)?->label() ?? '';
+                            $errorConflit = [
+                                'message' => __("Le consultant n'est pas disponible le {$dayName} à cette heure ({$date_rdv->format('H:i')})."),
+                                'actes' => $acte
+                            ];
+                            break;
+                        }
+                    }
+                }
+
+                if ($errorConflit) {
+                    return $errorConflit;
+                }
+
+                if ($errorConflit) {
+                    return $errorConflit;
+                }
+
                 $prestations = Prestation::whereRegulated(0)
                     ->where(function (Builder $query) {
                         $query->where('consultant_id', $this->consultant_id)
@@ -174,10 +233,6 @@ class PrestationRequest extends FormRequest
                         $query->where('id', '!=', $prestationId);
                     })
                     ->get();
-
-                // Log::info($prestations);
-
-                $errorConflit = [];
 
                 foreach ($prestations as $prestation) {
                     foreach ($this->actes as $item) {
@@ -213,6 +268,37 @@ class PrestationRequest extends FormRequest
                 break;
             case TypePrestation::CONSULTATIONS->value:
 
+                $errorConflit = [];
+                $hasDisponibilites = ConsultantDisponibilite::where('consultant_id', $this->consultant_id)->exists();
+
+                if ($hasDisponibilites) {
+                    foreach ($this->consultations as $item) {
+                        $consultation = Consultation::find($item['id']);
+                        $date_rdv = Carbon::createFromTimeString($item['date_rdv']);
+                        $dayOfWeek = $item['day_of_week'] ?? $date_rdv->dayOfWeekIso;
+                        $timeRdv = $date_rdv->format('H:i:s');
+
+                        $isAvailable = ConsultantDisponibilite::where('consultant_id', $this->consultant_id)
+                            ->where('jour', $dayOfWeek)
+                            ->where('heure_debut', '<=', $timeRdv)
+                            ->where('heure_fin', '>=', $timeRdv)
+                            ->exists();
+
+                        if (!$isAvailable) {
+                            $dayName = DayOfWeek::tryFrom($dayOfWeek)?->label() ?? '';
+                            $errorConflit = [
+                                'message' => __("Le consultant n'est pas disponible le {$dayName} à cette heure ({$date_rdv->format('H:i')})."),
+                                'consultation' => $consultation
+                            ];
+                            break;
+                        }
+                    }
+                }
+
+                if ($errorConflit) {
+                    return $errorConflit;
+                }
+
                 $prestations = Prestation::whereRegulated(0)
                     ->where(function (Builder $query) {
                         $query->where('consultant_id', $this->consultant_id)
@@ -222,8 +308,6 @@ class PrestationRequest extends FormRequest
                         $query->where('id', '!=', $prestationId);
                     })
                     ->get();
-
-                $errorConflit = [];
 
                 foreach ($prestations as $prestation) {
                     foreach ($this->consultations as $item) {

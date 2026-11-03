@@ -189,7 +189,8 @@ Route::middleware(['activity'])->group(function () {
         Route::get('/get_facture_paid', [\App\Http\Controllers\ReportController::class, 'print_data_validated']);
         Route::get('/get_facture_not_paid', [\App\Http\Controllers\ReportController::class, 'print_data_not_close']);
         Route::get('/print_data_not_assurance_with_associate', [\App\Http\Controllers\ReportController::class, 'print_data_not_assurance_with_associate']);
-
+        Route::apiResource('consultant_titles', \App\Http\Controllers\TitreController::class);
+        Route::patch('consultant_titles/{id}/is_active', [\App\Http\Controllers\TitreController::class, 'updateStatus']);
 
         Route::controller(CentreController::class)->prefix('centres')->group(function () {
             Route::get('/', 'index');
@@ -202,7 +203,6 @@ Route::middleware(['activity'])->group(function () {
         Route::get('/countries', [CountryController::class, 'index']);
 
         Route::controller(ClientController::class)->prefix('clients')->group(function () {
-            // Init data for form client
             Route::get('/init-data', 'initData');
             Route::get('/', 'index');
             Route::post('/', 'store');
@@ -217,7 +217,6 @@ Route::middleware(['activity'])->group(function () {
         Route::apiResource('convention-associe', ConventionAssocieController::class)->except(['destroy', 'show']);
         Route::patch('/convention-associe/{convention_associe}/activate', [ConventionAssocieController::class, 'activate']);
 
-        // Settings routes for clients module
         Route::apiResource('sexes', SexeController::class)->except(['show']);
         Route::apiResource('status-familiales', StatusFamilialeController::class)->except(['show']);
         Route::apiResource('type-documents', TypeDocumentController::class)->except(['show']);
@@ -236,12 +235,11 @@ Route::middleware(['activity'])->group(function () {
 
         Route::get('/prestations/stats/by_delivery_channel', [PrestationController::class, 'getStatsByDeliveryChannel']);
 
-        // Prestations
-
         Route::get('prestations/types', [PrestationController::class, 'typePrestation']);
         Route::get('prestations/types_visites', [PrestationController::class, 'typeVisitePrestation']);
         Route::post('prestations/{prestation}', [PrestationController::class, 'update']);
         Route::post('prestations/{prestation}/facture', [PrestationController::class, 'saveFacture']);
+        Route::post('prestations/{prestation}/ajuster', [PrestationController::class, 'adjust']);
         Route::patch('prestations/{prestation}/change-state', [PrestationController::class, 'changeState']);
         Route::patch('/prestations/{id}/change_consultant', [PrestationController::class, 'changeConsultant']);
         Route::get('/deleted_by_date', [PrestationController::class, 'get_all_prestations_deleted']);
@@ -265,42 +263,13 @@ Route::middleware(['activity'])->group(function () {
         Route::post('/ignore-factures', [RegulationController::class, 'ignoreFacture']);
         Route::post('/print-facture-assurance', [PrestationController::class, 'printFactureAssurance']);
         Route::post('/print-facture-assurance-paid', [PrestationController::class, 'printFactureAssurancePaid']);
-        Route::post('/ventilate_assurance/{assureur_id}', [RegulationController::class, 'get_ventilate_assurance']);
 
 
 
-        Route::controller(HopitalController::class)->prefix('hopitals')->group(function () {
-            Route::get('/list', 'index');
-            Route::post('/create', 'store');
-            Route::get('/get_all_hopitals', 'get_all');
-            Route::get('/get_by_id/{id}', 'show');
-            Route::put('/edit/{id}', 'update');
-            Route::delete('/delete/{id}', 'destroy');
-        });
-        Route::controller(ServiceHopitalController::class)->prefix('services_hopitals')->group(function () {
-            Route::get('/list', 'index');
-            Route::post('/create', 'store');
-            Route::put('/edit/{id}', 'update');
-            Route::get('/get_all_services_hopitals', 'get_all');
-            Route::get('/get_by_id/{id}', 'show');
-            Route::delete('/delete/{id}', 'destroy');
-        });
-        Route::controller(TitreController::class)->prefix('titres')->group(function () {
-            Route::get('/list', 'index');
-            Route::post('/create', 'store');
-            Route::get('/get_all_titres', 'get_all');
-            Route::get('/get_by_id/{id}', 'show');
-            Route::put('/edit/{id}', 'update');
-            Route::delete('/delete/{id}', 'destroy');
-        });
-        Route::controller(SpecialiteController::class)->prefix('specialites')->group(function () {
-            Route::get('/list', 'index');
-            Route::post('/create', 'store');
-            Route::get('/get_all_specialites', 'get_all');
-            Route::get('/get_by_id/{id}', 'show');
-            Route::put('/edit/{id}', 'update');
-            Route::delete('/delete/{id}', 'destroy');
-        });
+
+
+
+
         Route::controller(QuotationController::class)->prefix('quotations')->group(function () {
             Route::get('/list', 'index');
             Route::post('/create', 'store');
@@ -350,6 +319,7 @@ Route::middleware(['activity'])->group(function () {
         Route::get('exports_all_products_in_pdf', [ProduitController::class, 'tarifaire_products']);
         Route::get('/products/fiche_stock/{idEmplacement?}/{idTypeProduit?}', [ProduitController::class, 'print_fiche_stocks']);
         Route::post('exports_products_by_interface', [ProduitController::class, 'import_products']);
+        Route::post('exports_lot_products_by_center', [\App\Http\Controllers\LotProductController::class, 'import_products']);
 
         Route::apiResource('packagings',\App\Http\Controllers\PackagingController::class);
         Route::patch('packagings/{id}/is_active', [\App\Http\Controllers\PackagingController::class, 'updateStatus']);
@@ -370,6 +340,8 @@ Route::middleware(['activity'])->group(function () {
         Route::get('enums/InvoiceStatus',[\App\Http\Controllers\EnumController::class,'InvoiceStatus']);
         Route::get('enums/AntecedentSubType',[\App\Http\Controllers\EnumController::class,'AntecedentSubType']);
         Route::get('enums/AntecedentType',[\App\Http\Controllers\EnumController::class,'AntecedentType']);
+        Route::get('enums/DayOfWeek',[\App\Http\Controllers\EnumController::class,'DayOfWeek']);
+        Route::get('enums/AppointmentType',[\App\Http\Controllers\EnumController::class,'AppointmentType']);
 
 
         Route::apiResource('product_types',\App\Http\Controllers\ProductTypeController::class);
@@ -394,13 +366,19 @@ Route::middleware(['activity'])->group(function () {
 
 
         Route::apiResource('rendez_vous', RendezVousController::class);
+        Route::post('create_new_rdv', [\App\Http\Controllers\RendezVousController::class, 'create_new_rdv']);
+        Route::put('update_rendez_vous/{id}', [\App\Http\Controllers\RendezVousController::class, 'update_rendez_vous']);
+        Route::get('rdvconsultantIndex', [\App\Http\Controllers\RendezVousController::class, 'rdvconsultantIndex']);
+        Route::post('close_rdv', [\App\Http\Controllers\RendezVousController::class, 'close_rdv']);
+        Route::post('no_show_rdv', [\App\Http\Controllers\RendezVousController::class, 'no_show_rdv']);
         Route::get('exports_all_rendez_vous_in_excel', [\App\Http\Controllers\RendezVousController::class, 'export_in_excel']);
         Route::post('rendez_vous_bulk_deliver_imaging', [RendezVousController::class, 'bulkDeliverImagingResults']);
         Route::post('rendez_vous_bulk_deliver_nursing', [RendezVousController::class, 'bulkDeliverNursingResults']);
         Route::patch('rendez-vous/{id}/status', [\App\Http\Controllers\RendezVousController::class, 'updateStatus']);
         Route::apiResource('dossier_locations', \App\Http\Controllers\DossierLocationController::class);
         Route::patch('dossier_locations/{id}/is_active', [\App\Http\Controllers\DossierLocationController::class, 'updateStatus']);
-
+        Route::get('/clients/{clientId}/last_appointments', [RendezVousController::class, 'dernieresChronologies']);
+        Route::get('/clients/{clientId}/last_parameters', [RendezVousController::class, 'dernieresParametres']);
 
         Route::apiResource('dossiers_consultations', DossierConsultationController::class);
         Route::post('dossiers_consultations/{id}/update', [\App\Http\Controllers\DossierConsultationController::class, 'update_dossiers']);
@@ -447,6 +425,7 @@ Route::middleware(['activity'])->group(function () {
         Route::post('consultants/merge_duplicates', [ConsultantController::class, 'mergeConsultantDuplicates']);
         Route::get('clients_duplicates', [ClientController::class, 'getDuplicates']);
         Route::post('clients/merge_duplicates', [ClientController::class, 'mergeDuplicates']);
+        Route::get('/consultants/{consultantId}/disponibilites', [ConsultantController::class, 'get_disponibilite_by_consultant']);
 
         Route::apiResource('consultants', ConsultantController::class);
         Route::put('consultants/{id}/status', [\App\Http\Controllers\ConsultantController::class, 'updateStatus']);
@@ -457,6 +436,16 @@ Route::middleware(['activity'])->group(function () {
 
         Route::apiResource('kits', \App\Http\Controllers\KitProductController::class);
         Route::patch('kits/{id}/status', [\App\Http\Controllers\KitProductController::class, 'updateStatus']);
+
+        Route::apiResource('consultant_specialties', \App\Http\Controllers\SpecialiteController::class);
+        Route::patch('consultant_specialties/{id}/status', [\App\Http\Controllers\SpecialiteController::class, 'updateStatus']);
+
+        Route::apiResource('consultant_hopitals', \App\Http\Controllers\HopitalController::class);
+        Route::patch('consultant_hopitals/{id}/status', [\App\Http\Controllers\HopitalController::class, 'updateStatus']);
+
+        Route::apiResource('consultants_service_hospitals', \App\Http\Controllers\ServiceHopitalController::class);
+        Route::patch('consultants_service_hospitals/{id}/status', [\App\Http\Controllers\ServiceHopitalController::class, 'updateStatus']);
+
 
 
 
@@ -475,30 +464,6 @@ Route::middleware(['activity'])->group(function () {
         Route::get('/dashboard/consultants/payments_stats', [DashboardController::class, 'get_paid_consultant_payments']);
         Route::get('/dashboard/insurance_recoveries', [DashboardController::class, 'getInsuranceRecoveriesKpi']);
 
-        Route::controller(VoixTransmissionController::class)->prefix('voie_administrations')->group(function () {
-            Route::get('/list', 'index');
-            Route::post('/create', 'store');
-            Route::get('/get_by_id/{id}', 'show');
-            Route::put('/edit/{id}', 'update');
-            Route::delete('/delete/{id}', 'destroy');
-            Route::get('/get_data', 'listIdName');
-        });
-        Route::controller(CategoryController::class)->prefix('category_products')->group(function () {
-            Route::get('/list', 'index');
-            Route::post('/create', 'store');
-            Route::get('/get_by_id/{id}', 'show');
-            Route::put('/edit/{id}', 'update');
-            Route::delete('/delete/{id}', 'destroy');
-            Route::get('/get_data', 'listIdName');
-        });
-        Route::controller(UniteProduitController::class)->prefix('unity_products')->group(function () {
-            Route::get('/list', 'index');
-            Route::post('/create', 'store');
-            Route::get('/get_by_id/{id}', 'show');
-            Route::put('/edit/{id}', 'update');
-            Route::delete('/delete/{id}', 'destroy');
-            Route::get('/get_data', 'listIdName');
-        });
         Route::controller(TypeconsultationController::class)->prefix('type_consultants')->group(function () {
             Route::get('/list', 'index');
             Route::post('/create', 'store');
@@ -507,15 +472,7 @@ Route::middleware(['activity'])->group(function () {
             Route::delete('/delete/{id}', 'destroy');
             Route::get('/get_data', 'listIdName');
         });
-        Route::controller(GroupProduitController::class)->prefix('group_products')->group(function () {
-            Route::get('/list', 'index');
-            Route::post('/create', 'store');
-            Route::get('/get_by_id/{id}', 'show');
-            Route::put('/edit/{id}', 'update');
-            Route::delete('/delete/{id}', 'destroy');
-            Route::get('/get_data', 'listIdName');
-            Route::get('/{group_product_id}/categories', 'getCategories');
-        });
+
 
 
 
@@ -661,9 +618,6 @@ Route::middleware(['activity'])->group(function () {
             Route::get('/bilan/{id}/rapport',  'showRapport');
         });
 
-
-
-
         Route::controller(StatistiqueController::class)->prefix('statistics')->group(function () {
             Route::get('/print_data', 'get_data');
             Route::get('clients_by_day',  'get_client_by_day');
@@ -675,14 +629,9 @@ Route::middleware(['activity'])->group(function () {
 
         });
 
-
-
-        // Setting management
         Route::apiResource('settings', SettingController::class);
 
-        // Report Management
         Route::prefix('reports')->group(function () {
-            // Rapports Facturations
             Route::controller(FacturationsController::class)->prefix('facturations')->group(function () {
                 Route::get('/report-caisse', 'reportCaisse');
                 Route::get('/prise-charge', 'priseCharge');
@@ -693,42 +642,28 @@ Route::middleware(['activity'])->group(function () {
             });
         });
 
-        // Gestion des Kb Prélèvement
         Route::apiResource('kb-prelevements', KbPrelevementController::class);
 
-        // Gestion des Techniques d'analyse
         Route::apiResource('analysis-techniques', AnalysisTechniqueController::class);
 
-        // Gestion des technique d'examen
         Route::apiResource('technique-exams', TechniqueExamController::class);
 
-        // Gestion des Types de prélèvement
         Route::apiResource('type-prelevements', TypePrelevementController::class);
 
-        // Gestion des catégories éléments de résultat
-
-        // Gestion des élements de résultat
         Route::apiResource('element-results', ElementResultController::class);
 
-        // Gestion des types de résultat
         Route::apiResource('type-results', TypeResultController::class);
 
-        // Gestion des familles d'examen
         Route::apiResource('family-exams', FamilyExamController::class);
 
-        // Gestion des sous familles d'examen
         Route::apiResource('sub-family-exams', SubFamilyExamController::class);
 
-        // Gestion sdes Paillasses
         Route::apiResource('paillasses', PaillasseController::class);
 
-        //Gestion des Tubes de Prélèvement
         Route::apiResource('tube-prelevements', TubePrelevementController::class);
 
-        // Gestion des groupes populations
         Route::apiResource('groupe-populations', GroupePopulationController::class);
 
-        // Gestion des Examen
         Route::get('/examens/print_rapports', [ExamenController::class, 'PrintTarifaireActes']);
         Route::get('examens/print_tarifaire_assurance/{quotationId}', [ExamenController::class, 'PrintTarifaireActesBy_Assurance']);
         Route::get('examens/print_tarifaire_paillasse/{paillasesId?}', [ExamenController::class, 'PrintTarifaireActesBy_Paillasse']);
@@ -736,15 +671,13 @@ Route::middleware(['activity'])->group(function () {
         Route::apiResource('examens', ExamenController::class);
 
 
-        // Prélèvements
         Route::post('/prelevements/{examen}/{prestation}', [ExamenController::class, 'prelevement']);
         Route::post('/prelevements', [ExamenController::class, 'prelevementAll']);
         Route::delete('/prelevements/{prestation}/{examen}/cancel', [ExamenController::class, 'cancelPrelevement']);
 
-        // Gestion Element Paillasse
+
         Route::apiResource('element-paillasses', ElementPaillasseController::class)->only(['index', 'destroy']);
 
-        // Gestion Result
         Route::post('/prestations/examens/status', [ResultController::class, 'status']);
         Route::post('/prestations/examens/validate', [ResultController::class, 'validate']);
         Route::post('/prestations/examens/cancel', [ResultController::class, 'cancel']);
@@ -752,7 +685,6 @@ Route::middleware(['activity'])->group(function () {
         Route::get('/prestations/deleted/print', [PrestationController::class, 'print_deleted_prestations']);
 
 
-        // Gestion des commissions des consultants
         Route::get('/get_all_prestations_type', [ConsultantPrestationShareController::class, 'get_all_prestations_type']);
         Route::post('/save_commisions_for_consultants', [ConsultantPrestationShareController::class, 'save_commisions_for_consultants']);
         Route::get('commissions/paiements', [ConsultantPrestationShareController::class, 'get_all_paiement_for_consultants']);
@@ -767,6 +699,9 @@ Route::middleware(['activity'])->group(function () {
         Route::patch('accounts_payments/{id}/is_active', [PaymentAccountController::class, 'updateStatus']);
         Route::get('get_account_payment_status', [\App\Http\Controllers\PaymentAccountController::class, 'get_account_payment_status']);
 
+        Route::post('/reports/prestations', [\App\Http\Controllers\GlobalReportController::class, 'sendPrestationsReport']);
+
+
         Route::get('system_config', [AuthenticatedSessionController::class, 'getSystemConfig']);
         Route::post('inactivity_pause', [AuthenticatedSessionController::class, 'triggerInactivityPause']);
 
@@ -780,36 +715,27 @@ Route::middleware(['activity'])->group(function () {
 
         Route::post('/upload-data', UploadExistingDataController::class);
 
-        // Import Configuration Actes, Soins and Consultations
         Route::post('/import-configs-asc', function (Request $request) {
             $request->validate([
                 'file' => 'required|file|mimes:csv,xlsx,xls',
             ]);
-
             Excel::import(new ImportConfigASC(), $request->file('file'));
-
             return response()->json(['message' => 'Data imported successfully.']);
         });
 
-        // Import Predefined Liste
         Route::post('/import-predefined-list', function (Request $request) {
             $request->validate([
                 'file' => 'required|file|mimes:csv,xlsx,xls',
             ]);
-
             Excel::import(new ImportPredefinedList(), $request->file('file'));
-
             return response()->json(['message' => 'Data imported successfully.']);
         });
 
-        // Import des clients Associés
         Route::post('/import-associate-client', function (Request $request) {
             $request->validate([
                 'file' => 'required|file|mimes:csv,xlsx,xls',
             ]);
-
             Excel::import(new ImportAssociateClient(), $request->file('file'));
-
             return response()->json(['message' => 'Data imported successfully.']);
         });
     });

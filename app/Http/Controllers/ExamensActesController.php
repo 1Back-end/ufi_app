@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\StateFacture;
 use App\Enums\TypePrestation;
 use App\Enums\TypeVisitePrestation;
 use App\Enums\YesNoEnum;
+use App\Models\DeliveryChannel;
 use App\Models\ExamenActes;
 use App\Models\OpsTblRapportConsultation;
 use App\Models\Prestation;
@@ -36,7 +38,7 @@ class ExamensActesController extends Controller
             'examen_id' => 'nullable|array',
             'examen_id.*' => 'exists:examens,id',
             'examens_libres' => 'nullable|array',
-            'examens_libres.*.name' => 'required_if:type,' . YesNoEnum::NON->value . '|string',
+            'examens_libres.*.name' => 'nullable|string',
             'examens_libres.*.description' => 'nullable|string',
         ]);
 
@@ -64,9 +66,10 @@ class ExamensActesController extends Controller
 
         DB::beginTransaction();
         try {
-            if ($request->type === YesNoEnum::OUI->value && $request->filled('examen_id')) {
+
+            if ($request->filled('examen_id')) {
                 $examensDataForPrestation = [];
-                $maxDurationInDays = 0; // Stocke la durée maximale en jours
+                $maxDurationInDays = 0;
 
                 foreach ($request->examen_id as $examenId) {
                     $examenActes = ExamenActes::create([
@@ -91,7 +94,6 @@ class ExamensActesController extends Controller
                             'b' => $examenModel->b ?? 0,
                         ];
 
-                        // Récupération de la durée en jours et recherche du maximum
                         $duration = $examenModel->renderer_duration ?? 0;
                         if ($duration > $maxDurationInDays) {
                             $maxDurationInDays = $duration;
@@ -100,20 +102,23 @@ class ExamensActesController extends Controller
                 }
 
                 if ($clientId && !empty($examensDataForPrestation)) {
-                    // Calcul de la date de remise en ajoutant les jours du délai le plus long
                     $resultDeliveredAt = $maxDurationInDays > 0
                         ? now()->addDays($maxDurationInDays)
                         : now();
 
+                    $defaultDeliveryChannel = DeliveryChannel::where('default', true)->first();
+
                     $prestation = Prestation::create([
                         'type' => TypePrestation::LABORATOIR->value,
-                        'type_visite' => TypeVisitePrestation::AUTRES->value,
+                        'type_visite' => TypeVisitePrestation::MEDICALE->value,
                         'client_id' => $clientId,
                         'consultant_id' => $consultantId,
                         'centre_id' => $centreId,
                         'recommended_by_doctor' => true,
                         'programmation_date' => now(),
                         'result_delivered_at' => $resultDeliveredAt,
+                        'delivery_channels_id' => $defaultDeliveryChannel ? $defaultDeliveryChannel->id : null,
+                        'regulated' => StateFacture::PENDING_CONFIRMATION->value,
                         'created_by' => $auth->id,
                         'updated_by' => $auth->id,
                     ]);
@@ -135,19 +140,21 @@ class ExamensActesController extends Controller
                 }
             }
 
-            if ($request->type === YesNoEnum::NON->value && $request->filled('examens_libres')) {
+            if ($request->filled('examens_libres')) {
                 foreach ($request->examens_libres as $examenLibre) {
-                    $examenLibreCreated = ExamenActes::create([
-                        'rapport_consultation_id' => $request->rapport_consultation_id,
-                        'name' => $examenLibre['name'],
-                        'description' => $examenLibre['description'] ?? null,
-                        'type' => YesNoEnum::NON->value,
-                        'created_by' => $auth->id,
-                        'updated_by' => $auth->id,
-                    ]);
+                    if (!empty($examenLibre['name'])) {
+                        $examenLibreCreated = ExamenActes::create([
+                            'rapport_consultation_id' => $request->rapport_consultation_id,
+                            'name' => $examenLibre['name'],
+                            'description' => $examenLibre['description'] ?? null,
+                            'type' => YesNoEnum::NON->value,
+                            'created_by' => $auth->id,
+                            'updated_by' => $auth->id,
+                        ]);
 
-                    if (!$examenLibreCreated) {
-                        throw new \Exception("Erreur lors de l'enregistrement de l'examen libre.");
+                        if (!$examenLibreCreated) {
+                            throw new \Exception("Erreur lors de l'enregistrement de l'examen libre.");
+                        }
                     }
                 }
             }
@@ -163,7 +170,6 @@ class ExamensActesController extends Controller
 
                 if ($rapport->dossierConsultation && $rapport->dossierConsultation->rendezVous) {
                     $rendezVous = $rapport->dossierConsultation->rendezVous;
-                    $rendezVous->etat = 'Clos';
                     $rendezVous->updated_by = $auth->id ?? null;
                     $rdvSaved = $rendezVous->save();
 

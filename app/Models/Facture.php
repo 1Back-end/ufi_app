@@ -41,6 +41,12 @@ class Facture extends Model
         'regulated_at',
         'is_regulated',
         'regulated',
+        'adjusted_at',
+        'adjusted_by',
+        'payable_by_file_url',
+        'amount_insurance',
+        'amount_insured',
+        'description'
     ];
 
     protected function casts(): array
@@ -48,6 +54,7 @@ class Facture extends Model
         return [
             'date_fact' => 'datetime',
             'state' => StateFacture::class,
+            'adjusted_at' => 'datetime',
         ];
     }
 
@@ -156,8 +163,11 @@ class Facture extends Model
     {
         return $this->hasMany(Regulation::class, 'facture_id');
     }
-    // Dans Facture.php
     public function sessionElements() {
         return $this->hasMany(SessionElement::class, 'facture_id');
+    }
+    public function adjustedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'adjusted_by');
     }
 }

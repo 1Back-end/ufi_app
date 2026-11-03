@@ -39,6 +39,10 @@ class KitProductController extends Controller
      */
     public function store(Request $request): JsonResponse
     {
+        // Correction : on récupère l'ID du centre de recommandation, ou l'en-tête, ou null
+        $centreCenter = \App\Models\Centre::where('is_acte_recommendation_center', true)->first();
+        $centreId = $centreCenter ? $centreCenter->id : $request->header('centre');
+
         $validated = $request->validate([
             'code' => 'nullable|string|unique:kit_products,code|unique:products,ref',
             'name' => 'required|string|max:255',
@@ -49,7 +53,9 @@ class KitProductController extends Controller
         ]);
 
         try {
-            $kit = DB::transaction(function () use ($validated) {
+            $authId = auth()->id();
+
+            $kit = DB::transaction(function () use ($validated, $centreId, $authId) {
                 $code = $validated['code'] ?? 'KIT-' . strtoupper(Str::random(8));
 
                 $kit = KitProduct::create([
@@ -57,7 +63,7 @@ class KitProductController extends Controller
                     'name' => $validated['name'],
                     'price' => $validated['price'],
                     'is_active' => $validated['is_active'] ?? true,
-                    'created_by' => auth()->id(),
+                    'created_by' => $authId,
                 ]);
 
                 Product::create([
@@ -65,16 +71,17 @@ class KitProductController extends Controller
                     'name' => $validated['name'],
                     'price' => $validated['price'],
                     'is_kit' => true,
-                    'facturable' => false,
+                    'facturable' => true,
                     'kit_id' => $kit->id,
-                    'created_by' => auth()->id(),
+                    'created_by' => $authId,
+                    'centre_id' => $centreId, // Utilisation de l'ID correct
                 ]);
 
                 foreach ($validated['products'] as $item) {
                     KitProductItem::create([
                         'kit_id' => $kit->id,
                         'product_id' => $item['id'],
-                        'created_by' => auth()->id(),
+                        'created_by' => $authId,
                     ]);
                 }
 
@@ -90,6 +97,7 @@ class KitProductController extends Controller
             ], 201);
 
         } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error($e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Erreur lors de la création du kit.',
@@ -102,13 +110,19 @@ class KitProductController extends Controller
      * @permission KitProductController::update
      * @permission_desc Modifier un kit de produits
      */
-    public function update(Request $request, KitProduct $kit): JsonResponse
+    public function update(Request $request, $id): JsonResponse
     {
-        $product = Product::where('kit_id', $kit->id)->first();
-        $productId = $product ? $product->id : null;
+        $kit = KitProduct::find($id);
+
+        if (!$kit) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Kit introuvable.'
+            ], 404);
+        }
 
         $validated = $request->validate([
-            'code' => 'nullable|string|unique:kit_products,code,' . $kit->id . '|unique:products,ref,' . $productId,
+            'code' => 'nullable|string|unique:kit_products,code,' . $kit->id . '|unique:products,ref,' . optional(Product::where('kit_id', $kit->id)->first())->id,
             'name' => 'required|string|max:255',
             'price' => 'required|numeric|min:0',
             'is_active' => 'sometimes|boolean',
@@ -116,49 +130,60 @@ class KitProductController extends Controller
             'products.*.id' => 'required|exists:products,id',
         ]);
 
-        DB::beginTransaction();
+        $centreCenter = \App\Models\Centre::where('is_acte_recommendation_center', true)->first();
+        $centreId = $centreCenter ? $centreCenter->id : ($request->header('centre') ?: null);
 
         try {
-            $code = $validated['code'] ?? $kit->code;
+            $authId = auth()->id();
 
-            $kit->update([
-                'code' => $code,
-                'name' => $validated['name'],
-                'price' => $validated['price'],
-                'is_active' => $validated['is_active'] ?? $kit->is_active,
-                'updated_by' => auth()->id(),
-            ]);
+            DB::transaction(function () use ($validated, $kit, $centreId, $authId) {
+                $code = $validated['code'] ?? $kit->code;
 
-            Product::where('kit_id', $kit->id)->update([
-                'ref' => $code,
-                'name' => $validated['name'],
-                'price' => $validated['price'],
-                'updated_by' => auth()->id(),
-            ]);
-
-            $kit->items()->delete();
-
-            foreach ($validated['products'] as $item) {
-                KitProductItem::create([
-                    'kit_id' => $kit->id,
-                    'product_id' => $item['id'],
-                    'created_by' => auth()->id(),
+                $kit->update([
+                    'code' => $code,
+                    'name' => $validated['name'],
+                    'price' => $validated['price'],
+                    'is_active' => $validated['is_active'] ?? $kit->is_active,
+                    'updated_by' => $authId,
                 ]);
-            }
 
-            DB::commit();
+                $product = Product::where('kit_id', $kit->id)->first();
+                if ($product) {
+                    $productData = [
+                        'ref' => $code,
+                        'name' => $validated['name'],
+                        'price' => $validated['price'],
+                        'updated_by' => $authId,
+                    ];
+
+                    if ($centreId) {
+                        $productData['centre_id'] = $centreId;
+                    }
+
+                    $product->update($productData);
+                }
+
+                KitProductItem::where('kit_id', $kit->id)->delete();
+
+                foreach ($validated['products'] as $item) {
+                    KitProductItem::create([
+                        'kit_id' => $kit->id,
+                        'product_id' => $item['id'],
+                        'created_by' => $authId,
+                    ]);
+                }
+            });
 
             $kit->load('items.product');
 
             return response()->json([
                 'success' => true,
-                'message' => 'Kit mis à jour avec succès.',
+                'message' => 'Kit et produit associé mis à jour avec succès.',
                 'data' => $kit
             ], 200);
 
         } catch (\Exception $e) {
-            DB::rollBack();
-
+            \Illuminate\Support\Facades\Log::error($e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Erreur lors de la mise à jour du kit.',

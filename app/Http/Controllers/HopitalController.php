@@ -6,6 +6,7 @@ use App\Models\Consultant;
 use Illuminate\Http\Request;
 use App\Models\Hopital;
 use App\Models\User;
+use Illuminate\Validation\Rule;
 
 /**
  * @permission_category Gestion des hôpitaux
@@ -15,196 +16,183 @@ class HopitalController extends Controller
 {
     /**
      * Display a listing of the resource.
+     *
      * @permission HopitalController::index
-     * @permission_desc Afficher l'id et le nom de l'id et le nom de l'hôpital
+     * @permission_desc Afficher la liste des hôpitaux des consultants
      */
-    public function index(){
-        $hopital = Hopital::select('id','nom_hopi')
-            ->where('is_deleted', false)  // Filter out deleted hospitals
-            ->get();
-        return response()->json($hopital);
-    }
-    /**
-     * Display a listing of the resource.
-     * @permission HopitalController::get_all
-     * @permission_desc Afficher tous les hôpitaux
-     */
-    public function get_all(Request $request)
+    public function index(Request $request)
     {
-        $perPage = $request->input('limit', 10);  // Par défaut, 10 éléments par page
-        $page = $request->input('page', 1);  // Page courante
-        $hopitals = Hopital::where('is_deleted', false)
-            ->when($request->input('search'), function ($query) use ($request) {
-                $search = $request->input('search');
-                $query->where('nom_hopi', 'like', '%' . $search . '%')
-                    ->orWhere('Abbreviation_hopi', 'like', '%' . $search . '%')
-                    ->orWhere('addresse_hopi', 'like', '%' . $search . '%')
-                    ->orWhere('id', 'like', '%' . $search . '%');
-            })
-            ->latest()->paginate(perPage: $perPage, page: $page);
+        $perPage = $request->integer('limit', 25);
+        $page    = $request->integer('page', 1);
+
+        $query = Hopital::with([
+            'creator:id,email,nom_utilisateur', 'editor:id,email,nom_utilisateur'
+        ])
+            ->when($request->has('is_active'), fn($q) => $q->where('is_active', $request->boolean('is_active')))
+            ->when(trim($request->search), function ($q, $search) {
+                $q->where(function ($subQ) use ($search) {
+                    $subQ->where('nom_hopi', 'like', "%{$search}%")
+                        ->orWhere('Abbreviation_hopi', 'like', "%{$search}%")
+                        ->orWhere('addresse_hopi', 'like', "%{$search}%")
+                        ->orWhere('id', 'like', "%{$search}%");
+                });
+            });
+
+        $hopitaux = $query->latest()->paginate($perPage, ['*'], 'page', $page);
 
         return response()->json([
-            'data' => $hopitals->items(),
-            'current_page' => $hopitals->currentPage(),  // Page courante
-            'last_page' => $hopitals->lastPage(),  // Dernière page
-            'total' => $hopitals->total(),  // Nombre total d'éléments
+            'data'         => $hopitaux->items(),
+            'current_page' => $hopitaux->currentPage(),
+            'last_page'    => $hopitaux->lastPage(),
+            'total'        => $hopitaux->total(),
         ]);
-        //
     }
 
-
     /**
-     * Display a listing of the resource.
-     * @permission HopitalController::show
-     * @permission_desc Afficher un hôpital spécifique
-     */
-    public function show($id){
-        $hopis = Hopital::where('id', $id)
-            ->where('is_deleted', false)  // Filter out deleted hospitals
-            ->first();
-        if($hopis){
-            return response()->json($hopis);
-        }
-        return  response()->json(['message' => 'Hopital non found'], 404);
-    }
-    /**
-     * Display a listing of the resource.
+     * Store a newly created resource in storage.
+     *
      * @permission HopitalController::store
-     * @permission_desc Enregistrer un hôpital
+     * @permission_desc Enregistrer un nouvel hôpital des consultants
      */
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'nom_hopi' => 'required|unique:hopitals',
-            'Abbreviation_hopi' => 'required',
-            'addresse_hopi' => 'required',
+            'nom_hopi'          => 'required|string|max:255|unique:consultants_hospitals,nom_hopi',
+            'Abbreviation_hopi' => 'nullable|string|max:50',
+            'addresse_hopi'     => 'nullable|string|max:255',
+            'is_active'         => 'sometimes|boolean',
         ]);
 
-        $authUser = User::first(); // Récupère un utilisateur au hasard
-        if (!$authUser) {
-            return response()->json(['message' => 'Aucun utilisateur par défaut trouvé.'], 400);
-        }
+        $auth = auth()->user();
 
-        $missingFields = [];
-        $fields = [
-            'nom_hopi',
-            'Abbreviation_hopi',
-            'addresse_hopi',
-        ];
+        $hopital = Hopital::create([
+            'nom_hopi'          => $validated['nom_hopi'],
+            'Abbreviation_hopi' => $validated['Abbreviation_hopi'] ?? null,
+            'addresse_hopi'     => $validated['addresse_hopi'] ?? null,
+            'is_active'         => $validated['is_active'] ?? true,
+            'created_by'        => $auth?->id,
+            'updated_by'        => $auth?->id,
+        ]);
 
-        foreach ($fields as $field) {
-            if (empty($request->input($field))) {
-                $missingFields[] = $field;
-            }
-        }
-
-        if (count($missingFields) > 0) {
-            return response()->json(['message' => 'Tous les champs sont requis.'], 400);
-        }
-
-        $hopi = Hopital::create([
-            'nom_hopi' => $request->nom_hopi,
-            'Abbreviation_hopi' => $request->Abbreviation_hopi,
-            'addresse_hopi' => $request->addresse_hopi,
-            'create_by_hopi' => $authUser->id,  // Utiliser l'utilisateur par défaut
+        $hopital->load([
+            'creator:id,email,nom_utilisateur',
+            'editor:id,email,nom_utilisateur'
         ]);
 
         return response()->json([
-            'message' => 'Hopital créé avec succès',
-            'data' => $hopi], 201);
+            'message' => 'Hôpital créé avec succès',
+            'data'    => $hopital
+        ], 201);
     }
     /**
-     * Display a listing of the resource.
+     * Update the specified resource in storage.
+     *
      * @permission HopitalController::update
-     * @permission_desc Modifier un hôpital
+     * @permission_desc Modifier un hôpital des consultants
      */
-
     public function update(Request $request, $id)
     {
-        // Validation des champs
+        $hopital = Hopital::find($id);
+
+        if (!$hopital) {
+            return response()->json([
+                'message' => 'Hôpital introuvable.'
+            ], 404);
+        }
+
         $validated = $request->validate([
-            'nom_hopi' => 'required|unique:hopitals,nom_hopi,' . $id,
-            'Abbreviation_hopi' => 'required',
-            'addresse_hopi' => 'required',
+            'nom_hopi' => [
+                'required',
+                'string',
+                'max:255',
+                Rule::unique('consultants_hospitals', 'nom_hopi')->ignore($hopital->id),
+            ],
+            'Abbreviation_hopi' => 'nullable|string|max:50',
+            'addresse_hopi'     => 'nullable|string|max:255',
+            'is_active'         => 'sometimes|boolean',
         ]);
 
-        // Récupère l'hôpital à mettre à jour
-        $hopi = Hopital::find($id);
-        if (!$hopi) {
-            return response()->json(['message' => 'Hôpital non trouvé.'], 404);
-        }
-        $authUser = User::first(); // Récupère un utilisateur au hasard
-        if (!$authUser) {
-            return response()->json(['message' => 'Aucun utilisateur par défaut trouvé.'], 400);
-        }
+        $auth = auth()->user();
 
-        // Vérifie si des champs sont manquants
-        $missingFields = [];
-        $fields = [
-            'nom_hopi',
-            'Abbreviation_hopi',
-            'addresse_hopi',
-        ];
+        $hopital->update([
+            'nom_hopi'          => $validated['nom_hopi'],
+            'Abbreviation_hopi' => $validated['Abbreviation_hopi'] ?? $hopital->Abbreviation_hopi,
+            'addresse_hopi'     => $validated['addresse_hopi'] ?? $hopital->addresse_hopi,
+            'is_active'         => $validated['is_active'] ?? $hopital->is_active,
+            'updated_by'        => $auth?->id,
+        ]);
 
-        foreach ($fields as $field) {
-            if (empty($request->input($field))) {
-                $missingFields[] = $field;
-            }
-        }
+        $hopital->load([
+            'creator:id,email,nom_utilisateur',
+            'editor:id,email,nom_utilisateur'
+        ]);
 
-        if (count($missingFields) > 0) {
-            return response()->json([
-                'message' => 'Tous les champs sont requis !'
-            ], 400);
-        }
-
-        // Mise à jour de l'hôpital
-        try {
-            $hopi->update([
-                'nom_hopi' => $request->nom_hopi,
-                'Abbreviation_hopi' => $request->Abbreviation_hopi,
-                'addresse_hopi' => $request->addresse_hopi,
-                'update_by_hopi' => $authUser->id,
-            ]);
-        } catch (\Exception $e) {
-            return response()->json([
-                'message' => 'Erreur lors de la mise à jour de l\'hôpital',
-                'error' => $e->getMessage(),
-            ], 500);
-        }
-
-        // Retourne la réponse de succès
         return response()->json([
             'message' => 'Hôpital mis à jour avec succès',
-            'data' => $hopi
-        ], 200);
+            'data'    => $hopital
+        ]);
     }
+
     /**
-     * Display a listing of the resource.
-     * @permission HopitalController::destroy
-     * @permission_desc Supprimer un hôpital
+     * Display the specified resource.
+     *
+     * @permission HopitalController::show
+     * @permission_desc Afficher les détails d'un hôpital des consultants
      */
-
-    public function destroy(string $id)
+    public function show($id)
     {
-        $hopi = Hopital::find($id);
-        if (!$hopi) {
-            return response()->json(['message' => 'Hôpital non trouvé.'], 404);
+        $hopital = Hopital::with([
+            'creator:id,email,nom_utilisateur',
+            'editor:id,email,nom_utilisateur'
+        ])->find($id);
+
+        if (!$hopital) {
+            return response()->json([
+                'message' => 'Hôpital introuvable.'
+            ], 404);
         }
 
-        // Vérification si des consultants sont associés à cet hôpital
-        $consultantCount = Consultant::where('code_hopi', $hopi->id)->count();
-        if ($consultantCount > 0) {
-            return response()->json(['message' => 'L\'hôpital ne peut pas être supprimé car il est associé à des consultants'], 400);
-        }
-        // Si tout va bien, suppression logique
-        $hopi->is_deleted = true;
-        $hopi->save();
-        return response()->json(['message' => 'Titre supprimé avec succès'], 200);
+        return response()->json([
+            'data' => $hopital
+        ]);
     }
 
+    /**
+     * Update the status (active/inactive) of the specified resource.
+     *
+     * @permission HopitalController::updateStatus
+     * @permission_desc Modifier le statut d'un hôpital des consultants
+     */
+    public function updateStatus(Request $request, $id)
+    {
+        $hopital = Hopital::find($id);
 
+        if (!$hopital) {
+            return response()->json([
+                'message' => 'Hôpital introuvable.'
+            ], 404);
+        }
 
+        $validated = $request->validate([
+            'is_active' => 'required|boolean',
+        ]);
 
-    //
+        $auth = auth()->user();
+
+        $hopital->update([
+            'is_active'  => $validated['is_active'],
+            'updated_by' => $auth?->id,
+        ]);
+
+        $hopital->load([
+            'creator:id,email,nom_utilisateur',
+            'editor:id,email,nom_utilisateur'
+        ]);
+
+        return response()->json([
+            'message' => "Statut de l'hôpital mis à jour avec succès",
+            'data'    => $hopital
+        ]);
+    }
+
 }

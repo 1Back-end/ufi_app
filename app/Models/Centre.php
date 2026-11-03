@@ -25,7 +25,9 @@ class Centre extends Model
         'active',
         'name_alias',
         'is_acte_recommendation_center',
-        'is_exam_recommendation_center'
+        'is_exam_recommendation_center',
+        'used_for_product_cmgt',
+        'used_for_product_gt_labo'
     ];
 
     protected $appends = ['logo'];

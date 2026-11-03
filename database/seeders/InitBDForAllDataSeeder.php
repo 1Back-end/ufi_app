@@ -12,7 +12,6 @@ class InitBDForAllDataSeeder extends Seeder
 {
     public function run(): void
     {
-        // CREATE USER SYSTEM
         $userSYSTEM = User::factory()->create([
             'nom_utilisateur' => 'SYSTEM',
             'login' => 'SYSTEM',
@@ -21,10 +20,8 @@ class InitBDForAllDataSeeder extends Seeder
             'password_expiated_at' => now()->addDay(),
         ]);
 
-        // Call Command for add all Default permission
         Artisan::call('permissions:extract');
 
-        // Create Role Super Admin
         $role = Role::create([
             'name' => 'Super Admin',
             'description' => "Super utilisateur",
@@ -37,7 +34,6 @@ class InitBDForAllDataSeeder extends Seeder
             'updated_by' => $userSYSTEM->id
         ]);
 
-        // Create SUPER ADMIN USER
         $superUser = User::factory()->create([
             'nom_utilisateur' => 'SUPER USER',
             'login' => 'admin',

@@ -538,9 +538,14 @@ class ClientController extends Controller
 
         $value = $this->removeAccents($value);
         $value = mb_strtoupper(trim($value));
-        $value = preg_replace('/\s+/', ' ', $value);
+        $titles = ['MME', 'MR', 'M.', 'MLLE', 'DR', 'PR', 'PROF', 'M'];
 
         $words = array_filter(explode(' ', $value));
+
+        $words = array_filter($words, function($word) use ($titles) {
+            return !in_array($word, $titles);
+        });
+
         sort($words);
 
         return implode(' ', $words);

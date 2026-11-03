@@ -105,7 +105,7 @@ class DossierConsultationController extends Controller
         $auth = auth()->user();
 
         $data = $request->validate([
-            'rendez_vous_id'           => 'required|exists:rendez_vouses,id',
+            'rendez_vous_id'           => 'required|exists:appointments,id',
             'location_id'              => 'required|exists:dossier_locations,id',
             'physical_dossier_number'  => 'nullable|string|unique:dossier_consultations,physical_dossier_number',
             'poids'                    => 'required|string',
@@ -176,7 +176,10 @@ class DossierConsultationController extends Controller
                 ]);
             }
 
-            $rdv->update(['etat' => RendezVousStatus::TAKEN_FOR_CONSULTATION->value]);
+            $rdv->update([
+                'etat' => RendezVousStatus::TAKEN_FOR_CONSULTATION->value,
+                'updated_by'    => $auth->id,
+            ]);
 
             if ($request->hasFile('fichier_associe')) {
                 $file = $request->file('fichier_associe');

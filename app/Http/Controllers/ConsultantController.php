@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\DayOfWeek;
 use App\Exports\AssureurExport;
 use App\Exports\ClientsExport;
 use App\Exports\ConsultantExportSearch;
@@ -54,14 +55,15 @@ class ConsultantController extends Controller
         $page = $request->input('page', 1);
 
         $consultants = Consultant::with([
-            'code_hopi',
-            'specialite',
-            'code_titre',
+            'hopital',
+            'serviceHopital',
+            'titre',
             'disponibilites',
             'user',
             'creator',
             'updater',
-            'prestations'
+            'prestations',
+            'specialite'
         ]);
         if ($request->filled('type')) {
             $consultants->where('type', $request->type);
@@ -106,13 +108,13 @@ class ConsultantController extends Controller
                 });
 
 
-                $q->orWhereHas('code_titre', function ($qq) use ($search) {
+                $q->orWhereHas('titre', function ($qq) use ($search) {
                     $qq->where('nom_titre', 'like', "%$search%")
                         ->orWhere('abbreviation_titre', 'like', "%$search%")
                         ->orWhere('id', 'like', "%$search%");
                 });
 
-                $q->orWhereHas('code_hopi', function ($qq) use ($search) {
+                $q->orWhereHas('hopital', function ($qq) use ($search) {
                     $qq->where('nom_hopi', 'like', "%$search%")
                         ->orWhere('Abbreviation_hopi', 'like', "%$search%")
                         ->orWhere('addresse_hopi', 'like', "%$search%")
@@ -180,14 +182,15 @@ class ConsultantController extends Controller
     public function show(string $id)
     {
         $consultant = Consultant::with([
-                'code_hopi',
-                'specialite',
-                'code_titre',
-                'code_service_hopi',
-                'disponibilites',
-                'prestations.prestationType',
-                'prestations.account',
-                'account'
+            'hopital',
+            'serviceHopital',
+            'titre',
+            'disponibilites',
+            'user',
+            'creator',
+            'updater',
+            'prestations.prestationType',
+            'specialite'
             ])
             ->findOrFail($id);
         return response()->json($consultant);
@@ -218,10 +221,10 @@ class ConsultantController extends Controller
             $auth = auth()->user();
 
             $data = $request->validate([
-                'code_hopi' => 'required|exists:hopitals,id',
-                'code_service_hopi' => 'required|exists:service__hopitals,id',
-                'code_specialite' => 'required|exists:specialites,id',
-                'code_titre' => 'required|exists:titres,id',
+                'code_hopi' => 'required|exists:consultants_hospitals,id',
+                'code_service_hopi' => 'required|exists:consultants_service_hospitals,id',
+                'code_specialite' => 'required|exists:consultant_specialties,id',
+                'code_titre' => 'required|exists:consultant_titles,id',
 
                 'nom' => 'required|string',
                 'prenom' => 'nullable|string',
@@ -320,10 +323,10 @@ class ConsultantController extends Controller
             $consultant = Consultant::findOrFail($id);
 
             $data = $request->validate([
-                'code_hopi' => 'required|exists:hopitals,id',
-                'code_service_hopi' => 'required|exists:service__hopitals,id',
-                'code_specialite' => 'required|exists:specialites,id',
-                'code_titre' => 'required|exists:titres,id',
+                'code_hopi' => 'required|exists:consultants_hospitals,id',
+                'code_service_hopi' => 'required|exists:consultants_service_hospitals,id',
+                'code_specialite' => 'required|exists:consultant_specialties,id',
+                'code_titre' => 'required|exists:consultant_titles,id',
 
                 'nom' => 'required|string',
                 'prenom' => 'nullable|string',
@@ -728,6 +731,38 @@ class ConsultantController extends Controller
             'success' => true,
             'message' => 'Consultant supprimé avec succès.'
         ]);
+    }
+
+    public function get_disponibilite_by_consultant(Request $request, $consultantId)
+    {
+        $consultant = Consultant::with(['disponibilites' => function ($query) {
+            $query->where('is_deleted', false);
+        }])->find($consultantId);
+
+        if (!$consultant) {
+            return response()->json([
+                'message' => 'Consultant introuvable.'
+            ], 404);
+        }
+
+        $disponibilites = $consultant->disponibilites->map(function ($dispo) {
+            $dayEnum = DayOfWeek::tryFrom((int) $dispo->jour);
+
+            return [
+                'jour_valeur' => $dispo->jour,
+                'jour_nom'    => $dayEnum ? $dayEnum->label() : 'Inconnu',
+            ];
+        })->unique('jour_valeur')->values();
+
+        return response()->json([
+            'has_schedule'   => $disponibilites->isNotEmpty(),
+            'consultant'     => [
+                'id'         => $consultant->id,
+                'nomcomplet' => $consultant->nomcomplet,
+                'ref'        => $consultant->ref,
+            ],
+            'disponibilites' => $disponibilites,
+        ], 200);
     }
 
 }

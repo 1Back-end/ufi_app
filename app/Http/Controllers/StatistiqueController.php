@@ -715,9 +715,6 @@ class StatistiqueController extends Controller
             default    => array_values($stateMap),
         };
 
-        /* ======================================================
-            REQUÊTE DE BASE (COMMUNE)
-        ====================================================== */
         $baseQuery = Facture::with(['prestation.client', 'prestation.priseCharge'])
             ->where('state_facture', 0) // impayées
             ->whereIn('state', $states)
@@ -728,9 +725,6 @@ class StatistiqueController extends Controller
                     );
             });
 
-        /* ======================================================
-            FACTURES ANTÉRIEURES
-        ====================================================== */
         $oldQuery = (clone $baseQuery)
             ->where('created_at', '<', $start);
 

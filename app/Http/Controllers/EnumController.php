@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Enums\AntecedentSubType;
 use App\Enums\AntecedentType;
+use App\Enums\AppointmentType;
+use App\Enums\DayOfWeek;
 use App\Enums\InvoiceStatus;
 use App\Enums\PurchaseOrderStatus;
 use App\Enums\PurchaseOrderType;
@@ -64,6 +66,20 @@ class EnumController extends Controller
         return response()->json([
             'status' => 'success',
             'data'   => AntecedentType::toArray(),
+        ]);
+    }
+    public function DayOfWeek()
+    {
+        return response()->json([
+            'status' => 'success',
+            'data'   => DayOfWeek::toArray(),
+        ]);
+    }
+    public function AppointmentType()
+    {
+        return response()->json([
+            'status' => 'success',
+            'data'   => AppointmentType::toArray(),
         ]);
     }
 }

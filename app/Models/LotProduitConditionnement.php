@@ -25,7 +25,6 @@ class LotProduitConditionnement extends Model
     ];
 
     protected $casts = [
-        'quantite' => 'decimal:2',
         'price' => 'decimal:2',
     ];
 

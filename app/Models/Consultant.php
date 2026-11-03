@@ -12,7 +12,9 @@ use Illuminate\Database\Eloquent\Casts\Attribute;
 
 class Consultant extends Model
 {
-    use HasFactory,UpdatingUser, CreateDefaultUser;
+    use HasFactory, UpdatingUser, CreateDefaultUser;
+
+    protected $table = 'consultants';
 
     protected $fillable = [
         'code_hopi',
@@ -35,10 +37,11 @@ class Consultant extends Model
         'user_id',
         'is_used_commission',
         'order_number',
-        'is_active', 'is_archived'
+        'is_active',
+        'is_archived'
     ];
 
-    protected $appends = ['fullname','nb_prestations', 'is_used'];
+    protected $appends = ['fullname', 'nb_prestations', 'is_used'];
 
     protected function fullname(): Attribute
     {
@@ -47,42 +50,67 @@ class Consultant extends Model
         );
     }
 
+    public function hopital(): BelongsTo
+    {
+        return $this->belongsTo(Hopital::class, 'code_hopi', 'id');
+    }
+
+    public function serviceHopital(): BelongsTo
+    {
+        return $this->belongsTo(Service_Hopital::class, 'code_service_hopi', 'id');
+    }
+
+    public function specialite(): BelongsTo
+    {
+        return $this->belongsTo(Specialite::class, 'code_specialite', 'id');
+    }
+
+    public function titre(): BelongsTo
+    {
+        return $this->belongsTo(Titre::class, 'code_titre', 'id');
+    }
+
     public function user(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'user_id');
+        return $this->belongsTo(User::class, 'user_id', 'id');
     }
 
-    public function code_hopi()
+    public function centre(): BelongsTo
     {
-        return $this->belongsTo(Hopital::class, 'code_hopi');
-    }
-    public function specialite()
-    {
-        return $this->belongsTo(Specialite::class, 'code_specialite');
-    }
-    public function code_titre()
-    {
-        return $this->belongsTo(Titre::class, 'code_titre');
+        return $this->belongsTo(Centre::class, 'centre_id', 'id');
     }
 
-    public function code_service_hopi()
+    public function creator(): BelongsTo
     {
-        return $this->belongsTo(Service_Hopital::class, 'code_service_hopi');
+        return $this->belongsTo(User::class, 'created_by', 'id');
     }
 
-    public function creator()
+    public function updater(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'created_by');
+        return $this->belongsTo(User::class, 'updated_by', 'id');
     }
 
-    public function updater()
+    public function appointments()
     {
-        return $this->belongsTo(User::class, 'updated_by');
+        return $this->hasMany(RendezVous::class, 'consultant_id');
     }
-    public function centre()
+
+    public function disponibilites()
     {
-        return $this->belongsTo(Centre::class, 'centre_id');
+        return $this->hasMany(ConsultantDisponibilite::class, 'consultant_id');
     }
+
+    public function prestations()
+    {
+        return $this->hasMany(ConsultantPrestationShare::class, 'consultant_id')
+            ->with('prestationType');
+    }
+
+    public function account()
+    {
+        return $this->belongsTo(PaymentAccount::class, 'account_id', 'id');
+    }
+
     protected static function booted()
     {
         static::creating(function ($consultant) {
@@ -103,34 +131,17 @@ class Consultant extends Model
             }
         });
     }
+
     public function genererNomComplet(): string
     {
         $titreNom = null;
         if (!empty($this->code_titre)) {
-            $titre = $this->relationLoaded('titre') ? $this->titre : Titre::find($this->code_titre);
+            $titre = $this->relationLoaded('titre') ? $this->titre : $this->titre()->first();
             $titreNom = $titre ? $titre->nom_titre : null;
         }
         return trim("{$titreNom} {$this->prenom} {$this->nom}");
     }
 
-    public function disponibilites()
-    {
-        return $this->hasMany(ConsultantDisponibilite::class);
-    }
-    public function prestations()
-    {
-        return $this->hasMany(ConsultantPrestationShare::class, 'consultant_id')
-            ->with('prestationType');
-    }
-
-    public function account()
-    {
-        return $this->belongsTo(PaymentAccount::class, 'account_id');
-    }
-
-    /**
-     * Accesseur pour obtenir le nombre total de prestations de ce consultant dans l'application.
-     */
     protected function nbPrestations(): Attribute
     {
         return Attribute::make(
@@ -138,19 +149,10 @@ class Consultant extends Model
         );
     }
 
-    /**
-     * Accesseur pour savoir si le consultant a déjà été utilisé au moins une fois dans l'application.
-     */
     protected function isUsed(): Attribute
     {
         return Attribute::make(
             get: fn () => Prestation::where('consultant_id', $this->id)->exists(),
         );
     }
-
-
-
-
-
-
 }
