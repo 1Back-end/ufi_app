@@ -99,12 +99,6 @@ class OpsTblEnqueteController extends Controller
         $dossierId = $validated['enquetes'][0]['dossier_consultation_id'];
         $dossier = DossierConsultation::find($dossierId);
 
-        Log::info('Vérification du dossier pour les examens (globaux) :', [
-            'dossier_id' => $dossierId,
-            'dossier_trouve' => $dossier ? true : false,
-            'is_have_antecedent' => $dossier?->is_have_antecedent,
-            'dossier_data' => $dossier?->toArray()
-        ]);
 
         if (!$dossier || !$dossier->is_have_antecedent) {
             return response()->json([

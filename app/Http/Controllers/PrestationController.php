@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\AppointmentDuration;
+use App\Enums\RendezVousType;
 use App\Enums\StateExamen;
 use App\Enums\StateFacture;
 use App\Enums\TypePrestation;
@@ -22,6 +24,7 @@ use App\Models\ConventionAssocie;
 use App\Models\Examen;
 use App\Models\FacturationAssurance;
 use App\Models\Facture;
+use App\Models\FactureAdjustmentHistory;
 use App\Models\FactureAssociate;
 use App\Models\FactureAssuranceByCentre;
 use App\Models\Media;
@@ -542,6 +545,28 @@ class PrestationController extends Controller
             'status' => true
         ];
     }
+    private function checkClientHasPendingPrestation(int $clientId)
+    {
+        $pendingPrestations = Prestation::where('client_id', $clientId)
+            ->where('regulated', 7)
+            ->get();
+
+        if ($pendingPrestations->isNotEmpty()) {
+            $count = $pendingPrestations->count();
+            $codes = $pendingPrestations->pluck('id')->implode(', ');
+
+            return [
+                'status' => false,
+                'count' => $count,
+                'codes' => $pendingPrestations->pluck('id')->values(),
+                'message' => "Ce client a déjà {$count} prestation(s) en attente de confirmation (ID : {$codes}). Veuillez d'abord traiter ou confirmer ces prestations."
+            ];
+        }
+
+        return [
+            'status' => true // Aucune prestation en attente, on peut continuer
+        ];
+    }
 
     protected function processProductBatches(array $items, ?int $prestationId = null, bool $onlyValidate = false)
     {
@@ -660,15 +685,15 @@ class PrestationController extends Controller
         $centreModel = Centre::find($centre);
         $type = $request->input('type');
 
-        if (in_array($type, [TypePrestation::ACTES->value, TypePrestation::SOINS->value, TypePrestation::CAMPAGNE->value, TypePrestation::CONSULTATIONS->value, TypePrestation::HOSPITALISATION->value])) {
+        if (in_array($type, [TypePrestation::ACTES->value, TypePrestation::PRODUITS->value, TypePrestation::SOINS->value, TypePrestation::CONSULTATIONS->value, TypePrestation::HOSPITALISATION->value])) {
             if ($centreModel->short_name !== 'CMGT') {
                 return response()->json([
-                    'message' => 'Cette prestation ne peut être créé que dans le Centre Médical.'
+                    'message' => 'Cette prestation ne peut être créée que dans le Centre Médical.'
                 ], Response::HTTP_BAD_REQUEST);
             }
         }
 
-        if (in_array($type, [TypePrestation::LABORATOIR->value])) {
+        if (in_array($type, [TypePrestation::LABORATOIR->value, TypePrestation::CAMPAGNE->value])) {
             if (!in_array($centreModel->short_name, ['GTLABO', 'ancienne-mairie-tsinga'])) {
                 return response()->json([
                     'message' => 'Cette prestation ne peut être créée que dans les Centres GTLABO ou à l\'ANCIENNE MAIRIE TSINGA.'
@@ -679,7 +704,6 @@ class PrestationController extends Controller
 
         return $centre;
     }
-
 
     /**
      * Calcule la date de rendu des résultats basée sur la durée maximale des examens.
@@ -743,6 +767,16 @@ class PrestationController extends Controller
 
         $data = array_merge($request->validated(), ['centre_id' => $centre]);
 
+        if (!empty($data['client_id'])) {
+            $checkPending = $this->checkClientHasPendingPrestation($data['client_id'], $centre);
+            if (!$checkPending['status']) {
+                return response()->json([
+                    'message' => $checkPending['message'],
+                    'codes' => $checkPending['codes']
+                ], Response::HTTP_CONFLICT);
+            }
+        }
+
         DB::beginTransaction();
         try {
             if ($errorConflit = $request->validateRdvDate()) {
@@ -761,6 +795,10 @@ class PrestationController extends Controller
             if ((string)$request->input('type') === (string)TypePrestation::LABORATOIR->value && $request->has('examens')) {
                 $calculatedDate = $this->calculateResultDeliveryDate($request->input('examens'));
                 $data['result_delivered_at'] = $calculatedDate;
+            }
+
+            if (!empty($data['prise_charge_id'])) {
+                $data['is_adjustable'] = true;
             }
 
             if ($data['payable_by']) {
@@ -798,7 +836,6 @@ class PrestationController extends Controller
                 save_facture($prestation, $centre, 2);
             }
 
-            // Save File for associate client !
             if ($data['payable_by'] && $request->file('payable_by_file')) {
                 upload_media(
                     model: $prestation,
@@ -837,6 +874,7 @@ class PrestationController extends Controller
                 'client',
                 'delivery_chanel',
                 'consultant',
+                'consultant.disponibilites',
                 'priseCharge',
                 'priseCharge.assureur',
                 'priseCharge.quotation',
@@ -905,12 +943,19 @@ class PrestationController extends Controller
             $data = $request->validated();
             $data['centre_id'] = $centre;
             $data['updated_by'] = $auth->id ?? null;
+            if ($prestation->recommended_by_doctor) {
+                $data['is_updated'] = true;
+            }
 
             $data = $this->getDataForPriseEnCharge($request, $data);
 
             if ((string)$request->input('type') === (string)TypePrestation::LABORATOIR->value && $request->has('examens')) {
                 $calculatedDate = $this->calculateResultDeliveryDate($request->input('examens'));
                 $data['result_delivered_at'] = $calculatedDate;
+            }
+
+            if (!empty($data['prise_charge_id'])) {
+                $data['is_adjustable'] = true;
             }
 
             if (isset($data['payable_by']) && $data['payable_by']) {
@@ -986,16 +1031,12 @@ class PrestationController extends Controller
 
         DB::beginTransaction();
         try {
-            // 1. Marquer la raison et supprimer la prestation (SoftDelete)
             $prestation->reason_for_delete = $request->reason_for_delete;
             $prestation->save();
             $prestation->delete();
 
-            // 2. Parcourir les factures liées
             foreach ($prestation->factures as $facture) {
 
-                // 3. Gérer les éléments de session (Paiements/Mouvements)
-                // Assurez-vous que la relation 'sessionElements' est définie dans le modèle Facture
                 foreach ($facture->sessionElements as $element) {
                     $sessionCaisse = SessionCaisse::where('caisse_id', $element->caisse_id)
                         ->where('centre_id', $centreId)
@@ -1011,12 +1052,10 @@ class PrestationController extends Controller
                     $element->delete();
                 }
 
-                // 4. Supprimer les régulations associées à la facture
                 foreach ($facture->regulations as $regulation) {
                     $regulation->delete();
                 }
 
-                // 5. Supprimer la facture elle-même
                 $facture->delete();
             }
 
@@ -1447,6 +1486,7 @@ class PrestationController extends Controller
                     } elseif ($isFullCoverage && $globalStatus !== 'pending') {
                         $globalStatus = 'available';
                     }
+                    $finalPu = (!empty($item['pu']) && $item['pu'] > 0) ? $item['pu'] : ($prestation->priseCharge ? $b * $kModulateur : $pu);
 
                     $prestation->actes()->attach($item['id'], [
                         'remise' => $item['remise'],
@@ -1455,9 +1495,10 @@ class PrestationController extends Controller
                         'date_rdv_end' => Carbon::createFromTimeString($item['date_rdv'])->addMinutes((int)$prestationDuration),
                         'b' => $b,
                         'k_modulateur' => $kModulateur,
-                        'pu' => $prestation->priseCharge ? $b * $kModulateur : $pu,
+                        'pu' => $finalPu,
                         'consultant_amount' => $consultantAmount,
                         'consultant_amount_status' => $finalStatus,
+                        'day_of_week' => $item['day_of_week'] ?? null,
                     ]);
 
                     $totalConsultantAmount += $consultantAmount;
@@ -1614,6 +1655,7 @@ class PrestationController extends Controller
                         'pu' => $pu,
                         'consultant_amount' => $consultantAmount,
                         'consultant_amount_status' => $finalStatus,
+                        'day_of_week' => $item['day_of_week'] ?? null,
                     ]);
                     $totalConsultantAmount += $consultantAmount;
 
@@ -1675,7 +1717,7 @@ class PrestationController extends Controller
                 foreach ($request->input('examens') as $item) {
                     $pu = $item['price'];
                     $b = $item['b'];
-                    if ($prestation->priseCharge) {
+                    if ($prestation->priseCharge && (empty($pu) || $pu == 0)) {
                         $pu = $b * $prestation->priseCharge->quotation->taux;
                     }
                     $examen = Examen::find($item['id']);
@@ -1968,7 +2010,6 @@ class PrestationController extends Controller
             ], 400);
         }
 
-        // Calcul du montant total pour l'assureur
         $totalAmount = $prestations->sum(function ($prest) {
             return $prest->factures()->where('type', 2)->sum('amount_pc') / 100;
         });
@@ -1981,7 +2022,6 @@ class PrestationController extends Controller
             'date' => now(),
         ]);
 
-        // Sauvegarde du PDF dans la table medias
         $facture->medias()->create([
             'name' => "FACTURE-ASSOCIATE",
             'disk' => 'public',
@@ -2456,13 +2496,18 @@ class PrestationController extends Controller
 
     private function createRdv(Prestation $prestation, $consultantId, $clientId, $date)
     {
+        $isActe = $prestation->type === TypePrestation::ACTES;
+        $isConsultation = $prestation->type === TypePrestation::CONSULTATIONS;
         $prestation->appointments()->updateOrCreate([
             'client_id' => $prestation->client_id,
             'consultant_id' => $prestation->consultant_id,
             'dateheure_rdv' => $date,
+            'type'                 => RendezVousType::BILLED->value,
             'details' => "Rendez-vous programmé pour le client " . $prestation->client->nomcomplet_client . " et le consultant " . $prestation->consultant->nomcomplet,
-            'nombre_jour_validite' => Setting::where('key', 'rdv_validity_by_day')->first()->value,
-            'duration' => Setting::where('key', 'rdv_duration')->first()->value,
+            'nombre_jour_validite' => AppointmentDuration::DEFAULT->value,
+            'duration' => AppointmentDuration::DEFAULT->value,
+            'is_acte'               => $isActe,
+            'is_consultation'       => $isConsultation,
         ]);
 
         //        Todo: Mettre en marche les notifications envoyées
@@ -3085,6 +3130,110 @@ class PrestationController extends Controller
         ]);
     }
 
+    /**
+     * @param Request $request
+     * @return JsonResponse
+     *
+     * @permission PrestationController::adjust
+     * @permission_desc Ajuster les factures d'assurance en fonction de la prise en charges
+     */
+    public function adjust(Request $request, $prestationId)
+    {
+        $auth = auth()->user();
+
+        $request->validate([
+            'amount_insurance' => 'required|numeric|min:0',
+            'amount_insured' => 'required|numeric|min:0',
+            'amount_remise' => 'nullable|numeric|min:0',
+            'description' => 'required|string',
+            'payable_by_file_url' => 'required|file|mimes:pdf|max:10240',
+        ]);
+
+        DB::beginTransaction();
+        try {
+            $prestation = Prestation::findOrFail($prestationId);
+            $facture = Facture::where('prestation_id', $prestationId)->first();
+
+            if (!$facture) {
+                return response()->json([
+                    'message' => 'Aucune facture associée à cette prestation.'
+                ], Response::HTTP_NOT_FOUND);
+            }
+
+            $filePath = null;
+
+            if ($request->hasFile('payable_by_file_url')) {
+                $file = $request->file('payable_by_file_url');
+                $path = $file->store('factures/ajustements', 'public');
+                $filePath = $path;
+            }
+
+            $amountInsurance = $request->input('amount_insurance');
+            $amountInsured = $request->input('amount_insured');
+
+            $updateData = [
+                'description' => $request->input('description'),
+                'adjusted_at' => now(),
+                'adjusted_by' => $auth->id ?? null,
+            ];
+
+            if ($amountInsurance > 0) {
+                $updateData['amount_insurance'] = $amountInsurance;
+                $updateData['amount_pc'] = $amountInsurance;
+            }
+
+            if ($amountInsured > 0) {
+                $updateData['amount_insured'] = $amountInsured;
+                $updateData['amount_client'] = $amountInsured;
+            }
+
+            if ($filePath) {
+                $updateData['payable_by_file_url'] = $filePath;
+            }
+
+            if ($request->has('amount_remise') && $request->input('amount_remise') > 0) {
+                $updateData['amount_remise'] = $request->input('amount_remise');
+            }
+
+            $facture->update($updateData);
+
+            $adjustmentHistory = FactureAdjustmentHistory::create([
+                'facture_id' => $facture->id,
+                'prestation_id' => $prestation->id,
+                'amount_insurance' => $amountInsurance > 0 ? $amountInsurance : $facture->amount_insurance,
+                'amount_insured' => $amountInsured > 0 ? $amountInsured : $facture->amount_insured,
+                'payable_by_file_url' => $filePath ?? $facture->payable_by_file_url,
+                'description' => $request->input('description'),
+                'adjusted_by' => $auth->id ?? null,
+            ]);
+
+            if ($request->hasFile('payable_by_file_url')) {
+                $file = $request->file('payable_by_file_url');
+
+                $adjustmentHistory->medias()->create([
+                    'name'      => $file->getClientOriginalName(),
+                    'disk'      => 'public',
+                    'path'      => $path,
+                    'filename'  => $file->hashName(),
+                    'mimetype'  => $file->getMimeType(),
+                    'extension' => $file->getClientOriginalExtension(),
+                ]);
+            }
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'message' => 'Erreur lors de l\'ajustement : ' . $e->getMessage()
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+
+        DB::commit();
+
+        return response()->json([
+            'message' => __('Facture ajustée avec succès !'),
+            'facture' => $facture
+        ]);
+    }
 
 
 

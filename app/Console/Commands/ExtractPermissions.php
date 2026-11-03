@@ -174,7 +174,11 @@ class ExtractPermissions extends Command
             'category' => 'Gestion des consultants',
             'modules' => ['Gestion du laboratoire', 'Autres Modules','Gestion des prestations'],
         ],
-
+        'view_and_update_prestations' => [
+            'description' => 'Consulter et mettre à jour les prestations effectuées par les consultants',
+            'category' => 'Gestion des prestations',
+            'modules' => ['Gestion du laboratoire', 'Autres Modules', 'Gestion des prestations'],
+        ],
         'process_secretary_payment' => [
             'description' => 'Effectuer ou afficher les paiements par la secrétaire',
             'category' => 'Gestion des consultants',
@@ -182,7 +186,7 @@ class ExtractPermissions extends Command
         ],
         'VIEW_ACCESS_FOR_RENDEZ_VOUS' => [
             'description' => 'Afficher la liste des actions de module des dossiers patients',
-            'category' => 'Permissions supplémentaires',
+            'category' => 'Gestion des rapports de consultations',
             'modules' => ['Gestion des prestations','Autres Modules'],
         ],
         'CANCEL_VALIDATION_FOR_EXAMNS' => [
@@ -209,6 +213,31 @@ class ExtractPermissions extends Command
             'description' => 'Accéder au menu actions du menu de gestion des centres',
             'category'    => 'Gestion des centres',
             'modules'     => ['Paramètres applicatifs'],
+        ],
+        'view_all_rdv_consultants' => [
+            'description' => 'Afficher la liste de tous les rendez-vous (accès global)',
+            'category'    => 'Gestion des rendez vous',
+            'modules'     => ['Gestion des prestations', 'Autres Modules'],
+        ],
+        'view_own_rdv_consultant' => [
+            'description' => 'Afficher uniquement les rendez-vous propres au consultant connecté',
+            'category'    => 'Gestion des rendez vous',
+            'modules'     => ['Gestion des prestations', 'Autres Modules'],
+        ],
+        'view_secretary_rdv_consultant' => [
+            'description' => 'Afficher uniquement les rendez-vous créés par la secrétaire connectée',
+            'category'    => 'Gestion des rendez vous',
+            'modules'     => ['Gestion des prestations', 'Autres Modules'],
+        ],
+        'view_factures-regulate-batch-assurance' => [
+            'description' => 'Afficher et régler les factures de prises en charge des assurances',
+            'category'    => 'Gestion des prestations',
+            'modules'     => ['Gestion des prestations', 'Autres Modules'],
+        ],
+        'view_factures-regulate-batch-client-associe' => [
+            'description' => 'Afficher et régler les factures des clients associés',
+            'category'    => 'Gestion des prestations',
+            'modules'     => ['Gestion des prestations', 'Autres Modules'],
         ],
     ];
 

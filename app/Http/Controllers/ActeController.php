@@ -30,31 +30,39 @@ class ActeController extends Controller
      */
     public function index(Request $request)
     {
-        if($request->input('actes')) {
-            $query = Acte::with(['typeActe', 'createdBy:id,nom_utilisateur', 'updatedBy:id,nom_utilisateur']);
+        $perPage = $request->input('limit', 25);
+        $page = $request->input('page', 1);
+        $search = $request->input('search');
 
-            if ($request->filled('search')) {
-                $search = $request->input('search');
-                $query->where(function($q) use ($search) {
-                    $q->where('name', 'like', '%' . $search . '%')
-                        ->orWhere('code', 'like', '%' . $search . '%')
-                        ->orWhere('prefix', 'like', '%' . $search . '%')
-                        ->orWhere('state', 'like', '%' . $search . '%');
+        $acts = Acte::with([
+            'typeActe', 'createdBy:id,nom_utilisateur', 'updatedBy:id,nom_utilisateur'
+        ])
+            ->when($search, function ($query, $search) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('name', 'like', "%{$search}%")
+                        ->orWhere('code', 'like', "%{$search}%")
+                        ->orWhere('pu', 'like', "%{$search}%")
+                        ->orWhere('pu_assurance', 'like', "%{$search}%")
+                        ->orWhere('delay', 'like', "%{$search}%")
+                        ->orWhere('b', 'like', "%{$search}%")
+                        ->orWhere('b1', 'like', "%{$search}%");
                 });
-            }
-            $query->orderBy('name', 'asc');
-
-            return response()->json([
-                'actes' => $query->paginate($request->input('per_page', 50))
-            ]);
-        }
+            })
+            ->when($request->filled('state'), function ($query) use ($request) {
+                $query->where('state', $request->state);
+            })
+            ->when($request->filled('type_acte_id'), function ($query) use ($request) {
+                $query->where('type_acte_id', $request->type_acte_id);
+            })
+            ->orderBy('name', 'asc')
+            ->paginate($perPage, ['*'], 'page', $page);
 
         return response()->json([
-            'type_actes' => TypeActe::with(['actes' => function($q) {
-                $q->orderBy('name', 'asc');
-            }, 'actes.createdBy:id,nom_utilisateur', 'actes.updatedBy:id,nom_utilisateur'])
-                ->orderBy('nom', 'asc')
-                ->get()
+            'data' => $acts->items(),
+            'current_page' => $acts->currentPage(),
+            'last_page' => $acts->lastPage(),
+            'per_page' => $acts->perPage(),
+            'total' => $acts->total(),
         ]);
     }
 

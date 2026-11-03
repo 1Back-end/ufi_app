@@ -11,10 +11,12 @@ class CentreRecommendationSeeder extends Seeder
     {
         Centre::where('reference', 'GTLABO')->update([
             'is_exam_recommendation_center' => true,
+            'used_for_product_gt_labo'      => true,
         ]);
 
         Centre::where('reference', 'CMGT')->update([
             'is_acte_recommendation_center' => true,
+            'used_for_product_cmgt'        => true,
         ]);
     }
 }

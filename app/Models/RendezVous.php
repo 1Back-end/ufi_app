@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Enums\RendezVousStatus;
+use App\Enums\RendezVousType;
 use App\Enums\TypePrestation;
 use App\Models\Trait\UpdatingUser;
 use Illuminate\Database\Eloquent\Model;
@@ -13,10 +15,9 @@ use Illuminate\Support\Str;
 
 class RendezVous extends Model
 {
-    use HasFactory, UpdatingUser,SoftDeletes;
+    use HasFactory,SoftDeletes;
 
-    protected $table = 'rendez_vouses';
-    protected $appends = ['nombre_jours'];
+    protected $table = 'appointments';
 
     protected $fillable = [
         'created_by',
@@ -37,12 +38,51 @@ class RendezVous extends Model
         'imaging_results_delivered',
         'imaging_delivered_by_user_id',
         'nursing_results_delivered',
-        'nursing_delivered_by_user_id'
+        'nursing_delivered_by_user_id',
+        'appointment_date',
+        'appointment_time',
+        'day_of_week',
+        'appointment_type',
+        'doctor_approved',
+        'is_closed',
+        'is_acte',
+        'is_consultation',
+        'is_have_folder_consultation'
+
     ];
+    protected $appends = [
+        'nombre_jours',
+        'etat_label',
+        'type_label',
+        'is_expired'
+    ];
+
+    public function getEtatLabelAttribute(): string
+    {
+        return RendezVousStatus::safeLabel($this->etat);
+    }
+    public function getTypeLabelAttribute(): string
+    {
+        return RendezVousType::safeLabel($this->type);
+    }
+    public function getIsExpiredAttribute(): bool
+    {
+        if (!$this->dateheure_rdv) {
+            return false;
+        }
+
+        $dateRdv = \Carbon\Carbon::parse($this->dateheure_rdv);
+        $validite = $this->nombre_jour_validite ?? 14;
+
+        return round($dateRdv->diffInDays(now())) > $validite;
+    }
+
+
 
     protected $casts = [
         'dateheure_rdv' => 'datetime',
     ];
+
 
     public function bilans()
     {
@@ -53,18 +93,16 @@ class RendezVous extends Model
     {
         parent::boot();
 
-        static::creating(function ($examenPhysique) {
+        static::creating(function ($rendezVous) {
             $year = now()->format('Y');
             $today = now()->format('Ymd');
+            $count = self::whereYear('created_at', $year)
+                ->lockForUpdate()
+                ->count();
 
-            $lastRecord = self::whereYear('created_at', $year)
-                ->orderBy('id', 'desc')
-                ->first();
-
-            $sequence = $lastRecord ? intval(substr($lastRecord->code, 4, 3)) + 1 : 1;
+            $sequence = $count + 1;
             $formattedSequence = str_pad($sequence, 3, '0', STR_PAD_LEFT);
-
-            $examenPhysique->code = '#' . $formattedSequence  . $today;
+            $rendezVous->code = '#' . $formattedSequence . $today;
         });
     }
 
@@ -115,9 +153,19 @@ class RendezVous extends Model
 
     public function getNombreJoursAttribute(): bool
     {
+        if (
+            $this->is_closed ||
+            $this->is_no_show ||
+            $this->etat === RendezVousStatus::CLOSED->value ||
+            $this->etat === RendezVousStatus::NO_SHOW->value
+        ) {
+            return false;
+        }
+
         if (!$this->dateheure_rdv) {
             return false;
         }
+
         $rdvPlusQuatorzeJours = $this->dateheure_rdv->copy()->addDays(14);
         return Carbon::now()->lessThanOrEqualTo($rdvPlusQuatorzeJours);
     }

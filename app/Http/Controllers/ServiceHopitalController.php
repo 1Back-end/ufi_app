@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use App\Models\Service_Hopital;
 use App\Models\User;
 use App\Models\Consultant;
+use Illuminate\Validation\Rule;
 
 
 /**
@@ -16,158 +17,174 @@ class ServiceHopitalController extends Controller
 {
     /**
      * Display a listing of the resource.
+     *
      * @permission ServiceHopitalController::index
-     * @permission_desc Afficher l'id et le nom de l'id du service hospitalié
+     * @permission_desc Afficher la liste des services d'hôpitaux
      */
-    public function index()
+    public function index(Request $request)
     {
-        $service_hopital = Service_Hopital::select('id','nom_service_hopi')
-            ->where('is_deleted',false)
-            ->get();
-        return response()->json($service_hopital);
-        //
-    }
+        $perPage = $request->integer('limit', 25);
+        $page    = $request->integer('page', 1);
 
-    /**
-     * Display a listing of the resource.
-     * @permission ServiceHopitalController::get_all
-     * @permission_desc Afficher la liste des services hospitaliers
-     */
-    public function get_all(Request $request)
-    {
-        $perPage = $request->input('limit', 10);  // Par défaut, 10 éléments par page
-        $page = $request->input('page', 1);  // Page courante
-        $services_hopitals = Service_Hopital::where('is_deleted', false)
-            ->when($request->input('search'), function ($query) use ($request) {
-                $search = $request->input('search');
-                $query->where('nom_service_hopi', 'like', '%' . $search . '%')
-                    ->orWhere('id', 'like', '%' . $search . '%');
-            })
-            ->latest()->paginate(perPage: $perPage, page: $page);
+        $query = Service_Hopital::with([
+            'creator:id,email,nom_utilisateur',
+            'editor:id,email,nom_utilisateur'
+        ])
+            ->when($request->has('is_active'), fn($q) => $q->where('is_active', $request->boolean('is_active')))
+            ->when(trim($request->search), function ($q, $search) {
+                $q->where(function ($subQ) use ($search) {
+                    $subQ->where('nom_service_hopi', 'like', "%{$search}%")
+                        ->orWhere('id', 'like', "%{$search}%");
+                });
+            });
+
+        $services = $query->latest()->paginate($perPage, ['*'], 'page', $page);
 
         return response()->json([
-            'data' => $services_hopitals->items(),
-            'current_page' => $services_hopitals->currentPage(),  // Page courante
-            'last_page' => $services_hopitals->lastPage(),  // Dernière page
-            'total' => $services_hopitals->total(),  // Nombre total d'éléments
+            'data'         => $services->items(),
+            'current_page' => $services->currentPage(),
+            'last_page'    => $services->lastPage(),
+            'total'        => $services->total(),
         ]);
-        //
     }
 
     /**
-     * Display a listing of the resource.
+     * Store a newly created resource in storage.
+     *
      * @permission ServiceHopitalController::store
-     * @permission_desc Enregistrer un service hospitalier
+     * @permission_desc Enregistrer un nouveau service d'hôpital
      */
     public function store(Request $request)
     {
-        // Validation des données d'entrée
         $validated = $request->validate([
-            'nom_service_hopi' => 'required|unique:service__hopitals,nom_service_hopi',  // Validation du champ obligatoire et unique
+            'nom_service_hopi' => 'required|string|max:255|unique:consultants_service_hospitals,nom_service_hopi',
+            'is_active'        => 'sometimes|boolean',
         ]);
 
-        // Récupère l'utilisateur par défaut
-        $authUser = User::first();
-        if (!$authUser) {
-            return response()->json(['message' => 'Aucun utilisateur trouvé'], 404);
-        }
+        $auth = auth()->user();
 
-        // Création du service hospitalier
-        $service_hopital = Service_Hopital::create([
-            'nom_service_hopi' => $request->nom_service_hopi,
-            'create_by_service_hopi' => $authUser->id
+        $service = Service_Hopital::create([
+            'nom_service_hopi' => $validated['nom_service_hopi'],
+            'is_active'        => $validated['is_active'] ?? true,
+            'created_by'       => $auth?->id,
+            'updated_by'       => $auth?->id,
         ]);
 
-        // Retourne la réponse de succès
+        $service->load([
+            'creator:id,email,nom_utilisateur',
+            'editor:id,email,nom_utilisateur'
+        ]);
+
         return response()->json([
-            'message' => 'Service hospitalier créé avec succès',
-            'data' => $service_hopital
+            'message' => 'Service d\'hôpital créé avec succès',
+            'data'    => $service
         ], 201);
     }
 
 
-    // Affiche un service hospitalier spécifique
     /**
-     * Display a listing of the resource.
-     * @permission ServiceHopitalController::show
-     * @permission_desc Afficher un service hospitalier spécifique
-     */
-    public function show(string $id)
-    {
-        $service_hopital = Service_Hopital::where('id',$id)
-        ->where('is_deleted',false)->first();
-        if (!$service_hopital) {
-            return response()->json(['message' => 'Service Hôpital Introuvable'], 404);
-        }
-        return response()->json($service_hopital);
-    }
-    /**
-     * Display a listing of the resource.
+     * Update the specified resource in storage.
+     *
      * @permission ServiceHopitalController::update
-     * @permission_desc Modifier un service hospitalier
+     * @permission_desc Modifier un service d'hôpital
      */
-    public function update(Request $request, string $id)
-    {
-        // Vérifier si l'utilisateur est authentifié
-        $authUser = User::first();
-        if (!$authUser) {
-            return response()->json(['message' => 'Aucun utilisateur trouvé'], 404);
-        }
-
-        // Validation des données d'entrée
-        $validated = $request->validate([
-            'nom_service_hopi' => 'required|unique:service__hopitals,nom_service_hopi,' . $id, // Validation du champ avec exception pour l'enregistrement en cours
-        ]);
-
-        // Trouver le service hospitalier par ID
-        $service_hopital = Service_Hopital::find($id);
-        if (!$service_hopital) {
-            return response()->json(['message' => 'Service hospitalier non trouvé'], 404);
-        }
-
-        // Mettre à jour les informations du service hospitalier
-        try {
-            $service_hopital->update([
-                'nom_service_hopi' => $request->nom_service_hopi,
-                'update_by_service_hopi' => $authUser->id, // Met à jour avec l'utilisateur qui effectue la modification
-            ]);
-        } catch (\Exception $e) {
-            return response()->json(['message' => 'Erreur lors de la mise à jour', 'error' => $e->getMessage()], 500);
-        }
-
-        // Retourner la réponse de succès avec les données mises à jour
-        return response()->json([
-            'message' => 'Service hospitalier mis à jour avec succès',
-            'data' => $service_hopital
-        ], 200);
-    }
-
-    // Suppression d'un service hospitalier
-    /**
-     * Display a listing of the resource.
-     * @permission ServiceHopitalController::destroy
-     * @permission_desc Suppression d'un service hospitalier
-     */
-    public function destroy($id)
+    public function update(Request $request, $id)
     {
         $service = Service_Hopital::find($id);
 
         if (!$service) {
-            return response()->json(['message' => 'Service not found'], 404);
+            return response()->json([
+                'message' => 'Service d\'hôpital introuvable.'
+            ], 404);
         }
-        $consultantCount = Consultant::where('code_service_hopi', $service->id)->count();
-        if ($consultantCount > 0) {
-            return  response()->json(['message'=>'Le service hôpital ne peut pas être supprimée car il est associée à des consultants'],400);
-        }
-        $service->is_deleted = true;
-        $service->save();
 
-        return response()->json(['message' => 'Service deleted successfully'], 200);
+        $validated = $request->validate([
+            'nom_service_hopi' => [
+                'required',
+                'string',
+                'max:255',
+                Rule::unique('consultants_service_hospitals', 'nom_service_hopi')->ignore($service->id),
+            ],
+            'is_active' => 'sometimes|boolean',
+        ]);
+
+        $auth = auth()->user();
+
+        $service->update([
+            'nom_service_hopi' => $validated['nom_service_hopi'],
+            'is_active'        => $validated['is_active'] ?? $service->is_active,
+            'updated_by'       => $auth?->id,
+        ]);
+
+        $service->load([
+            'creator:id,email,nom_utilisateur',
+            'editor:id,email,nom_utilisateur'
+        ]);
+
+        return response()->json([
+            'message' => 'Service d\'hôpital mis à jour avec succès',
+            'data'    => $service
+        ]);
     }
 
-
     /**
-     * Remove the specified resource from storage.
+     * Display the specified resource.
+     *
+     * @permission ServiceHopitalController::show
+     * @permission_desc Afficher les détails d'un service d'hôpital
      */
+    public function show($id)
+    {
+        $service = Service_Hopital::with([
+            'creator:id,email,nom_utilisateur',
+            'editor:id,email,nom_utilisateur'
+        ])->find($id);
 
+        if (!$service) {
+            return response()->json([
+                'message' => 'Service d\'hôpital introuvable.'
+            ], 404);
+        }
+
+        return response()->json([
+            'data' => $service
+        ]);
+    }
+    /**
+     * Update the status (active/inactive) of the specified resource.
+     *
+     * @permission ServiceHopitalController::updateStatus
+     * @permission_desc Modifier le statut d'un service d'hôpital
+     */
+    public function updateStatus(Request $request, $id)
+    {
+        $service = Service_Hopital::find($id);
+
+        if (!$service) {
+            return response()->json([
+                'message' => 'Service d\'hôpital introuvable.'
+            ], 404);
+        }
+
+        $validated = $request->validate([
+            'is_active' => 'required|boolean',
+        ]);
+
+        $auth = auth()->user();
+
+        $service->update([
+            'is_active'  => $validated['is_active'],
+            'updated_by' => $auth?->id,
+        ]);
+
+        $service->load([
+            'creator:id,email,nom_utilisateur',
+            'editor:id,email,nom_utilisateur'
+        ]);
+
+        return response()->json([
+            'message' => 'Statut du service d\'hôpital mis à jour avec succès',
+            'data'    => $service
+        ]);
+    }
 }

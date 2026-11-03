@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\SessionCaisseStatus;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -32,6 +33,7 @@ class SessionCaisse extends Model
     ];
 
     protected $casts = [
+        'etat' => SessionCaisseStatus::class,
         'ouverture_ts' => 'datetime',
         'fermeture_ts' => 'datetime',
         'pause_ts' => 'datetime',

@@ -6,6 +6,7 @@ use App\Models\DeliveryChannel;
 use App\Models\Prestation;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * @permission_category Gestion du canal de remise des résultats du labo
@@ -61,25 +62,32 @@ class DeliveryChannelController extends Controller
     public function store(Request $request)
     {
         $auth = auth()->user();
+
         $validated = $request->validate([
             'name' => 'required|string|max:255|unique:delivery_channels,name',
             'code' => 'nullable|string|max:50|unique:delivery_channels,code',
             'slug' => 'nullable|string|max:255|unique:delivery_channels,slug',
             'description' => 'nullable|string',
             'is_patient_info' => 'boolean',
+            'default' => 'boolean',
         ]);
 
         $validated['name'] = mb_strtoupper($validated['name']);
         $validated['slug'] = $request->filled('slug') ? mb_strtolower($request->input('slug')) : mb_strtolower($validated['name']);
         $validated['is_patient_info'] = $request->boolean('is_patient_info');
+        $validated['default'] = $request->boolean('default');
         $validated['created_by'] = $auth->id;
+
+        if ($validated['default']) {
+            DeliveryChannel::where('default', true)->update(['default' => false]);
+        }
 
         $channel = DeliveryChannel::create($validated);
 
         return response()->json([
             'success' => true,
             'message' => 'Canal de remise créé avec succès.',
-            'data' => $channel
+            'data'    => $channel
         ], 201);
     }
 
@@ -113,24 +121,37 @@ class DeliveryChannelController extends Controller
     public function update(Request $request, DeliveryChannel $deliveryChannel)
     {
         $auth = auth()->user();
+
         $validated = $request->validate([
             'name' => 'required|string|max:255|unique:delivery_channels,name,' . $deliveryChannel->id,
             'code' => 'nullable|string|max:50|unique:delivery_channels,code,' . $deliveryChannel->id,
             'slug' => 'nullable|string|max:255|unique:delivery_channels,slug,' . $deliveryChannel->id,
             'description' => 'nullable|string',
             'is_patient_info' => 'boolean',
+            'default' => 'boolean',
         ]);
 
         $validated['name'] = mb_strtoupper($validated['name']);
         $validated['slug'] = $request->filled('slug') ? mb_strtolower($request->input('slug')) : mb_strtolower($validated['name']);
         $validated['is_patient_info'] = $request->boolean('is_patient_info');
+        $validated['default'] = $request->boolean('default');
+
+        if (Schema::hasColumn('delivery_channels', 'updated_by')) {
+            $validated['updated_by'] = $auth->id;
+        }
+
+        if ($validated['default']) {
+            DeliveryChannel::where('id', '!=', $deliveryChannel->id)
+                ->where('default', true)
+                ->update(['default' => false]);
+        }
 
         $deliveryChannel->update($validated);
 
         return response()->json([
             'success' => true,
             'message' => 'Canal de remise mis à jour avec succès.',
-            'data' => $deliveryChannel
+            'data'    => $deliveryChannel
         ], 200);
     }
 

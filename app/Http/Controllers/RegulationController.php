@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\SessionCaisseStatus;
 use App\Enums\StateFacture;
 use App\Enums\StatusRegulation;
 use App\Enums\TypePrestation;
@@ -59,7 +60,6 @@ class RegulationController extends Controller
             ], 404);
         }
 
-
         $caisse = Caisse::where('user_id', $auth->id)
             ->where('centre_id', $centreId)
             ->where('is_active', true)
@@ -74,13 +74,19 @@ class RegulationController extends Controller
         $session = SessionCaisse::where('user_id', $auth->id)
             ->where('caisse_id', $caisse->id)
             ->where('centre_id', $centreId)
-            ->where('etat', 'OUVERTE')
+            ->where('etat', SessionCaisseStatus::OUVERTE->value)
             ->latest('ouverture_ts')
             ->first();
 
         if (!$session) {
             return response()->json([
                 'message' => 'Aucune session ouverte trouvée pour cet utilisateur dans ce centre.'
+            ], 403);
+        }
+
+        if (!\Carbon\Carbon::parse($session->ouverture_ts)->isToday()) {
+            return response()->json([
+                'message' => 'Impossible d\'encaisser : la session de caisse active appartient à un jour précédent. Veuillez clôturer cette session et en ouvrir une nouvelle pour aujourd\'hui.'
             ], 403);
         }
 
@@ -283,7 +289,8 @@ class RegulationController extends Controller
             'regulation_method_id' => ['required', 'exists:regulation_methods,id'],
             'amount' => ['required'],
             'amount_waiting' => ['required'],
-            'assureur_id' => ['required', 'exists:assureurs,id'],
+            'client_id' => ['nullable', 'exists:clients,id'],
+            'assureur_id' => ['nullable', 'exists:assureurs,id'],
             'start_date' => ['required', 'date'],
             'end_date' => ['required', 'date'],
             'number_piece' => ['required'],
@@ -313,33 +320,26 @@ class RegulationController extends Controller
             'factures.*.others_amount_excluded' => ['nullable', 'numeric'],
         ]);
 
+        if (!$request->input('client_id') && !$request->input('assureur_id')) {
+            return response()->json([
+                'message' => 'Veuillez fournir soit un client_id, soit un assureur_id.'
+            ], 422);
+        }
+
         DB::beginTransaction();
         try {
+            $clientId = $request->input('client_id');
             $assureurId = $request->input('assureur_id');
 
-            $existing = FacturationAssurance::where('assurance_id', $assureurId)
-                ->where(function ($q) use ($request) {
-                    $start = \Carbon\Carbon::parse($request->start_date)->format('Y-m-d H:i:s');
-                    $end = \Carbon\Carbon::parse($request->end_date)->format('Y-m-d H:i:s');
-
-                    $q->whereBetween('start_date', [$start, $end])
-                        ->orWhereBetween('end_date', [$start, $end])
-                        ->orWhere(function($q2) use ($start, $end) {
-                            $q2->where('start_date', '<=', $start)
-                                ->where('end_date', '>=', $end);
-                        });
-                })
-                ->exists();
-
-            if ($existing) {
-                \Log::info('Facturation déjà existante pour cette période, ignorée.');
-            }
+            $regulationId = $clientId ?? $assureurId;
+            $regulationType = $clientId ? Client::class : Assureur::class;
 
             SpecialRegulation::create([
+                'client_id' => $clientId,
                 'assureur_id' => $assureurId,
                 'centre_id' => $centreId,
-                'regulation_id' => $assureurId,
-                'regulation_type' => Assureur::class,
+                'regulation_id' => $regulationId,
+                'regulation_type' => $regulationType,
                 'regulation_method_id' => $request->input('regulation_method_id'),
                 'amount' => $request->input('amount'),
                 'amount_waiting' => $request->input('amount_waiting'),
@@ -358,26 +358,46 @@ class RegulationController extends Controller
                 'net_to_pay' => $request->input('net_to_pay', 0),
             ]);
 
-            FacturationAssurance::create([
-                'start_date' => \Carbon\Carbon::parse($request->input('start_date'))->format('Y-m-d H:i:s'),
-                'end_date' => \Carbon\Carbon::parse($request->input('end_date'))->format('Y-m-d H:i:s'),
-                'assurance' => Assureur::class,
-                'facture_number' => $request->input('number_piece'),
-                'amount' => $request->input('amount'),
-                'price_after_application_hr' => $request->input('total_ir_amount'),
-                'price_after_application_tva' => $request->input('total_tva_amount') ?? 0,
-                'net_to_pay' => $request->input('net_to_pay'),
-                'created_by' => $auth->id,
-                'updated_by' => $auth->id,
-                'assurance_id' => $assureurId,
-            ]);
+            if ($assureurId) {
+                $existing = FacturationAssurance::where('assurance_id', $assureurId)
+                    ->where(function ($q) use ($request) {
+                        $start = \Carbon\Carbon::parse($request->start_date)->format('Y-m-d H:i:s');
+                        $end = \Carbon\Carbon::parse($request->end_date)->format('Y-m-d H:i:s');
+
+                        $q->whereBetween('start_date', [$start, $end])
+                            ->orWhereBetween('end_date', [$start, $end])
+                            ->orWhere(function($q2) use ($start, $end) {
+                                $q2->where('start_date', '<=', $start)
+                                    ->where('end_date', '>=', $end);
+                            });
+                    })
+                    ->exists();
+
+                if ($existing) {
+                    \Log::info('Facturation déjà existante pour cette période, ignorée.');
+                }
+
+                FacturationAssurance::create([
+                    'start_date' => \Carbon\Carbon::parse($request->input('start_date'))->format('Y-m-d H:i:s'),
+                    'end_date' => \Carbon\Carbon::parse($request->input('end_date'))->format('Y-m-d H:i:s'),
+                    'assurance' => Assureur::class,
+                    'facture_number' => $request->input('number_piece'),
+                    'amount' => $request->input('amount'),
+                    'price_after_application_hr' => $request->input('total_ir_amount'),
+                    'price_after_application_tva' => $request->input('total_tva_amount') ?? 0,
+                    'net_to_pay' => $request->input('net_to_pay'),
+                    'created_by' => $auth->id,
+                    'updated_by' => $auth->id,
+                    'assurance_id' => $assureurId,
+                ]);
+            }
 
             if ($request->input('allFacture')) {
                 $prestations = Prestation::filterInProgress(
                     startDate: $request->input('start_date'),
                     endDate: $request->input('end_date'),
                     assurance: $assureurId,
-                    payableBy: null
+                    payableBy: $clientId
                 )->get();
 
                 $processedFactures = [];
@@ -409,7 +429,7 @@ class RegulationController extends Controller
 
                 $this->validatedFacture($facture, true);
 
-                $amountFacture = $factureData['amount'] ?? $facture->amount_pc ?? $facture->amount_client ?? 0;
+                $amountFacture = $factureData['amount'] ?? $facture->amount_client ?? $facture->amount_pc ?? 0;
 
                 $facture->regulations()->create([
                     'regulation_method_id' => $request->input('regulation_method_id'),
@@ -418,15 +438,16 @@ class RegulationController extends Controller
                     'type' => 2,
                     'comment' => $request->input('comment'),
                     'particular' => true,
+                    'centre_id' => $centreId,
                 ]);
 
                 $amountPaid = $factureData['amount_paid'] ?? 0;
                 $facture->update(array_merge([
-                    'state' => StateFacture::ASSURANCE->value,
+                    'state' => $assureurId ? StateFacture::ASSURANCE->value : StateFacture::CLIENT->value,
                     'regulated_at' => now(),
                     'is_regulated' => true,
                     'regulated' => 2,
-                    'contentieux' => $amountPaid != $facture->amount_pc,
+                    'contentieux' => $amountPaid != ($facture->amount_client ?? $facture->amount_pc),
                 ], [
                     'amount_prorate' => $factureData['amount_prorate'] ?? 0,
                     'amount_contested' => $factureData['amount_contested'] ?? 0,

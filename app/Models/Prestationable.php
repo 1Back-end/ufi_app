@@ -27,6 +27,7 @@ class Prestationable extends Model
         'contentieux',
         'entered_by',
         'entered_at',
+        'day_of_week'
     ];
 
     protected $casts = [

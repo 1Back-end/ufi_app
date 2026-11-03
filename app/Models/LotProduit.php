@@ -26,13 +26,13 @@ class LotProduit extends Model
         'created_by',
         'updated_by',
         'fournisseur_id',
-        'justification'
+        'justification',
+        'centre_id'
     ];
 
     protected $casts = [
         'date_peremption' => 'date',
         'date_reception'  => 'date',
-        'quantite_actuelle' => 'integer',
     ];
 
     protected $appends = [
@@ -41,7 +41,10 @@ class LotProduit extends Model
 
     public function determinerStatut(int $joursSeuilPeremption = 30): string
     {
-        if ($this->quantite_actuelle <= 0) {
+        // On extrait la valeur numérique (ex: "6 x 5 ml" devient 6) pour vérifier le stock
+        $quantiteNumerique = intval($this->quantite_actuelle);
+
+        if ($quantiteNumerique <= 0) {
             return 'Épuisé';
         }
 
@@ -93,6 +96,10 @@ class LotProduit extends Model
     public function fournisseur()
     {
         return $this->belongsTo(Fournisseurs::class, 'fournisseur_id');
+    }
+    public function centre()
+    {
+        return $this->belongsTo(Centre::class, 'centre_id');
     }
     /**
      * Relation avec les conditionnements du produit associé au lot.

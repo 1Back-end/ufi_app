@@ -94,8 +94,18 @@ class OpsTblMotifConsultationController extends Controller
                 'type_visite_id' => $request->type_visite_id,
                 'created_by' => $auth->id
             ]);
-            \App\Models\DossierConsultation::where('id', $request->dossier_consultation_id)
-                ->update(['is_have_motif_consultation' => true]);
+            $dossier = \App\Models\DossierConsultation::find($request->dossier_consultation_id);
+
+            if ($dossier) {
+                $dossier->update(['is_have_motif_consultation' => true]);
+
+                if ($dossier->rendez_vous_id) {
+                    \App\Models\RendezVous::where('id', $dossier->rendez_vous_id)->update([
+                        'etat' => \App\Enums\RendezVousStatus::IN_PROGRESS->value,
+                        'updated_by' => $auth->id
+                    ]);
+                }
+            }
 
             return response()->json([
                 'message' => 'Motif ajouté avec succès.',

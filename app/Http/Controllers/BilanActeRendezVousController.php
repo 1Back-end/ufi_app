@@ -113,60 +113,12 @@ class BilanActeRendezVousController extends Controller
     }
 
 
-    /**
-     * Display a listing of the resource.
-     * @permission BilanActeRendezVousController::getHistoriqueActesClient
-     * @permission_desc Afficher les rapports de rendez vous de types(Actes) d'un client
-     */
-
-    public function getHistoriqueActesClient(Request $request, int $client_id)
-    {
-        try {
-            $perPage = $request->input('limit', 25);
-            $page    = $request->input('page', 1);
-
-            $results = BilanActeRendezVous::query()
-                ->whereHas('rendezVous', fn ($q) => $q->where('client_id', $client_id))
-                ->with([
-                    'rendezVous',
-                    'rendezVous.consultant',
-                    'prestation',
-                    'creator',
-                    'updater'
-                ])
-                ->orderByDesc('created_at')
-                ->paginate($perPage, ['*'], 'page', $page);
-
-            return response()->json([
-                'data'         => $results->items(),
-                'current_page' => $results->currentPage(),
-                'last_page'    => $results->lastPage(),
-                'total'        => $results->total(),
-            ], Response::HTTP_OK);
-
-        } catch (\Throwable $e) {
-            // Journalisation pour le debug
-            Log::error('Erreur getHistoriqueActesClient', [
-                'client_id' => $client_id,
-                'message'   => $e->getMessage(),
-                'trace'     => $e->getTraceAsString(),
-            ]);
-
-            // Réponse générique côté client
-            return response()->json([
-                'error'   => true,
-                'message' => 'Une erreur est survenue lors de la récupération de l’historique.',
-            ], Response::HTTP_INTERNAL_SERVER_ERROR);
-        }
-    }
-
 
     /**
      * Display a listing of the resource.
      * @permission BilanActeRendezVousController::store
      * @permission_desc Enregistrer le au rendez de vous de type(Actes)
      */
-
     public function store(Request $request)
     {
         $auth = auth()->user();
@@ -192,6 +144,7 @@ class BilanActeRendezVousController extends Controller
             $rendezVous = RendezVous::findOrFail($request->rendez_vous_id);
             $rendezVous->etat       = RendezVousStatus::CLOSED->value;
             $rendezVous->updated_by = $auth->id;
+            $rendezVous->is_closed = true;
             $rendezVous->save();
 
             if ($rendezVous->patient_id) {

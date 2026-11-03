@@ -31,6 +31,7 @@ class SpecialRegulation extends Model
         'total_tva_amount',
         'others_amount_excluded',
         'net_to_pay',
+        'client_id'
     ];
 
     protected function casts(): array
@@ -82,4 +83,6 @@ class SpecialRegulation extends Model
     {
         return $this->belongsTo(Centre::class, 'centre_id');
     }
+
+
 }

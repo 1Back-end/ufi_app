@@ -18,47 +18,70 @@ class TitreController extends Controller
     /**
      * Display a listing of the resource.
      * @permission TitreController::index
-     * @permission_desc Afficher l'id et le nom du titre
+     * @permission_desc Afficher la liste des titres des consultants
      */
-    public function index()
+    public function index(Request $request)
     {
-        $titres = Titre::select('id','nom_titre')
-            ->where('is_deleted',false)->get();
-        return response()->json($titres);
-        //
+        $perPage = $request->integer('limit', 25);
+        $page    = $request->integer('page', 1);
+        $query = Titre::with(['creator:id,email,nom_utilisateur', 'editor:id,email,nom_utilisateur'])
+
+            ->when($request->has('is_active'), fn($q) => $q->where('is_active', $request->is_active))
+            ->when(trim($request->search), function ($q, $search) {
+                $q->where(function ($subQ) use ($search) {
+                    $subQ->where('nom_titre', 'like', "%{$search}%")
+                        ->orWhere('abbreviation_titre', 'like', "%{$search}%")
+                        ->orWhere('id', 'like', "%{$search}%");
+                });
+            });
+        $tilte = $query->latest()->paginate($perPage, ['*'], 'page', $page);
+
+        return response()->json([
+            'data'         => $tilte->items(),
+            'current_page' => $tilte->currentPage(),
+            'last_page'    => $tilte->lastPage(),
+            'total'        => $tilte->total(),
+        ]);
     }
 
     /**
      * Show the form for creating a new resource.
      *
      * @permission TitreController::store
-     * @permission_desc Enregister un titre
+     * @permission_desc Créer le titre d'un consultant
      */
 
     public function store(Request $request)
     {
         try {
-            // Validation des données d'entrée
             $validated = $request->validate([
-                'nom_titre' => 'required|unique:titres,nom_titre',  // Validation obligatoire et unique
+                'nom_titre' => 'required|unique:consultant_titles,nom_titre',
                 'abbreviation_titre' => 'required'
             ]);
+
             $auth = auth()->user();
-            // Création du titre
+
             $titre = Titre::create([
-                'nom_titre' => $request->nom_titre,
-                'abbreviation_titre' => $request->abbreviation_titre,
-                'create_by' => $auth->id
+                'nom_titre' => $validated['nom_titre'],
+                'abbreviation_titre' => $validated['abbreviation_titre'],
+                'is_active' => true,
+                'create_by' => $auth?->id,
+                'updated_by' => $auth?->id,
             ]);
-            // Retourne la réponse de succès
+
             return response()->json([
-                'message' => 'Titre créé avec succès.',
+                'message' => __('Titre créé avec succès.'),
                 'data' => $titre
             ], 201);
-        } catch (\Exception $e) {
-            // Capture l'erreur et retourne un message détaillé
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
-                'message' => 'Erreur lors de la création du titre.',
+                'message' => __('Erreur de validation.'),
+                'errors' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => __('Erreur lors de la création du titre.'),
                 'error' => $e->getMessage()
             ], 500);
         }
@@ -67,116 +90,106 @@ class TitreController extends Controller
      * Show the form for creating a new resource.
      *
      * @permission TitreController::update
-     * @permission_desc Mettre à jour un titre
+     * @permission_desc Modifier le titre d'un consultant
      */
 
-    public function update(Request $request, $id)
+    public function update(Request $request, Titre $titre)
     {
-        // Validation des données d'entrée
-        $validated = $request->validate([
-            'nom_titre' => 'required|unique:titres,nom_titre,' . $id, // Validation obligatoire et unique, en excluant l'ID courant
-            'abbreviation_titre' => 'required'
-        ]);
-        // Récupérer le titre à mettre à jour
-        $titre = Titre::find($id);
-        // Si le titre n'existe pas
-        if (!$titre) {
-            return response()->json(['message' => 'Titre non trouvé.'], 404);
+        try {
+            $validated = $request->validate([
+                'nom_titre' => 'required|unique:consultant_titles,nom_titre,' . $titre->id,
+                'abbreviation_titre' => 'required'
+            ]);
+
+            $auth = auth()->user();
+
+            $titre->update([
+                'nom_titre' => $validated['nom_titre'],
+                'abbreviation_titre' => $validated['abbreviation_titre'],
+                'updated_by' => $auth?->id,
+            ]);
+
+            return response()->json([
+                'message' => __('Titre mis à jour avec succès.'),
+                'data' => $titre
+            ], 200);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'message' => __('Erreur de validation.'),
+                'errors' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => __('Erreur lors de la mise à jour du titre.'),
+                'error' => $e->getMessage()
+            ], 500);
         }
-
-        // Récupère un utilisateur par défaut pour la mise à jour
-        $auth = auth()->user();
-
-
-        // Mise à jour du titre
-        $titre->update([
-            'nom_titre' => $request->nom_titre,
-            'abbreviation_titre' => $request->abbreviation_titre,
-            'update_by' => $auth->id
-        ]);
-
-        // Retourne la réponse de succès
-        return response()->json([
-            'message' => 'Titre mis à jour avec succès.',
-            'data' => $titre
-        ], 200);
     }
-
-
-
 
     /**
      * Display the specified resource.
      * @permission TitreController::show
-     * @permission_desc Voir les détails
+     * @permission_desc Afficher les détails du titre d'un consultant
      */
     public function show(string $id)
     {
-        $titre = Titre::where('id',$id)->where('is_deleted',false)->first();
-        if(!$titre){
-            return response()->json(['message','Titre introuvable'],404);
+        $titre = Titre::with(['creator', 'editor'])->find($id);
+
+        if (!$titre) {
+            return response()->json([
+                'message' => __('Titre introuvable.')
+            ], 404);
         }
-        return  response()->json($titre);
-        //
-    }
-    /**
-     * @permission TitreController::get_all
-     * @permission_desc Afficher tous les titres
-     */
-
-
-    public function get_all(Request $request){
-        $perPage = $request->input('limit', 10);  // Par défaut, 10 éléments par page
-        $page = $request->input('page', 1);  // Page courante
-        $titres = Titre::where('is_deleted', false)
-            ->when($request->input('search'), function ($query) use ($request) {
-                $search = $request->input('search');
-                $query->where('nom_titre', 'like', '%' . $search . '%')
-                    ->orWhere('id', 'like', '%' . $search . '%')
-                    ->orWhere('abbreviation_titre', 'like', '%' . $search . '%');
-
-            })
-            ->latest()->paginate(perPage: $perPage, page: $page);
 
         return response()->json([
-            'data' => $titres->items(),
-            'current_page' => $titres->currentPage(),  // Page courante
-            'last_page' => $titres->lastPage(),  // Dernière page
-            'total' => $titres->total(),  // Nombre total d'éléments
-        ]);
+            'message' => __('Titre récupéré avec succès.'),
+            'data' => $titre
+        ], 200);
     }
 
     /**
-     * Show the form for editing the specified resource.
+     * Display the specified resource.
+     * @permission TitreController::updateStatus
+     * @permission_desc Activer/Désactiver le titre d'un consultant
      */
-    public function edit(string $id)
+    public function updateStatus(Request $request, string $id)
     {
-        //
-    }
+        try {
+            $titre = Titre::find($id);
 
-    /**
-     * Update the specified resource in storage.
-     */
+            if (!$titre) {
+                return response()->json([
+                    'message' => __('Titre introuvable.')
+                ], 404);
+            }
 
+            $validated = $request->validate([
+                'is_active' => 'required|boolean',
+            ]);
 
-    /**
-     * Remove the specified resource from storage.
-     * @permission TitreController::destroy
-     * @permission_desc Supprimer un titre
-     */
-    public function destroy(string $id)
-    {
-        $titre = Titre::find($id);
-        if(!$titre){
-            return response()->json(['message','Titre introuvable'],404);
+            $auth = auth()->user();
+
+            $titre->update([
+                'is_active' => $validated['is_active'],
+                'updated_by' => $auth?->id,
+            ]);
+
+            return response()->json([
+                'message' => __('Statut du titre mis à jour avec succès.'),
+                'data' => $titre
+            ], 200);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'message' => __('Erreur de validation.'),
+                'errors' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => __('Erreur lors de la mise à jour du statut.'),
+                'error' => $e->getMessage()
+            ], 500);
         }
-        $consultantCount = Consultant::where('code_titre', $titre->id)->count();
-        if ($consultantCount > 0) {
-            return  response()->json(['message'=>'Le titre ne peut pas être supprimée car il est associée à des consultants'],400);
-        }
-        $titre->is_deleted=true;
-        $titre->save();
-        return response()->json(['message' => 'Titre supprimé avec succès'], 200);
-        //
     }
 }

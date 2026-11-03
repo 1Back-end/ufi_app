@@ -170,6 +170,11 @@ class Client extends Model
         );
     }
 
+    public function appointments()
+    {
+        return $this->hasMany(RendezVous::class, 'client_id');
+    }
+
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user_id');

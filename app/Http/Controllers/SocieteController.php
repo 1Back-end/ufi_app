@@ -30,7 +30,7 @@ class SocieteController extends Controller
                 })
                 ->orderBy('created_at', 'desc')
                 ->paginate(
-                    perPage: request()->input('per_page', 5),
+                    perPage: request()->input('per_page', 25),
                     page: request()->input('page', 1)
                 )
         ]);

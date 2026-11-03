@@ -4,8 +4,8 @@ namespace App\Enums;
 
 enum InvoiceStatus: string
 {
-    case BILLED = 'Facturé';
-    case UNBILLED = 'Non facturé';
+    case BILLED = 'billed';
+    case UNBILLED = 'unbilled';
 
     public function label(): string
     {
@@ -15,9 +15,13 @@ enum InvoiceStatus: string
         };
     }
 
-    public static function safeLabel(?string $value): string
+    public static function safeLabel(self|string|null $value): string
     {
-        return self::tryFrom($value)?->label() ?? 'Inconnu';
+        if ($value instanceof self) {
+            return $value->label();
+        }
+
+        return self::tryFrom((string) $value)?->label() ?? 'Inconnu';
     }
 
     public static function toArray(): array

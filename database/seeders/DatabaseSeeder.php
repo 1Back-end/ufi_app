@@ -40,6 +40,7 @@ class DatabaseSeeder extends Seeder
             CountriesTableSeeder::class,
             SystemSettingsSeeder::class,
             CentreRecommendationSeeder::class,
+            ReportRecipientSeeder::class,
         ]);
     }
 
