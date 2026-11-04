@@ -2498,17 +2498,25 @@ class PrestationController extends Controller
     {
         $isActe = $prestation->type === TypePrestation::ACTES;
         $isConsultation = $prestation->type === TypePrestation::CONSULTATIONS;
-        $prestation->appointments()->updateOrCreate([
-            'client_id' => $prestation->client_id,
-            'consultant_id' => $prestation->consultant_id,
-            'dateheure_rdv' => $date,
-            'type'                 => RendezVousType::BILLED->value,
-            'details' => "Rendez-vous programmé pour le client " . $prestation->client->nomcomplet_client . " et le consultant " . $prestation->consultant->nomcomplet,
-            'nombre_jour_validite' => AppointmentDuration::DEFAULT->value,
-            'duration' => AppointmentDuration::DEFAULT->value,
-            'is_acte'               => $isActe,
-            'is_consultation'       => $isConsultation,
-        ]);
+        $userId = auth()->id();
+
+        $prestation->appointments()->updateOrCreate(
+            [
+                'client_id' => $prestation->client_id,
+                'consultant_id' => $prestation->consultant_id,
+                'dateheure_rdv' => $date,
+            ],
+            [
+                'type'                 => RendezVousType::BILLED->value,
+                'details'              => "Rendez-vous programmé pour le client " . $prestation->client->nomcomplet_client . " et le consultant " . $prestation->consultant->nomcomplet,
+                'nombre_jour_validite' => AppointmentDuration::DEFAULT->value,
+                'duration'             => AppointmentDuration::DEFAULT->value,
+                'is_acte'              => $isActe,
+                'is_consultation'      => $isConsultation,
+                'created_by'           => $userId,
+                'updated_by'           => $userId,
+            ]
+        );
 
         //        Todo: Mettre en marche les notifications envoyées
         //        Todo: $consultant = Consultant::find($consultantId);
@@ -2681,7 +2689,6 @@ class PrestationController extends Controller
             $startDate = \Carbon\Carbon::parse($dateInput, $timezone)->startOfDay();
             $endDate = \Carbon\Carbon::parse($dateInput, $timezone)->endOfDay();
         } else {
-            // Par défaut : du jour N-1 (hier) jusqu'à aujourd'hui inclus (ou juste le jour N-1 si tu préfères une journée unique, ici on prend la journée complète de la veille)
             $startDate = \Carbon\Carbon::yesterday($timezone)->startOfDay();
             $endDate = \Carbon\Carbon::yesterday($timezone)->endOfDay();
         }
