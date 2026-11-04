@@ -38,7 +38,8 @@ class Consultant extends Model
         'is_used_commission',
         'order_number',
         'is_active',
-        'is_archived'
+        'is_archived',
+        'can_consult_out_of_schedule'
     ];
 
     protected $appends = ['fullname', 'nb_prestations', 'is_used'];

@@ -530,7 +530,6 @@ class ConsultantController extends Controller
             }
         };
 
-        // On ne garde QUE les critères sur les noms (plus de 'tel' ou 'tel1')
         $buckets = [
             'nomcomplet' => [],
             'nom_prenom' => [],
@@ -745,21 +744,31 @@ class ConsultantController extends Controller
             ], 404);
         }
 
-        $disponibilites = $consultant->disponibilites->map(function ($dispo) {
-            $dayEnum = DayOfWeek::tryFrom((int) $dispo->jour);
+        if ($consultant->can_consult_out_of_schedule) {
+            $disponibilites = collect(DayOfWeek::cases())->map(function ($dayEnum) {
+                return [
+                    'jour_valeur' => $dayEnum->value,
+                    'jour_nom'    => $dayEnum->label(),
+                ];
+            })->values();
+        } else {
+            $disponibilites = $consultant->disponibilites->map(function ($dispo) {
+                $dayEnum = DayOfWeek::tryFrom((int) $dispo->jour);
 
-            return [
-                'jour_valeur' => $dispo->jour,
-                'jour_nom'    => $dayEnum ? $dayEnum->label() : 'Inconnu',
-            ];
-        })->unique('jour_valeur')->values();
+                return [
+                    'jour_valeur' => $dispo->jour,
+                    'jour_nom'    => $dayEnum ? $dayEnum->label() : 'Inconnu',
+                ];
+            })->unique('jour_valeur')->values();
+        }
 
         return response()->json([
             'has_schedule'   => $disponibilites->isNotEmpty(),
             'consultant'     => [
-                'id'         => $consultant->id,
-                'nomcomplet' => $consultant->nomcomplet,
-                'ref'        => $consultant->ref,
+                'id'                          => $consultant->id,
+                'nomcomplet'                  => $consultant->nomcomplet,
+                'ref'                         => $consultant->ref,
+                'can_consult_out_of_schedule' => $consultant->can_consult_out_of_schedule,
             ],
             'disponibilites' => $disponibilites,
         ], 200);

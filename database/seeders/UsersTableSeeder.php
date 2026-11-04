@@ -17,7 +17,7 @@ class UsersTableSeeder extends Seeder
      */
     public function run(): void
     {
-        $profile = Profile::first(); // Utilise le premier profil existant ou crée-en un si nécessaire
+        $profile = Profile::first();
 
             User::insert([
                 [

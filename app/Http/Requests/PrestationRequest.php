@@ -7,6 +7,7 @@ use App\Enums\TypePrestation;
 use App\Enums\TypeSalle;
 use App\Enums\TypeVisitePrestation;
 use App\Models\Acte;
+use App\Models\Consultant;
 use App\Models\ConsultantDisponibilite;
 use App\Models\Consultation;
 use App\Models\OpsTblHospitalisation;
@@ -189,38 +190,41 @@ class PrestationRequest extends FormRequest
             case TypePrestation::ACTES->value:
                 $errorConflit = [];
 
-                $hasDisponibilites = ConsultantDisponibilite::where('consultant_id', $this->consultant_id)->exists();
+                $consultant = Consultant::find($this->consultant_id);
 
-                if ($hasDisponibilites) {
-                    foreach ($this->actes as $item) {
-                        $acte = Acte::find($item['id']);
-                        $date_rdv = Carbon::createFromTimeString($item['date_rdv']);
+                if ($consultant && !$consultant->can_consult_out_of_schedule) {
+                    $hasDisponibilites = ConsultantDisponibilite::where('consultant_id', $this->consultant_id)
+                        ->where('is_deleted', false)
+                        ->exists();
 
-                        $dayOfWeek = $item['day_of_week'] ?? $date_rdv->dayOfWeekIso;
-                        $timeRdv = $date_rdv->format('H:i:s');
+                    if ($hasDisponibilites) {
+                        foreach ($this->actes as $item) {
+                            $acte = Acte::find($item['id']);
+                            $date_rdv = Carbon::createFromTimeString($item['date_rdv']);
 
-                        $isAvailable = ConsultantDisponibilite::where('consultant_id', $this->consultant_id)
-                            ->where('jour', $dayOfWeek)
-                            ->where('heure_debut', '<=', $timeRdv)
-                            ->where('heure_fin', '>=', $timeRdv)
-                            ->exists();
+                            $dayOfWeek = $item['day_of_week'] ?? $date_rdv->dayOfWeekIso;
+                            $timeRdv = $date_rdv->format('H:i:s');
 
-                        if (!$isAvailable) {
-                            $dayName = DayOfWeek::tryFrom($dayOfWeek)?->label() ?? '';
-                            $errorConflit = [
-                                'message' => __("Le consultant n'est pas disponible le {$dayName} à cette heure ({$date_rdv->format('H:i')})."),
-                                'actes' => $acte
-                            ];
-                            break;
+                            $isAvailable = ConsultantDisponibilite::where('consultant_id', $this->consultant_id)
+                                ->where('is_deleted', false)
+                                ->where('jour', $dayOfWeek)
+                                ->where('heure_debut', '<=', $timeRdv)
+                                ->where('heure_fin', '>=', $timeRdv)
+                                ->exists();
+
+                            if (!$isAvailable) {
+                                $dayName = DayOfWeek::tryFrom($dayOfWeek)?->label() ?? '';
+                                $errorConflit = [
+                                    'message' => __("Le consultant n'est pas disponible le {$dayName} à cette heure ({$date_rdv->format('H:i')})."),
+                                    'actes'   => $acte
+                                ];
+                                break;
+                            }
                         }
                     }
                 }
 
-                if ($errorConflit) {
-                    return $errorConflit;
-                }
-
-                if ($errorConflit) {
+                if (!empty($errorConflit)) {
                     return $errorConflit;
                 }
 
@@ -238,25 +242,27 @@ class PrestationRequest extends FormRequest
                     foreach ($this->actes as $item) {
                         $acte = Acte::find($item['id']);
                         $date_rdv = Carbon::createFromTimeString($item['date_rdv']);
+
                         $acteSearch = $prestation->actes()
                             ->wherePivot('date_rdv', '<=', $date_rdv)
                             ->wherePivot('date_rdv_end', '>=', $date_rdv)
                             ->first();
 
-
                         if ($acteSearch) {
                             $errorConflit = [
-                                'message' => __("Ce consultant ou Ce client a déjà un rendez-vous à cette période du {$acteSearch->pivot->date_rdv} au {$acteSearch->pivot->date_rdv_end}"),
-                                'actes' => $acteSearch
+                                'message' => __("Ce consultant ou ce client a déjà un rendez-vous à cette période du {$acteSearch->pivot->date_rdv} au {$acteSearch->pivot->date_rdv_end}"),
+                                'actes'   => $acteSearch
                             ];
                             break;
                         }
                     }
 
-                    if ($errorConflit) break;
+                    if (!empty($errorConflit)) {
+                        break;
+                    }
                 }
 
-                if ($errorConflit) {
+                if (!empty($errorConflit)) {
                     return $errorConflit;
                 }
 
@@ -267,35 +273,42 @@ class PrestationRequest extends FormRequest
             case TypePrestation::PRODUITS->value:
                 break;
             case TypePrestation::CONSULTATIONS->value:
-
                 $errorConflit = [];
-                $hasDisponibilites = ConsultantDisponibilite::where('consultant_id', $this->consultant_id)->exists();
 
-                if ($hasDisponibilites) {
-                    foreach ($this->consultations as $item) {
-                        $consultation = Consultation::find($item['id']);
-                        $date_rdv = Carbon::createFromTimeString($item['date_rdv']);
-                        $dayOfWeek = $item['day_of_week'] ?? $date_rdv->dayOfWeekIso;
-                        $timeRdv = $date_rdv->format('H:i:s');
+                $consultant = Consultant::find($this->consultant_id);
+                
+                if ($consultant && !$consultant->can_consult_out_of_schedule) {
+                    $hasDisponibilites = ConsultantDisponibilite::where('consultant_id', $this->consultant_id)
+                        ->where('is_deleted', false)
+                        ->exists();
 
-                        $isAvailable = ConsultantDisponibilite::where('consultant_id', $this->consultant_id)
-                            ->where('jour', $dayOfWeek)
-                            ->where('heure_debut', '<=', $timeRdv)
-                            ->where('heure_fin', '>=', $timeRdv)
-                            ->exists();
+                    if ($hasDisponibilites) {
+                        foreach ($this->consultations as $item) {
+                            $consultation = Consultation::find($item['id']);
+                            $date_rdv = Carbon::createFromTimeString($item['date_rdv']);
+                            $dayOfWeek = $item['day_of_week'] ?? $date_rdv->dayOfWeekIso;
+                            $timeRdv = $date_rdv->format('H:i:s');
 
-                        if (!$isAvailable) {
-                            $dayName = DayOfWeek::tryFrom($dayOfWeek)?->label() ?? '';
-                            $errorConflit = [
-                                'message' => __("Le consultant n'est pas disponible le {$dayName} à cette heure ({$date_rdv->format('H:i')})."),
-                                'consultation' => $consultation
-                            ];
-                            break;
+                            $isAvailable = ConsultantDisponibilite::where('consultant_id', $this->consultant_id)
+                                ->where('is_deleted', false)
+                                ->where('jour', $dayOfWeek)
+                                ->where('heure_debut', '<=', $timeRdv)
+                                ->where('heure_fin', '>=', $timeRdv)
+                                ->exists();
+
+                            if (!$isAvailable) {
+                                $dayName = DayOfWeek::tryFrom($dayOfWeek)?->label() ?? '';
+                                $errorConflit = [
+                                    'message' => __("Le consultant n'est pas disponible le {$dayName} à cette heure ({$date_rdv->format('H:i')})."),
+                                    'consultation' => $consultation
+                                ];
+                                break;
+                            }
                         }
                     }
                 }
 
-                if ($errorConflit) {
+                if (!empty($errorConflit)) {
                     return $errorConflit;
                 }
 
@@ -313,25 +326,27 @@ class PrestationRequest extends FormRequest
                     foreach ($this->consultations as $item) {
                         $consultation = Consultation::find($item['id']);
                         $date_rdv = Carbon::createFromTimeString($item['date_rdv']);
+
                         $consultationSearch = $prestation->consultations()
                             ->wherePivot('date_rdv', '<=', $date_rdv)
                             ->wherePivot('date_rdv_end', '>=', $date_rdv)
                             ->first();
 
-
                         if ($consultationSearch) {
                             $errorConflit = [
-                                'message' => __("Ce consultant ou Ce client a déjà un rendez-vous à cette période du {$consultationSearch->pivot->date_rdv} au {$consultationSearch->pivot->date_rdv_end}"),
+                                'message' => __("Ce consultant ou ce client a déjà un rendez-vous à cette période du {$consultationSearch->pivot->date_rdv} au {$consultationSearch->pivot->date_rdv_end}"),
                                 'consultation' => $consultationSearch
                             ];
                             break;
                         }
                     }
 
-                    if ($errorConflit) break;
+                    if (!empty($errorConflit)) {
+                        break;
+                    }
                 }
 
-                if ($errorConflit) {
+                if (!empty($errorConflit)) {
                     return $errorConflit;
                 }
                 break;
