@@ -276,7 +276,7 @@ class PrestationRequest extends FormRequest
                 $errorConflit = [];
 
                 $consultant = Consultant::find($this->consultant_id);
-                
+
                 if ($consultant && !$consultant->can_consult_out_of_schedule) {
                     $hasDisponibilites = ConsultantDisponibilite::where('consultant_id', $this->consultant_id)
                         ->where('is_deleted', false)
