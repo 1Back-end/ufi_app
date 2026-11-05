@@ -2916,7 +2916,7 @@ class PrestationController extends Controller
             ->get();
 
         $totalARemettreCount = $prestationsARemettre->count();
-        
+
         $remisCount = $prestationsARemettre->filter(function ($prestation) {
             return in_array($prestation->state_examen, [5, 6, 9, 10]);
         })->count();
