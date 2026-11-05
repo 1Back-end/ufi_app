@@ -631,7 +631,7 @@ class RendezVousController extends Controller
     {
         $request->validate([
             'rendez_vous_ids' => ['required', 'array'],
-            'rendez_vous_ids.*' => ['integer', 'exists:rendez_vouses,id'],
+            'rendez_vous_ids.*' => ['integer', 'exists:appointments,id'],
             'password' => ['required', 'string'],
         ]);
 
@@ -664,7 +664,7 @@ class RendezVousController extends Controller
     {
         $request->validate([
             'rendez_vous_ids' => ['required', 'array'],
-            'rendez_vous_ids.*' => ['integer', 'exists:rendez_vouses,id'],
+            'rendez_vous_ids.*' => ['integer', 'exists:appointments,id'],
             'password' => ['required', 'string'],
         ]);
 
