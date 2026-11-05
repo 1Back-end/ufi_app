@@ -37,7 +37,8 @@ class DossierConsultation extends Model
         'is_have_antecedent',
         'is_have_examen_physique',
         'is_have_rapport_consultation',
-        'is_have_enquete_systemique'
+        'is_have_enquete_systemique',
+        'centre_id',
 
     ];
     protected $appends = ['logo'];

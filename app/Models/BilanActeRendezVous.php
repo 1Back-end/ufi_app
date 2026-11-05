@@ -22,7 +22,9 @@ class BilanActeRendezVous extends Model
         'conclusion',
         'created_by',
         'updated_by',
-        'titre', 'attachment'
+        'titre',
+        'attachment',
+        'centre_id'
     ];
 
     protected $appends = ['rapport_attachment'];
@@ -60,6 +62,10 @@ class BilanActeRendezVous extends Model
     public function updater()
     {
         return $this->belongsTo(User::class, 'updated_by');
+    }
+    public function centre()
+    {
+        return $this->belongsTo(Centre::class, 'centre_id');
     }
     //
 }
