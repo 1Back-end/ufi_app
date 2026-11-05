@@ -43,6 +43,7 @@ class DashboardController extends Controller
         $endDate = $request->input('end_date')
             ? Carbon::parse($request->input('end_date'))->endOfDay()
             : Carbon::yesterday()->endOfDay();
+
         $centreId = $request->header('centre');
 
         $prestationsQuery = Prestation::where('type', TypePrestation::CONSULTATIONS)
@@ -54,8 +55,10 @@ class DashboardController extends Controller
         $totalPrestations = $prestationsQuery->count();
         $prestationIds = $prestationsQuery->pluck('id');
 
-
-        $dossiersQuery = \App\Models\DossierConsultation::whereBetween('created_at', [$startDate, $endDate]);
+        $dossiersQuery = \App\Models\DossierConsultation::whereBetween('created_at', [$startDate, $endDate])
+            ->when($centreId, function ($query, $centreId) {
+                return $query->where('centre_id', $centreId);
+            });
 
         $totalDossiers = $dossiersQuery->count();
         $dossiersList = $dossiersQuery->get(['id', 'created_at', 'created_by']);
@@ -64,18 +67,21 @@ class DashboardController extends Controller
         $deficitCount = max(0, $totalPrestations - $totalDossiers);
 
         if ($totalPrestations === 0 && $totalDossiers === 0) {
-            $message = "Aucune prestation ni aucun dossier de consultation enregistrés sur cette période.";
+            $message = "Aucune activité (prestation ni dossier) enregistrée pour cette période.";
         } elseif ($totalDossiers === 0 && $totalPrestations > 0) {
-            $message = "Attention : Aucun dossier de consultation n'a été ouvert pour ces {$totalPrestations} prestation(s) enregistrée(s).";
+            $message = "Attention : Aucun dossier de consultation n'a été ouvert pour les {$totalPrestations} prestations enregistrées.";
         } elseif ($totalDossiers === $totalPrestations) {
-            $message = "Le nombre de dossiers correspond parfaitement aux prestations enregistrées.";
+            $message = "Parfait : le nombre de dossiers de consultation est en adéquation totale avec les prestations.";
         } elseif ($surplusCount > 0) {
-            $message = "Il y a un surplus de {$surplusCount} dossier(s) par rapport aux prestations enregistrées.";
+            $message = "Attention : On observe un surplus de {$surplusCount} dossier(s) par rapport au nombre de prestations.";
         } else {
-            $message = "Attention : Il manque {$deficitCount} dossier(s) par rapport aux prestations enregistrées.";
+            $message = "Alerte : Il manque {$deficitCount} dossier(s) de consultation par rapport aux prestations enregistrées.";
         }
 
         $distributionByiciaire = \App\Models\DossierConsultation::whereBetween('created_at', [$startDate, $endDate])
+            ->when($centreId, function ($query, $centreId) {
+                return $query->where('centre_id', $centreId);
+            })
             ->select('created_by', \DB::raw('count(*) as total'))
             ->with('creator:id,nom_utilisateur')
             ->groupBy('created_by')
@@ -94,6 +100,7 @@ class DashboardController extends Controller
             'filters' => [
                 'start_date' => $startDate->toDateString(),
                 'end_date' => $endDate->toDateString(),
+                'centre_id' => $centreId,
             ],
             'data' => [
                 'total_prestations_consultations' => $totalPrestations,
@@ -123,8 +130,11 @@ class DashboardController extends Controller
         $endDate = $request->input('end_date')
             ? Carbon::parse($request->input('end_date'))->endOfDay()
             : Carbon::yesterday()->endOfDay();
+
+        // Récupération du centre depuis les en-têtes de la requête
         $centreId = $request->header('centre');
 
+        // 1. Requête des prestations d'imagerie/actes filtrée par date et par centre
         $prestationsQuery = Prestation::where('type', TypePrestation::ACTES)
             ->whereBetween('created_at', [$startDate, $endDate])
             ->when($centreId, function ($query, $centreId) {
@@ -134,11 +144,16 @@ class DashboardController extends Controller
         $totalPrestations = $prestationsQuery->count();
         $prestationIds = $prestationsQuery->pluck('id');
 
-        $bilansQuery = \App\Models\BilanActeRendezVous::whereBetween('created_at', [$startDate, $endDate]);
+        // 2. Requête des bilans d'actes filtrée par date et par centre
+        $bilansQuery = \App\Models\BilanActeRendezVous::whereBetween('created_at', [$startDate, $endDate])
+            ->when($centreId, function ($query, $centreId) {
+                return $query->where('centre_id', $centreId);
+            });
 
         $totalBilans = $bilansQuery->count();
         $bilansList = $bilansQuery->get(['id', 'created_at', 'created_by', 'titre']);
 
+        // Calcul du surplus et du déficit
         $surplusCount = max(0, $totalBilans - $totalPrestations);
         $deficitCount = max(0, $totalPrestations - $totalBilans);
 
@@ -147,15 +162,17 @@ class DashboardController extends Controller
         } elseif ($totalBilans === 0 && $totalPrestations > 0) {
             $message = "Attention : Aucun bilan d'imagerie n'a été établi pour ces {$totalPrestations} prestation(s) enregistrée(s).";
         } elseif ($totalBilans === $totalPrestations) {
-            $message = "Le nombre de bilans d'imagerie correspond parfaitement aux prestations enregistrées.";
+            $message = "Parfait : le nombre de bilans d'imagerie est en adéquation totale avec les prestations.";
         } elseif ($surplusCount > 0) {
-            $message = "Il y a un surplus de {$surplusCount} bilan(s) d'imagerie par rapport aux prestations enregistrées.";
+            $message = "Attention : On observe un surplus de {$surplusCount} bilan(s) d'imagerie par rapport aux prestations enregistrées.";
         } else {
-            $message = "Attention : Il manque {$deficitCount} bilan(s) d'imagerie par rapport aux prestations enregistrées.";
+            $message = "Alerte : Il manque {$deficitCount} bilan(s) d'imagerie par rapport aux prestations enregistrées.";
         }
 
-        // 3. Distribution par créateur
         $distributionByiciaire = \App\Models\BilanActeRendezVous::whereBetween('created_at', [$startDate, $endDate])
+            ->when($centreId, function ($query, $centreId) {
+                return $query->where('centre_id', $centreId);
+            })
             ->select('created_by', \DB::raw('count(*) as total'))
             ->with('creator:id,nom_utilisateur')
             ->groupBy('created_by')
@@ -174,6 +191,7 @@ class DashboardController extends Controller
             'filters' => [
                 'start_date' => $startDate->toDateString(),
                 'end_date' => $endDate->toDateString(),
+                'centre_id' => $centreId,
             ],
             'data' => [
                 'total_prestations_imagerie' => $totalPrestations,
@@ -493,6 +511,7 @@ class DashboardController extends Controller
             : Carbon::yesterday()->endOfDay();
 
         $query = Prestation::where('centre_id', $centreId)
+            ->where('consultant_amount', '>', 0)
             ->whereBetween('created_at', [$startDate, $endDate]);
 
         $totalCount = (clone $query)->count();

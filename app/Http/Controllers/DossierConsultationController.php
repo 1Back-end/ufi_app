@@ -104,6 +104,8 @@ class DossierConsultationController extends Controller
     {
         $auth = auth()->user();
 
+        $centre = \App\Models\Centre::where('is_acte_recommendation_center', true)->first();
+
         $data = $request->validate([
             'rendez_vous_id'           => 'required|exists:appointments,id',
             'location_id'              => 'required|exists:dossier_locations,id',
@@ -137,6 +139,7 @@ class DossierConsultationController extends Controller
             }
 
             $dossier = DossierConsultation::create(array_merge($data, [
+                'centre_id'  => $centre?->id,
                 'created_by' => $auth->id,
             ]));
 
@@ -177,8 +180,9 @@ class DossierConsultationController extends Controller
             }
 
             $rdv->update([
-                'etat' => RendezVousStatus::TAKEN_FOR_CONSULTATION->value,
+                'etat'          => RendezVousStatus::TAKEN_FOR_CONSULTATION->value,
                 'updated_by'    => $auth->id,
+                'is_have_folder_consultation' => true,
             ]);
 
             if ($request->hasFile('fichier_associe')) {

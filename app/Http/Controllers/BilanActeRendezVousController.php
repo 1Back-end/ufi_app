@@ -49,7 +49,6 @@ class BilanActeRendezVousController extends Controller
             $query->whereBetween('created_at', [$request->start_date, $request->end_date]);
         }
 
-        // Recherche
         if ($search = trim($request->input('search'))) {
             $query->where(function ($q) use ($search) {
                 // Colonnes simples
@@ -58,14 +57,12 @@ class BilanActeRendezVousController extends Controller
                     ->orWhere('resume', 'like', "%{$search}%")
                     ->orWhere('conclusion', 'like', "%{$search}%");
 
-                // Recherche dans prestation
                 $q->orWhereHas('prestation', function ($q2) use ($search) {
                     $q2->where('type', 'like', "%{$search}%")
                         ->orWhere('regulated', 'like', "%{$search}%")
                         ->orWhere('apply_prelevement', 'like', "%{$search}%");
                 });
 
-                // Recherche dans rendezVous
                 $q->orWhereHas('rendezVous', function ($q2) use ($search) {
                     $q2->where('nombre_jour_validite', 'like', "%{$search}%")
                         ->orWhere('duration', 'like', "%{$search}%")
@@ -123,36 +120,39 @@ class BilanActeRendezVousController extends Controller
     {
         $auth = auth()->user();
 
+        $centre = \App\Models\Centre::where('is_acte_recommendation_center', true)->first();
+
         $request->validate([
-            'rendez_vous_id'    => 'required|exists:rendez_vouses,id',
-            'prestation_id'     => 'required|exists:prestations,id',
-            'titre'            => 'required|string',
-            'attachment'        => 'required|file|mimes:pdf,doc,docx,ppt,pptx,jpg,jpeg,png',
+            'rendez_vous_id' => 'required|exists:appointments,id',
+            'prestation_id'  => 'required|exists:prestations,id',
+            'titre'          => 'required|string',
+            'attachment'     => 'required|file|mimes:pdf,doc,docx,ppt,pptx,jpg,jpeg,png',
         ]);
 
         try {
             DB::beginTransaction();
 
             $bilan = BilanActeRendezVous::create([
-                'rendez_vous_id'    => $request->rendez_vous_id,
-                'prestation_id'     => $request->prestation_id,
-                'titre'             => $request->titre,
-                'created_by'        => $auth->id,
-                'updated_by'        => $auth->id,
+                'rendez_vous_id' => $request->rendez_vous_id,
+                'prestation_id'  => $request->prestation_id,
+                'titre'          => $request->titre,
+                'centre_id'      => $centre?->id,
+                'created_by'     => $auth->id,
+                'updated_by'     => $auth->id,
             ]);
 
             $rendezVous = RendezVous::findOrFail($request->rendez_vous_id);
             $rendezVous->etat       = RendezVousStatus::CLOSED->value;
             $rendezVous->updated_by = $auth->id;
-            $rendezVous->is_closed = true;
+            $rendezVous->is_closed  = true;
             $rendezVous->save();
 
             if ($rendezVous->patient_id) {
                 PatientArchive::updateOrCreate(
                     ['patient_id' => $rendezVous->patient_id],
                     [
-                        'last_visit_at' => now(),
-                        'updated_by'    => $auth->id,
+                        'last_visit_at'  => now(),
+                        'updated_by'     => $auth->id,
                         'first_visit_at' => DB::raw('COALESCE(first_visit_at, NOW())'),
                     ]
                 );

@@ -2899,47 +2899,45 @@ class PrestationController extends Controller
             ? Carbon::parse($request->input('end_date'))->endOfDay()
             : now()->endOfDay();
 
-        $centreId = $request->input('centre');
+        $centreId = $request->header('centre') ?? $request->input('centre');
 
         $baseQuery = Prestation::query()
-            ->when($centreId, function ($query) use ($centreId) {
-                $query->where('centre_id', $centreId);
-            })
-            ->where('type', TypePrestation::LABORATOIR->value);
+            ->where('type', TypePrestation::LABORATOIR->value)
+            ->when($centreId, function ($query, $centreId) {
+                return $query->where('centre_id', $centreId);
+            });
 
-        $faitsQuery = (clone $baseQuery)->whereBetween('created_at', [$startDate, $endDate]);
+        $faitsCount = (clone $baseQuery)
+            ->whereBetween('created_at', [$startDate, $endDate])
+            ->count();
 
-        $aRemettreQuery = (clone $baseQuery)->whereBetween('result_delivered_at', [$startDate, $endDate]);
+        $prestationsARemettre = (clone $baseQuery)
+            ->whereBetween('result_delivered_at', [$startDate, $endDate])
+            ->get();
 
-        $prestationsARemettre = (clone $aRemettreQuery)->get();
+        $totalARemettreCount = $prestationsARemettre->count();
+        
+        $remisCount = $prestationsARemettre->filter(function ($prestation) {
+            return in_array($prestation->state_examen, [5, 6, 9, 10]);
+        })->count();
 
-        $remisCount = 0;
-        $nonRemisCount = 0;
-
-        foreach ($prestationsARemettre as $prestation) {
-            $state = $prestation->state_examen;
-
-            if (in_array($state, [5, 6, 9, 10])) {
-                $remisCount++;
-            } else {
-                $nonRemisCount++;
-            }
-        }
-
-        $stats = [
-            'faits_count' => (clone $baseQuery)->whereBetween('created_at', [$startDate, $endDate])->count(),
-            'a_remettre_count' => $prestationsARemettre->count(),
-            'remis_count' => $remisCount,
-            'non_remis_count' => $nonRemisCount,
-        ];
+        $nonRemisCount = max(0, $totalARemettreCount - $remisCount);
 
         return response()->json([
             'period' => [
                 'start' => $startDate->toDateTimeString(),
-                'end' => $endDate->toDateTimeString(),
+                'end'   => $endDate->toDateTimeString(),
             ],
-            'statistics' => $stats,
-        ]);
+            'filters' => [
+                'centre_id' => $centreId,
+            ],
+            'statistics' => [
+                'faits_count'      => $faitsCount,
+                'a_remettre_count' => $totalARemettreCount,
+                'remis_count'      => $remisCount,
+                'non_remis_count'  => $nonRemisCount,
+            ],
+        ], 200);
     }
 
     /**
@@ -2963,9 +2961,14 @@ class PrestationController extends Controller
             ? Carbon::parse($request->input('end_date'))->endOfDay()
             : Carbon::yesterday()->endOfDay();
 
+        $centreId = $request->header('centre');
+
         $stats = DB::table('prestations')
             ->join('delivery_channels', 'prestations.delivery_channels_id', '=', 'delivery_channels.id')
             ->whereBetween('prestations.result_delivered_at', [$startDate, $endDate])
+            ->when($centreId, function ($query, $centreId) {
+                return $query->where('prestations.centre_id', $centreId);
+            })
             ->select(
                 'delivery_channels.id as delivery_channels_id',
                 'delivery_channels.name as delivery_channel_name',
@@ -2978,6 +2981,9 @@ class PrestationController extends Controller
             'period' => [
                 'start' => $startDate->toDateTimeString(),
                 'end' => $endDate->toDateTimeString(),
+            ],
+            'filters' => [
+                'centre_id' => $centreId,
             ],
             'data' => $stats
         ]);
