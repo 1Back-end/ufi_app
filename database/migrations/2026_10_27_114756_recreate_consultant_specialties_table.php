@@ -12,7 +12,6 @@ return new class extends Migration
      */
     public function up(): void
     {
-        // Désactive la vérification des clés étrangères pour autoriser le drop
         DB::statement('SET FOREIGN_KEY_CHECKS=0;');
 
         Schema::dropIfExists('consultant_specialties');

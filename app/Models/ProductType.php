@@ -19,6 +19,7 @@ class ProductType extends Model
         'created_by',
         'updated_by',
         'is_active',
+        'centre_id'
     ];
 
     protected $casts = [
@@ -36,5 +37,9 @@ class ProductType extends Model
     public function updater(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(User::class, 'updated_by');
+    }
+    public function centre(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(Centre::class, 'centre_id');
     }
 }

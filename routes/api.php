@@ -366,6 +366,7 @@ Route::middleware(['activity'])->group(function () {
 
 
         Route::apiResource('rendez_vous', RendezVousController::class);
+        Route::get('/print-appointments', [RendezVousController::class, 'print_appointments']);
         Route::post('create_new_rdv', [\App\Http\Controllers\RendezVousController::class, 'create_new_rdv']);
         Route::put('update_rendez_vous/{id}', [\App\Http\Controllers\RendezVousController::class, 'update_rendez_vous']);
         Route::get('rdvconsultantIndex', [\App\Http\Controllers\RendezVousController::class, 'rdvconsultantIndex']);

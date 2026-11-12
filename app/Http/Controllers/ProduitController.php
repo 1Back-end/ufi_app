@@ -214,6 +214,7 @@ class ProduitController extends Controller
                 'packagings',
                 'dosages'
             ])
+            ->where('centre_id', $request->header('centre'))
             ->when($search, function ($query, $search) {
                 $query->where(function ($q) use ($search) {
 

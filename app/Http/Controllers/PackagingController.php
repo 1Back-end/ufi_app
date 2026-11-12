@@ -28,6 +28,7 @@ class PackagingController extends Controller
         $page = $request->input('page', 1);
 
         $query = Packaging::with(['creator:id,nom_utilisateur', 'updater:id,nom_utilisateur'])
+            ->where('centre_id', $request->header('centre'))
             ->when($request->has('is_active'), function ($query) use ($request) {
                 $query->where('is_active', filter_var($request->input('is_active'), FILTER_VALIDATE_BOOLEAN));
             });
@@ -57,6 +58,7 @@ class PackagingController extends Controller
     public function store(Request $request)
     {
         $auth = auth()->user();
+        $centreId = $request->header('centre');
 
         $validated = $request->validate([
             'name'        => 'required|string|max:255',
@@ -76,6 +78,7 @@ class PackagingController extends Controller
             $validated['is_active'] = $validated['is_active'] ?? true;
             $validated['created_by'] = $auth?->id;
             $validated['updated_by'] = $auth?->id;
+            $validated['centre_id'] = $centreId;
 
             $packaging = Packaging::create($validated);
 
@@ -118,6 +121,7 @@ class PackagingController extends Controller
     {
         $auth = auth()->user();
         $packaging = Packaging::findOrFail($id);
+        $centreId = $request->header('centre');
 
         $validated = $request->validate([
             'name'        => 'required|string|max:255',
@@ -129,13 +133,12 @@ class PackagingController extends Controller
 
         try {
             $validated['name'] = Str::upper($validated['name']);
-
-            // Sécurité pour le code s'il est facultatif
             if (!empty($validated['code'])) {
                 $validated['code'] = Str::upper($validated['code']);
             }
 
             $validated['updated_by'] = $auth?->id;
+            $validated['centre_id'] = $centreId;
 
             $packaging->update($validated);
 

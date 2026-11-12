@@ -21,6 +21,7 @@ class ProductDosageController extends Controller
         $perPage = $request->integer('limit', 25);
         $page    = $request->integer('page', 1);
         $query = ProductDosage::with(['creator:id,email,nom_utilisateur', 'editor:id,email,nom_utilisateur'])
+            ->where('centre_id', $request->header('centre'))
             ->when($request->has('is_active'), fn($q) => $q->where('is_active', $request->is_active))
             ->when(trim($request->search), function ($q, $search) {
                 $q->where('name', 'like', "%{$search}%");
@@ -44,6 +45,7 @@ class ProductDosageController extends Controller
     public function store(Request $request)
     {
         $auth = auth()->user();
+        $centreId = $request->header('centre');
 
         $data = $request->validate([
             'name'        => 'required|string|unique:product_dosages,name',
@@ -60,6 +62,7 @@ class ProductDosageController extends Controller
                 'is_active'   => $data['is_active'] ?? true,
                 'created_by'  => $auth?->id,
                 'updated_by'  => $auth?->id,
+                'centre_id'   => $centreId,
             ]);
 
             return response()->json([
@@ -99,6 +102,7 @@ class ProductDosageController extends Controller
     {
         $auth = auth()->user();
         $dosage = ProductDosage::findOrFail($id);
+        $centreId = $request->header('centre');
 
         $data = $request->validate([
             'name'        => 'required|string|unique:product_dosages,name,' . $id,
@@ -114,6 +118,7 @@ class ProductDosageController extends Controller
                 'description' => $data['description'] ?? $dosage->description,
                 'is_active'   => $data['is_active'] ?? $dosage->is_active,
                 'updated_by'  => $auth?->id,
+                'centre_id'   => $centreId,
             ]);
 
             return response()->json([

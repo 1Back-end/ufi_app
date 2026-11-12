@@ -18,7 +18,8 @@ class ProductDosage extends Model
         'created_by',
         'updated_by',
         'forme',
-        'description'
+        'description',
+        'centre_id'
     ];
 
     protected $casts = [
@@ -33,5 +34,9 @@ class ProductDosage extends Model
     public function editor()
     {
         return $this->belongsTo(User::class, 'updated_by');
+    }
+    public function centre()
+    {
+        return $this->belongsTo(Centre::class, 'centre_id');
     }
 }

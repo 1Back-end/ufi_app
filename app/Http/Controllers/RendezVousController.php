@@ -10,10 +10,13 @@ use App\Enums\RendezVousType;
 use App\Enums\TypePrestation;
 use App\Exports\PrisesEnChargeExport;
 use App\Exports\RendezVousExport;
+use App\Models\Centre;
+use App\Models\Consultant;
 use App\Models\ConsultantDisponibilite;
 use App\Models\DossierConsultation;
 use App\Models\RendezVous;
 use App\Models\Setting;
+use http\Client;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -735,6 +738,179 @@ class RendezVousController extends Controller
         ]);
     }
 
+    public function print_appointments(Request $request)
+    {
+        $centreId = $request->header('centre');
+
+        $start_date = $request->filled('start_date')
+            ? \Carbon\Carbon::parse($request->input('start_date'))->startOfDay()
+            : null;
+
+        $end_date = $request->filled('end_date')
+            ? \Carbon\Carbon::parse($request->input('end_date'))->endOfDay()
+            : null;
+
+        $consultant_id = $request->input('consultant_id');
+        $client_id     = $request->input('client_id');
+        $type = $request->input('type');
+        $etat = $request->input('etat');
+        $prestation_id = $request->input('prestation_id');
+        $type_prestation = $request->input('type_prestation');
+        $type_acte_id = $request->input('type_acte_id');
+        $search = $request->input('search');
+
+        $query = RendezVous::with([
+            'client',
+            'consultant:id,nomcomplet',
+            'createdBy:id,email,nom_utilisateur',
+            'updatedBy:id,email,nom_utilisateur',
+            'prestation.actes.typeActe',
+            'prestation.factures',
+            'parent:id,code,dateheure_rdv',
+        ])
+            ->whereNull('deleted_at')
+            ->whereHas('prestation', function ($q) use ($centreId) {
+                if ($centreId) {
+                    $q->where('centre_id', $centreId);
+                }
+            })
+            ->when(!$start_date && !$end_date, function($q) {
+                $q->whereBetween('date_expiration', [
+                    \Carbon\Carbon::now()->startOfDay(),
+                    \Carbon\Carbon::now()->addMonth()->endOfDay()
+                ]);
+            })
+            ->when($start_date && $end_date, function($q) use ($start_date, $end_date) {
+                $q->whereBetween('date_expiration', [$start_date, $end_date]);
+            })
+            ->when($type, function ($q) use ($type) {
+                return $q->where('type', $type);
+            })
+            ->when($etat, function ($q) use ($etat) {
+                return $q->where('etat', $etat);
+            })
+            ->when($consultant_id, function ($q) use ($consultant_id) {
+                return $q->where('consultant_id', $consultant_id);
+            })
+            ->when($client_id, function ($q) use ($client_id) {
+                return $q->where('client_id', $client_id);
+            })
+            ->when($prestation_id, function ($q) use ($prestation_id) {
+                return $q->where('prestation_id', $prestation_id);
+            })
+            ->when($type_prestation, function($q) use ($type_prestation) {
+                $q->whereHas('prestation', function($subQ) use ($type_prestation) {
+                    $subQ->where('type', $type_prestation);
+                });
+            })
+            ->when($type_acte_id, function($q) use ($type_acte_id) {
+                $q->whereHas('prestation.actes', function($subQ) use ($type_acte_id) {
+                    $subQ->where('type_acte_id', $type_acte_id);
+                });
+            })
+            ->when(trim($search ?? ''), function ($q, $search) {
+                $q->where(function ($subQ) use ($search) {
+                    $subQ->where('nombre_jour_validite', 'like', "%{$search}%")
+                        ->orWhere('type', 'like', "%{$search}%")
+                        ->orWhere('code', 'like', "%{$search}%")
+                        ->orWhere('id', 'like', "%{$search}%")
+                        ->orWhereHas('client', fn($clientQ) => $clientQ->where('nomcomplet_client', 'like', "%{$search}%"))
+                        ->orWhereHas('consultant', fn($consultantQ) => $consultantQ->where('nomcomplet', 'like', "%{$search}%"));
+                });
+            });
+
+        $result = $query->orderBy('date_expiration', 'ASC')->get();
+
+        if ($result->isEmpty()) {
+            return response()->json([
+                'message' => 'No data found.'
+            ], 404);
+        }
+
+        // --- Calcul du récapitulatif financier basé sur les prestations liées ---
+        $recap = null;
+        if ($consultant_id) {
+            $prestationIds = $result->pluck('prestation_id')->filter()->unique();
+
+            $prestationsQuery = \App\Models\Prestation::whereIn('id', $prestationIds)
+                ->where('consultant_amount', '>', 0);
+
+            $totalCount = (clone $prestationsQuery)->count();
+            $totalConsultantAmount = (clone $prestationsQuery)->sum('consultant_amount');
+
+            $paidQuery = (clone $prestationsQuery)->where('consultant_amount_status', 'paid');
+            $countPaid = $paidQuery->count();
+            $amountPaid = $paidQuery->sum('consultant_amount');
+
+            $pendingQuery = (clone $prestationsQuery)->where('consultant_amount_status', 'available');
+            $countPending = $pendingQuery->count();
+            $amountPending = $pendingQuery->sum('consultant_amount');
+
+            $recap = [
+                'total_count'    => $totalCount,
+                'total_amount'   => $totalConsultantAmount,
+                'count_paid'     => $countPaid,
+                'amount_paid'    => $amountPaid,
+                'count_pending'  => $countPending,
+                'amount_pending' => $amountPending,
+            ];
+        }
+        // -------------------------------------------------------------------------
+
+        $centre = Centre::find($centreId);
+        $media = $centre?->medias()->where('name', 'logo')->first();
+
+        $consultant = $consultant_id ? Consultant::find($consultant_id) : null;
+        $client = $client_id ? \App\Models\Client::find($client_id) : null;
+
+        $data = [
+            'result'     => $result,
+            'logo'       => $media ? 'storage/' . $media->path . '/' . $media->filename : '',
+            'centre'     => $centre,
+            'start'      => $start_date ?? ($result->min('date_expiration') ? \Carbon\Carbon::parse($result->min('date_expiration'))->startOfDay() : \Carbon\Carbon::now()->startOfDay()),
+            'end'        => $end_date ?? ($result->max('date_expiration') ? \Carbon\Carbon::parse($result->max('date_expiration'))->endOfDay() : \Carbon\Carbon::now()->addMonth()->endOfDay()),
+            'etat'       => $etat,
+            'type'       => $type,
+            'consultant' => $consultant,
+            'client'     => $client,
+            'recap'      => $recap,
+        ];
+
+        $fileName = \Illuminate\Support\Str::upper('CONSULTANTS-APPOINTMENTS-REPORT') . '-' . ($etat ? \Illuminate\Support\Str::upper($etat) . '-' : '') . now()->format('YmdHis') . '.pdf';
+
+        $folderPath = 'storage/consultants-appointments-reports';
+        $filePath = $folderPath . '/' . $fileName;
+
+        if (!file_exists($folderPath)) {
+            mkdir($folderPath, 0755, true);
+        }
+
+        save_browser_shot_pdf(
+            view: 'pdfs.reports.consultants-appointments',
+            data: $data,
+            folderPath: $folderPath,
+            path: $filePath,
+            margins: [15, 10, 15, 10],
+            footer: 'pdfs.reports.factures.footer',
+            format: 'A4',
+        );
+
+        if (!file_exists($filePath)) {
+            return response()->json([
+                'message' => 'The PDF file was not generated.'
+            ], 500);
+        }
+
+        $pdfContent = file_get_contents($filePath);
+        $base64 = base64_encode($pdfContent);
+
+        return response()->json([
+            'result' => $result,
+            'base64' => $base64,
+            'url' => $filePath,
+            'filename' => $fileName,
+        ], 200);
+    }
 
 
 }
