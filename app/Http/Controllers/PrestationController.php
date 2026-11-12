@@ -37,12 +37,14 @@ use App\Models\PriseEnCharge;
 use App\Models\Product;
 use App\Models\RegulationMethod;
 use App\Models\RendezVous;
+use App\Models\ReportRecipient;
 use App\Models\Result;
 use App\Models\SessionElement;
 use App\Models\Setting;
 use App\Models\Soins;
 use App\Models\SessionCaisse;
 use App\Models\SpecialRegulation;
+use App\Notifications\FactureAdjustedNotification;
 use App\Notifications\SendRdvNotification;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -564,90 +566,100 @@ class PrestationController extends Controller
         }
 
         return [
-            'status' => true // Aucune prestation en attente, on peut continuer
+            'status' => true
         ];
     }
 
     protected function processProductBatches(array $items, ?int $prestationId = null, bool $onlyValidate = false)
     {
-        foreach ($items as $item) {
-            $productId = $item['product_id'] ?? $item['id'];
-            $quantityNeeded = $item['quantity'];
-            $originalQuantityNeeded = $quantityNeeded;
+        DB::transaction(function () use ($items, $prestationId, $onlyValidate) {
+            foreach ($items as $item) {
+                $productId = $item['product_id'] ?? $item['id'] ?? null;
+                $quantityNeeded = floatval($item['quantity'] ?? $item['quantite'] ?? 0);
+                $originalQuantityNeeded = $quantityNeeded;
 
-            $product = \App\Models\Product::find($productId);
-            $productName = $product->name ?? "";
-            $productRef = $product->ref ?? "";
-
-            $allowNegativeStock = $product->allow_negative_stock ?? false;
-
-            if (isset($product->is_out_of_stock) && $product->is_out_of_stock) {
-                throw new \Exception("Le produit : {$productName} (Réf: {$productRef}) est épuisé.", 400);
-            }
-
-            if (isset($product->is_suspended) && $product->is_suspended) {
-                throw new \Exception("Le produit : {$productName} (Réf: {$productRef}) est suspendu.", 400);
-            }
-
-            if (isset($product->facturable) && !$product->facturable) {
-                throw new \Exception("Le produit : {$productName} (Réf: {$productRef}) n'est pas facturable.", 400);
-            }
-
-            $lots = \App\Models\LotProduit::where('id_produit', $productId)
-                ->where('quantite_actuelle', '>', 0)
-                ->orderBy('date_peremption', 'asc')
-                ->get();
-
-            if ($lots->isEmpty()) {
-                if (!$allowNegativeStock) {
-                    throw new \Exception("Aucun lot disponible pour le produit : {$productName} (Réf: {$productRef}).", 400);
-                }
-                continue;
-            }
-
-            $totalStockAvailable = $lots->sum('quantite_actuelle');
-
-            foreach ($lots as $lot) {
-                if ($quantityNeeded <= 0) {
-                    break;
+                if (!$productId || $quantityNeeded <= 0) {
+                    continue;
                 }
 
-                $stockBefore = $lot->quantite_actuelle;
-                $quantityTaken = 0;
+                $product = \App\Models\Product::find($productId);
 
-                if ($lot->quantite_actuelle >= $quantityNeeded) {
-                    $quantityTaken = $quantityNeeded;
-                    $quantityNeeded = 0;
-                } else {
-                    $quantityTaken = $lot->quantite_actuelle;
-                    $quantityNeeded -= $lot->quantite_actuelle;
+                if (!$product) {
+                    throw new \Exception("Le produit demandé n'existe pas.", 404);
                 }
 
-                if (!$onlyValidate) {
-                    $lot->quantite_actuelle -= $quantityTaken;
-                    $lot->save();
+                $productName = $product->name ?? "";
+                $productRef = $product->ref ?? "";
 
-                    \Illuminate\Support\Facades\DB::table('sortie_en_stock')->insert([
-                        'lot_id' => $lot->id,
-                        'product_id' => $productId,
-                        'type' => 'sall',
-                        'quantity' => $quantityTaken,
-                        'stock_before' => $stockBefore,
-                        'stock_after' => $lot->quantite_actuelle,
-                        'prestation_id' => $prestationId,
-                        'description' => "Sortie stock via prestation (produits)",
-                        'created_by' => auth()->id(),
-                        'updated_by' => auth()->id(),
-                        'created_at' => now(),
-                        'updated_at' => now(),
-                    ]);
+                $isFacturable = $product->facturable ?? $product->is_facturable ?? true;
+                if (!$isFacturable) {
+                    throw new \Exception("Le produit : {$productName} (Réf: {$productRef}) n'est pas facturable.", 400);
+                }
+
+                if (isset($product->is_suspended) && $product->is_suspended) {
+                    throw new \Exception("Le produit : {$productName} (Réf: {$productRef}) est suspendu.", 400);
+                }
+
+                if (isset($product->is_out_of_stock) && $product->is_out_of_stock) {
+                    throw new \Exception("Le produit : {$productName} (Réf: {$productRef}) est épuisé.", 400);
+                }
+
+                $allowNegativeStock = $product->allow_negative_stock ?? false;
+
+                $lots = \App\Models\LotProduit::where('id_produit', $productId)
+                    ->where('quantite_actuelle', '>', 0)
+                    ->orderBy('date_peremption', 'asc')
+                    ->get();
+
+                if ($lots->isEmpty()) {
+                    if (!$allowNegativeStock) {
+                        throw new \Exception("Aucun lot disponible pour le produit : {$productName} (Réf: {$productRef}).", 400);
+                    }
+                    continue;
+                }
+
+                $totalStockAvailable = $lots->sum('quantite_actuelle');
+
+                foreach ($lots as $lot) {
+                    if ($quantityNeeded <= 0) {
+                        break;
+                    }
+
+                    $stockBefore = $lot->quantite_actuelle;
+
+                    if ($lot->quantite_actuelle >= $quantityNeeded) {
+                        $quantityTaken = $quantityNeeded;
+                        $quantityNeeded = 0;
+                    } else {
+                        $quantityTaken = $lot->quantite_actuelle;
+                        $quantityNeeded -= $lot->quantite_actuelle;
+                    }
+
+                    if (!$onlyValidate) {
+                        $lot->quantite_actuelle -= $quantityTaken;
+                        $lot->save();
+
+                        DB::table('sortie_en_stock')->insert([
+                            'lot_id'        => $lot->id,
+                            'product_id'    => $productId,
+                            'type'          => 'sall',
+                            'quantity'      => $quantityTaken,
+                            'stock_before'  => $stockBefore,
+                            'stock_after'   => $lot->quantite_actuelle,
+                            'prestation_id' => $prestationId,
+                            'description'  => "Sortie stock via prestation (produits)",
+                            'created_by'    => auth()->id(),
+                            'updated_by'    => auth()->id(),
+                            'created_at'    => now(),
+                            'updated_at'    => now(),
+                        ]);
+                    }
+                }
+                if ($quantityNeeded > 0 && !$allowNegativeStock) {
+                    throw new \Exception("Stock insuffisant pour le produit : {$productName} (Réf: {$productRef}). Demandé : {$originalQuantityNeeded}, Stock disponible : {$totalStockAvailable}.", 400);
                 }
             }
-
-            if ($quantityNeeded > 0 && !$allowNegativeStock) {
-                throw new \Exception("Stock insuffisant pour le produit : {$productName} (Réf: {$productRef}). Demandé : {$originalQuantityNeeded}, Stock disponible : {$totalStockAvailable}.", 400);
-            }
-        }
+        });
     }
 
     protected function checkCentreAndCaisse($request, $auth)
@@ -3173,6 +3185,12 @@ class PrestationController extends Controller
                 ], Response::HTTP_NOT_FOUND);
             }
 
+            if ($facture->regulations()->exists()) {
+                return response()->json([
+                    'message' => 'Impossible de modifier ou d\'ajuster cette prestation car des règlements ont déjà été enregistrés sur la facture associée.'
+                ], Response::HTTP_UNPROCESSABLE_ENTITY);
+            }
+
             $filePath = null;
 
             if ($request->hasFile('payable_by_file_url')) {
@@ -3231,6 +3249,12 @@ class PrestationController extends Controller
                     'mimetype'  => $file->getMimeType(),
                     'extension' => $file->getClientOriginalExtension(),
                 ]);
+            }
+
+            $recipients = ReportRecipient::all();
+
+            foreach ($recipients as $recipient) {
+                $recipient->notify(new FactureAdjustedNotification($facture, $auth));
             }
 
         } catch (\Exception $e) {

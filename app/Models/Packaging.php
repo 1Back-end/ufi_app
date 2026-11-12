@@ -18,7 +18,8 @@ class Packaging extends Model
         'is_active',
         'created_by',
         'updated_by',
-        'code'
+        'code',
+        'centre_id'
     ];
 
     protected $casts = [
@@ -42,6 +43,10 @@ class Packaging extends Model
             ->withPivot('id', 'is_default', 'created_by', 'updated_by')
             ->withTimestamps()
             ->wherePivotNull('deleted_at');
+    }
+    public function centre(): BelongsTo
+    {
+        return $this->belongsTo(Centre::class, 'centre_id');
     }
 
 }

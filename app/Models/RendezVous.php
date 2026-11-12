@@ -135,7 +135,7 @@ class RendezVous extends Model
         return $this->belongsTo(Client::class);
     }
 
-        public function consultant()
+    public function consultant()
     {
         return $this->belongsTo(Consultant::class);
     }

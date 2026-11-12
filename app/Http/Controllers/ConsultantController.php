@@ -497,7 +497,7 @@ class ConsultantController extends Controller
      */
     public function getDuplicates(Request $request)
     {
-        $consultants = Consultant::with(['specialite', 'code_hopi', 'prestations','creator','updater'])
+        $consultants = Consultant::with(['specialite', 'hopital', 'prestations','creator','updater'])
             ->get();
 
         if ($consultants->isEmpty()) {

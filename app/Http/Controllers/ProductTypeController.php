@@ -28,9 +28,8 @@ class ProductTypeController extends Controller
         $perPage = $request->input('limit', 25);
         $page = $request->input('page', 1);
 
-        $query = ProductType::with(['creator', 'updater']);
+        $query = ProductType::with(['creator', 'updater'])->where('centre_id', $request->header('centre'));
 
-        // Gestion de la recherche
         if ($search = trim($request->input('search'))) {
             $query->where(function ($q) use ($search) {
                 $q->where('id', 'like', "%{$search}%")
@@ -38,7 +37,6 @@ class ProductTypeController extends Controller
             });
         }
 
-        // Pagination
         $productTypes = $query->latest()->paginate($perPage, ['*'], 'page', $page);
 
         return response()->json([
@@ -57,6 +55,7 @@ class ProductTypeController extends Controller
     public function store(Request $request)
     {
         $auth = auth()->user();
+        $centreId = $request->header('centre');
         $validated = $request->validate([
             'name' => 'required|string|max:255|unique:product_types,name',
             'accepts_galenic_form' => 'boolean',
@@ -66,6 +65,7 @@ class ProductTypeController extends Controller
         ]);
         $validated['name'] = mb_strtoupper($validated['name'], 'UTF-8');
         $validated['created_by'] = $auth->id;
+        $validated['centre_id'] = $centreId;
 
         $productType = ProductType::create($validated);
 
@@ -93,6 +93,7 @@ class ProductTypeController extends Controller
     public function update(Request $request, ProductType $productType)
     {
         $auth = auth()->user();
+        $centreId = $request->header('centre');
         $validated = $request->validate([
             'name' => 'required|string|max:255|unique:product_types,name,' . $productType->id,
             'accepts_galenic_form' => 'boolean',
@@ -103,6 +104,7 @@ class ProductTypeController extends Controller
 
         $validated['name'] = mb_strtoupper($validated['name'], 'UTF-8');
         $validated['updated_by'] = $auth->id;
+        $validated['centre_id'] = $centreId;
 
         $productType->update($validated);
 
