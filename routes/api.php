@@ -395,6 +395,14 @@ Route::middleware(['activity'])->group(function () {
         Route::apiResource('config_enquetes', ConfigTblCategoriesEnquetesController::class);
         Route::patch('config_enquetes/{id}/status', [ConfigTblCategoriesEnquetesController::class, 'updateStatus']);
 
+        Route::apiResource('type_soins', TypeSoinsController::class);
+        Route::patch('type_soins/{id}/status', [TypeSoinsController::class, 'updateStatus']);
+
+        Route::apiResource('soins', SoinsController::class);
+        Route::patch('soins/{id}/status', [SoinsController::class, 'updateStatus']);
+        Route::get('print_soins_list', [SoinsController::class, 'Tarfication_Soins']);
+
+
         Route::apiResource('examen_physiques', ExamenPhysiqueController::class);
 
         Route::apiResource('ops_tbl_enquetes', OpsTblEnqueteController::class);
@@ -447,6 +455,10 @@ Route::middleware(['activity'])->group(function () {
         Route::apiResource('consultants_service_hospitals', \App\Http\Controllers\ServiceHopitalController::class);
         Route::patch('consultants_service_hospitals/{id}/status', [\App\Http\Controllers\ServiceHopitalController::class, 'updateStatus']);
 
+        Route::get('/patients/{clientId}/dossiers-recents', [DossierConsultationController::class, 'getPatientLastFolders']);
+        Route::get('/patients/{clientId}/rendez-vous-recents', [DossierConsultationController::class, 'getPatientLastRendezVous']);
+        Route::get('/patients/{clientId}/motifs-recents', [DossierConsultationController::class, 'getPatientLastMotifs']);
+        Route::get('/patients/{clientId}/antecedents-recents', [DossierConsultationController::class, 'getPatientLastAntecedents']);
 
 
 
@@ -486,23 +498,8 @@ Route::middleware(['activity'])->group(function () {
             Route::put('update_status/{id}/status/{status}', 'updateStatus');
             Route::get('/print_rapports', 'Tarifications_Consultations');
         });
-        Route::controller(TypeSoinsController::class)->prefix('type_soins')->group(function () {
-            route::get('/list', 'index');
-            Route::post('/create', 'store');
-            Route::get('/get_by_id/{id}', 'show');
-            Route::put('/edit/{id}', 'update');
-            Route::delete('/delete/{id}', 'destroy');
-            Route::get('/get_data', 'listIdName');
-        });
-        Route::controller(SoinsController::class)->prefix('soins')->group(function () {
-            route::get('/list', 'index');
-            Route::post('/create', 'store');
-            Route::get('/get_by_id/{id}', 'show');
-            Route::put('/edit/{id}', 'update');
-            Route::delete('/delete/{id}', 'destroy');
-            Route::put('update_status/{id}/status/{status}', 'updateStatus');
-            Route::get('/print_rapports', 'Tarfication_Soins');
-        });
+
+
         Route::controller(OpsTblHospitalisationController::class)->prefix('hospitalisations')->group(function () {
             Route::get('/list', 'index');
             Route::post('/create', 'store');

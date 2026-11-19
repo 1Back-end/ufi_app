@@ -523,8 +523,8 @@ class PrestationController extends Controller
     private function checkUserPrestationsNotRegulated(int $userId, int $centreId)
     {
         $dateLimit = Carbon::now()->subDays(3)->startOfDay();
-
         $prestations = Prestation::where('created_by', $userId)
+            ->whereNull('deleted_at')
             ->where('centre_id', $centreId)
             ->where('created_at', '>=', $dateLimit)
             ->whereDoesntHave('factures', function ($query) {
@@ -809,10 +809,6 @@ class PrestationController extends Controller
                 $data['result_delivered_at'] = $calculatedDate;
             }
 
-            if (!empty($data['prise_charge_id'])) {
-                $data['is_adjustable'] = true;
-            }
-
             if ($data['payable_by']) {
                 $convention = ConventionAssocie::query()
                     ->whereClientId($data['payable_by'])
@@ -844,7 +840,7 @@ class PrestationController extends Controller
 //            }
 
 
-            if ($data['regulated'] == 2 || $data['payable_by']) {
+            if (in_array($data['regulated'], [2, 8]) || $data['payable_by']) {
                 save_facture($prestation, $centre, 2);
             }
 
@@ -964,10 +960,6 @@ class PrestationController extends Controller
             if ((string)$request->input('type') === (string)TypePrestation::LABORATOIR->value && $request->has('examens')) {
                 $calculatedDate = $this->calculateResultDeliveryDate($request->input('examens'));
                 $data['result_delivered_at'] = $calculatedDate;
-            }
-
-            if (!empty($data['prise_charge_id'])) {
-                $data['is_adjustable'] = true;
             }
 
             if (isset($data['payable_by']) && $data['payable_by']) {
@@ -1270,7 +1262,7 @@ class PrestationController extends Controller
         $totalAmount = DB::table('factures')
             ->join('prestations', 'factures.prestation_id', '=', 'prestations.id')
             ->where('factures.type', 2)
-            ->whereIn('factures.state', [StateFacture::IN_PROGRESS->value,StateFacture::CREATE->value])
+            ->whereIn('factures.state', [StateFacture::IN_PROGRESS->value,StateFacture::CREATE->value,StateFacture::SETTLEMENT_PENDING->value])
             ->whereBetween('factures.date_fact', [$request->input('start_date'), $request->input('end_date')])
             ->where('prestations.centre_id', $request->header('centre'))
             ->when($request->input('assurance'), function($q) use ($request) {
@@ -1933,7 +1925,7 @@ class PrestationController extends Controller
         if (isset($data['payable_by']) && $data['payable_by']) {
             $data['regulated'] = $data['payable_by'] ? 1 : 0;
         } else {
-            $data['regulated'] = $amount == ($amount_remise + $amount_pc) ? 2 : 0;
+            $data['regulated'] = $amount == ($amount_remise + $amount_pc) ? 8 : 0;
         }
 
         $data['amount_pc'] = $amount_pc;
@@ -3180,18 +3172,21 @@ class PrestationController extends Controller
             $facture = Facture::where('prestation_id', $prestationId)->first();
 
             if (!$facture) {
+                DB::rollBack();
                 return response()->json([
                     'message' => 'Aucune facture associée à cette prestation.'
                 ], Response::HTTP_NOT_FOUND);
             }
 
             if ($facture->regulations()->exists()) {
+                DB::rollBack();
                 return response()->json([
                     'message' => 'Impossible de modifier ou d\'ajuster cette prestation car des règlements ont déjà été enregistrés sur la facture associée.'
                 ], Response::HTTP_UNPROCESSABLE_ENTITY);
             }
 
             $filePath = null;
+            $path = null;
 
             if ($request->hasFile('payable_by_file_url')) {
                 $file = $request->file('payable_by_file_url');
@@ -3202,31 +3197,35 @@ class PrestationController extends Controller
             $amountInsurance = $request->input('amount_insurance');
             $amountInsured = $request->input('amount_insured');
 
-            $updateData = [
+            $factureUpdateData = [
                 'description' => $request->input('description'),
-                'adjusted_at' => now(),
-                'adjusted_by' => $auth->id ?? null,
             ];
 
             if ($amountInsurance > 0) {
-                $updateData['amount_insurance'] = $amountInsurance;
-                $updateData['amount_pc'] = $amountInsurance;
+                $factureUpdateData['amount_insurance'] = $amountInsurance;
+                $factureUpdateData['amount_pc'] = $amountInsurance;
             }
 
             if ($amountInsured > 0) {
-                $updateData['amount_insured'] = $amountInsured;
-                $updateData['amount_client'] = $amountInsured;
+                $factureUpdateData['amount_insured'] = $amountInsured;
+                $factureUpdateData['amount_client'] = $amountInsured;
             }
 
             if ($filePath) {
-                $updateData['payable_by_file_url'] = $filePath;
+                $factureUpdateData['payable_by_file_url'] = $filePath;
             }
 
             if ($request->has('amount_remise') && $request->input('amount_remise') > 0) {
-                $updateData['amount_remise'] = $request->input('amount_remise');
+                $factureUpdateData['amount_remise'] = $request->input('amount_remise');
             }
 
-            $facture->update($updateData);
+            $facture->update($factureUpdateData);
+
+            $prestation->update([
+                'adjusted_at' => now(),
+                'adjusted_by' => $auth->id ?? null,
+                'is_adjustable' => true,
+            ]);
 
             $adjustmentHistory = FactureAdjustmentHistory::create([
                 'facture_id' => $facture->id,
@@ -3257,19 +3256,22 @@ class PrestationController extends Controller
                 $recipient->notify(new FactureAdjustedNotification($facture, $auth));
             }
 
+            DB::commit();
+
+            return response()->json([
+                'message' => __('Facture ajustée avec succès !'),
+                'facture' => $facture->fresh(),
+                'prestation' => $prestation->fresh(),
+            ]);
+
         } catch (\Exception $e) {
-            DB::rollBack();
+            if (DB::transactionLevel() > 0) {
+                DB::rollBack();
+            }
             return response()->json([
                 'message' => 'Erreur lors de l\'ajustement : ' . $e->getMessage()
             ], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
-
-        DB::commit();
-
-        return response()->json([
-            'message' => __('Facture ajustée avec succès !'),
-            'facture' => $facture
-        ]);
     }
 
 

@@ -738,6 +738,12 @@ class RendezVousController extends Controller
         ]);
     }
 
+    /**
+     * Display a listing of the resource.
+     *
+     * @permission RendezVousController::print_appointments
+     * @permission_desc Imprimer le recapitulatif des rendez vous d'un consultant
+     */
     public function print_appointments(Request $request)
     {
         $centreId = $request->header('centre');
@@ -827,7 +833,6 @@ class RendezVousController extends Controller
             ], 404);
         }
 
-        // --- Calcul du récapitulatif financier basé sur les prestations liées ---
         $recap = null;
         if ($consultant_id) {
             $prestationIds = $result->pluck('prestation_id')->filter()->unique();

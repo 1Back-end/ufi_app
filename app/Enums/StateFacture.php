@@ -12,6 +12,7 @@ enum StateFacture: int
     case ASSURANCE = 5;
     case CLIENT = 6;
     case PENDING_CONFIRMATION = 7;
+    case SETTLEMENT_PENDING = 8;
 
      public static function name(self $value): string
      {
@@ -23,6 +24,7 @@ enum StateFacture: int
              self::ASSURANCE => 'Règlement assurance',
              self::CLIENT => 'Règlement client associé',
              self::PENDING_CONFIRMATION => 'En attente de confirmation',
+             self::SETTLEMENT_PENDING => 'Règlement en attente',
          };
      }
 
