@@ -25,32 +25,21 @@ class ClientRequest extends FormRequest
         else {
             $uniqueEmail = 'unique:clients,email';
         }
-
         return [
             'societe_id' => ['nullable', 'exists:societes,id'],
-            'prefix_id' => ['required', 'exists:prefixes,id'],
-            'status_familiale_id' => ['required', 'exists:status_familiales,id'],
-            'type_document_id' => ['required', 'exists:type_documents,id'],
-            'sexe_id' => ['required', 'exists:sexes,id'],
-
-
+            'prefix_id' => ['nullable','required_if:type_cli,' . TypeClient::NORMAL->value, 'exists:prefixes,id'],
+            'status_familiale_id' => ['nullable','required_if:type_cli,' . TypeClient::NORMAL->value, 'exists:status_familiales,id'],
+            'type_document_id' => ['nullable','required_if:type_cli,' . TypeClient::NORMAL->value, 'exists:type_documents,id'],
+            'sexe_id' => ['nullable','required_if:type_cli,' . TypeClient::NORMAL->value, 'exists:sexes,id'],
             'nom_cli' => ['required_unless:client_anonyme_cli,true'],
             'nomcomplet_client' => ['required_unless:client_anonyme_cli,true'],
-            'tel_cli' => ['required_unless:client_anonyme_cli,true'],
-
+            'tel_cli' => ['nullable', 'required_if:type_cli,' . TypeClient::NORMAL->value, 'prohibited_if:client_anonyme_cli,true',],
             'prenom_cli' => ['nullable'],
             'secondprenom_cli' => ['nullable'],
-            'date_naiss_cli' => ['nullable',
-                'required_if:date_naiss_cli_estime,false',
-                'date:Y-m-d',
-                'before_or_equal:' . now()->format('Y-m-d'),
-                'after_or_equal:1900-01-01',
-            ],
-            'date_naiss_cli_estime' => [
-                'boolean',
-            ],
+            'date_naiss_cli' => ['nullable', 'required_if:type_cli,' . TypeClient::NORMAL->value,
+                'date:Y-m-d', 'before_or_equal:' . now()->format('Y-m-d'), 'after_or_equal:1900-01-01',],
+            'date_naiss_cli_estime' => ['boolean','required_if:type_cli,' . TypeClient::NORMAL->value],
             'age' => ['nullable', 'required_if:date_naiss_cli_estime,true', 'integer', 'min:0', 'max:120'],
-
             'tel2_cli' => ['nullable'],
             'type_cli' => ['required', new Enum(TypeClient::class)],
             'renseign_clini_cli' => ['nullable'],

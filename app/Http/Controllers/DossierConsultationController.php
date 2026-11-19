@@ -7,6 +7,8 @@ use App\Exports\ConsultantsExport;
 use App\Exports\DossierConsultationExport;
 use App\Exports\DossierConsultationExportSearch;
 use App\Models\DossierConsultation;
+use App\Models\OpsTbl_Motif_consultation;
+use App\Models\OpsTblAntecedent;
 use App\Models\PatientArchive;
 use App\Models\RendezVous;
 use Illuminate\Http\Request;
@@ -16,6 +18,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -352,6 +355,77 @@ class DossierConsultationController extends Controller
             "message" => "Exportation des données effectuée avec succès",
             "filename" => $fileName,
             "url" => Storage::disk('dossiersconsultations')->url($fileName)
+        ]);
+    }
+
+    public function getPatientLastFolders($clientId): JsonResponse
+    {
+        $dossiers = DossierConsultation::whereHas('rendezVous', function ($query) use ($clientId) {
+            $query->where('client_id', $clientId);
+        })
+            ->with(['rendezVous.consultant:id,nomcomplet', 'facture','creator:id,nom_utilisateur','updater:id,nom_utilisateur'])
+            ->latest('created_at')
+            ->take(5)
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => $dossiers
+        ]);
+    }
+
+    public function getPatientLastRendezVous($clientId): JsonResponse
+    {
+        $rendezVous = RendezVous::where('client_id', $clientId)
+            ->with([
+                'consultant:id,nomcomplet',
+                'createdBy:id,nom_utilisateur'
+            ])
+            ->latest('dateheure_rdv')
+            ->take(5)
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => $rendezVous
+        ]);
+    }
+
+    public function getPatientLastMotifs($clientId): JsonResponse
+    {
+        $motifs = OpsTbl_Motif_consultation::whereHas('dossierConsultation.rendezVous', function ($query) use ($clientId) {
+            $query->where('client_id', $clientId);
+        })
+            ->with([
+                'creator:id,nom_utilisateur',
+                'TypeVisite',
+                'categorieVisite',
+                'dossierConsultation:id,code'
+            ])
+            ->latest('created_at')
+            ->take(5)
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => $motifs
+        ]);
+    }
+    public function getPatientLastAntecedents($clientId): JsonResponse
+    {
+        $antecedents = OpsTblAntecedent::where('client_id', $clientId)
+            ->with([
+                'categorie:id,libelle',
+                'sousCategorie:id,libelle',
+                'createdBy:id,nom_utilisateur'
+            ])
+            ->latest('created_at')
+            ->take(5)
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => $antecedents
         ]);
     }
 

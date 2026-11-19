@@ -6,10 +6,11 @@ use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\MorphToMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Soins extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     protected $fillable = [
         'type_soin_id',
@@ -20,7 +21,8 @@ class Soins extends Model
         'created_by',
         'updated_by',
         'is_deleted',
-        'is_used_for_commission'
+        'is_used_for_commission',
+        'is_active',
     ];
 
     protected function puDefault(): Attribute
@@ -47,12 +49,12 @@ class Soins extends Model
         return $this->belongsTo(TypeSoins::class, 'type_soin_id');
     }
 
-    public function createdBy()
+    public function creator()
     {
         return $this->belongsTo(User::class, 'created_by');
     }
 
-    public function updatedBy()
+    public function updater()
     {
         return $this->belongsTo(User::class, 'updated_by');
     }

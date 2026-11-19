@@ -162,8 +162,12 @@ class Client extends Model
     protected function ageMonth(): Attribute
     {
         return Attribute::make(
-            get: function() {
-                $diff = $this->date_naiss_cli->diffInMonths(now());
+            get: function () {
+                if (empty($this->date_naiss_cli)) {
+                    return null;
+                }
+
+                $diff = Carbon::parse($this->date_naiss_cli)->diffInMonths(now());
 
                 return $diff < 0 ? $diff * -1 : $diff;
             },

@@ -57,7 +57,6 @@ class ClientController extends Controller
      */
     public function initData()
     {
-        // Get all the necessary data for the form
         $societes = Societe::select('id', 'nom_soc_cli')->get()->toArray();
         $typeDocuments = TypeDocument::select('description_typedoc', 'id')->get()->toArray();
         $prefixes = Prefix::select(['prefixe', 'id', 'position', 'age_max', 'age_min'])->with(['sexes:id,description_sex'])->get()->toArray();
@@ -65,7 +64,6 @@ class ClientController extends Controller
         $sexes = Sexe::select(['description_sex', 'id'])->with(['prefixes:id,prefixe,position', 'status_families:id,description_statusfam'])->get()->toArray();
         $centres = Centre::select('name', 'id')->get()->toArray();
 
-        // Return the data as a JSON response
         return response()->json([
             'societes' => $societes,
             'typeDocuments' => $typeDocuments,
@@ -116,7 +114,6 @@ class ClientController extends Controller
         $dataValidated = $request->validated();
         $dataValidated['site_id'] = $request->header('centre');
 
-        // 1. Génération de la référence officielle du centre EN AMONT
         $centre = Centre::find($dataValidated['site_id']);
 
         $lastEntryUserForThisYear = DB::table('user_centre')
@@ -137,13 +134,13 @@ class ClientController extends Controller
                 $initiales = Str::padRight($initiales, 3, 'X');
             }
 
-            $genre = ($dataValidated['sexe_id'] == 1) ? 'M' : 'F';
+            $sexeId = $dataValidated['sexe_id'] ?? null;
+            $genre = $sexeId ? (($sexeId == 1) ? 'M' : 'F') : 'X';
 
             $dataValidated['nom_cli'] = $dataValidated['nom_cli'] ?? 'XXX';
-
             $dataValidated['nomcomplet_client'] = $genre . '-' . $initiales . '-' . $refCli;
 
-            $dataValidated['tel_cli'] = '00000000';
+            $dataValidated['tel_cli'] = $dataValidated['tel_cli'] ?? '00000000';
             $dataValidated['prenom_cli'] = null;
             $dataValidated['secondprenom_cli'] = null;
             $dataValidated['email'] = null;
@@ -157,11 +154,14 @@ class ClientController extends Controller
             $dataValidated['nomcomplet_client'] = trim(strtoupper($nom) . ' ' . $prenom);
         }
 
-        $dataValidated['date_naiss_cli'] = $dataValidated['date_naiss_cli_estime']
-            ? now()->subYears($dataValidated['age'])->year . '-01-01'
-            : $dataValidated['date_naiss_cli'];
+        $isEstimated = !empty($dataValidated['date_naiss_cli_estime']);
+        if ($isEstimated && isset($dataValidated['age'])) {
+            $dataValidated['date_naiss_cli'] = now()->subYears((int) $dataValidated['age'])->year . '-01-01';
+        } else {
+            $dataValidated['date_naiss_cli'] = $dataValidated['date_naiss_cli'] ?? null;
+        }
 
-        $dataValidated['enfant_cli'] = isset($dataValidated['date_naiss_cli'])
+        $dataValidated['enfant_cli'] = !empty($dataValidated['date_naiss_cli'])
             ? Carbon::parse($dataValidated['date_naiss_cli'])->age <= 14
             : false;
 
@@ -170,7 +170,6 @@ class ClientController extends Controller
         DB::beginTransaction();
         try {
             $client = Client::create($dataValidated);
-
         } catch (Exception $e) {
             DB::rollBack();
             return response()->json([

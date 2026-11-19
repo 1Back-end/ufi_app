@@ -14,128 +14,120 @@ use Sabberworm\CSS\Rule\Rule;
 class TypeSoinsController extends Controller
 {
 
-    public function listIdName(){
-        $data = TypeSoins::select('id','name')->where('is_deleted',false)->get();
-        return response()->json([
-            'type_soins' => $data
-        ]);
-    }
     /**
      * Display a listing of the resource.
      * @permission TypeSoinsController::index
-     * @permission_desc Afficher la liste des soins
+     * @permission_desc Afficher la liste des types de soins
      */
     public function index(Request $request)
     {
-        $perPage = $request->input('limit', 5);  // Par défaut 5 éléments par page
-        $page = $request->input('page', 1);      // Page courante
-        $search = $request->input('search');     // Mot clé recherche
+        $perPage = $request->input('limit', 25);
+        $page = $request->input('page', 1);
+        $search = $request->input('search');
 
-        $type_soins = TypeSoins::where('is_deleted', false)
+        $query = TypeSoins::with(["creator", "updater"])
             ->when($search, function ($query) use ($search) {
                 $query->where(function ($q) use ($search) {
                     $q->where('name', 'like', "%$search%")
-                        ->orWhere('description', 'like', "%$search%"); // si tu as une colonne description
+                        ->orWhere('description', 'like', "%$search%");
                 });
             })
-            ->latest()
+            ->orderBy('name', 'asc')
             ->paginate(perPage: $perPage, page: $page);
 
         return response()->json([
-            'data' => $type_soins->items(),
-            'current_page' => $type_soins->currentPage(),
-            'last_page' => $type_soins->lastPage(),
-            'total' => $type_soins->total(),
+            'data' => $query->items(),
+            'current_page' => $query->currentPage(),
+            'last_page' => $query->lastPage(),
+            'total' => $query->total(),
         ]);
     }
 
-    /**
-     * Show the form for creating a new resource.
-     */
-    public function create()
-    {
-        //
-    }
 
     /**
      * Display a listing of the resource.
      * @permission TypeSoinsController::store
-     * @permission_desc Créer des soins
+     * @permission_desc Créer un type de soins
      */
     public function store(Request $request)
     {
-        $auth = auth()->user();
         $data = $request->validate([
-            'name' => 'required|string|unique:type_soins,name',
-            'order' => 'required|integer|unique:type_soins,order',
+            'name' => 'required|string|max:255|unique:type_soins,name',
+            'order' => 'required|integer|min:0|unique:type_soins,order',
+            'description' => 'nullable|string',
+            'is_active' => 'sometimes|boolean',
         ]);
-        $data['created_by'] = $auth->id;
-        $type_soins = TypeSoins::create($data);
+
+        $data['created_by'] = $request->user()?->id;
+        $data['is_active'] = $data['is_active'] ?? true;
+
+        $typeSoins = TypeSoins::create($data);
+
         return response()->json([
-            'data' => $type_soins,
-            'message'=> 'Enregistrement effectué avec succès'
-        ]);
-        //
+            'data' => $typeSoins,
+            'message' => 'Enregistrement effectué avec succès',
+        ], 201);
     }
 
     /**
      * Display a listing of the resource.
      * @permission TypeSoinsController::show
-     * @permission_desc Afficher les détails des soins
+     * @permission_desc Afficher les détails d'un type de soins
      */
-    public function show(string $id)
+    public function show($id)
     {
-        $type_soins = TypeSoins::where('id', $id)->where('is_deleted', false)->first();
-        if(!$type_soins){
-            return response()->json(['message' => 'Le type de soins n\'existe pas',404]);
-        }else{
-            return response()->json($type_soins);
-        }
-        //
+        $typeSoins = TypeSoins::with(['creator', 'updater'])->findOrFail($id);
+
+        return response()->json([
+            'data' => $typeSoins,
+        ], 200);
     }
 
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(string $id)
-    {
-        //
-    }
 
     /**
      * Display a listing of the resource.
      * @permission TypeSoinsController::update
-     * @permission_desc Mise à jour des soins
+     * @permission_desc Modifier un type de soins
      */
-    public function update(Request $request, string $id)
+    public function update(Request $request, $id)
     {
-        $auth = auth()->user();
+        $typeSoins = TypeSoins::findOrFail($id);
 
-        $type_soins = TypeSoins::where('id', $id)->where('is_deleted', false)->first();
-
-        // Valider les données reçues
         $data = $request->validate([
-            'name' => 'required|string|unique:type_soins,name,' . $id,
-            'order' => 'required|integer|unique:type_soins,order,' . $id,
+            'name' => 'sometimes|required|string|max:255|unique:type_soins,name,' . $typeSoins->id,
+            'order' => 'sometimes|required|integer|min:0|unique:type_soins,order,' . $typeSoins->id,
+            'description' => 'nullable|string',
+            'is_active' => 'sometimes|boolean',
         ]);
-        $data['updated_by'] = $auth->id;
 
-        // Mettre à jour les données
-        $type_soins->update($data);
+        $data['updated_by'] = $request->user()?->id;
 
-        // Retourner la réponse avec les données mises à jour
+        $typeSoins->update($data);
+
         return response()->json([
-            'data' => $type_soins,
-            'message' => 'Mise à jour effectuée avec succès'
-        ]);
-        //
+            'data' => $typeSoins->fresh(),
+            'message' => 'Mise à jour effectuée avec succès',
+        ], 200);
     }
 
     /**
-     * Remove the specified resource from storage.
+     * Display a listing of the resource.
+     * @permission TypeSoinsController::updateStatus
+     * @permission_desc Activer/Désactiver un type de soins
      */
-    public function destroy(string $id)
+    public function updateStatus(Request $request, $id)
     {
-        //
+        $typeSoins = TypeSoins::findOrFail($id);
+
+        $typeSoins->is_active = !$typeSoins->is_active;
+        $typeSoins->save();
+
+        return response()->json([
+            'data' => $typeSoins->fresh(['creator', 'updater']),
+            'message' => $typeSoins
+                ? 'Statut activé avec succès'
+                : 'Statut désactivé avec succès',
+        ], 200);
     }
+
 }

@@ -66,7 +66,8 @@ class Prestation extends Model
         'is_updated',
         'adjusted_at',
         'adjusted_by',
-        'is_adjustable'
+        'is_adjustable',
+        'recommendated_by_me'
     ];
 
     protected function casts(): array
@@ -621,5 +622,9 @@ class Prestation extends Model
     public function adjustedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'adjusted_by');
+    }
+    public function recommendated_by_me(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'recommendated_by_me');
     }
 }

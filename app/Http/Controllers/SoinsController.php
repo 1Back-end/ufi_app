@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Assurable;
 use App\Models\Assureur;
+use App\Models\Centre;
 use App\Models\Soins;
 use App\Models\TypeActe;
 use App\Models\TypeSoins;
@@ -25,75 +26,74 @@ class SoinsController extends Controller
      */
     public function index(Request $request)
     {
-        $perPage = $request->input('limit', 10);
+        $perPage = $request->input('limit', 25);
         $page = $request->input('page', 1);
         $search = $request->input('search');
 
-        $soins = Soins::with(['type_soins'])
-            ->where('is_deleted', false)
-            ->when($search, function ($query) use ($search) {
-                $query->where(function ($q) use ($search) {
-                    $q->where('name', 'like', "%$search%")
-                        ->orWhereHas('type_soins', function ($q2) use ($search) {
-                            $q2->where('name', 'like', "%$search%");
+        $query = Soins::with(['type_soins', 'creator', 'updater'])
+            ->when($search, function ($q) use ($search) {
+                $q->where(function ($sub) use ($search) {
+                    $sub->where('name', 'like', "%$search%")
+                        ->orWhereHas('type_soins', function ($rel) use ($search) {
+                            $rel->where('name', 'like', "%$search%");
                         });
                 });
             })
-            ->latest()
+            ->orderBy('name', 'asc')
             ->paginate(perPage: $perPage, page: $page);
 
         return response()->json([
-            'data' => $soins->items(),
-            'current_page' => $soins->currentPage(),
-            'last_page' => $soins->lastPage(),
-            'total' => $soins->total(),
+            'data' => $query->items(),
+            'current_page' => $query->currentPage(),
+            'last_page' => $query->lastPage(),
+            'total' => $query->total(),
         ]);
-    }
-
-
-
-    /**
-     * Show the form for creating a new resource.
-     */
-    public function create()
-    {
-        //
     }
 
     /**
      * Display a listing of the resource.
      * @permission SoinsController::store
-     * @permission_desc Créer des soins
+     * @permission_desc Créer un soin
      */
     public function store(Request $request)
     {
-        $auth = auth()->user();
-
         try {
             $data = $request->validate([
-                'type_soin_id' => 'exists:type_soins,id',
-                'pu' => 'required|integer',
-                'pu_default' => 'required|integer',
-                'name' => 'required|string|unique:soins,name',
+                'type_soin_id' => 'required|exists:type_soins,id',
+                'pu' => 'required|integer|min:0',
+                'pu_default' => 'required|integer|min:0',
+                'name' => 'required|string|max:255|unique:soins,name',
                 'is_used_for_commission' => 'nullable|boolean',
+                'is_active' => 'sometimes|boolean',
             ]);
 
-            $data['created_by'] = $auth->id;
+            DB::beginTransaction();
+
+            $data['created_by'] = $request->user()?->id ?? auth()->id();
+            $data['is_used_for_commission'] = $data['is_used_for_commission'] ?? false;
+            $data['is_active'] = $data['is_active'] ?? true;
+
             $soin = Soins::create($data);
+
+            DB::commit();
+
             return response()->json([
-                'data' => $soin,
-                'message' => 'Soin enregistré avec succès'
-            ]);
+                'data' => $soin->load(['type_soins', 'creator', 'updater']),
+                'message' => 'Soin enregistré avec succès',
+            ], 201);
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
                 'error' => 'Erreur de validation',
-                'details' => $e->errors()
+                'details' => $e->errors(),
             ], 422);
         } catch (\Exception $e) {
-            DB::rollBack();
+            if (DB::transactionLevel() > 0) {
+                DB::rollBack();
+            }
+
             return response()->json([
                 'error' => 'Une erreur est survenue',
-                'message' => $e->getMessage()
+                'message' => $e->getMessage(),
             ], 500);
         }
     }
@@ -102,149 +102,121 @@ class SoinsController extends Controller
     /**
      * Display a listing of the resource.
      * @permission SoinsController::show
-     * @permission_desc Afficher les détails des soins
+     * @permission_desc Afficher les détails d'un soins
      */
-    public function show(string $id)
+    public function show($id)
     {
         try {
-            $soins = Soins::where('is_deleted', false)
-                ->with([
-                    'type_soin_id:id,name',
-                    'createdBy:id,login',
-                    'updatedBy:id,login'
-                ])
-                ->findOrFail($id);
+            $soin = Soins::with(['type_soins', 'creator', 'updater'])->findOrFail($id);
 
             return response()->json([
-                'data' => $soins,
-                'message' => 'Détails du soin récupérés avec succès.'
+                'data' => $soin,
             ], 200);
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             return response()->json([
-                'error' => 'Soin non trouvée.'
+                'error' => 'Ressource introuvable',
+                'message' => 'Soin introuvable',
             ], 404);
         } catch (\Exception $e) {
             return response()->json([
-                'error' => 'Une erreur est survenue.',
-                'message' => $e->getMessage()
+                'error' => 'Une erreur est survenue',
+                'message' => $e->getMessage(),
             ], 500);
         }
-        //
-    }
-
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(string $id)
-    {
-        //
     }
 
     /**
      * Display a listing of the resource.
      * @permission SoinsController::update
-     * @permission_desc Mettre à jour des soins
+     * @permission_desc Mettre à jour un soin
      */
-    public function update(Request $request, string $id)
+    public function update(Request $request, $id)
     {
-        $auth = auth()->user();
-
         try {
+            $soin = Soins::findOrFail($id);
+
             $data = $request->validate([
-                'type_soin_id' => 'exists:type_soins,id',
-                'pu' => 'required|numeric',
-                'name' => 'required|string',
-                'status' => 'nullable|string|in:Actif,Inactif',
-                'pu_default' => 'required|integer',
+                'type_soin_id' => 'sometimes|required|exists:type_soins,id',
+                'pu' => 'sometimes|required|integer|min:0',
+                'pu_default' => 'sometimes|required|integer|min:0',
+                'name' => 'sometimes|required|string|max:255|unique:soins,name,' . $soin->id,
                 'is_used_for_commission' => 'nullable|boolean',
+                'is_active' => 'sometimes|boolean',
             ]);
 
-            $soins = Soins::where('is_deleted', false)->findOrFail($id);
-            $data['updated_by'] = $auth->id;
+            DB::beginTransaction();
 
-            $soins->update($data);
+            $data['updated_by'] = $request->user()?->id ?? auth()->id();
+
+            $soin->update($data);
+
+            DB::commit();
 
             return response()->json([
-                'data' => $soins,
-                'message' => 'Mise à jour éffectué avec succès.'
-            ]);
+                'data' => $soin->fresh(['type_soins', 'creator', 'updater']),
+                'message' => 'Soin mis à jour avec succès',
+            ], 200);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json([
+                'error' => 'Ressource introuvable',
+                'message' => 'Soin introuvable',
+            ], 404);
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
                 'error' => 'Erreur de validation',
-                'details' => $e->errors()
+                'details' => $e->errors(),
             ], 422);
-        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
-            return response()->json([
-                'error' => 'Soin non trouvée'
-            ], 404);
         } catch (\Exception $e) {
+            if (DB::transactionLevel() > 0) {
+                DB::rollBack();
+            }
+
             return response()->json([
                 'error' => 'Une erreur est survenue',
-                'message' => $e->getMessage()
+                'message' => $e->getMessage(),
             ], 500);
         }
     }
     /**
      * Display a listing of the resource.
      * @permission SoinsController::updateStatus
-     * @permission_desc Changer le statut des soins
+     * @permission_desc Activer/Désactiver un soin
      */
-    public function updateStatus(Request $request, $id, $status)
-    {
-        // Find the assureur by ID
-        $soins = Soins::find($id);
-        if (!$soins) {
-            return response()->json(['message' => 'Soin non trouvé'], 404);
-        }
-
-        // Check if the assureur is deleted
-        if ($soins->is_deleted) {
-            return response()->json(['message' => 'Impossible de mettre à jour un soin supprimé'], 400);
-        }
-
-        // Validate the status
-        if (!in_array($status, ['Actif', 'Inactif'])) {
-            return response()->json(['message' => 'Statut invalide'], 400);
-        }
-
-        // Update the status
-        $soins->status = $status;  // Ensure the correct field name
-        $soins->save();
-
-        // Return the updated assureur
-        return response()->json([
-            'message' => 'Statut mis à jour avec succès',
-            'soins' => $soins // Corrected to $assureur
-        ], 200);
-    }
-    /**
-     * Display a listing of the resource.
-     * @permission SoinsController::destroy
-     * @permission_desc Supprimer des soins
-     */
-    public function destroy(string $id)
+    public function updateStatus(Request $request, $id)
     {
         try {
-            $soins = Soins::where('is_deleted', false)->findOrFail($id);
-            // Marquer comme supprimé (soft delete)
-            $soins->is_deleted = true;
-            $soins->save();
+            $soin = Soins::findOrFail($id);
+
+            DB::beginTransaction();
+
+            $soin->is_active = ! $soin->is_active;
+            $soin->updated_by = $request->user()?->id ?? auth()->id();
+            $soin->save();
+
+            DB::commit();
 
             return response()->json([
-                'message' => 'Suppression éffectué avec succès.'
-            ]);
+                'data' => $soin->fresh(['type_soins', 'creator', 'updater']),
+                'message' => $soin->is_active
+                    ? 'Statut activé avec succès'
+                    : 'Statut désactivé avec succès',
+            ], 200);
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             return response()->json([
-                'error' => 'Soin non trouvée.'
+                'error' => 'Ressource introuvable',
+                'message' => 'Soin introuvable',
             ], 404);
         } catch (\Exception $e) {
+            if (DB::transactionLevel() > 0) {
+                DB::rollBack();
+            }
+
             return response()->json([
-                'error' => 'Une erreur est survenue lors de la suppression.',
-                'message' => $e->getMessage()
+                'error' => 'Une erreur est survenue',
+                'message' => $e->getMessage(),
             ], 500);
         }
     }
-
 
 
     /**
@@ -252,59 +224,80 @@ class SoinsController extends Controller
      * @permission SoinsController::Tarfication_Soins
      * @permission_desc Imprimer la tarification des soins
      */
-    public function Tarfication_Soins()
+    public function Tarfication_Soins(Request $request)
     {
+        $centreId = $request->header('centre');
+
+        if (!$centreId) {
+            return response()->json([
+                'message' => 'Centre non fourni'
+            ], 400);
+        }
+
+        $centre = Centre::find($centreId);
+
+        if (!$centre) {
+            return response()->json([
+                'message' => 'Centre introuvable'
+            ], 404);
+        }
+
+        if (!$centre->is_acte_recommendation_center) {
+            return response()->json([
+                'message' => "Impossible d'imprimer, veuillez vous connecter au centre médical"
+            ], 403);
+        }
+
         DB::beginTransaction();
 
         try {
-            // Récupération des types de soins avec leurs soins actifs triés
+            $media = $centre->medias()->where('name', 'logo')->first();
+
             $types = TypeSoins::with([
                 'soins' => function ($query) {
-                    $query->where('is_deleted', false)
+                    $query->where('is_active', true)
                         ->orderBy('name', 'asc');
                 }
             ])
-                ->where('is_deleted', false)
+                ->where('is_active', true)
                 ->orderBy('order', 'asc')
-                ->get();
+                ->get()
+                ->filter(fn($type) => $type->soins->count() > 0)
+                ->values();
 
-            $types = $types->filter(fn($type) => $type->soins->count() > 0);
-
-            // Préparer les données pour la vue
             $data = [
-                'title' => 'Tarifaire des soins',
-                'types' => $types,
+                'title'  => 'Tarifaire des soins',
+                'types'  => $types,
+                'logo'   => $media ? 'storage/' . $media->path . '/' . $media->filename : '',
+                'centre' => $centre,
             ];
 
-            // Nom du fichier et dossier
-            $fileName   = 'rapport-soins-' . now()->format('YmdHis') . '.pdf';
-            $folderPath = "storage/rapport-soins"; // utiliser storage_path pour plus de sécurité
+            $fileName   = strtoupper('rapport-soins-' . now()->format('YmdHis') . '.pdf');
+            $folderPath = 'storage/rapport-soins';
             $filePath   = $folderPath . '/' . $fileName;
 
-            // Création du dossier si nécessaire
             if (!file_exists($folderPath)) {
                 mkdir($folderPath, 0755, true);
             }
 
-            // Génération PDF
             save_browser_shot_pdf(
-                view: 'pdfs.rapport-soins.rapports-soins', // Vue Blade
+                view: 'pdfs.rapport-soins.rapports-soins',
                 data: $data,
                 folderPath: $folderPath,
                 path: $filePath,
-                margins: [10, 10, 10, 10],
+                margins: [5, 5, 5, 5],
                 format: 'A4',
             );
 
-            // Vérifier si le PDF a bien été généré
             if (!file_exists($filePath)) {
                 DB::rollBack();
-                return response()->json(['error' => 'Le fichier PDF n\'a pas été généré.'], 500);
+                return response()->json([
+                    'error' => "Le fichier PDF n'a pas été généré."
+                ], 500);
             }
 
             DB::commit();
 
-            // Lecture et encodage du fichier PDF
             $pdfContent = file_get_contents($filePath);
             $base64 = base64_encode($pdfContent);
 
@@ -315,13 +308,17 @@ class SoinsController extends Controller
             ], 200);
 
         } catch (\Illuminate\Validation\ValidationException $e) {
-            DB::rollBack();
+            if (DB::transactionLevel() > 0) {
+                DB::rollBack();
+            }
             return response()->json([
                 'error' => 'Erreur de validation',
                 'details' => $e->errors()
             ], 422);
         } catch (\Exception $e) {
-            DB::rollBack();
+            if (DB::transactionLevel() > 0) {
+                DB::rollBack();
+            }
             return response()->json([
                 'error' => 'Une erreur est survenue',
                 'message' => $e->getMessage()
